@@ -25,8 +25,8 @@ run = Observability()
 run.init('example-run-name', {'learning_rate': 0.001,
          'training_steps': 2000, 'batch_size': 32}, ['tensorflow'])
 
-# Upload an input file, code etc
-run.save('training.py')
+# Upload an input file
+run.save('training.params', 'input')
 
 ...
 
@@ -40,5 +40,5 @@ while True:
 ...
 
 # Upload an output file
-run.save('output.h5')
+run.save('output.h5', 'output')
 ```
