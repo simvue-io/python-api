@@ -15,7 +15,7 @@ token = ...
 
 ## Usage example
 ```
-from obversability import Observability
+from observability import Observability
 
 ...
 
