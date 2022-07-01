@@ -1,2 +1,1 @@
-# observability
-Simulation management &amp; observability - proof of concept
+# Simulation management &amp; observability - proof of concept
