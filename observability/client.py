@@ -20,23 +20,23 @@ class Observability(object):
             # Try config file
             try:
                 config = configparser.ConfigParser()
-                config.read('telemetry.ini')
-                token = config.get('telemetry', 'token')
-                self._url = config.get('telemetry', 'url')
+                config.read('observability.ini')
+                token = config.get('server', 'token')
+                self._url = config.get('server', 'url')
             except:
                 pass
 
         if not token or not self._url:
             return False
 
-        self._headers = {"Authorization": "Token %s" % config.get('telemetry', 'token')}
+        self._headers = {"Authorization": "Token %s" % token}
         self._name = name
         data = {'name': name, 'metadata': metadata, 'tags': tags}
         self._start_time = time.time()
 
         try:
             response = requests.post('%s/simulations' % self._url, headers=self._headers, json=data)
-        except Exception as err:
+        except:
             return False
 
         if response.status_code != 201:
