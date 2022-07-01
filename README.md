@@ -1,6 +1,6 @@
 # Simulation management &amp; observability - proof of concept
 
-## Usage example
+## Usage example
 ```
 from obversability import Observability
 
