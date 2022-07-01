@@ -1,4 +1,4 @@
-# Simulation management &amp; observability - proof of concept
+# Simulation management &amp; observability
 
 ## Usage example
 ```
@@ -8,7 +8,7 @@ from obversability import Observability
 
 run = Observability()
 
-# Specify name, metadata (key-value pairs), optional tags (list)
+# Specify name, metadata, and optional tags
 run.init('example-run-name', {'learning_rate': 0.001,
          'training_steps': 2000, 'batch_size': 32}, ['tensorflow'])
 
