@@ -1,5 +1,18 @@
 # Simulation management &amp; observability
 
+## Setup
+The service URL and token can be defined as environment variables:
+```
+OBSERVABILITY_URL=...
+OBSERVABILITY_TOKEN=...
+```
+or a file `observability.ini` can be created containing:
+```
+[server]
+url = ...
+token = ...
+```
+
 ## Usage example
 ```
 from obversability import Observability
