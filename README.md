@@ -1,6 +1,6 @@
 # Simulation tracking &amp; observability
 
-## Setup
+## Configuration
 The service URL and token can be defined as environment variables:
 ```
 export OBSERVABILITY_URL=...
