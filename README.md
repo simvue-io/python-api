@@ -1,4 +1,4 @@
-# Simulation management &amp; observability
+# Simulation tracking &amp; observability
 
 ## Setup
 The service URL and token can be defined as environment variables:
