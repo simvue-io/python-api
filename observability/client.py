@@ -29,13 +29,13 @@ class Observability(object):
         if not token or not self._url:
             return False
 
-        self._headers = {"Authorization": "Token %s" % token}
+        self._headers = {"Authorization": "Bearer %s" % token}
         self._name = name
         data = {'name': name, 'metadata': metadata, 'tags': tags}
         self._start_time = time.time()
 
         try:
-            response = requests.post('%s/simulations' % self._url, headers=self._headers, json=data)
+            response = requests.post('%s/api/runs' % self._url, headers=self._headers, json=data)
         except:
             return False
 
@@ -65,12 +65,12 @@ class Observability(object):
         Write metrics
         """
         data = {}
-        data['simulation'] = self._name
+        data['run'] = self._name
         data['values'] = metrics
         data['time'] = time.time() - self._start_time
 
         try:
-            response = requests.post('%s/metrics' % self._url, headers=self._headers, json=data)
+            response = requests.post('%s/api/metrics' % self._url, headers=self._headers, json=data)
         except Exception as err:
             return False
 
@@ -79,7 +79,7 @@ class Observability(object):
 
         return False
 
-    def save(self, filename, category):
+    def save(self, filename, category, viewable=False):
         """
         Upload file
         """
@@ -87,10 +87,11 @@ class Observability(object):
         data['name'] = os.path.basename(filename)
         data['simulation'] = self._name
         data['category'] = category
+        data['viewable'] = viewable
 
         # Get presigned URL
         try:
-            resp = requests.post('%s/data' % self._url, headers=self._headers, json=data)
+            resp = requests.post('%s/api/data' % self._url, headers=self._headers, json=data)
         except:
             return False
 
