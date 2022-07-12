@@ -1,8 +1,24 @@
 import configparser
+import hashlib
 import os
 import random
 import requests
 import time
+
+def calculate_sha256(filename):
+    """
+    Calculate sha256 checksum of the specified file
+    """
+    sha256_hash = hashlib.sha256()
+    try:
+        with open(filename, "rb") as f:
+            for byte_block in iter(lambda: f.read(4096),b""):
+                sha256_hash.update(byte_block)
+            return sha256_hash.hexdigest()
+    except:
+        pass
+
+    return None
 
 class Observability(object):
     def __init__(self):
@@ -85,9 +101,10 @@ class Observability(object):
         """
         data = {}
         data['name'] = os.path.basename(filename)
-        data['simulation'] = self._name
+        data['run'] = self._name
         data['category'] = category
         data['viewable'] = viewable
+        data['checksum'] = calculate_sha256(filename)
 
         # Get presigned URL
         try:
@@ -100,10 +117,9 @@ class Observability(object):
             try:
                 with open(filename, 'rb') as fh:
                     response = requests.put(resp.json()['url'], data=fh, timeout=30)
+                    if response.status_code != 200:
+                        return False
             except:
                 return False
-
-        if response.status_code != 200:
-            return False
 
         return True
