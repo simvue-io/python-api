@@ -95,7 +95,7 @@ class Observability(object):
 
         return False
 
-    def save(self, filename, category, viewable=False):
+    def save(self, filename, category):
         """
         Upload file
         """
@@ -103,7 +103,6 @@ class Observability(object):
         data['name'] = os.path.basename(filename)
         data['run'] = self._name
         data['category'] = category
-        data['viewable'] = viewable
         data['checksum'] = calculate_sha256(filename)
 
         # Get presigned URL
