@@ -1,5 +1,7 @@
 # Simulation tracking &amp; monitoring
 
+_This is a PoC, and the name is temporary!_
+
 ## Configuration
 The service URL and token can be defined as environment variables:
 ```
