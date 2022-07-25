@@ -22,8 +22,9 @@ from simtrack import Simtrack
 run = Simtrack()
 
 # Specify name, metadata, and optional tags
-run.init('example-run-name', {'learning_rate': 0.001,
-         'training_steps': 2000, 'batch_size': 32}, ['tensorflow'])
+run.init('example-run-name',
+         {'learning_rate': 0.001, 'training_steps': 2000, 'batch_size': 32},
+         ['tensorflow'])
 
 # Upload an input file
 run.save('training.params', 'input')
