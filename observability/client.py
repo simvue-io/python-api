@@ -20,7 +20,7 @@ def calculate_sha256(filename):
 
     return None
 
-class Observability(object):
+class Simtrack(object):
     def __init__(self):
         pass
 
@@ -29,14 +29,14 @@ class Observability(object):
         Initialise simulation
         """
         # Try environment variables
-        token = os.getenv('OBSERVABILITY_TOKEN')
-        self._url = os.getenv('OBSERVABILITY_URL')
+        token = os.getenv('SIMTRACK_TOKEN')
+        self._url = os.getenv('SIMTRACK_URL')
 
         if not token or not self._url:
             # Try config file
             try:
                 config = configparser.ConfigParser()
-                config.read('observability.ini')
+                config.read('simtrack.ini')
                 token = config.get('server', 'token')
                 self._url = config.get('server', 'url')
             except:
