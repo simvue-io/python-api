@@ -26,7 +26,7 @@ class Simtrack(object):
 
     def init(self, name, metadata={}, tags=[]):
         """
-        Initialise simulation
+        Initialise a run
         """
         # Try environment variables
         token = os.getenv('SIMTRACK_TOKEN')
@@ -64,10 +64,10 @@ class Simtrack(object):
         """
         Add/update metadata
         """
-        data = {'simulation': self._name, 'metadata': metadata}
+        data = {'run': self._name, 'metadata': metadata}
 
         try:
-            response = requests.put('%s/simulations' % self._url, headers=self._headers, json=data)
+            response = requests.put('%s/runs' % self._url, headers=self._headers, json=data)
         except:
             return False
 
