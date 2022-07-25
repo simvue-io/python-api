@@ -1,12 +1,12 @@
-# Simulation tracking &amp; observability
+# Simulation tracking &amp; monitoring
 
 ## Configuration
 The service URL and token can be defined as environment variables:
 ```
-export OBSERVABILITY_URL=...
-export OBSERVABILITY_TOKEN=...
+export SIMTRACK_URL=...
+export SIMTRACK_TOKEN=...
 ```
-or a file `observability.ini` can be created containing:
+or a file `simtrack.ini` can be created containing:
 ```
 [server]
 url = ...
@@ -15,11 +15,11 @@ token = ...
 
 ## Usage example
 ```
-from observability import Observability
+from simtrack import Simtrack
 
 ...
 
-run = Observability()
+run = Simtrack()
 
 # Specify name, metadata, and optional tags
 run.init('example-run-name', {'learning_rate': 0.001,
