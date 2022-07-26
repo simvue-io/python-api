@@ -55,7 +55,7 @@ class Simtrack(object):
         except:
             return False
 
-        if response.status_code != 201:
+        if response.status_code != 200:
             return False
 
         return True
@@ -90,7 +90,7 @@ class Simtrack(object):
         except Exception as err:
             return False
 
-        if response.status_code == 201:
+        if response.status_code == 200:
             return True
 
         return False
