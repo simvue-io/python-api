@@ -65,7 +65,7 @@ class Simtrack(object):
             raise RuntimeError('Run with name %s already exists' % name)
 
         if response.status_code != 200:
-            return False
+            raise RuntimeError('Unable to create run due to: %s', response.text)
 
         return True
 
