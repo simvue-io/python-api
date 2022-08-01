@@ -2,6 +2,7 @@ import configparser
 import hashlib
 import os
 import random
+import re
 import requests
 import time
 
@@ -46,6 +47,9 @@ class Simtrack(object):
 
         if not token or not self._url:
             return False
+
+        if not re.match(r'^[a-zA-Z0-9\-\_\s\/\.:]+$', name):
+            raise RuntimeError('specified name is invalid')
 
         self._headers = {"Authorization": "Bearer %s" % token}
         self._name = name
