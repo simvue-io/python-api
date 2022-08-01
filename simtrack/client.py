@@ -5,6 +5,8 @@ import random
 import requests
 import time
 
+SIMTRACK_INIT_MISSING = 'initialize a run using init(name, metadata, tags) first'
+
 def calculate_sha256(filename):
     """
     Calculate sha256 checksum of the specified file
@@ -22,7 +24,7 @@ def calculate_sha256(filename):
 
 class Simtrack(object):
     def __init__(self):
-        pass
+        self._name = None
 
     def init(self, name, metadata={}, tags=[]):
         """
@@ -64,6 +66,9 @@ class Simtrack(object):
         """
         Add/update metadata
         """
+        if not self._name:
+            raise RuntimeError(SIMTRACK_INIT_MISSING)
+
         data = {'run': self._name, 'metadata': metadata}
 
         try:
@@ -80,6 +85,9 @@ class Simtrack(object):
         """
         Write metrics
         """
+        if not self._name:
+            raise RuntimeError(SIMTRACK_INIT_MISSING)
+
         data = {}
         data['run'] = self._name
         data['values'] = metrics
@@ -99,6 +107,9 @@ class Simtrack(object):
         """
         Upload file
         """
+        if not self._name:
+            raise RuntimeError(SIMTRACK_INIT_MISSING)
+
         data = {}
         data['name'] = os.path.basename(filename)
         data['run'] = self._name
