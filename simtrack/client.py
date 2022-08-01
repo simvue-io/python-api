@@ -46,7 +46,7 @@ class Simtrack(object):
                 pass
 
         if not token or not self._url:
-            return False
+            raise RuntimeError('Unable to get URL and token from environment variables or config file')
 
         if not re.match(r'^[a-zA-Z0-9\-\_\s\/\.:]+$', name):
             raise RuntimeError('specified name is invalid')
