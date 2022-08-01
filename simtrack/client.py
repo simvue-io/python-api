@@ -57,6 +57,9 @@ class Simtrack(object):
         except:
             return False
 
+        if response.status_code == 409:
+            raise RuntimeError('Run with name %s already exists' % name)
+
         if response.status_code != 200:
             return False
 
@@ -109,6 +112,9 @@ class Simtrack(object):
         """
         if not self._name:
             raise RuntimeError(SIMTRACK_INIT_MISSING)
+
+        if not os.path.isfile(filename):
+            raise RuntimeError('File %s does not exist' % filename)
 
         data = {}
         data['name'] = os.path.basename(filename)
