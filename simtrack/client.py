@@ -84,7 +84,7 @@ class Simtrack(object):
 
         return False
 
-    def log(self, metrics):
+    def log(self, metrics, timeout=10):
         """
         Write metrics
         """
@@ -97,7 +97,7 @@ class Simtrack(object):
         data['time'] = time.time() - self._start_time
 
         try:
-            response = requests.post('%s/api/metrics' % self._url, headers=self._headers, json=data)
+            response = requests.post('%s/api/metrics' % self._url, headers=self._headers, json=data, timeout=timeout)
         except Exception as err:
             return False
 
