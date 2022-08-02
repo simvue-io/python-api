@@ -115,8 +115,8 @@ class Simtrack(object):
         if not self._name:
             raise RuntimeError(SIMTRACK_INIT_MISSING)
 
-        if not isinstance(metrics, dict):
-            raise RuntimeError('metrics must be a dict')
+        if not isinstance(metrics, dict) and not self._suppress_errors:
+            raise RuntimeError('Metrics must be a dict')
 
         data = {}
         data['run'] = self._name
@@ -130,7 +130,7 @@ class Simtrack(object):
 
         if response.status_code == 200:
             return True
-
+ 
         return False
 
     def save(self, filename, category):
