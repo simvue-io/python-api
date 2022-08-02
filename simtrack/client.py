@@ -104,6 +104,9 @@ class Simtrack(object):
         if not self._name:
             raise RuntimeError(SIMTRACK_INIT_MISSING)
 
+        if not isinstance(metrics, dict):
+            raise RuntimeError('metrics must be a dict')
+
         data = {}
         data['run'] = self._name
         data['values'] = metrics
