@@ -51,6 +51,12 @@ class Simtrack(object):
         if not re.match(r'^[a-zA-Z0-9\-\_\s\/\.:]+$', name):
             raise RuntimeError('specified name is invalid')
 
+        if not isinstance(tags, list):
+            raise RuntimeError('tags must be a list')
+
+        if not isinstance(metadata, dict):
+            raise RuntimeError('metadata must be a dict')
+
         self._headers = {"Authorization": "Bearer %s" % token}
         self._name = name
         data = {'name': name, 'metadata': metadata, 'tags': tags}
