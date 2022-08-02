@@ -82,6 +82,9 @@ class Simtrack(object):
         if not self._name:
             raise RuntimeError(SIMTRACK_INIT_MISSING)
 
+        if not isinstance(metadata, dict):
+            raise RuntimeError('metadata must be a dict')
+
         data = {'run': self._name, 'metadata': metadata}
 
         try:
