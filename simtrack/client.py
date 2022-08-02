@@ -31,6 +31,8 @@ class Simtrack(object):
         """
         Initialise a run
         """
+        self._suppress_errors = False
+
         # Try environment variables
         token = os.getenv('SIMTRACK_TOKEN')
         self._url = os.getenv('SIMTRACK_URL')
@@ -74,6 +76,15 @@ class Simtrack(object):
             raise RuntimeError('Unable to create run due to: %s', response.text)
 
         return True
+
+    def suppress_errors(self, value):
+        """
+        Specify if errors should raise exceptions or not
+        """
+        if not isinstance(value, bool):
+            raise RuntimeError('value must be boolean')
+
+        self._suppress_errors = value
 
     def metadata(self, metadata):
         """
