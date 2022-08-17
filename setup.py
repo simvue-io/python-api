@@ -17,7 +17,7 @@ setuptools.setup(
     long_description_content_type="text/markdown",
     url="https://github.com/alahiff/simtrack-client",
     platforms=["any"],
-    install_requires=["requests"],
+    install_requires=["requests", "cpuinfo"],
     package_dir={'': '.'},
     packages=['simtrack'],
     package_data={"": ["README.md"]},
