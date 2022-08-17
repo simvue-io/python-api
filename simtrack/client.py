@@ -4,9 +4,23 @@ import os
 import random
 import re
 import requests
+import socket
+import subprocess
 import time
+import cpuinfo
+import platform
 
-SIMTRACK_INIT_MISSING = 'initialize a run using init(name, metadata, tags) first'
+SIMTRACK_INIT_MISSING = 'initialize a run using init() first'
+
+def get_gpu_info():
+    try:
+        output = subprocess.check_output(["nvidia-smi", "--query-gpu=name,driver_version", "--format=csv"])
+        lines = output.split(b'\n')
+        tokens = lines[1].split(b', ')
+    except:
+        return {'name': '', 'driver_version': ''}
+
+    return {'name': tokens[0].decode(), 'driver_version': tokens[1].decode()}
 
 def calculate_sha256(filename):
     """
@@ -27,11 +41,19 @@ class Simtrack(object):
     def __init__(self):
         self._name = None
 
-    def init(self, name, metadata={}, tags=[]):
+    def __enter__(self):
+        return self
+
+    def __exit__(self, type, value, tb):
+        if self._name:
+            self.set_status('completed')
+
+    def init(self, name, metadata={}, tags=[], description=None, folder='/'):
         """
         Initialise a run
         """
         self._suppress_errors = False
+        self._status = None
 
         # Try environment variables
         token = os.getenv('SIMTRACK_TOKEN')
@@ -61,9 +83,37 @@ class Simtrack(object):
 
         self._headers = {"Authorization": "Bearer %s" % token}
         self._name = name
-        data = {'name': name, 'metadata': metadata, 'tags': tags}
         self._start_time = time.time()
 
+        data = {'name': name,
+                'metadata': metadata,
+                'tags': tags}
+
+        if description:
+            data['description'] = description
+
+        cpu = cpuinfo.get_cpu_info()
+        gpu = get_gpu_info()
+        data['system'] = {}
+        data['system']['cwd'] = os.getcwd()
+        data['system']['hostname'] = socket.gethostname()
+        data['system']['platform'] = {}
+        data['system']['platform']['system'] = platform.system()
+        data['system']['platform']['release'] = platform.release()
+        data['system']['platform']['version'] = platform.version() 
+        data['system']['cpu'] = {}
+        data['system']['cpu']['arch'] = cpu['arch_string_raw']
+        data['system']['cpu']['processor'] = cpu['brand_raw']
+        data['system']['gpu'] = {}
+        data['system']['gpu']['name'] = gpu['name']
+        data['system']['gpu']['driver'] = gpu['driver_version']
+
+        if not folder.startswith('/'):
+            raise RuntimeError('the folder must begin with /')
+
+        data['folder'] = folder
+
+        t1 = time.time()
         try:
             response = requests.post('%s/api/runs' % self._url, headers=self._headers, json=data)
         except:
@@ -114,6 +164,9 @@ class Simtrack(object):
         """
         if not self._name:
             raise RuntimeError(SIMTRACK_INIT_MISSING)
+
+        if self._status is not None:
+            raise RuntimeError('Cannot log metrics after run has ended')
 
         if not isinstance(metrics, dict) and not self._suppress_errors:
             raise RuntimeError('Metrics must be a dict')
@@ -166,3 +219,97 @@ class Simtrack(object):
                 return False
 
         return True
+
+    def set_status(self, status):
+        """
+        Set run status
+        """
+        if status not in ('completed', 'failed', 'deleted'):
+            raise RuntimeError('invalid status')
+
+        data = {'name': self._name, 'status': status}
+        self._status = status
+
+        try:
+            response = requests.put('%s/api/runs' % self._url, headers=self._headers, json=data)
+        except:
+            return False
+
+        if response.status_code == 200:
+            return True
+
+        return False
+
+    def set_folder_details(self, path, metadata={}, tags=[], description=None):
+        """
+        Add metadata to the specified folder
+        """
+        if not isinstance(metadata, dict):
+            raise RuntimeError('metadata must be a dict')
+
+        if not isinstance(tags, list):
+            raise RuntimeError('tags must be a list')
+
+        data = {'path': path}
+
+        if metadata:
+            data['metadata'] = metadata
+
+        if tags:
+            data['tags'] = tags
+
+        if description:
+            data['description'] = description
+
+        try:
+            response = requests.put('%s/api/folders' % self._url, headers=self._headers, json=data)
+        except:
+            return False
+
+        if response.status_code == 200:
+            return True
+
+        return False
+
+    def add_alert(self, name, type, metric, frequency, window, threshold=None, range_low=None, range_high=None):
+        """
+        Creates an alert with the specified name (if it doesn't exist) and applies it to the current run
+        """
+        if type not in ('is below', 'is above', 'is outside range', 'is inside range'):
+            raise RuntimeError('alert type invalid')
+
+        if type in ('is below', 'is above') and threshold is None:
+            raise RuntimeError('threshold must be defined for the specified alert type')
+
+        if type in ('is outside range', 'is inside range') and (range_low is None or range_high is None):
+            raise RuntimeError('range_low and range_high must be defined for the specified alert type')
+
+        alert = {'name': name,
+                'type': type,
+                'metric': metric,
+                'frequency': frequency,
+                'window': window}
+
+        if threshold is not None:
+            alert['threshold'] = threshold
+        elif range_low is not None and range_high is not None:
+            alert['range_low'] = range_low
+            alert['range_high'] = range_high
+
+        try:
+            response = requests.post('%s/api/alerts' % self._url, headers=self._headers, json=alert)
+        except:
+            return False
+
+        if response.status_code != 200 and response.status_code != 409:
+            raise RuntimeError('unable to create alert')
+
+        data = {'name': self._name, 'alert': name}
+
+        try:
+            response = requests.put('%s/api/runs' % self._url, headers=self._headers, json=data)
+        except Exception as err:
+            return False
+
+        if response.status_code == 200:
+            return True
