@@ -2,6 +2,8 @@
 
 _This is a PoC, and the name is temporary!_
 
+Collects metadata, metrics and files from simulations in real time.
+
 ## Configuration
 The service URL and token can be defined as environment variables:
 ```
