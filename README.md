@@ -53,6 +53,8 @@ with Simtrack() as run:
 
         # Send metrics inside main application loop
         run.log({'loss': 0.5, 'density': 34.4})
+	
+	...
 
     # Upload an output file
     run.save('output.cdf', 'output')
