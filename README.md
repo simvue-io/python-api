@@ -28,10 +28,10 @@ with Simtrack() as run:
 
     # Specify a run name, metadata (dict), tags (list), description, folder
     run.init('example-run-name',
-             {'learning_rate': 0.001, 'training_steps': 2000, 'batch_size': 32}, # metadaata
-             ['tensorflow'],                                                     # tags
-	     'This is a test.',                                                  # description
-	     '/Project-A/part1')                                                 # folder
+             {'learning_rate': 0.001, 'training_steps': 2000, 'batch_size': 32}, # Metadaata
+             ['tensorflow'],                                                     # Tags
+	     'This is a test.',                                                  # Description
+	     '/Project-A/part1')                                                 # Folder
  
     # Set folder details if necessary
     run.set_folder_details('/Project-A/part1',                     # Folder full path
