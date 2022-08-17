@@ -31,6 +31,12 @@ with Simtrack() as run:
 	     'This is a test.',                                                  # description
 	     '/Project-A/part1')                                                 # folder
  
+    # Set folder details if necessary
+    run.set_folder_details('/Project-A/part1',                     # Folder full path
+                           metadata={},                            # Metadata
+			   tags=['tensorflow'],                    # Tags
+			   description='This is part 1 of a test') # Description
+ 
     # Upload the code
     run.save('training.py', 'code')
 
