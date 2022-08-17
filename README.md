@@ -21,7 +21,7 @@ from simtrack import Simtrack
 
 ...
 
-# Using a context manager means that the `status` will be set to `completed` automatically
+# Using a context manager means that the status will be set to completed automatically
 with Simtrack() as run:
 
     # Specify a run name, metadata (dict), tags (list), description, folder
