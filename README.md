@@ -28,8 +28,8 @@ with Simtrack() as run:
     run.init('example-run-name',
              {'learning_rate': 0.001, 'training_steps': 2000, 'batch_size': 32}, # metadaata
              ['tensorflow'],                                                     # tags
-	     'This is a test.',                                                 # description
-	     '/Project-A/part1')                                                # folder
+	     'This is a test.',                                                  # description
+	     '/Project-A/part1')                                                 # folder
  
     # Upload the code
     run.save('training.py', 'code')
