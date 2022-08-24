@@ -97,7 +97,7 @@ class Simtrack(object):
 
         cpu = cpuinfo.get_cpu_info()
         gpu = get_gpu_info()
-        
+
         data['system'] = {}
         data['system']['cwd'] = os.getcwd()
         data['system']['hostname'] = socket.gethostname()
@@ -187,7 +187,7 @@ class Simtrack(object):
 
         if response.status_code == 200:
             return True
- 
+
         return False
 
     def save(self, filename, category):
@@ -289,10 +289,10 @@ class Simtrack(object):
             raise RuntimeError('range_low and range_high must be defined for the specified alert type')
 
         alert = {'name': name,
-                'type': type,
-                'metric': metric,
-                'frequency': frequency,
-                'window': window}
+                 'type': type,
+                 'metric': metric,
+                 'frequency': frequency,
+                 'window': window}
 
         if threshold is not None:
             alert['threshold'] = threshold
