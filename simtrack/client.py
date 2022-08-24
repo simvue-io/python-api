@@ -1,7 +1,6 @@
 import configparser
 import hashlib
 import os
-import random
 import re
 import requests
 import socket
@@ -18,7 +17,7 @@ def get_gpu_info():
         output = subprocess.check_output(["nvidia-smi", "--query-gpu=name,driver_version", "--format=csv"])
         lines = output.split(b'\n')
         tokens = lines[1].split(b', ')
-    except:
+    except Exception:
         return {'name': '', 'driver_version': ''}
 
     return {'name': tokens[0].decode(), 'driver_version': tokens[1].decode()}
@@ -33,7 +32,7 @@ def calculate_sha256(filename):
             for byte_block in iter(lambda: f.read(4096),b""):
                 sha256_hash.update(byte_block)
             return sha256_hash.hexdigest()
-    except:
+    except Exception:
         pass
 
     return None
@@ -121,7 +120,7 @@ class Simtrack(object):
         t1 = time.time()
         try:
             response = requests.post('%s/api/runs' % self._url, headers=self._headers, json=data)
-        except:
+        except Exception:
             return False
 
         if response.status_code == 409:
@@ -155,7 +154,7 @@ class Simtrack(object):
 
         try:
             response = requests.put('%s/runs' % self._url, headers=self._headers, json=data)
-        except:
+        except Exception:
             return False
 
         if response.status_code == 200:
@@ -183,7 +182,7 @@ class Simtrack(object):
 
         try:
             response = requests.post('%s/api/metrics' % self._url, headers=self._headers, json=data, timeout=timeout)
-        except Exception as err:
+        except Exception:
             return False
 
         if response.status_code == 200:
@@ -210,7 +209,7 @@ class Simtrack(object):
         # Get presigned URL
         try:
             resp = requests.post('%s/api/data' % self._url, headers=self._headers, json=data)
-        except:
+        except Exception:
             return False
 
         if 'url' in resp.json():
@@ -220,7 +219,7 @@ class Simtrack(object):
                     response = requests.put(resp.json()['url'], data=fh, timeout=30)
                     if response.status_code != 200:
                         return False
-            except:
+            except Exception:
                 return False
 
         return True
@@ -237,7 +236,7 @@ class Simtrack(object):
 
         try:
             response = requests.put('%s/api/runs' % self._url, headers=self._headers, json=data)
-        except:
+        except Exception:
             return False
 
         if response.status_code == 200:
@@ -268,7 +267,7 @@ class Simtrack(object):
 
         try:
             response = requests.put('%s/api/folders' % self._url, headers=self._headers, json=data)
-        except:
+        except Exception:
             return False
 
         if response.status_code == 200:
@@ -303,7 +302,7 @@ class Simtrack(object):
 
         try:
             response = requests.post('%s/api/alerts' % self._url, headers=self._headers, json=alert)
-        except:
+        except Exception:
             return False
 
         if response.status_code != 200 and response.status_code != 409:
@@ -313,7 +312,7 @@ class Simtrack(object):
 
         try:
             response = requests.put('%s/api/runs' % self._url, headers=self._headers, json=data)
-        except Exception as err:
+        except Exception:
             return False
 
         if response.status_code == 200:
