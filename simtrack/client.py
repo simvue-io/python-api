@@ -9,6 +9,7 @@ import subprocess
 import time
 import cpuinfo
 import platform
+import randomname
 
 SIMTRACK_INIT_MISSING = 'initialize a run using init() first'
 
@@ -48,7 +49,7 @@ class Simtrack(object):
         if self._name:
             self.set_status('completed')
 
-    def init(self, name, metadata={}, tags=[], description=None, folder='/'):
+    def init(self, name=None, metadata={}, tags=[], description=None, folder='/'):
         """
         Initialise a run
         """
@@ -68,6 +69,9 @@ class Simtrack(object):
                 self._url = config.get('server', 'url')
             except:
                 pass
+  
+        if not name:
+            name = randomname.get_name()
 
         if not token or not self._url:
             raise RuntimeError('Unable to get URL and token from environment variables or config file')
@@ -94,6 +98,7 @@ class Simtrack(object):
 
         cpu = cpuinfo.get_cpu_info()
         gpu = get_gpu_info()
+        
         data['system'] = {}
         data['system']['cwd'] = os.getcwd()
         data['system']['hostname'] = socket.gethostname()
