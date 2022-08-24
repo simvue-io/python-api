@@ -13,8 +13,11 @@ import randomname
 SIMTRACK_INIT_MISSING = 'initialize a run using init() first'
 
 def get_gpu_info():
+    """
+    Get the GPU info
+    """
     try:
-        output = subprocess.check_output(["nvidia-smi", "--query-gpu=name,driver_version", "--format=csv"])
+        output = subprocess.check_output(["nvidia-smi", "--query-gpu=name, driver_version", "--format=csv"])
         lines = output.split(b'\n')
         tokens = lines[1].split(b', ')
     except Exception:
@@ -66,7 +69,7 @@ class Simtrack(object):
                 config.read('simtrack.ini')
                 token = config.get('server', 'token')
                 self._url = config.get('server', 'url')
-            except:
+            except Exception:
                 pass
   
         if not name:
@@ -117,7 +120,6 @@ class Simtrack(object):
 
         data['folder'] = folder
 
-        t1 = time.time()
         try:
             response = requests.post('%s/api/runs' % self._url, headers=self._headers, json=data)
         except Exception:
