@@ -16,6 +16,7 @@ or a file `simtrack.ini` can be created containing:
 url = ...
 token = ...
 ```
+The exact contents of both of the above options can be obtained directly by clicking the **Create new run** button on the web UI.
 
 ## Usage example
 ```
