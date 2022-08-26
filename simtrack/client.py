@@ -7,11 +7,26 @@ import requests
 import socket
 import subprocess
 import time
-import cpuinfo
 import platform
 import randomname
 
 SIMTRACK_INIT_MISSING = 'initialize a run using init() first'
+
+def cpuinfo():
+    """
+    Get CPU info
+    """
+    model_name = None
+    arch = None
+
+    info = subprocess.check_output('lscpu').decode().strip()
+    for line in info.split('\n'):
+        if 'Model name' in line:
+            model_name = line.split(':')[1].strip()
+        if 'Architecture' in line:
+            arch = line.split(':')[1].strip()
+
+    return model_name, arch
 
 def get_gpu_info():
     try:
@@ -96,7 +111,7 @@ class Simtrack(object):
         if description:
             data['description'] = description
 
-        cpu = cpuinfo.get_cpu_info()
+        cpu = cpuinfo()
         gpu = get_gpu_info()
         
         data['system'] = {}
@@ -107,8 +122,8 @@ class Simtrack(object):
         data['system']['platform']['release'] = platform.release()
         data['system']['platform']['version'] = platform.version() 
         data['system']['cpu'] = {}
-        data['system']['cpu']['arch'] = cpu['arch_string_raw']
-        data['system']['cpu']['processor'] = cpu['brand_raw']
+        data['system']['cpu']['arch'] = cpu[1]
+        data['system']['cpu']['processor'] = cpu[0]
         data['system']['gpu'] = {}
         data['system']['gpu']['name'] = gpu['name']
         data['system']['gpu']['driver'] = gpu['driver_version']
