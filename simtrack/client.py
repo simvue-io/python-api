@@ -12,6 +12,7 @@ import randomname
 
 SIMTRACK_INIT_MISSING = 'initialize a run using init() first'
 
+
 def get_gpu_info():
     """
     Get the GPU info
@@ -24,6 +25,7 @@ def get_gpu_info():
         return {'name': '', 'driver_version': ''}
 
     return {'name': tokens[0].decode(), 'driver_version': tokens[1].decode()}
+
 
 def calculate_sha256(filename):
     """
@@ -61,7 +63,7 @@ class Simtrack(object):
         """
         self._suppress_errors = False
         self._status = None
-        
+
         # Try environment variables
         token = os.getenv('SIMTRACK_TOKEN')
         self._url = os.getenv('SIMTRACK_URL')
