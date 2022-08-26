@@ -10,7 +10,9 @@ import cpuinfo
 import platform
 import randomname
 
+
 SIMTRACK_INIT_MISSING = 'initialize a run using init() first'
+
 
 def get_gpu_info():
     """
@@ -25,6 +27,7 @@ def get_gpu_info():
 
     return {'name': tokens[0].decode(), 'driver_version': tokens[1].decode()}
 
+
 def calculate_sha256(filename):
     """
     Calculate sha256 checksum of the specified file
@@ -32,7 +35,7 @@ def calculate_sha256(filename):
     sha256_hash = hashlib.sha256()
     try:
         with open(filename, "rb") as f:
-            for byte_block in iter(lambda: f.read(4096),b""):
+            for byte_block in iter(lambda: f.read(4096), b""):
                 sha256_hash.update(byte_block)
             return sha256_hash.hexdigest()
     except Exception:
@@ -40,7 +43,12 @@ def calculate_sha256(filename):
 
     return None
 
+
 class Simtrack(object):
+    """
+    Track simulation details based on token and URL
+    """
+    
     def __init__(self):
         self._name = None
 
@@ -57,7 +65,7 @@ class Simtrack(object):
         """
         self._suppress_errors = False
         self._status = None
-
+        
         # Try environment variables
         token = os.getenv('SIMTRACK_TOKEN')
         self._url = os.getenv('SIMTRACK_URL')
@@ -71,7 +79,7 @@ class Simtrack(object):
                 self._url = config.get('server', 'url')
             except Exception:
                 pass
-  
+
         if not name:
             name = randomname.get_name()
 
@@ -133,6 +141,7 @@ class Simtrack(object):
 
         return True
 
+    
     def suppress_errors(self, value):
         """
         Specify if errors should raise exceptions or not
@@ -142,6 +151,7 @@ class Simtrack(object):
 
         self._suppress_errors = value
 
+        
     def metadata(self, metadata):
         """
         Add/update metadata
@@ -164,6 +174,7 @@ class Simtrack(object):
 
         return False
 
+    
     def log(self, metrics, timeout=10):
         """
         Write metrics
@@ -192,6 +203,7 @@ class Simtrack(object):
 
         return False
 
+    
     def save(self, filename, category):
         """
         Upload file
@@ -226,6 +238,7 @@ class Simtrack(object):
 
         return True
 
+    
     def set_status(self, status):
         """
         Set run status
@@ -246,6 +259,7 @@ class Simtrack(object):
 
         return False
 
+    
     def set_folder_details(self, path, metadata={}, tags=[], description=None):
         """
         Add metadata to the specified folder
@@ -277,6 +291,7 @@ class Simtrack(object):
 
         return False
 
+    
     def add_alert(self, name, type, metric, frequency, window, threshold=None, range_low=None, range_high=None):
         """
         Creates an alert with the specified name (if it doesn't exist) and applies it to the current run
