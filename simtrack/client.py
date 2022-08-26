@@ -19,12 +19,16 @@ def get_cpu_info():
     model_name = None
     arch = None
 
-    info = subprocess.check_output('lscpu').decode().strip()
-    for line in info.split('\n'):
-        if 'Model name' in line:
-            model_name = line.split(':')[1].strip()
-        if 'Architecture' in line:
-            arch = line.split(':')[1].strip()
+    try:        
+        info = subprocess.check_output('lscpu').decode().strip()
+        for line in info.split('\n'):
+            if 'Model name' in line:
+                model_name = line.split(':')[1].strip()
+            if 'Architecture' in line:
+                arch = line.split(':')[1].strip()
+    except:
+        # TODO: Try /proc/cpuinfo
+        pass
 
     return model_name, arch
 
