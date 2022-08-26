@@ -114,7 +114,7 @@ class Simtrack(object):
         if description:
             data['description'] = description
 
-        cpu = cpuinfo()
+        cpu = get_cpu_info()
         gpu = get_gpu_info()
         
         data['system'] = {}
