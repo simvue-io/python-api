@@ -12,7 +12,7 @@ import randomname
 
 SIMTRACK_INIT_MISSING = 'initialize a run using init() first'
 
-def cpuinfo():
+def get_cpu_info():
     """
     Get CPU info
     """
@@ -29,6 +29,9 @@ def cpuinfo():
     return model_name, arch
 
 def get_gpu_info():
+    """
+    Get GPU info
+    """
     try:
         output = subprocess.check_output(["nvidia-smi", "--query-gpu=name,driver_version", "--format=csv"])
         lines = output.split(b'\n')
