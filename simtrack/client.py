@@ -43,8 +43,7 @@ def calculate_sha256(filename):
     return None
 
 
-class Simtrack(# noqa: C901 
-    object):
+class Simtrack(object):
     """
     Track simulation details based on token and URL
     """
@@ -284,8 +283,7 @@ class Simtrack(# noqa: C901
 
         return False
 
-    def add_alert(# noqa: C901
-        self, name, type, metric, frequency, window, threshold=None, range_low=None, range_high=None):
+    def add_alert(self, name, type, metric, frequency, window, threshold=None, range_low=None, range_high=None):
         """
         Creates an alert with the specified name (if it doesn't exist) and applies it to the current run
         """
