@@ -1,4 +1,5 @@
 import configparser
+import datetime
 import hashlib
 import os
 import random
@@ -19,7 +20,7 @@ def get_cpu_info():
     model_name = None
     arch = None
 
-    try:        
+    try:
         info = subprocess.check_output('lscpu').decode().strip()
         for line in info.split('\n'):
             if 'Model name' in line:
@@ -70,6 +71,7 @@ class Simtrack(object):
     def __exit__(self, type, value, tb):
         if self._name:
             self.set_status('completed')
+            self._send_metrics()
 
     def init(self, name=None, metadata={}, tags=[], description=None, folder='/'):
         """
@@ -77,6 +79,9 @@ class Simtrack(object):
         """
         self._suppress_errors = False
         self._status = None
+        self._upload_time = None
+        self._data = []
+        self._step = 0
 
         # Try environment variables
         token = os.getenv('SIMTRACK_TOKEN')
@@ -185,14 +190,14 @@ class Simtrack(object):
 
         return False
 
-    def log(self, metrics, timeout=10):
+    def log(self, metrics):
         """
         Write metrics
         """
         if not self._name:
             raise RuntimeError(SIMTRACK_INIT_MISSING)
 
-        if self._status is not None:
+        if self._status:
             raise RuntimeError('Cannot log metrics after run has ended')
 
         if not isinstance(metrics, dict) and not self._suppress_errors:
@@ -202,16 +207,33 @@ class Simtrack(object):
         data['run'] = self._name
         data['values'] = metrics
         data['time'] = time.time() - self._start_time
+        data['timestamp'] = datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S.%f')
+        data['step'] = self._step
 
-        try:
-            response = requests.post('%s/api/metrics' % self._url, headers=self._headers, json=data, timeout=timeout)
-        except Exception as err:
-            return False
+        self._step += 1
 
-        if response.status_code == 200:
-            return True
- 
+        self._data.append(data)
+        if not self._upload_time:
+            self._upload_time = time.time()
+
+        if time.time() - self._upload_time > 1:
+            self._send_metrics()
+            self._data = []
+            self._upload_time = time.time()
+
         return False
+
+    def _send_metrics(self):
+        if self._data:
+            try:
+                response = requests.post('%s/api/metrics' % self._url, headers=self._headers, json=self._data)
+                self._data = []
+            except Exception as err:
+                return False
+
+            if response.status_code == 200:
+                return True
+        return True
 
     def save(self, filename, category):
         """
@@ -256,6 +278,8 @@ class Simtrack(object):
 
         data = {'name': self._name, 'status': status}
         self._status = status
+
+        self._send_metrics()
 
         try:
             response = requests.put('%s/api/runs' % self._url, headers=self._headers, json=data)
