@@ -79,8 +79,10 @@ class Simtrack(object):
         """
         self._suppress_errors = False
         self._status = None
-        self._upload_time = None
+        self._upload_time_log = None
+        self._upload_time_event = None
         self._data = []
+        self._events = []
         self._step = 0
 
         # Try environment variables
@@ -190,6 +192,32 @@ class Simtrack(object):
 
         return False
 
+    def event(self, message):
+        """
+        Write event
+        """
+        if not self._name:
+            raise RuntimeError(SIMTRACK_INIT_MISSING)
+
+        if self._status:
+            raise RuntimeError('Cannot log events after run has ended')
+
+        data = {}
+        data['run'] = self._name
+        data['message'] = message
+        data['timestamp'] = datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S.%f')
+
+        self._events.append(data)
+        if not self._upload_time_event:
+            self._upload_time_event = time.time()
+
+        if time.time() - self._upload_time_event > 60:
+            self._send_events()
+            self._events = []
+            self._upload_time_event = time.time()
+
+        return True
+
     def log(self, metrics):
         """
         Write metrics
@@ -213,21 +241,33 @@ class Simtrack(object):
         self._step += 1
 
         self._data.append(data)
-        if not self._upload_time:
-            self._upload_time = time.time()
+        if not self._upload_time_log:
+            self._upload_time_log = time.time()
 
-        if time.time() - self._upload_time > 1:
+        if time.time() - self._upload_time_log > 1:
             self._send_metrics()
             self._data = []
-            self._upload_time = time.time()
+            self._upload_time_log = time.time()
 
-        return False
+        return True
 
     def _send_metrics(self):
         if self._data:
             try:
                 response = requests.post('%s/api/metrics' % self._url, headers=self._headers, json=self._data)
                 self._data = []
+            except Exception as err:
+                return False
+
+            if response.status_code == 200:
+                return True
+        return True
+
+    def _send_events(self):
+        if self._events:
+            try:
+                response = requests.post('%s/api/events' % self._url, headers=self._headers, json=self._events)
+                self._events = []
             except Exception as err:
                 return False
 
@@ -280,6 +320,7 @@ class Simtrack(object):
         self._status = status
 
         self._send_metrics()
+        self._send_events()
 
         try:
             response = requests.put('%s/api/runs' % self._url, headers=self._headers, json=data)
