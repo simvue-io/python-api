@@ -1,6 +1,7 @@
 import configparser
 import datetime
 import hashlib
+import logging
 import os
 import random
 import re
@@ -405,3 +406,28 @@ class Simtrack(object):
 
         if response.status_code == 200:
             return True
+
+class SimtrackHandler(logging.Handler):
+    """
+    Class for handling logging to SimTrack
+    """
+    def __init__(self, client):
+        logging.Handler.__init__(self)
+        self._client = client
+
+    def emit(self, record):
+        if 'simtrack.' in record.name:
+            return
+
+        msg = self.format(record)
+
+        try:
+            self._client.event(msg)
+        except Exception:
+            logging.Handler.handleError(self, record)
+
+    def flush(self):
+        self._client._send_events()
+
+    def close(self):
+        pass
