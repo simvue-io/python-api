@@ -1,4 +1,4 @@
-# SimTrack examples
+# Examples
 
 ## Logging
 
