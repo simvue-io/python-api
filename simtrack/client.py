@@ -18,8 +18,8 @@ def get_cpu_info():
     """
     Get CPU info
     """
-    model_name = None
-    arch = None
+    model_name = ''
+    arch = ''
 
     try:
         info = subprocess.check_output('lscpu').decode().strip()
