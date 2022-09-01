@@ -68,6 +68,6 @@ with Simtrack() as run:
     # Upload an output file
     run.save('output.cdf', 'output')
     
-    # If we weren't using a context manager we'd need to set the status to completed
-    # run.set_status('completed')
+    # If we weren't using a context manager we'd need to end the run
+    # run.close()
 ```
