@@ -332,6 +332,12 @@ class Simtrack(object):
             return True
 
         return False
+    
+    def close(self):
+        """
+        Close the run
+        """
+        self.set_status('completed')    
 
     def set_folder_details(self, path, metadata={}, tags=[], description=None):
         """
