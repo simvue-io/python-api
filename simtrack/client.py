@@ -1,12 +1,13 @@
 import configparser
+import datetime
 import hashlib
+import logging
 import os
 import re
 import requests
 import socket
 import subprocess
 import time
-import cpuinfo
 import platform
 import randomname
 
@@ -16,6 +17,31 @@ SIMTRACK_INIT_MISSING = 'initialize a run using init() first'
 def get_gpu_info():
     """
     Get the GPU info
+    
+def get_cpu_info():
+    """
+    Get CPU info
+    """
+    model_name = ''
+    arch = ''
+
+    try:
+        info = subprocess.check_output('lscpu').decode().strip()
+        for line in info.split('\n'):
+            if 'Model name' in line:
+                model_name = line.split(':')[1].strip()
+            if 'Architecture' in line:
+                arch = line.split(':')[1].strip()
+    except:
+        # TODO: Try /proc/cpuinfo
+        pass
+
+    return model_name, arch
+
+def get_gpu_info():
+    """
+    Get GPU info
+    
     """
     try:
         output = subprocess.check_output(["nvidia-smi", "--query-gpu=name, driver_version", "--format=csv"])
@@ -56,6 +82,7 @@ class Simtrack(object):
     def __exit__(self, type, value, tb):
         if self._name:
             self.set_status('completed')
+            self._send_metrics()
 
     def init(self, name=None, metadata={}, tags=[], description=None, folder='/'):
         """
@@ -63,6 +90,11 @@ class Simtrack(object):
         """
         self._suppress_errors = False
         self._status = None
+        self._upload_time_log = None
+        self._upload_time_event = None
+        self._data = []
+        self._events = []
+        self._step = 0
 
         # Try environment variables
         token = os.getenv('SIMTRACK_TOKEN')
@@ -104,7 +136,7 @@ class Simtrack(object):
         if description:
             data['description'] = description
 
-        cpu = cpuinfo.get_cpu_info()
+        cpu = get_cpu_info()
         gpu = get_gpu_info()
 
         data['system'] = {}
@@ -115,8 +147,8 @@ class Simtrack(object):
         data['system']['platform']['release'] = platform.release()
         data['system']['platform']['version'] = platform.version()
         data['system']['cpu'] = {}
-        data['system']['cpu']['arch'] = cpu['arch_string_raw']
-        data['system']['cpu']['processor'] = cpu['brand_raw']
+        data['system']['cpu']['arch'] = cpu[1]
+        data['system']['cpu']['processor'] = cpu[0]
         data['system']['gpu'] = {}
         data['system']['gpu']['name'] = gpu['name']
         data['system']['gpu']['driver'] = gpu['driver_version']
@@ -170,14 +202,40 @@ class Simtrack(object):
 
         return False
 
-    def log(self, metrics, timeout=10):
+    def event(self, message):
+        """
+        Write event
+        """
+        if not self._name:
+            raise RuntimeError(SIMTRACK_INIT_MISSING)
+
+        if self._status:
+            raise RuntimeError('Cannot log events after run has ended')
+
+        data = {}
+        data['run'] = self._name
+        data['message'] = message
+        data['timestamp'] = datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S.%f')
+
+        self._events.append(data)
+        if not self._upload_time_event:
+            self._upload_time_event = time.time()
+
+        if time.time() - self._upload_time_event > 60:
+            self._send_events()
+            self._events = []
+            self._upload_time_event = time.time()
+
+        return True
+
+    def log(self, metrics):
         """
         Write metrics
         """
         if not self._name:
             raise RuntimeError(SIMTRACK_INIT_MISSING)
 
-        if self._status is not None:
+        if self._status:
             raise RuntimeError('Cannot log metrics after run has ended')
 
         if not isinstance(metrics, dict) and not self._suppress_errors:
@@ -187,6 +245,8 @@ class Simtrack(object):
         data['run'] = self._name
         data['values'] = metrics
         data['time'] = time.time() - self._start_time
+        data['timestamp'] = datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S.%f')
+        data['step'] = self._step
 
         try:
             response = requests.post('%s/api/metrics' % self._url, headers=self._headers, json=data, timeout=timeout)
@@ -197,6 +257,43 @@ class Simtrack(object):
             return True
 
         return False
+
+        self._step += 1
+
+        self._data.append(data)
+        if not self._upload_time_log:
+            self._upload_time_log = time.time()
+
+        if time.time() - self._upload_time_log > 1:
+            self._send_metrics()
+            self._data = []
+            self._upload_time_log = time.time()
+
+        return True
+
+    def _send_metrics(self):
+        if self._data:
+            try:
+                response = requests.post('%s/api/metrics' % self._url, headers=self._headers, json=self._data)
+                self._data = []
+            except Exception as err:
+                return False
+
+            if response.status_code == 200:
+                return True
+        return True
+
+    def _send_events(self):
+        if self._events:
+            try:
+                response = requests.post('%s/api/events' % self._url, headers=self._headers, json=self._events)
+                self._events = []
+            except Exception as err:
+                return False
+
+            if response.status_code == 200:
+                return True
+        return True
 
     def save(self, filename, category):
         """
@@ -242,6 +339,9 @@ class Simtrack(object):
         data = {'name': self._name, 'status': status}
         self._status = status
 
+        self._send_metrics()
+        self._send_events()
+
         try:
             response = requests.put('%s/api/runs' % self._url, headers=self._headers, json=data)
         except Exception:
@@ -251,6 +351,12 @@ class Simtrack(object):
             return True
 
         return False
+    
+    def close(self):
+        """
+        Close the run
+        """
+        self.set_status('completed')    
 
     def set_folder_details(self, path, metadata={}, tags=[], description=None):
         """
@@ -325,3 +431,28 @@ class Simtrack(object):
 
         if response.status_code == 200:
             return True
+
+class SimtrackHandler(logging.Handler):
+    """
+    Class for handling logging to SimTrack
+    """
+    def __init__(self, client):
+        logging.Handler.__init__(self)
+        self._client = client
+
+    def emit(self, record):
+        if 'simtrack.' in record.name:
+            return
+
+        msg = self.format(record)
+
+        try:
+            self._client.event(msg)
+        except Exception:
+            logging.Handler.handleError(self, record)
+
+    def flush(self):
+        self._client._send_events()
+
+    def close(self):
+        pass

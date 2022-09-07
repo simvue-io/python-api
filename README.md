@@ -1,7 +1,5 @@
 # Simulation tracking &amp; monitoring
 
-_This is a PoC, and the name is temporary!_
-
 Collects metadata, metrics and files from simulations in real time.
 
 ## Configuration
@@ -16,6 +14,7 @@ or a file `simtrack.ini` can be created containing:
 url = ...
 token = ...
 ```
+The exact contents of both of the above options can be obtained directly by clicking the **Create new run** button on the web UI. Note that the environment variables have preference over the config file.
 
 ## Usage example
 ```
@@ -67,6 +66,6 @@ with Simtrack() as run:
     # Upload an output file
     run.save('output.cdf', 'output')
     
-    # If we weren't using a context manager we'd need to set the status to completed
-    # run.set_status('completed')
+    # If we weren't using a context manager we'd need to end the run
+    # run.close()
 ```
