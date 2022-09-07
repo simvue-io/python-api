@@ -1,16 +1,16 @@
 import logging
-from simtrack import Simtrack, SimtrackHandler
+from simvue import Simvue, Handler
 
-run = Simtrack()
+run = Simvue()
 
 run.init(tags=['logging'],
          description='Logging test')
 
 logger = logging.getLogger(__name__)
 logger.setLevel(logging.DEBUG)
-sth = SimtrackHandler(run)
+sth = Handler(run)
 logger.addHandler(sth)
 
-logger.info("This is a SimTrack logging test")
+logger.info("This is a Simvue logging test")
 
 run.close()

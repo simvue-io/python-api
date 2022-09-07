@@ -8,8 +8,7 @@ from tensorflow.keras import Model, layers
 import numpy as np
 import random
 
-from simtrack import Simtrack
-
+from simvue import Simvue
 
 # Dataset parameters.
 num_classes = 2 # linear sequence or not.
@@ -27,7 +26,7 @@ batch_size = 64
 # Network Parameters
 num_units = 32 # number of neurons for the LSTM layer.
 
-run = Simtrack()
+run = Simvue()
 run.init(metadata={'dataset.num_classes': num_classes,
                    'dataset.seq_max_len': seq_max_len,
                    'dataset.seq_min_len': seq_min_len,

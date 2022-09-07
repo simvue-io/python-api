@@ -5,10 +5,10 @@ Collects metadata, metrics and files from simulations in real time.
 ## Configuration
 The service URL and token can be defined as environment variables:
 ```
-export SIMTRACK_URL=...
-export SIMTRACK_TOKEN=...
+export SIMVUE_URL=...
+export SIMVUE_TOKEN=...
 ```
-or a file `simtrack.ini` can be created containing:
+or a file `simvue.ini` can be created containing:
 ```
 [server]
 url = ...
@@ -18,12 +18,12 @@ The exact contents of both of the above options can be obtained directly by clic
 
 ## Usage example
 ```
-from simtrack import Simtrack
+from simvue import Simvue
 
 ...
 
 # Using a context manager means that the status will be set to completed automatically
-with Simtrack() as run:
+with Simview() as run:
 
     # Specify a run name, metadata (dict), tags (list), description, folder
     run.init('example-run-name',
