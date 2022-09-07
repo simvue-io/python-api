@@ -23,7 +23,7 @@ from simvue import Simvue
 ...
 
 # Using a context manager means that the status will be set to completed automatically
-with Simview() as run:
+with Simvue() as run:
 
     # Specify a run name, metadata (dict), tags (list), description, folder
     run.init('example-run-name',
