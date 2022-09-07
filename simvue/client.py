@@ -1,3 +1,4 @@
+import atexit
 import configparser
 import datetime
 import hashlib
@@ -7,6 +8,7 @@ import re
 import requests
 import socket
 import subprocess
+from threading import Event, Thread
 import time
 import platform
 import randomname
@@ -64,7 +66,6 @@ def calculate_sha256(filename):
 
     return None
 
-
 class Simvue(object):
     """
     Track simulation details based on token and URL
@@ -79,6 +80,32 @@ class Simvue(object):
         if self._name:
             self.set_status('completed')
             self._send_metrics()
+
+    def _heartbeat(self):
+        """
+        Send heartbeats at regular intervals
+        """
+        start = time.time()
+        while not self._event.is_set():
+            time.sleep(1)
+            if time.time() - start > 60:
+                start = time.time()
+                try:
+                    response = requests.put('%s/api/runs/heartbeat' % self._url,
+                                            headers=self._headers,
+                                            json={'name': self._name})
+                except:
+                    pass
+
+    def _stop_heartbeat(self):
+        """
+        Stop the heartbeat thread & cleanup
+        """
+        self._event.set()
+        self._thread.join()
+        self.set_status('terminated')
+        self._send_metrics()
+        self._send_events()
 
     def init(self, name=None, metadata={}, tags=[], description=None, folder='/'):
         """
@@ -164,6 +191,12 @@ class Simvue(object):
 
         if response.status_code != 200:
             raise RuntimeError('Unable to create run due to: %s', response.text)
+
+        # Start heartbeat thread
+        self._event = Event()
+        self._thread = Thread(target=self._heartbeat, args=(), daemon=True)
+        self._thread.start()
+        atexit.register(self._stop_heartbeat)
 
         return True
 
@@ -319,7 +352,7 @@ class Simvue(object):
         """
         Set run status
         """
-        if status not in ('completed', 'failed', 'deleted'):
+        if status not in ('completed', 'failed', 'terminated'):
             raise RuntimeError('invalid status')
 
         data = {'name': self._name, 'status': status}
