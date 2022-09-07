@@ -419,7 +419,7 @@ class Simvue(object):
             return True
 
 
-class Handler(logging.Handler):
+class SimvueHandler(logging.Handler):
     """
     Class for handling logging to Simvue
     """
