@@ -1,5 +1,5 @@
 import logging
-from simvue import Simvue, Handler
+from simvue import Simvue, SimvueHandler
 
 run = Simvue()
 
