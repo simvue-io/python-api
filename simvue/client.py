@@ -11,7 +11,7 @@ import time
 import platform
 import randomname
 
-SIMTRACK_INIT_MISSING = 'initialize a run using init() first'
+SIMVUE_INIT_MISSING = 'initialize a run using init() first'
 
 
 def get_cpu_info():
@@ -65,7 +65,7 @@ def calculate_sha256(filename):
     return None
 
 
-class Simtrack(object):
+class Simvue(object):
     """
     Track simulation details based on token and URL
     """
@@ -93,14 +93,14 @@ class Simtrack(object):
         self._step = 0
 
         # Try environment variables
-        token = os.getenv('SIMTRACK_TOKEN')
-        self._url = os.getenv('SIMTRACK_URL')
+        token = os.getenv('SIMVUE_TOKEN')
+        self._url = os.getenv('SIMVUE_URL')
 
         if not token or not self._url:
             # Try config file
             try:
                 config = configparser.ConfigParser()
-                config.read('simtrack.ini')
+                config.read('simvue.ini')
                 token = config.get('server', 'token')
                 self._url = config.get('server', 'url')
             except Exception:
@@ -181,7 +181,7 @@ class Simtrack(object):
         Add/update metadata
         """
         if not self._name:
-            raise RuntimeError(SIMTRACK_INIT_MISSING)
+            raise RuntimeError(SIMVUE_INIT_MISSING)
 
         if not isinstance(metadata, dict):
             raise RuntimeError('metadata must be a dict')
@@ -203,7 +203,7 @@ class Simtrack(object):
         Write event
         """
         if not self._name:
-            raise RuntimeError(SIMTRACK_INIT_MISSING)
+            raise RuntimeError(SIMVUE_INIT_MISSING)
 
         if self._status:
             raise RuntimeError('Cannot log events after run has ended')
@@ -229,7 +229,7 @@ class Simtrack(object):
         Write metrics
         """
         if not self._name:
-            raise RuntimeError(SIMTRACK_INIT_MISSING)
+            raise RuntimeError(SIMVUE_INIT_MISSING)
 
         if self._status:
             raise RuntimeError('Cannot log metrics after run has ended')
@@ -286,7 +286,7 @@ class Simtrack(object):
         Upload file
         """
         if not self._name:
-            raise RuntimeError(SIMTRACK_INIT_MISSING)
+            raise RuntimeError(SIMVUE_INIT_MISSING)
 
         if not os.path.isfile(filename):
             raise RuntimeError('File %s does not exist' % filename)
@@ -419,16 +419,16 @@ class Simtrack(object):
             return True
 
 
-class SimtrackHandler(logging.Handler):
+class SimvueHandler(logging.Handler):
     """
-    Class for handling logging to SimTrack
+    Class for handling logging to Simvue
     """
     def __init__(self, client):
         logging.Handler.__init__(self)
         self._client = client
 
     def emit(self, record):
-        if 'simtrack.' in record.name:
+        if 'simvue.' in record.name:
             return
 
         msg = self.format(record)

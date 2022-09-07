@@ -1,4 +1,4 @@
-from simtrack import client
+from simvue import client
 import pytest
 
 def test_supress_errors():
@@ -6,7 +6,7 @@ def test_supress_errors():
     Check that errors are surpressed
     """
 
-    simt = client.Simtrack()
+    simv = client.Simvue()
 
     with pytest.raises(RuntimeError, match="value must be boolean"):
-        simt.suppress_errors(200)
+        simv.suppress_errors(200)
