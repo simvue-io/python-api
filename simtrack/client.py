@@ -14,10 +14,7 @@ import randomname
 SIMTRACK_INIT_MISSING = 'initialize a run using init() first'
 
 
-def get_gpu_info():
-    """
-    Get the GPU info
-    
+ 
 def get_cpu_info():
     """
     Get CPU info
