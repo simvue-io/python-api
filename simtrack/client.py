@@ -14,7 +14,6 @@ import randomname
 SIMTRACK_INIT_MISSING = 'initialize a run using init() first'
 
 
- 
 def get_cpu_info():
     """
     Get CPU info
@@ -29,19 +28,19 @@ def get_cpu_info():
                 model_name = line.split(':')[1].strip()
             if 'Architecture' in line:
                 arch = line.split(':')[1].strip()
-    except:
+    except Exception:
         # TODO: Try /proc/cpuinfo
         pass
 
     return model_name, arch
 
+
 def get_gpu_info():
     """
     Get GPU info
-    
     """
     try:
-        output = subprocess.check_output(["nvidia-smi", "--query-gpu=name, driver_version", "--format=csv"])
+        output = subprocess.check_output(["nvidia-smi", "--query-gpu=name,driver_version", "--format=csv"])
         lines = output.split(b'\n')
         tokens = lines[1].split(b', ')
     except Exception:
@@ -245,16 +244,6 @@ class Simtrack(object):
         data['timestamp'] = datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S.%f')
         data['step'] = self._step
 
-        try:
-            response = requests.post('%s/api/metrics' % self._url, headers=self._headers, json=data, timeout=timeout)
-        except Exception:
-            return False
-
-        if response.status_code == 200:
-            return True
-
-        return False
-
         self._step += 1
 
         self._data.append(data)
@@ -273,7 +262,7 @@ class Simtrack(object):
             try:
                 response = requests.post('%s/api/metrics' % self._url, headers=self._headers, json=self._data)
                 self._data = []
-            except Exception as err:
+            except Exception:
                 return False
 
             if response.status_code == 200:
@@ -285,7 +274,7 @@ class Simtrack(object):
             try:
                 response = requests.post('%s/api/events' % self._url, headers=self._headers, json=self._events)
                 self._events = []
-            except Exception as err:
+            except Exception:
                 return False
 
             if response.status_code == 200:
@@ -348,12 +337,12 @@ class Simtrack(object):
             return True
 
         return False
-    
+
     def close(self):
         """
         Close the run
         """
-        self.set_status('completed')    
+        self.set_status('completed')
 
     def set_folder_details(self, path, metadata={}, tags=[], description=None):
         """
@@ -428,6 +417,7 @@ class Simtrack(object):
 
         if response.status_code == 200:
             return True
+
 
 class SimtrackHandler(logging.Handler):
     """
