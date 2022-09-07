@@ -8,7 +8,7 @@ run.init(tags=['logging'],
 
 logger = logging.getLogger(__name__)
 logger.setLevel(logging.DEBUG)
-sth = Handler(run)
+sth = SimvueHandler(run)
 logger.addHandler(sth)
 
 logger.info("This is a Simvue logging test")
