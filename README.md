@@ -1,7 +1,5 @@
 # Simulation tracking &amp; monitoring
 
-_This is a PoC, and the name is temporary!_
-
 Collects metadata, metrics and files from simulations in real time.
 
 ## Configuration
