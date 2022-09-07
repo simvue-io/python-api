@@ -3,7 +3,6 @@ import datetime
 import hashlib
 import logging
 import os
-import random
 import re
 import requests
 import socket
@@ -13,6 +12,7 @@ import platform
 import randomname
 
 SIMTRACK_INIT_MISSING = 'initialize a run using init() first'
+
 
 def get_cpu_info():
     """
@@ -28,11 +28,12 @@ def get_cpu_info():
                 model_name = line.split(':')[1].strip()
             if 'Architecture' in line:
                 arch = line.split(':')[1].strip()
-    except:
+    except Exception:
         # TODO: Try /proc/cpuinfo
         pass
 
     return model_name, arch
+
 
 def get_gpu_info():
     """
@@ -42,10 +43,11 @@ def get_gpu_info():
         output = subprocess.check_output(["nvidia-smi", "--query-gpu=name,driver_version", "--format=csv"])
         lines = output.split(b'\n')
         tokens = lines[1].split(b', ')
-    except:
+    except Exception:
         return {'name': '', 'driver_version': ''}
 
     return {'name': tokens[0].decode(), 'driver_version': tokens[1].decode()}
+
 
 def calculate_sha256(filename):
     """
@@ -54,15 +56,19 @@ def calculate_sha256(filename):
     sha256_hash = hashlib.sha256()
     try:
         with open(filename, "rb") as f:
-            for byte_block in iter(lambda: f.read(4096),b""):
+            for byte_block in iter(lambda: f.read(4096), b""):
                 sha256_hash.update(byte_block)
             return sha256_hash.hexdigest()
-    except:
+    except Exception:
         pass
 
     return None
 
+
 class Simtrack(object):
+    """
+    Track simulation details based on token and URL
+    """
     def __init__(self):
         self._name = None
 
@@ -97,9 +103,9 @@ class Simtrack(object):
                 config.read('simtrack.ini')
                 token = config.get('server', 'token')
                 self._url = config.get('server', 'url')
-            except:
+            except Exception:
                 pass
-  
+
         if not name:
             name = randomname.get_name()
 
@@ -128,14 +134,14 @@ class Simtrack(object):
 
         cpu = get_cpu_info()
         gpu = get_gpu_info()
-        
+
         data['system'] = {}
         data['system']['cwd'] = os.getcwd()
         data['system']['hostname'] = socket.gethostname()
         data['system']['platform'] = {}
         data['system']['platform']['system'] = platform.system()
         data['system']['platform']['release'] = platform.release()
-        data['system']['platform']['version'] = platform.version() 
+        data['system']['platform']['version'] = platform.version()
         data['system']['cpu'] = {}
         data['system']['cpu']['arch'] = cpu[1]
         data['system']['cpu']['processor'] = cpu[0]
@@ -148,10 +154,9 @@ class Simtrack(object):
 
         data['folder'] = folder
 
-        t1 = time.time()
         try:
             response = requests.post('%s/api/runs' % self._url, headers=self._headers, json=data)
-        except:
+        except Exception:
             return False
 
         if response.status_code == 409:
@@ -185,7 +190,7 @@ class Simtrack(object):
 
         try:
             response = requests.put('%s/runs' % self._url, headers=self._headers, json=data)
-        except:
+        except Exception:
             return False
 
         if response.status_code == 200:
@@ -257,7 +262,7 @@ class Simtrack(object):
             try:
                 response = requests.post('%s/api/metrics' % self._url, headers=self._headers, json=self._data)
                 self._data = []
-            except Exception as err:
+            except Exception:
                 return False
 
             if response.status_code == 200:
@@ -269,7 +274,7 @@ class Simtrack(object):
             try:
                 response = requests.post('%s/api/events' % self._url, headers=self._headers, json=self._events)
                 self._events = []
-            except Exception as err:
+            except Exception:
                 return False
 
             if response.status_code == 200:
@@ -295,7 +300,7 @@ class Simtrack(object):
         # Get presigned URL
         try:
             resp = requests.post('%s/api/data' % self._url, headers=self._headers, json=data)
-        except:
+        except Exception:
             return False
 
         if 'url' in resp.json():
@@ -305,7 +310,7 @@ class Simtrack(object):
                     response = requests.put(resp.json()['url'], data=fh, timeout=30)
                     if response.status_code != 200:
                         return False
-            except:
+            except Exception:
                 return False
 
         return True
@@ -325,19 +330,19 @@ class Simtrack(object):
 
         try:
             response = requests.put('%s/api/runs' % self._url, headers=self._headers, json=data)
-        except:
+        except Exception:
             return False
 
         if response.status_code == 200:
             return True
 
         return False
-    
+
     def close(self):
         """
         Close the run
         """
-        self.set_status('completed')    
+        self.set_status('completed')
 
     def set_folder_details(self, path, metadata={}, tags=[], description=None):
         """
@@ -362,7 +367,7 @@ class Simtrack(object):
 
         try:
             response = requests.put('%s/api/folders' % self._url, headers=self._headers, json=data)
-        except:
+        except Exception:
             return False
 
         if response.status_code == 200:
@@ -384,10 +389,10 @@ class Simtrack(object):
             raise RuntimeError('range_low and range_high must be defined for the specified alert type')
 
         alert = {'name': name,
-                'type': type,
-                'metric': metric,
-                'frequency': frequency,
-                'window': window}
+                 'type': type,
+                 'metric': metric,
+                 'frequency': frequency,
+                 'window': window}
 
         if threshold is not None:
             alert['threshold'] = threshold
@@ -397,7 +402,7 @@ class Simtrack(object):
 
         try:
             response = requests.post('%s/api/alerts' % self._url, headers=self._headers, json=alert)
-        except:
+        except Exception:
             return False
 
         if response.status_code != 200 and response.status_code != 409:
@@ -407,11 +412,12 @@ class Simtrack(object):
 
         try:
             response = requests.put('%s/api/runs' % self._url, headers=self._headers, json=data)
-        except Exception as err:
+        except Exception:
             return False
 
         if response.status_code == 200:
             return True
+
 
 class SimtrackHandler(logging.Handler):
     """

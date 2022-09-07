@@ -8,7 +8,8 @@ from tensorflow.keras import Model, layers
 import numpy as np
 import random
 
-from simtrack import Simtrack, SimtrackHandler
+from simtrack import Simtrack
+
 
 # Dataset parameters.
 num_classes = 2 # linear sequence or not.
@@ -16,6 +17,7 @@ seq_max_len = 20 # Maximum sequence length.
 seq_min_len = 5 # Minimum sequence length (before padding).
 masking_val = -1 # -1 will represents the mask and be used to pad sequences to a common max length.
 max_value = 10000 # Maximum int value.
+
 
 # Training Parameters
 learning_rate = 0.001
@@ -134,7 +136,7 @@ def accuracy(y_pred, y_true):
 # Adam optimizer.
 optimizer = tf.optimizers.Adam(learning_rate)
 
-# Optimization process. 
+# Optimization process.
 def run_optimization(x, y):
     # Wrap computation inside a GradientTape for automatic differentiation.
     with tf.GradientTape() as g:
@@ -142,13 +144,13 @@ def run_optimization(x, y):
         pred = lstm_net(x, is_training=True)
         # Compute loss.
         loss = cross_entropy_loss(pred, y)
-        
+
     # Variables to update, i.e. trainable variables.
     trainable_variables = lstm_net.trainable_variables
 
     # Compute gradients.
     gradients = g.gradient(loss, trainable_variables)
-    
+
     # Update weights following gradients.
     optimizer.apply_gradients(zip(gradients, trainable_variables))
 
@@ -156,7 +158,7 @@ def run_optimization(x, y):
 for step, (batch_x, batch_y) in enumerate(train_data.take(training_steps), 1):
     # Run the optimization to update W and b values.
     run_optimization(batch_x, batch_y)
-    
+
     pred = lstm_net(batch_x, is_training=True)
     loss = cross_entropy_loss(pred, batch_y)
     acc = accuracy(pred, batch_y)
