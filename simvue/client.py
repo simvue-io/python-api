@@ -103,9 +103,10 @@ class Simvue(object):
         """
         self._event.set()
         self._thread.join()
-        self.set_status('terminated')
-        self._send_metrics()
-        self._send_events()
+        if not self._status:
+            self._send_metrics()
+            self._send_events()
+            self.set_status('terminated')
 
     def init(self, name=None, metadata={}, tags=[], description=None, folder='/'):
         """
