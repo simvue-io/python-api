@@ -296,6 +296,7 @@ class Simvue(object):
         data['run'] = self._name
         data['category'] = category
         data['checksum'] = calculate_sha256(filename)
+        data['size'] = os.path.getsize(filename)
 
         # Get presigned URL
         try:
