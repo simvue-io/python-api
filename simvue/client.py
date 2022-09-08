@@ -292,6 +292,15 @@ class Simvue(object):
         if not os.path.isfile(filename):
             raise RuntimeError('File %s does not exist' % filename)
 
+        if filetype:
+            mimetypes_valid = []
+            mimetypes.init()
+            for item in mimetypes.types_map:
+                mimetypes_valid.append(mimetypes.types_map[item])
+
+            if filetype not in mimetypes_valid:
+                raise RuntimeError('Invalid MIME type specified')
+
         data = {}
         data['name'] = os.path.basename(filename)
         data['run'] = self._name
