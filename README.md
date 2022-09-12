@@ -1,4 +1,4 @@
-# Simulation tracking &amp; monitoring
+# Simvue Python client
 
 Collects metadata, metrics and files from simulations in real time.
 
