@@ -7,6 +7,7 @@ import re
 import requests
 import socket
 import subprocess
+import sys
 import time
 import platform
 import randomname
@@ -138,6 +139,9 @@ class Simvue(object):
         data['system'] = {}
         data['system']['cwd'] = os.getcwd()
         data['system']['hostname'] = socket.gethostname()
+        data['system']['pythonversion'] = '%d.%d.%d' % (sys.version_info.major,
+                                                        sys.version_info.minor,
+                                                        sys.version_info.micro)
         data['system']['platform'] = {}
         data['system']['platform']['system'] = platform.system()
         data['system']['platform']['release'] = platform.release()
