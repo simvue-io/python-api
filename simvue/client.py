@@ -307,6 +307,7 @@ class Simvue(object):
         data['category'] = category
         data['checksum'] = calculate_sha256(filename)
         data['size'] = os.path.getsize(filename)
+        data['originalPath'] = os.path.abspath(os.path.expanduser(os.path.expandvars(filename)))
 
         # Determine mimetype
         if not filetype:
