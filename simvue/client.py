@@ -180,7 +180,7 @@ class Simvue(object):
 
         self._suppress_errors = value
 
-    def metadata(self, metadata):
+    def update_metadata(self, metadata):
         """
         Add/update metadata
         """
