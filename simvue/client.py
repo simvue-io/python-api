@@ -379,7 +379,7 @@ class Simvue(object):
 
         return False
 
-    def add_alert(self, name, type, metric, frequency, window, threshold=None, range_low=None, range_high=None):
+    def add_alert(self, name, type, metric, frequency, window, threshold=None, range_low=None, range_high=None, notification='none'):
         """
         Creates an alert with the specified name (if it doesn't exist) and applies it to the current run
         """
@@ -392,11 +392,15 @@ class Simvue(object):
         if type in ('is outside range', 'is inside range') and (range_low is None or range_high is None):
             raise RuntimeError('range_low and range_high must be defined for the specified alert type')
 
+        if notification not in ('none', 'email'):
+            raise RuntimeError('notification must be either none or email')
+
         alert = {'name': name,
                  'type': type,
                  'metric': metric,
                  'frequency': frequency,
-                 'window': window}
+                 'window': window,
+                 'notification': notification}
 
         if threshold is not None:
             alert['threshold'] = threshold
