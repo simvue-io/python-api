@@ -59,7 +59,7 @@ with Simvue() as run:
         ...
 
         # Send metrics inside main application loop
-        run.log({'loss': 0.5, 'density': 34.4})
+        run.log_metrics({'loss': 0.5, 'density': 34.4})
 	
 	...
 
