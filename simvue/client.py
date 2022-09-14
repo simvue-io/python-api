@@ -2,6 +2,7 @@ import configparser
 import datetime
 import hashlib
 import logging
+import mimetypes
 import os
 import re
 import requests
@@ -285,7 +286,7 @@ class Simvue(object):
                 return True
         return True
 
-    def save(self, filename, category):
+    def save(self, filename, category, filetype=None):
         """
         Upload file
         """
@@ -295,11 +296,33 @@ class Simvue(object):
         if not os.path.isfile(filename):
             raise RuntimeError('File %s does not exist' % filename)
 
+        if filetype:
+            mimetypes_valid = []
+            mimetypes.init()
+            for item in mimetypes.types_map:
+                mimetypes_valid.append(mimetypes.types_map[item])
+
+            if filetype not in mimetypes_valid:
+                raise RuntimeError('Invalid MIME type specified')
+
         data = {}
         data['name'] = os.path.basename(filename)
         data['run'] = self._name
         data['category'] = category
         data['checksum'] = calculate_sha256(filename)
+        data['size'] = os.path.getsize(filename)
+        data['originalPath'] = os.path.abspath(os.path.expanduser(os.path.expandvars(filename)))
+
+        # Determine mimetype
+        if not filetype:
+            mimetypes.init()
+            mimetype = mimetypes.guess_type(filename)[0]
+            if not mimetype:
+                mimetype = 'application/octet-stream'
+        else:
+            mimetype = filetype
+
+        data['type'] = mimetype
 
         # Get presigned URL
         try:
