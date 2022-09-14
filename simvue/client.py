@@ -13,6 +13,8 @@ import time
 import platform
 import randomname
 
+from .config import HeartbeatConfig
+
 SIMVUE_INIT_MISSING = 'initialize a run using init() first'
 
 
@@ -87,8 +89,8 @@ class Simvue(object):
         """
         start = time.time()
         while not self._event.is_set():
-            time.sleep(1)
-            if time.time() - start > 60:
+            time.sleep(HeartbeatConfig.sleep)
+            if time.time() - start > HeartbeatConfig.interval:
                 start = time.time()
                 try:
                     response = requests.put('%s/api/runs/heartbeat' % self._url,
