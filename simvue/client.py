@@ -180,7 +180,7 @@ class Simvue(object):
 
         self._suppress_errors = value
 
-    def metadata(self, metadata):
+    def update_metadata(self, metadata):
         """
         Add/update metadata
         """
@@ -202,7 +202,7 @@ class Simvue(object):
 
         return False
 
-    def event(self, message):
+    def log_event(self, message):
         """
         Write event
         """
@@ -228,7 +228,7 @@ class Simvue(object):
 
         return True
 
-    def log(self, metrics):
+    def log_metrics(self, metrics):
         """
         Write metrics
         """
