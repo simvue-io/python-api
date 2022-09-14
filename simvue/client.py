@@ -9,6 +9,7 @@ import requests
 import socket
 import subprocess
 from threading import Event, Thread
+import sys
 import time
 import platform
 import randomname
@@ -168,6 +169,9 @@ class Simvue(object):
         data['system'] = {}
         data['system']['cwd'] = os.getcwd()
         data['system']['hostname'] = socket.gethostname()
+        data['system']['pythonversion'] = '%d.%d.%d' % (sys.version_info.major,
+                                                        sys.version_info.minor,
+                                                        sys.version_info.micro)
         data['system']['platform'] = {}
         data['system']['platform']['system'] = platform.system()
         data['system']['platform']['release'] = platform.release()
@@ -212,7 +216,7 @@ class Simvue(object):
 
         self._suppress_errors = value
 
-    def metadata(self, metadata):
+    def update_metadata(self, metadata):
         """
         Add/update metadata
         """
@@ -234,7 +238,7 @@ class Simvue(object):
 
         return False
 
-    def event(self, message):
+    def log_event(self, message):
         """
         Write event
         """
@@ -260,7 +264,7 @@ class Simvue(object):
 
         return True
 
-    def log(self, metrics):
+    def log_metrics(self, metrics):
         """
         Write metrics
         """
@@ -411,7 +415,7 @@ class Simvue(object):
 
         return False
 
-    def add_alert(self, name, type, metric, frequency, window, threshold=None, range_low=None, range_high=None):
+    def add_alert(self, name, type, metric, frequency, window, threshold=None, range_low=None, range_high=None, notification='none'):
         """
         Creates an alert with the specified name (if it doesn't exist) and applies it to the current run
         """
@@ -424,11 +428,15 @@ class Simvue(object):
         if type in ('is outside range', 'is inside range') and (range_low is None or range_high is None):
             raise RuntimeError('range_low and range_high must be defined for the specified alert type')
 
+        if notification not in ('none', 'email'):
+            raise RuntimeError('notification must be either none or email')
+
         alert = {'name': name,
                  'type': type,
                  'metric': metric,
                  'frequency': frequency,
-                 'window': window}
+                 'window': window,
+                 'notification': notification}
 
         if threshold is not None:
             alert['threshold'] = threshold
