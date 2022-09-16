@@ -1,4 +1,7 @@
+
 # Simvue Python client
+
+[![PyPI version shields.io](https://img.shields.io/pypi/v/simvue.svg)](https://pypi.python.org/pypi/ansicolortags/)
 
 Collects metadata, metrics and files from simulations in real time.
 
