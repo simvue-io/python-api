@@ -35,7 +35,8 @@ for filename in INPUT_FILES:
                         metadata[attr] = line.split('%s= ' % attr)[1].strip()
 
 run = Simvue()
-run.init(metadata=metadata, tags=['SU2'])
+run.init(metadata=metadata, tags=['SU2'],
+         description='SU2 tutorial https://su2code.github.io/tutorials/Inviscid_ONERAM6/')
 
 # Save input files
 for input_file in INPUT_FILES:
