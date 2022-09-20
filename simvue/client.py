@@ -83,6 +83,7 @@ class Simvue(object):
         if self._name:
             self.set_status('completed')
             self._send_metrics()
+            self._stop_heartbeat()
 
     def _heartbeat(self):
         """
@@ -383,6 +384,7 @@ class Simvue(object):
         Close the run
         """
         self.set_status('completed')
+        self._stop_heartbeat()
 
     def set_folder_details(self, path, metadata={}, tags=[], description=None):
         """
