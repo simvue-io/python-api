@@ -465,7 +465,7 @@ class SimvueHandler(logging.Handler):
         msg = self.format(record)
 
         try:
-            self._client.event(msg)
+            self._client.log_event(msg)
         except Exception:
             logging.Handler.handleError(self, record)
 
