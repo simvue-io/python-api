@@ -6,4 +6,4 @@ SU2_CFD inv_ONERAM6.cfg &
 echo $! >/tmp/pid.file
 
 # Execute Simvue monitor
-python3 SU.py /tmp/pid.file
+python3 SU2.py /tmp/pid.file
