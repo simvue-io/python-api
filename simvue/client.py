@@ -5,13 +5,13 @@ import logging
 import mimetypes
 import os
 import re
-import requests
 import multiprocessing
 import socket
 import subprocess
 import sys
 import time
 import platform
+import requests
 import randomname
 
 from .worker import Worker
