@@ -3,6 +3,7 @@ import sys
 import time
 import threading
 import requests
+import msgpack
 
 HEARTBEAT_INTERVAL = 60
 POLLING_INTERVAL = 2
@@ -15,7 +16,8 @@ class Worker(threading.Thread):
         self._events_queue = events_queue
         self._name = name
         self._url = url
-        self._headers = headers
+        self._headers = headers.copy()
+        self._headers['Content-Type'] = 'application/msgpack'
 
     def run(self):
         last_heartbeat = 0
@@ -37,7 +39,8 @@ class Worker(threading.Thread):
 
             if buffer:
                 try:
-                    response = requests.post('%s/api/metrics' % self._url, headers=self._headers, json=buffer)
+                    buffer = msgpack.packb(buffer, use_bin_type=True)
+                    response = requests.post('%s/api/metrics' % self._url, headers=self._headers, data=buffer)
                 except:
                     pass
 
@@ -50,7 +53,8 @@ class Worker(threading.Thread):
 
             if buffer:
                 try:
-                    requests.post('%s/api/events' % self._url, headers=self._headers, json=buffer)
+                    buffer = msgpack.packb(buffer, use_bin_type=True)
+                    requests.post('%s/api/events' % self._url, headers=self._headers, data=buffer)
                 except:
                     pass
 
