@@ -6,7 +6,7 @@ import requests
 import msgpack
 
 HEARTBEAT_INTERVAL = 60
-POLLING_INTERVAL = 2
+POLLING_INTERVAL = 1
 
 class Worker(threading.Thread):
     def __init__(self, metrics_queue, events_queue, name, url, headers):
