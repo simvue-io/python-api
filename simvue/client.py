@@ -13,7 +13,6 @@ import sys
 import time
 import platform
 import randomname
-import threading
 
 from .worker import Worker
 
