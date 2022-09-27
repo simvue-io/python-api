@@ -6,15 +6,74 @@ import mimetypes
 import os
 import re
 import requests
+import multiprocessing
 import socket
 import subprocess
 import sys
 import time
 import platform
 import randomname
+import threading
 
 SIMVUE_INIT_MISSING = 'initialize a run using init() first'
 
+class Worker(threading.Thread):
+    def __init__(self, metrics_queue, events_queue, name, url, headers):
+        threading.Thread.__init__(self)
+        self._parent_thread = threading.currentThread()
+        self._metrics_queue = metrics_queue
+        self._events_queue = events_queue
+        self._name = name
+        self._url = url
+        self._headers = headers
+
+    def run(self):
+        last_heartbeat = 0
+        while True:
+            # Send heartbeat
+            if time.time() - last_heartbeat > 60:
+                try:
+                    requests.put('%s/api/runs/heartbeat' % self._url, headers=self._headers, json={'name': self._name})
+                    last_heartbeat = time.time()
+                except:
+                    pass
+
+            # Send metrics
+            buffer = []
+            while not self._metrics_queue.empty():
+                try:
+                    item = self._metrics_queue.get()
+                    buffer.append(item)
+                    self._metrics_queue.task_done()
+                except queue.Empty:
+                    break
+
+            if buffer:
+                try:
+                    requests.post('%s/api/metrics' % self._url, headers=self._headers, json=buffer)
+                except Exception:
+                    return False 
+
+            # Send events
+            buffer = []
+            while not self._events_queue.empty():
+                try:
+                    item = self._events_queue.get()
+                    buffer.append(item)
+                    self._events_queue.task_done()
+                except queue.Empty:
+                    break
+
+            if buffer:
+                try:
+                    requests.post('%s/api/events' % self._url, headers=self._headers, json=buffer)
+                except Exception:
+                    return False
+
+            if not self._parent_thread.is_alive():
+                sys.exit(0)
+
+            time.sleep(2)
 
 def get_cpu_info():
     """
@@ -80,7 +139,6 @@ class Simvue(object):
     def __exit__(self, type, value, tb):
         if self._name:
             self.set_status('completed')
-            self._send_metrics()
 
     def init(self, name=None, metadata={}, tags=[], description=None, folder='/'):
         """
@@ -93,6 +151,8 @@ class Simvue(object):
         self._data = []
         self._events = []
         self._step = 0
+        self._metrics_queue = multiprocessing.JoinableQueue(maxsize=1000)
+        self._events_queue = multiprocessing.JoinableQueue(maxsize=1000)
 
         # Try environment variables
         token = os.getenv('SIMVUE_TOKEN')
@@ -126,6 +186,8 @@ class Simvue(object):
         self._headers = {"Authorization": "Bearer %s" % token}
         self._name = name
         self._start_time = time.time()
+
+        self._worker = Worker(self._metrics_queue, self._events_queue, name, self._url, self._headers)
 
         data = {'name': name,
                 'metadata': metadata,
@@ -169,6 +231,9 @@ class Simvue(object):
 
         if response.status_code != 200:
             raise RuntimeError('Unable to create run due to: %s', response.text)
+
+        if multiprocessing.current_process()._parent_pid is None:
+            self._worker.start()
 
         return True
 
@@ -218,14 +283,10 @@ class Simvue(object):
         data['message'] = message
         data['timestamp'] = datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S.%f')
 
-        self._events.append(data)
-        if not self._upload_time_event:
-            self._upload_time_event = time.time()
-
-        if time.time() - self._upload_time_event > 60:
-            self._send_events()
-            self._events = []
-            self._upload_time_event = time.time()
+        try:
+            self._events_queue.put(data)
+        except queue.Full:
+            pass
 
         return True
 
@@ -251,39 +312,11 @@ class Simvue(object):
 
         self._step += 1
 
-        self._data.append(data)
-        if not self._upload_time_log:
-            self._upload_time_log = time.time()
+        try:
+            self._metrics_queue.put(data)
+        except queue.Full:
+            pass
 
-        if time.time() - self._upload_time_log > 1:
-            self._send_metrics()
-            self._data = []
-            self._upload_time_log = time.time()
-
-        return True
-
-    def _send_metrics(self):
-        if self._data:
-            try:
-                response = requests.post('%s/api/metrics' % self._url, headers=self._headers, json=self._data)
-                self._data = []
-            except Exception:
-                return False
-
-            if response.status_code == 200:
-                return True
-        return True
-
-    def _send_events(self):
-        if self._events:
-            try:
-                response = requests.post('%s/api/events' % self._url, headers=self._headers, json=self._events)
-                self._events = []
-            except Exception:
-                return False
-
-            if response.status_code == 200:
-                return True
         return True
 
     def save(self, filename, category, filetype=None):
@@ -351,9 +384,6 @@ class Simvue(object):
 
         data = {'name': self._name, 'status': status}
         self._status = status
-
-        self._send_metrics()
-        self._send_events()
 
         try:
             response = requests.put('%s/api/runs' % self._url, headers=self._headers, json=data)
@@ -470,7 +500,7 @@ class SimvueHandler(logging.Handler):
             logging.Handler.handleError(self, record)
 
     def flush(self):
-        self._client._send_events()
+       pass
 
     def close(self):
         pass
