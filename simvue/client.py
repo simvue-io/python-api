@@ -17,7 +17,7 @@ import randomname
 from .worker import Worker
 
 INIT_MISSING = 'initialize a run using init() first'
-QUEUE_SIZE = 1000
+QUEUE_SIZE = 5000
 
 def get_cpu_info():
     """
@@ -228,7 +228,7 @@ class Simvue(object):
 
         try:
             self._events_queue.put(data, block=False)
-        except queue.Full:
+        except multiprocessing.queue.Full:
             pass
 
         return True
@@ -257,7 +257,7 @@ class Simvue(object):
 
         try:
             self._metrics_queue.put(data, block=False)
-        except queue.Full:
+        except multiprocessing.queue.Full:
             pass
 
         return True
