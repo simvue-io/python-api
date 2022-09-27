@@ -76,6 +76,15 @@ class Simvue(object):
     """
     def __init__(self):
         self._name = None
+        self._suppress_errors = False
+        self._status = None
+        self._upload_time_log = None
+        self._upload_time_event = None
+        self._data = []
+        self._events = []
+        self._step = 0
+        self._metrics_queue = multiprocessing.JoinableQueue(maxsize=QUEUE_SIZE)
+        self._events_queue = multiprocessing.JoinableQueue(maxsize=QUEUE_SIZE)
 
     def __enter__(self):
         return self
@@ -88,16 +97,6 @@ class Simvue(object):
         """
         Initialise a run
         """
-        self._suppress_errors = False
-        self._status = None
-        self._upload_time_log = None
-        self._upload_time_event = None
-        self._data = []
-        self._events = []
-        self._step = 0
-        self._metrics_queue = multiprocessing.JoinableQueue(maxsize=QUEUE_SIZE)
-        self._events_queue = multiprocessing.JoinableQueue(maxsize=QUEUE_SIZE)
-
         # Try environment variables
         token = os.getenv('SIMVUE_TOKEN')
         self._url = os.getenv('SIMVUE_URL')
