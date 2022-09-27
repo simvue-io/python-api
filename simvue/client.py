@@ -15,7 +15,7 @@ import platform
 import randomname
 import threading
 
-SIMVUE_INIT_MISSING = 'initialize a run using init() first'
+INIT_MISSING = 'initialize a run using init() first'
 
 class Worker(threading.Thread):
     def __init__(self, metrics_queue, events_queue, name, url, headers):
@@ -251,7 +251,7 @@ class Simvue(object):
         Add/update metadata
         """
         if not self._name:
-            raise RuntimeError(SIMVUE_INIT_MISSING)
+            raise RuntimeError(INIT_MISSING)
 
         if not isinstance(metadata, dict):
             raise RuntimeError('metadata must be a dict')
@@ -273,7 +273,7 @@ class Simvue(object):
         Write event
         """
         if not self._name:
-            raise RuntimeError(SIMVUE_INIT_MISSING)
+            raise RuntimeError(INIT_MISSING)
 
         if self._status:
             raise RuntimeError('Cannot log events after run has ended')
@@ -295,7 +295,7 @@ class Simvue(object):
         Write metrics
         """
         if not self._name:
-            raise RuntimeError(SIMVUE_INIT_MISSING)
+            raise RuntimeError(INIT_MISSING)
 
         if self._status:
             raise RuntimeError('Cannot log metrics after run has ended')
@@ -324,7 +324,7 @@ class Simvue(object):
         Upload file
         """
         if not self._name:
-            raise RuntimeError(SIMVUE_INIT_MISSING)
+            raise RuntimeError(INIT_MISSING)
 
         if not os.path.isfile(filename):
             raise RuntimeError('File %s does not exist' % filename)
