@@ -16,6 +16,9 @@ import randomname
 import threading
 
 INIT_MISSING = 'initialize a run using init() first'
+QUEUE_SIZE = 1000
+HEARTBEAT_INTERVAL = 60
+POLLING_INTERVAL = 2
 
 class Worker(threading.Thread):
     def __init__(self, metrics_queue, events_queue, name, url, headers):
@@ -31,7 +34,7 @@ class Worker(threading.Thread):
         last_heartbeat = 0
         while True:
             # Send heartbeat
-            if time.time() - last_heartbeat > 60:
+            if time.time() - last_heartbeat > HEARTBEAT_INTERVAL:
                 try:
                     requests.put('%s/api/runs/heartbeat' % self._url, headers=self._headers, json={'name': self._name})
                     last_heartbeat = time.time()
@@ -73,7 +76,7 @@ class Worker(threading.Thread):
             if not self._parent_thread.is_alive():
                 sys.exit(0)
 
-            time.sleep(2)
+            time.sleep(POLLING_INTERVAL)
 
 def get_cpu_info():
     """
@@ -151,8 +154,8 @@ class Simvue(object):
         self._data = []
         self._events = []
         self._step = 0
-        self._metrics_queue = multiprocessing.JoinableQueue(maxsize=1000)
-        self._events_queue = multiprocessing.JoinableQueue(maxsize=1000)
+        self._metrics_queue = multiprocessing.JoinableQueue(maxsize=QUEUE_SIZE)
+        self._events_queue = multiprocessing.JoinableQueue(maxsize=QUEUE_SIZE)
 
         # Try environment variables
         token = os.getenv('SIMVUE_TOKEN')
