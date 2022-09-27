@@ -45,7 +45,7 @@ class Worker(threading.Thread):
             buffer = []
             while not self._metrics_queue.empty():
                 try:
-                    item = self._metrics_queue.get()
+                    item = self._metrics_queue.get(block=False)
                     buffer.append(item)
                     self._metrics_queue.task_done()
                 except queue.Empty:
@@ -61,7 +61,7 @@ class Worker(threading.Thread):
             buffer = []
             while not self._events_queue.empty():
                 try:
-                    item = self._events_queue.get()
+                    item = self._events_queue.get(block=False)
                     buffer.append(item)
                     self._events_queue.task_done()
                 except queue.Empty:
@@ -287,7 +287,7 @@ class Simvue(object):
         data['timestamp'] = datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S.%f')
 
         try:
-            self._events_queue.put(data)
+            self._events_queue.put(data, block=False)
         except queue.Full:
             pass
 
@@ -316,7 +316,7 @@ class Simvue(object):
         self._step += 1
 
         try:
-            self._metrics_queue.put(data)
+            self._metrics_queue.put(data, block=False)
         except queue.Full:
             pass
 
