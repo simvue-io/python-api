@@ -4,6 +4,7 @@ import time
 import threading
 import requests
 import msgpack
+from tenacity import retry, wait_exponential, stop_after_attempt
 
 HEARTBEAT_INTERVAL = 60
 POLLING_INTERVAL = 1
@@ -16,8 +17,19 @@ class Worker(threading.Thread):
         self._events_queue = events_queue
         self._name = name
         self._url = url
-        self._headers = headers.copy()
-        self._headers['Content-Type'] = 'application/msgpack'
+        self._headers = headers
+        self._headers_mp = headers.copy()
+        self._headers_mp['Content-Type'] = 'application/msgpack'
+
+    @retry(wait=wait_exponential(multiplier=1, min=4, max=10), stop=stop_after_attempt(5))
+    def heartbeat(self):
+        response = requests.put('%s/api/runs/heartbeat' % self._url, headers=self._headers, json={'name': self._name})
+        response.raise_for_status()
+   
+    @retry(wait=wait_exponential(multiplier=1, min=4, max=10), stop=stop_after_attempt(5))
+    def post(self, endpoint, data):
+        response = requests.post('%s/api/%s' % (self._url, endpoint), headers=self._headers_mp, data=data)
+        response.raise_for_status()
 
     def run(self):
         last_heartbeat = 0
@@ -25,10 +37,11 @@ class Worker(threading.Thread):
             # Send heartbeat
             if time.time() - last_heartbeat > HEARTBEAT_INTERVAL:
                 try:
-                    requests.put('%s/api/runs/heartbeat' % self._url, headers=self._headers, json={'name': self._name})
-                    last_heartbeat = time.time()
+                    self.heartbeat()
                 except:
                     pass
+                last_heartbeat = time.time()
+   
 
             # Send metrics
             buffer = []
@@ -39,10 +52,10 @@ class Worker(threading.Thread):
 
             if buffer:
                 try:
-                    buffer = msgpack.packb(buffer, use_bin_type=True)
-                    response = requests.post('%s/api/metrics' % self._url, headers=self._headers, data=buffer)
+                    self.post('metrics', msgpack.packb(buffer, use_bin_type=True))
                 except:
                     pass
+                buffer = []
 
             # Send events
             buffer = []
@@ -53,10 +66,10 @@ class Worker(threading.Thread):
 
             if buffer:
                 try:
-                    buffer = msgpack.packb(buffer, use_bin_type=True)
-                    requests.post('%s/api/events' % self._url, headers=self._headers, data=buffer)
+                    self.post('events', msgpack.packb(buffer, use_bin_type=True))
                 except:
                     pass
+                buffer = []
 
             if not self._parent_thread.is_alive():
                 if self._metrics_queue.empty() and self._events_queue.empty():
