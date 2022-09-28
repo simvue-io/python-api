@@ -59,6 +59,7 @@ class Worker(threading.Thread):
                     pass
 
             if not self._parent_thread.is_alive():
-                sys.exit(0)
-
-            time.sleep(POLLING_INTERVAL)
+                if self._metrics_queue.empty() and self._events_queue.empty():
+                    sys.exit(0)
+            else:
+                time.sleep(POLLING_INTERVAL)
