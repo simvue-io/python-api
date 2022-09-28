@@ -77,6 +77,7 @@ class Simvue(object):
     def __init__(self):
         self._name = None
         self._suppress_errors = False
+        self._queue_blocking = False
         self._status = None
         self._upload_time_log = None
         self._upload_time_event = None
@@ -180,14 +181,17 @@ class Simvue(object):
 
         return True
 
-    def config(self, suppress_errors=False):
+    def config(self, suppress_errors=False, queue_blocking=False):
         """
         Optional configuration
         """
         if not isinstance(suppress_errors, bool):
             raise RuntimeError('suppress_errors must be boolean')
-
         self._suppress_errors = suppress_errors
+
+        if not isinstance(queue_blocking, bool):
+            raise RuntimeError('queue_blocking must be boolean')
+        self._queue_blocking = queue_blocking
 
     def update_metadata(self, metadata):
         """
@@ -227,7 +231,7 @@ class Simvue(object):
         data['timestamp'] = datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S.%f')
 
         try:
-            self._events_queue.put(data, block=False)
+            self._events_queue.put(data, block=queue_blocking)
         except multiprocessing.queue.Full:
             pass
 
@@ -256,7 +260,7 @@ class Simvue(object):
         self._step += 1
 
         try:
-            self._metrics_queue.put(data, block=False)
+            self._metrics_queue.put(data, block=queue_blocking)
         except multiprocessing.queue.Full:
             pass
 
