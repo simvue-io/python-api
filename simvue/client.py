@@ -447,7 +447,7 @@ class SimvueHandler(logging.Handler):
             logging.Handler.handleError(self, record)
 
     def flush(self):
-       pass
+        pass
 
     def close(self):
         pass
