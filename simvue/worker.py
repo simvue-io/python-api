@@ -23,15 +23,24 @@ class Worker(threading.Thread):
 
     @retry(wait=wait_exponential(multiplier=1, min=4, max=10), stop=stop_after_attempt(5))
     def heartbeat(self):
+        """
+        Send a heartbeat, with retries
+        """
         response = requests.put('%s/api/runs/heartbeat' % self._url, headers=self._headers, json={'name': self._name})
         response.raise_for_status()
    
     @retry(wait=wait_exponential(multiplier=1, min=4, max=10), stop=stop_after_attempt(5))
     def post(self, endpoint, data):
+        """
+        Send the supplied data, with retries
+        """
         response = requests.post('%s/api/%s' % (self._url, endpoint), headers=self._headers_mp, data=data)
         response.raise_for_status()
 
     def run(self):
+        """
+        Loop sending heartbeats, metrics and events
+        """
         last_heartbeat = 0
         while True:
             # Send heartbeat
