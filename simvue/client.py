@@ -231,7 +231,7 @@ class Simvue(object):
         data['timestamp'] = datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S.%f')
 
         try:
-            self._events_queue.put(data, block=queue_blocking)
+            self._events_queue.put(data, block=self._queue_blocking)
         except multiprocessing.queue.Full:
             pass
 
@@ -260,7 +260,7 @@ class Simvue(object):
         self._step += 1
 
         try:
-            self._metrics_queue.put(data, block=queue_blocking)
+            self._metrics_queue.put(data, block=self._queue_blocking)
         except multiprocessing.queue.Full:
             pass
 
