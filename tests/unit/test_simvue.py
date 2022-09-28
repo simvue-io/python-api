@@ -9,4 +9,4 @@ def test_supress_errors():
     simv = client.Simvue()
 
     with pytest.raises(RuntimeError, match="value must be boolean"):
-        simv.suppress_errors(200)
+        simv.config(suppress_errors=200)
