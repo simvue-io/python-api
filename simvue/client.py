@@ -180,14 +180,14 @@ class Simvue(object):
 
         return True
 
-    def suppress_errors(self, value):
+    def config(self, suppress_errors=False):
         """
-        Specify if errors should raise exceptions or not
+        Optional configuration
         """
-        if not isinstance(value, bool):
-            raise RuntimeError('value must be boolean')
+        if not isinstance(suppress_errors, bool):
+            raise RuntimeError('suppress_errors must be boolean')
 
-        self._suppress_errors = value
+        self._suppress_errors = suppress_errors
 
     def update_metadata(self, metadata):
         """
