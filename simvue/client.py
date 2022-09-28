@@ -1,3 +1,4 @@
+import atexit
 import configparser
 import datetime
 import hashlib
@@ -5,16 +6,19 @@ import logging
 import mimetypes
 import os
 import re
-import requests
+import multiprocessing
 import socket
 import subprocess
 import sys
 import time
 import platform
+import requests
 import randomname
 
-SIMVUE_INIT_MISSING = 'initialize a run using init() first'
+from .worker import Worker
 
+INIT_MISSING = 'initialize a run using init() first'
+QUEUE_SIZE = 5000
 
 def get_cpu_info():
     """
@@ -42,7 +46,9 @@ def get_gpu_info():
     Get GPU info
     """
     try:
-        output = subprocess.check_output(["nvidia-smi", "--query-gpu=name,driver_version", "--format=csv"])
+        output = subprocess.check_output(["nvidia-smi",
+                                          "--query-gpu=name,driver_version",
+                                          "--format=csv"])
         lines = output.split(b'\n')
         tokens = lines[1].split(b', ')
     except Exception:
@@ -73,6 +79,17 @@ class Simvue(object):
     """
     def __init__(self):
         self._name = None
+        self._suppress_errors = False
+        self._queue_blocking = False
+        self._status = None
+        self._upload_time_log = None
+        self._upload_time_event = None
+        self._data = []
+        self._events = []
+        self._step = 0
+        self._metrics_queue = multiprocessing.Manager().Queue(maxsize=QUEUE_SIZE)
+        self._events_queue = multiprocessing.Manager().Queue(maxsize=QUEUE_SIZE)
+        atexit.register(self._terminated)
 
     def __enter__(self):
         return self
@@ -80,20 +97,14 @@ class Simvue(object):
     def __exit__(self, type, value, tb):
         if self._name:
             self.set_status('completed')
-            self._send_metrics()
+
+    def _terminated(self):
+        self.set_status('terminated')
 
     def init(self, name=None, metadata={}, tags=[], description=None, folder='/'):
         """
         Initialise a run
         """
-        self._suppress_errors = False
-        self._status = None
-        self._upload_time_log = None
-        self._upload_time_event = None
-        self._data = []
-        self._events = []
-        self._step = 0
-
         # Try environment variables
         token = os.getenv('SIMVUE_TOKEN')
         self._url = os.getenv('SIMVUE_URL')
@@ -126,6 +137,8 @@ class Simvue(object):
         self._headers = {"Authorization": "Bearer %s" % token}
         self._name = name
         self._start_time = time.time()
+
+        self._worker = Worker(self._metrics_queue, self._events_queue, name, self._url, self._headers)
 
         data = {'name': name,
                 'metadata': metadata,
@@ -170,23 +183,29 @@ class Simvue(object):
         if response.status_code != 200:
             raise RuntimeError('Unable to create run due to: %s', response.text)
 
+        if multiprocessing.current_process()._parent_pid is None:
+            self._worker.start()
+
         return True
 
-    def suppress_errors(self, value):
+    def config(self, suppress_errors=False, queue_blocking=False):
         """
-        Specify if errors should raise exceptions or not
+        Optional configuration
         """
-        if not isinstance(value, bool):
-            raise RuntimeError('value must be boolean')
+        if not isinstance(suppress_errors, bool):
+            raise RuntimeError('suppress_errors must be boolean')
+        self._suppress_errors = suppress_errors
 
-        self._suppress_errors = value
+        if not isinstance(queue_blocking, bool):
+            raise RuntimeError('queue_blocking must be boolean')
+        self._queue_blocking = queue_blocking
 
     def update_metadata(self, metadata):
         """
         Add/update metadata
         """
         if not self._name:
-            raise RuntimeError(SIMVUE_INIT_MISSING)
+            raise RuntimeError(INIT_MISSING)
 
         if not isinstance(metadata, dict):
             raise RuntimeError('metadata must be a dict')
@@ -208,7 +227,7 @@ class Simvue(object):
         Write event
         """
         if not self._name:
-            raise RuntimeError(SIMVUE_INIT_MISSING)
+            raise RuntimeError(INIT_MISSING)
 
         if self._status:
             raise RuntimeError('Cannot log events after run has ended')
@@ -218,14 +237,10 @@ class Simvue(object):
         data['message'] = message
         data['timestamp'] = datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S.%f')
 
-        self._events.append(data)
-        if not self._upload_time_event:
-            self._upload_time_event = time.time()
-
-        if time.time() - self._upload_time_event > 60:
-            self._send_events()
-            self._events = []
-            self._upload_time_event = time.time()
+        try:
+            self._events_queue.put(data, block=self._queue_blocking)
+        except multiprocessing.queue.Full:
+            pass
 
         return True
 
@@ -234,7 +249,7 @@ class Simvue(object):
         Write metrics
         """
         if not self._name:
-            raise RuntimeError(SIMVUE_INIT_MISSING)
+            raise RuntimeError(INIT_MISSING)
 
         if self._status:
             raise RuntimeError('Cannot log metrics after run has ended')
@@ -251,39 +266,11 @@ class Simvue(object):
 
         self._step += 1
 
-        self._data.append(data)
-        if not self._upload_time_log:
-            self._upload_time_log = time.time()
+        try:
+            self._metrics_queue.put(data, block=self._queue_blocking)
+        except multiprocessing.queue.Full:
+            pass
 
-        if time.time() - self._upload_time_log > 1:
-            self._send_metrics()
-            self._data = []
-            self._upload_time_log = time.time()
-
-        return True
-
-    def _send_metrics(self):
-        if self._data:
-            try:
-                response = requests.post('%s/api/metrics' % self._url, headers=self._headers, json=self._data)
-                self._data = []
-            except Exception:
-                return False
-
-            if response.status_code == 200:
-                return True
-        return True
-
-    def _send_events(self):
-        if self._events:
-            try:
-                response = requests.post('%s/api/events' % self._url, headers=self._headers, json=self._events)
-                self._events = []
-            except Exception:
-                return False
-
-            if response.status_code == 200:
-                return True
         return True
 
     def save(self, filename, category, filetype=None):
@@ -291,7 +278,7 @@ class Simvue(object):
         Upload file
         """
         if not self._name:
-            raise RuntimeError(SIMVUE_INIT_MISSING)
+            raise RuntimeError(INIT_MISSING)
 
         if not os.path.isfile(filename):
             raise RuntimeError('File %s does not exist' % filename)
@@ -346,14 +333,11 @@ class Simvue(object):
         """
         Set run status
         """
-        if status not in ('completed', 'failed', 'deleted'):
+        if status not in ('completed', 'failed', 'terminated'):
             raise RuntimeError('invalid status')
 
         data = {'name': self._name, 'status': status}
         self._status = status
-
-        self._send_metrics()
-        self._send_events()
 
         try:
             response = requests.put('%s/api/runs' % self._url, headers=self._headers, json=data)
@@ -470,7 +454,7 @@ class SimvueHandler(logging.Handler):
             logging.Handler.handleError(self, record)
 
     def flush(self):
-        self._client._send_events()
+        pass
 
     def close(self):
         pass
