@@ -1,4 +1,3 @@
-import atexit
 import configparser
 import datetime
 import hashlib
@@ -89,7 +88,6 @@ class Simvue(object):
         self._step = 0
         self._metrics_queue = multiprocessing.Manager().Queue(maxsize=QUEUE_SIZE)
         self._events_queue = multiprocessing.Manager().Queue(maxsize=QUEUE_SIZE)
-        atexit.register(self._terminated)
 
     def __enter__(self):
         return self
@@ -97,9 +95,6 @@ class Simvue(object):
     def __exit__(self, type, value, tb):
         if self._name:
             self.set_status('completed')
-
-    def _terminated(self):
-        self.set_status('terminated')
 
     def init(self, name=None, metadata={}, tags=[], description=None, folder='/'):
         """
