@@ -83,8 +83,8 @@ class Simvue(object):
         self._data = []
         self._events = []
         self._step = 0
-        self._metrics_queue = multiprocessing.JoinableQueue(maxsize=QUEUE_SIZE)
-        self._events_queue = multiprocessing.JoinableQueue(maxsize=QUEUE_SIZE)
+        self._metrics_queue = multiprocessing.Manager().Queue(maxsize=QUEUE_SIZE)
+        self._events_queue = multiprocessing.Manager().Queue(maxsize=QUEUE_SIZE)
 
     def __enter__(self):
         return self
