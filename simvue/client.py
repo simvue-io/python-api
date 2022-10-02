@@ -9,7 +9,7 @@ import multiprocessing
 import socket
 import subprocess
 import sys
-import time
+import time as tm
 import platform
 import requests
 import randomname
@@ -131,7 +131,7 @@ class Simvue(object):
 
         self._headers = {"Authorization": "Bearer %s" % token}
         self._name = name
-        self._start_time = time.time()
+        self._start_time = tm.time()
 
         self._worker = Worker(self._metrics_queue, self._events_queue, name, self._url, self._headers)
 
@@ -239,7 +239,7 @@ class Simvue(object):
 
         return True
 
-    def log_metrics(self, metrics):
+    def log_metrics(self, metrics, time=None, timestamp=None):
         """
         Write metrics
         """
@@ -255,8 +255,12 @@ class Simvue(object):
         data = {}
         data['run'] = self._name
         data['values'] = metrics
-        data['time'] = time.time() - self._start_time
+        data['time'] = tm.time() - self._start_time
+        if time is not None:
+            data['time'] = time
         data['timestamp'] = datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S.%f')
+        if timestamp is not None:
+            data['timestamp'] = timestamp
         data['step'] = self._step
 
         self._step += 1
