@@ -72,6 +72,18 @@ def calculate_sha256(filename):
     return None
 
 
+def validate_timestamp(timestamp):
+    """
+    Validate a user-provided timestamp
+    """
+    try:
+        datetime.datetime.strptime(timestamp, '%Y-%m-%d %H:%M:%S.%f')
+    except ValueError:
+        return False
+
+    return True
+
+
 class Simvue(object):
     """
     Track simulation details based on token and URL
@@ -232,7 +244,10 @@ class Simvue(object):
         data['message'] = message
         data['timestamp'] = datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S.%f')
         if timestamp is not None:
-            data['timestamp'] = timestamp
+            if validate_timestamp(timestamp):
+                data['timestamp'] = timestamp
+            else:
+                raise RuntimeError('Invalid timestamp format')
 
         try:
             self._events_queue.put(data, block=self._queue_blocking)
@@ -262,7 +277,10 @@ class Simvue(object):
             data['time'] = time
         data['timestamp'] = datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S.%f')
         if timestamp is not None:
-            data['timestamp'] = timestamp
+            if validate_timestamp(timestamp):
+                data['timestamp'] = timestamp
+            else:
+                raise RuntimeError('Invalid timestamp format')
         data['step'] = self._step
 
         self._step += 1
