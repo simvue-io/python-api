@@ -217,7 +217,7 @@ class Simvue(object):
 
         return False
 
-    def log_event(self, message):
+    def log_event(self, message, timestamp=None):
         """
         Write event
         """
@@ -231,6 +231,8 @@ class Simvue(object):
         data['run'] = self._name
         data['message'] = message
         data['timestamp'] = datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S.%f')
+        if timestamp is not None:
+            data['timestamp'] = timestamp
 
         try:
             self._events_queue.put(data, block=self._queue_blocking)
