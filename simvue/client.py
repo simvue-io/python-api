@@ -17,7 +17,7 @@ import randomname
 from .worker import Worker
 
 INIT_MISSING = 'initialize a run using init() first'
-QUEUE_SIZE = 5000
+QUEUE_SIZE = 10000
 
 def get_cpu_info():
     """
