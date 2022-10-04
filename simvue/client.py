@@ -98,6 +98,7 @@ class Simvue(object):
         self._data = []
         self._events = []
         self._step = 0
+        self._queue_size = QUEUE_SIZE
         self._metrics_queue = None
         self._events_queue = None
 
