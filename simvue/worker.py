@@ -7,6 +7,7 @@ from tenacity import retry, wait_exponential, stop_after_attempt
 
 HEARTBEAT_INTERVAL = 60
 POLLING_INTERVAL = 1
+MAX_BUFFER_SEND = 5000
 
 class Worker(threading.Thread):
     def __init__(self, metrics_queue, events_queue, name, url, headers):
@@ -56,7 +57,7 @@ class Worker(threading.Thread):
 
             # Send metrics
             buffer = []
-            while not self._metrics_queue.empty():
+            while not self._metrics_queue.empty() and len(buffer) < MAX_BUFFER_SEND:
                 item = self._metrics_queue.get(block=False)
                 buffer.append(item)
                 self._metrics_queue.task_done()
@@ -70,7 +71,7 @@ class Worker(threading.Thread):
 
             # Send events
             buffer = []
-            while not self._events_queue.empty():
+            while not self._events_queue.empty() and len(buffer) < MAX_BUFFER_SEND:
                 item = self._events_queue.get(block=False)
                 buffer.append(item)
                 self._events_queue.task_done()
