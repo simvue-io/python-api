@@ -62,8 +62,8 @@ def calculate_sha256(filename):
     """
     sha256_hash = hashlib.sha256()
     try:
-        with open(filename, "rb") as f:
-            for byte_block in iter(lambda: f.read(4096), b""):
+        with open(filename, "rb") as fd:
+            for byte_block in iter(lambda: fd.read(4096), b""):
                 sha256_hash.update(byte_block)
             return sha256_hash.hexdigest()
     except Exception:
