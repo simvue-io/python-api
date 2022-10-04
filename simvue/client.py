@@ -98,8 +98,8 @@ class Simvue(object):
         self._data = []
         self._events = []
         self._step = 0
-        self._metrics_queue = multiprocessing.Manager().Queue(maxsize=QUEUE_SIZE)
-        self._events_queue = multiprocessing.Manager().Queue(maxsize=QUEUE_SIZE)
+        self._metrics_queue = None
+        self._events_queue = None
 
     def __enter__(self):
         return self
@@ -145,6 +145,8 @@ class Simvue(object):
         self._name = name
         self._start_time = tm.time()
 
+        self._metrics_queue = multiprocessing.Manager().Queue(maxsize=self._queue_size)
+        self._events_queue = multiprocessing.Manager().Queue(maxsize=self._queue_size)
         self._worker = Worker(self._metrics_queue, self._events_queue, name, self._url, self._headers)
 
         data = {'name': name,
@@ -195,7 +197,10 @@ class Simvue(object):
 
         return True
 
-    def config(self, suppress_errors=False, queue_blocking=False):
+    def config(self,
+               suppress_errors=False,
+               queue_blocking=False,
+               queue_size=QUEUE_SIZE):
         """
         Optional configuration
         """
@@ -206,6 +211,10 @@ class Simvue(object):
         if not isinstance(queue_blocking, bool):
             raise RuntimeError('queue_blocking must be boolean')
         self._queue_blocking = queue_blocking
+
+        if not isinstance(queue_size, int):
+            raise RuntimeError('queue_size must be an integer')
+        self._queue_size = queue_size
 
     def update_metadata(self, metadata):
         """
