@@ -1,3 +1,4 @@
+from concurrent.futures import ProcessPoolExecutor
 import configparser
 import datetime
 import hashlib
@@ -18,6 +19,25 @@ from .worker import Worker
 
 INIT_MISSING = 'initialize a run using init() first'
 QUEUE_SIZE = 10000
+CONCURRENT_DOWNLOADS = 10
+
+def downloader(job):
+    """
+    Download the specified file to the specified directory
+    """
+    try:
+        response = requests.get(job['url'], stream=True, timeout=30)
+    except requests.exceptions.RequestException as err:
+        return
+
+    total_length = response.headers.get('content-length')
+
+    with open('%s/%s' % (job['path'], job['filename']), 'wb') as fh:
+        if total_length is None:
+            fh.write(response.content)
+        else:
+            for data in response.iter_content(chunk_size=8192):
+                fh.write(data)
 
 def get_cpu_info():
     """
@@ -102,17 +122,6 @@ class Simvue(object):
         self._metrics_queue = None
         self._events_queue = None
 
-    def __enter__(self):
-        return self
-
-    def __exit__(self, type, value, tb):
-        if self._name:
-            self.set_status('completed')
-
-    def init(self, name=None, metadata={}, tags=[], description=None, folder='/'):
-        """
-        Initialise a run
-        """
         # Try environment variables
         token = os.getenv('SIMVUE_TOKEN')
         self._url = os.getenv('SIMVUE_URL')
@@ -127,6 +136,19 @@ class Simvue(object):
             except Exception:
                 pass
 
+        self._headers = {"Authorization": "Bearer %s" % token}
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, type, value, tb):
+        if self._name:
+            self.set_status('completed')
+
+    def init(self, name=None, metadata={}, tags=[], description=None, folder='/'):
+        """
+        Initialise a run
+        """
         if not name:
             name = randomname.get_name()
 
@@ -142,7 +164,6 @@ class Simvue(object):
         if not isinstance(metadata, dict):
             raise RuntimeError('metadata must be a dict')
 
-        self._headers = {"Authorization": "Bearer %s" % token}
         self._name = name
         self._start_time = tm.time()
 
@@ -491,6 +512,65 @@ class Simvue(object):
         if response.status_code == 200:
             return True
 
+    def list_artifacts(self, run, category=None):
+        """
+        List artifacts associated with a run
+        """
+        data = {'run': run}
+
+        try:
+            response = requests.get('%s/api/artifacts' % self._url, headers=self._headers, json=data)
+        except:
+            return None
+
+        if response.status_code == 200:
+            return response.json()
+
+        return None
+
+    def get_artifact_as_file(self, run, name, path='./'):
+        """
+        Download an artifact
+        """
+        data = {'run': run, 'name': name}
+
+        try:
+            response = requests.get('%s/api/artifacts' % self._url, headers=self._headers, json=data)
+        except:
+            return None
+
+        if response.status_code == 200:
+            url = response.json()['url']
+            downloader({'url': url,
+                        'filename': os.path.basename(name),
+                        'path': path})
+
+    def get_artifacts(self, run, category=None):
+        """
+        Get all artifacts associated with a run
+        """
+        data = {'run': run}
+        if category:
+            data['category'] = category
+
+        try:
+            response = requests.get('%s/api/artifacts' % self._url, headers=self._headers, json=data)
+        except:
+            return None
+
+        if response.status_code == 200:
+            downloads = []
+            for item in response.json():
+                job = {}
+                job['url'] = item['url']
+                job['filename'] = os.path.basename(item['name'])
+                job['path'] = os.path.dirname(item['name'])
+                os.makedirs(job['path'], exist_ok=True)
+                downloads.append(job)
+                
+            with ProcessPoolExecutor(CONCURRENT_DOWNLOADS) as executor:
+                executor.submit(downloader, item) for item in downloads
+                
 
 class SimvueHandler(logging.Handler):
     """
