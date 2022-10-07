@@ -302,7 +302,7 @@ class Simvue(object):
 
         return True
 
-    def save(self, filename, category, filetype=None):
+    def save(self, filename, category, filetype=None, preserve_path=False):
         """
         Upload file
         """
@@ -322,7 +322,10 @@ class Simvue(object):
                 raise RuntimeError('Invalid MIME type specified')
 
         data = {}
-        data['name'] = os.path.basename(filename)
+        if preserve_path:
+            data['name'] = filename
+        else:
+            data['name'] = os.path.basename(filename)
         data['run'] = self._name
         data['category'] = category
         data['checksum'] = calculate_sha256(filename)
@@ -343,7 +346,7 @@ class Simvue(object):
         # Get presigned URL
         try:
             resp = requests.post('%s/api/data' % self._url, headers=self._headers, json=data)
-        except Exception:
+        except:
             return False
 
         if 'url' in resp.json():
@@ -353,8 +356,34 @@ class Simvue(object):
                     response = requests.put(resp.json()['url'], data=fh, timeout=30)
                     if response.status_code != 200:
                         return False
-            except Exception:
+            except:
                 return False
+
+        return True
+
+    def save_directory(self, directory, category, filetype=None, preserve_path=False):
+        """
+        Upload a whole directory
+        """
+        if not self._name:
+            raise RuntimeError(INIT_MISSING)
+
+        if not os.path.isdir(directory):
+            raise RuntimeError('Directory %s does not exist' % directory)
+
+        if filetype:
+            mimetypes_valid = []
+            mimetypes.init()
+            for item in mimetypes.types_map:
+                mimetypes_valid.append(mimetypes.types_map[item])
+
+            if filetype not in mimetypes_valid:
+                raise RuntimeError('Invalid MIME type specified')
+
+        for filename in os.listdir(directory):
+            path = os.path.join(directory, filename)
+            if os.path.isfile(path):
+                self.save(path, category, filetype, preserve_path)
 
         return True
 
