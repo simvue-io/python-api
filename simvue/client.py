@@ -282,7 +282,7 @@ class Simvue(object):
 
         try:
             self._events_queue.put(data, block=self._queue_blocking)
-        except multiprocessing.queue.Full:
+        except:
             pass
 
         return True
@@ -318,7 +318,7 @@ class Simvue(object):
 
         try:
             self._metrics_queue.put(data, block=self._queue_blocking)
-        except multiprocessing.queue.Full:
+        except:
             pass
 
         return True
