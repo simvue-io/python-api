@@ -545,14 +545,14 @@ class Simvue(object):
                         'filename': os.path.basename(name),
                         'path': path})
 
-    def get_artifacts(self,
-                      run,
-                      category=None,
-                      startswith=None,
-                      contains=None,
-                      endswith=None):
+    def get_artifacts_as_files(self,
+                               run,
+                               category=None,
+                               startswith=None,
+                               contains=None,
+                               endswith=None):
         """
-        Get artifacts associated with a run
+        Get artifacts associated with a run & save as files
         """
         params = {'run': run}
         if category:
