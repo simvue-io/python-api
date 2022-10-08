@@ -545,9 +545,14 @@ class Simvue(object):
                         'filename': os.path.basename(name),
                         'path': path})
 
-    def get_artifacts(self, run, category=None, startswith=None):
+    def get_artifacts(self,
+                      run,
+                      category=None,
+                      startswith=None,
+                      contains=None,
+                      endswith=None):
         """
-        Get all artifacts associated with a run
+        Get artifacts associated with a run
         """
         params = {'run': run}
         if category:
@@ -564,6 +569,13 @@ class Simvue(object):
                 if startswith:
                     if not item['name'].startswith(startswith):
                         continue
+                if contains:
+                    if contains not in item['name']:
+                        continue
+                if endswith:
+                    if not item['name'].endswith(endswith):
+                        continue
+
                 job = {}
                 job['url'] = item['url']
                 job['filename'] = os.path.basename(item['name'])
