@@ -27,7 +27,7 @@ def downloader(job):
     """
     try:
         response = requests.get(job['url'], stream=True, timeout=30)
-    except requests.exceptions.RequestException as err:
+    except requests.exceptions.RequestException:
         return
 
     total_length = response.headers.get('content-length')
@@ -123,20 +123,20 @@ class Simvue(object):
         self._events_queue = None
 
         # Try environment variables
-        token = os.getenv('SIMVUE_TOKEN')
+        self._token = os.getenv('SIMVUE_TOKEN')
         self._url = os.getenv('SIMVUE_URL')
 
-        if not token or not self._url:
+        if not self._token or not self._url:
             # Try config file
             try:
                 config = configparser.ConfigParser()
                 config.read('simvue.ini')
-                token = config.get('server', 'token')
+                self._token = config.get('server', 'token')
                 self._url = config.get('server', 'url')
             except Exception:
                 pass
 
-        self._headers = {"Authorization": "Bearer %s" % token}
+        self._headers = {"Authorization": "Bearer %s" % self._token}
 
     def __enter__(self):
         return self
@@ -152,7 +152,7 @@ class Simvue(object):
         if not name:
             name = randomname.get_name()
 
-        if not token or not self._url:
+        if not self._token or not self._url:
             raise RuntimeError('Unable to get URL and token from environment variables or config file')
 
         if not re.match(r'^[a-zA-Z0-9\-\_\s\/\.:]+$', name):
@@ -516,10 +516,10 @@ class Simvue(object):
         """
         List artifacts associated with a run
         """
-        data = {'run': run}
+        params = {'run': run}
 
         try:
-            response = requests.get('%s/api/artifacts' % self._url, headers=self._headers, json=data)
+            response = requests.get('%s/api/artifacts' % self._url, headers=self._headers, params=params)
         except:
             return None
 
@@ -545,31 +545,38 @@ class Simvue(object):
                         'filename': os.path.basename(name),
                         'path': path})
 
-    def get_artifacts(self, run, category=None):
+    def get_artifacts(self, run, category=None, startswith=None):
         """
         Get all artifacts associated with a run
         """
-        data = {'run': run}
+        params = {'run': run}
         if category:
-            data['category'] = category
+            params['category'] = category
 
         try:
-            response = requests.get('%s/api/artifacts' % self._url, headers=self._headers, json=data)
+            response = requests.get('%s/api/artifacts' % self._url, headers=self._headers, params=params)
         except:
             return None
 
         if response.status_code == 200:
             downloads = []
             for item in response.json():
+                if startswith:
+                    if not item['name'].startswith(startswith):
+                        continue
                 job = {}
                 job['url'] = item['url']
                 job['filename'] = os.path.basename(item['name'])
                 job['path'] = os.path.dirname(item['name'])
-                os.makedirs(job['path'], exist_ok=True)
+                if job['path']:
+                    os.makedirs(job['path'], exist_ok=True)
+                else:
+                    job['path'] = './'
                 downloads.append(job)
                 
             with ProcessPoolExecutor(CONCURRENT_DOWNLOADS) as executor:
-                executor.submit(downloader, item) for item in downloads
+                for item in downloads:
+                    executor.submit(downloader, item)
                 
 
 class SimvueHandler(logging.Handler):
