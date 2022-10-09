@@ -248,11 +248,30 @@ class Simvue(object):
         if not isinstance(metadata, dict):
             raise RuntimeError('metadata must be a dict')
 
-        data = {'run': self._name, 'metadata': metadata}
+        data = {'name': self._name, 'metadata': metadata}
 
         try:
-            response = requests.put('%s/runs' % self._url, headers=self._headers, json=data)
+            response = requests.put('%s/api/runs' % self._url, headers=self._headers, json=data)
         except Exception:
+            return False
+
+        if response.status_code == 200:
+            return True
+
+        return False
+
+    def update_tags(self, tags):
+        """
+        Add/update tags
+        """
+        if not self._name:
+            raise RuntimeError(INIT_MISSING)
+
+        data = {'name': self._name, 'tags': tags}
+
+        try:
+            response = requests.put('%s/api/runs' % self._url, headers=self._headers, json=data)
+        except:
             return False
 
         if response.status_code == 200:
