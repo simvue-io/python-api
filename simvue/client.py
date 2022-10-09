@@ -39,6 +39,11 @@ def downloader(job):
             for data in response.iter_content(chunk_size=8192):
                 fh.write(data)
 
+def walk_through_files(path):
+    for (dirpath, dirnames, filenames) in os.walk(path):
+        for filename in filenames:
+            yield os.path.join(dirpath, filename)
+
 def get_cpu_info():
     """
     Get CPU info
@@ -422,10 +427,9 @@ class Simvue(object):
             if filetype not in mimetypes_valid:
                 raise RuntimeError('Invalid MIME type specified')
 
-        for filename in os.listdir(directory):
-            path = os.path.join(directory, filename)
-            if os.path.isfile(path):
-                self.save(path, category, filetype, preserve_path)
+        for filename in walk_through_files(directory):
+            if os.path.isfile(filename):
+                self.save(filename, category, filetype, preserve_path)
 
         return True
 
