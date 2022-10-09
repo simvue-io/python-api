@@ -364,6 +364,8 @@ class Simvue(object):
         data = {}
         if preserve_path:
             data['name'] = filename
+            if data['name'].startswith('./'):
+                data['name'] = data['name'][2:]
         else:
             data['name'] = os.path.basename(filename)
         data['run'] = self._name
@@ -566,6 +568,7 @@ class Simvue(object):
 
     def get_artifacts_as_files(self,
                                run,
+                               path=None,
                                category=None,
                                startswith=None,
                                contains=None,
@@ -581,6 +584,9 @@ class Simvue(object):
             response = requests.get('%s/api/artifacts' % self._url, headers=self._headers, params=params)
         except:
             return None
+
+        if not path:
+            path = './'
 
         if response.status_code == 200:
             downloads = []
@@ -598,11 +604,11 @@ class Simvue(object):
                 job = {}
                 job['url'] = item['url']
                 job['filename'] = os.path.basename(item['name'])
-                job['path'] = os.path.dirname(item['name'])
+                job['path'] = '%s/%s' % (path, os.path.dirname(item['name']))
                 if job['path']:
                     os.makedirs(job['path'], exist_ok=True)
                 else:
-                    job['path'] = './'
+                    job['path'] = path
                 downloads.append(job)
                 
             with ProcessPoolExecutor(CONCURRENT_DOWNLOADS) as executor:
