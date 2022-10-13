@@ -433,6 +433,18 @@ class Simvue(object):
 
         return True
 
+    def save_all(self, items, category, filetype=None, preserve_path=False):
+        """
+        Save the list of files and/or directories
+        """
+        for item in items:
+            if os.path.isfile(item):
+                self.save(item, category, filetype, preserve_path)
+            elif os.path.isdir(item):
+                self.save_directory(item, category, filetype, preserve_path)
+            else:
+                raise RuntimeError('%s: No such file or directory' % item)
+
     def set_status(self, status):
         """
         Set run status
