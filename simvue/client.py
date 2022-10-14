@@ -221,7 +221,8 @@ class Simvue(object):
 
         data = {'name': name,
                 'metadata': metadata,
-                'tags': tags}
+                'tags': tags,
+                'system': {}}
 
         if description:
             data['description'] = description
