@@ -150,7 +150,54 @@ class Simvue(object):
         if self._name:
             self.set_status('completed')
 
-    def init(self, name=None, metadata={}, tags=[], description=None, folder='/'):
+    def _get_system(self):
+        """
+        Get system details
+        """
+        cpu = get_cpu_info()
+        gpu = get_gpu_info()
+
+        system = {}
+        system['cwd'] = os.getcwd()
+        system['hostname'] = socket.gethostname()
+        system['pythonversion'] = '%d.%d.%d' % (sys.version_info.major,
+                                                        sys.version_info.minor,
+                                                        sys.version_info.micro)
+        system['platform'] = {}
+        system['platform']['system'] = platform.system()
+        system['platform']['release'] = platform.release()
+        system['platform']['version'] = platform.version()
+        system['cpu'] = {}
+        system['cpu']['arch'] = cpu[1]
+        system['cpu']['processor'] = cpu[0]
+        system['gpu'] = {}
+        system['gpu']['name'] = gpu['name']
+        system['gpu']['driver'] = gpu['driver_version']
+
+        return system
+
+    def _start(self, reconnect=False):
+        """
+        """
+        data = {'name': self._name, 'status': self._status}
+        if reconnect:
+            data['system'] = self._get_system()
+
+            try:
+                response = requests.put('%s/api/runs' % self._url, headers=self._headers, json=data)
+            except Exception:
+                return False
+
+        self._start_time = tm.time()
+
+        self._metrics_queue = multiprocessing.Manager().Queue(maxsize=self._queue_size)
+        self._events_queue = multiprocessing.Manager().Queue(maxsize=self._queue_size)
+        self._worker = Worker(self._metrics_queue, self._events_queue, self._name, self._url, self._headers)
+
+        if multiprocessing.current_process()._parent_pid is None:
+            self._worker.start()
+
+    def init(self, name=None, metadata={}, tags=[], description=None, folder='/', status='running'):
         """
         Initialise a run
         """
@@ -170,11 +217,7 @@ class Simvue(object):
             raise RuntimeError('metadata must be a dict')
 
         self._name = name
-        self._start_time = tm.time()
-
-        self._metrics_queue = multiprocessing.Manager().Queue(maxsize=self._queue_size)
-        self._events_queue = multiprocessing.Manager().Queue(maxsize=self._queue_size)
-        self._worker = Worker(self._metrics_queue, self._events_queue, name, self._url, self._headers)
+        self._status = status
 
         data = {'name': name,
                 'metadata': metadata,
@@ -183,30 +226,13 @@ class Simvue(object):
         if description:
             data['description'] = description
 
-        cpu = get_cpu_info()
-        gpu = get_gpu_info()
-
-        data['system'] = {}
-        data['system']['cwd'] = os.getcwd()
-        data['system']['hostname'] = socket.gethostname()
-        data['system']['pythonversion'] = '%d.%d.%d' % (sys.version_info.major,
-                                                        sys.version_info.minor,
-                                                        sys.version_info.micro)
-        data['system']['platform'] = {}
-        data['system']['platform']['system'] = platform.system()
-        data['system']['platform']['release'] = platform.release()
-        data['system']['platform']['version'] = platform.version()
-        data['system']['cpu'] = {}
-        data['system']['cpu']['arch'] = cpu[1]
-        data['system']['cpu']['processor'] = cpu[0]
-        data['system']['gpu'] = {}
-        data['system']['gpu']['name'] = gpu['name']
-        data['system']['gpu']['driver'] = gpu['driver_version']
-
         if not folder.startswith('/'):
             raise RuntimeError('the folder must begin with /')
 
         data['folder'] = folder
+
+        if self._status == 'running':
+            data['system'] = self._get_system()
 
         try:
             response = requests.post('%s/api/runs' % self._url, headers=self._headers, json=data)
@@ -219,10 +245,25 @@ class Simvue(object):
         if response.status_code != 200:
             raise RuntimeError('Unable to create run due to: %s', response.text)
 
-        if multiprocessing.current_process()._parent_pid is None:
-            self._worker.start()
+        if self._status == 'running':
+            self._start()
 
         return True
+
+    @property
+    def name(self):
+        """
+        Return the name of the run
+        """
+        return self._name
+
+    def reconnect(self, name):
+        """
+        Reconnect to a run in the created state
+        """
+        self._status = 'running'
+        self._name = name
+        self._start(reconnect=True)
 
     def config(self,
                suppress_errors=False,
@@ -291,8 +332,8 @@ class Simvue(object):
         if not self._name:
             raise RuntimeError(INIT_MISSING)
 
-        if self._status:
-            raise RuntimeError('Cannot log events after run has ended')
+        if self._status != 'running':
+            raise RuntimeError('Cannot log events when not in the running state')
 
         data = {}
         data['run'] = self._name
@@ -318,8 +359,8 @@ class Simvue(object):
         if not self._name:
             raise RuntimeError(INIT_MISSING)
 
-        if self._status:
-            raise RuntimeError('Cannot log metrics after run has ended')
+        if self._status != 'running':
+            raise RuntimeError('Cannot log metrics when not in the running state')
 
         if not isinstance(metrics, dict) and not self._suppress_errors:
             raise RuntimeError('Metrics must be a dict')
