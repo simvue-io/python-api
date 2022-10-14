@@ -222,7 +222,10 @@ class Simvue(object):
         data = {'name': name,
                 'metadata': metadata,
                 'tags': tags,
-                'system': {}}
+                'system': {'cpu': {},
+                           'gpu': {},
+                           'platform': {}},
+                'status': self._status}
 
         if description:
             data['description'] = description
