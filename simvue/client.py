@@ -161,8 +161,8 @@ class Simvue(object):
         system['cwd'] = os.getcwd()
         system['hostname'] = socket.gethostname()
         system['pythonversion'] = '%d.%d.%d' % (sys.version_info.major,
-                                                        sys.version_info.minor,
-                                                        sys.version_info.micro)
+                                                sys.version_info.minor,
+                                                sys.version_info.micro)
         system['platform'] = {}
         system['platform']['system'] = platform.system()
         system['platform']['release'] = platform.release()
