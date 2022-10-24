@@ -157,14 +157,14 @@ class Simvue(object):
         self._metrics_queue = None
         self._events_queue = None
 
-        # Try config file
-        try:
-            config = configparser.ConfigParser()
-            config.read('simvue.ini')
-            self._token = config.get('server', 'token')
-            self._url = config.get('server', 'url')
-        except Exception:
-            pass
+        for filename in (os.path.join(os.path.expanduser("~"), '.simvue.ini'), 'simvue.ini'):
+            try:
+                config = configparser.ConfigParser()
+                config.read(os.path.join(filename))
+                self._token = config.get('server', 'token')
+                self._url = config.get('server', 'url')
+            except Exception:
+                pass
 
         # Try environment variables
         self._token = os.getenv('SIMVUE_TOKEN')
