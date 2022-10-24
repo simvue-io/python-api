@@ -22,13 +22,14 @@ CONCURRENT_DOWNLOADS = 10
 DOWNLOAD_CHUNK_SIZE = 8192
 CHECKSUM_BLOCK_SIZE = 4096
 UPLOAD_TIMEOUT = 30
+DOWNLOAD_TIMEOUT = 30
 
 def downloader(job):
     """
     Download the specified file to the specified directory
     """
     try:
-        response = requests.get(job['url'], stream=True, timeout=30)
+        response = requests.get(job['url'], stream=True, timeout=DOWNLOAD_TIMEOUT)
     except requests.exceptions.RequestException:
         return
 
