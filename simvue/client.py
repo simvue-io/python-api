@@ -84,6 +84,33 @@ def get_gpu_info():
     return {'name': tokens[0].decode(), 'driver_version': tokens[1].decode()}
 
 
+def get_system():
+    """
+    Get system details
+    """
+    cpu = get_cpu_info()
+    gpu = get_gpu_info()
+
+    system = {}
+    system['cwd'] = os.getcwd()
+    system['hostname'] = socket.gethostname()
+    system['pythonversion'] = (f"{sys.version_info.major}."
+                               f"{sys.version_info.minor}."
+                               f"{sys.version_info.micro}")
+    system['platform'] = {}
+    system['platform']['system'] = platform.system()
+    system['platform']['release'] = platform.release()
+    system['platform']['version'] = platform.version()
+    system['cpu'] = {}
+    system['cpu']['arch'] = cpu[1]
+    system['cpu']['processor'] = cpu[0]
+    system['gpu'] = {}
+    system['gpu']['name'] = gpu['name']
+    system['gpu']['driver'] = gpu['driver_version']
+
+    return system
+
+
 def calculate_sha256(filename):
     """
     Calculate sha256 checksum of the specified file
@@ -153,38 +180,12 @@ class Simvue(object):
         if self._name:
             self.set_status('completed')
 
-    def _get_system(self):
-        """
-        Get system details
-        """
-        cpu = get_cpu_info()
-        gpu = get_gpu_info()
-
-        system = {}
-        system['cwd'] = os.getcwd()
-        system['hostname'] = socket.gethostname()
-        system['pythonversion'] = (f"{sys.version_info.major}."
-                                   f"{sys.version_info.minor}."
-                                   f"{sys.version_info.micro}")
-        system['platform'] = {}
-        system['platform']['system'] = platform.system()
-        system['platform']['release'] = platform.release()
-        system['platform']['version'] = platform.version()
-        system['cpu'] = {}
-        system['cpu']['arch'] = cpu[1]
-        system['cpu']['processor'] = cpu[0]
-        system['gpu'] = {}
-        system['gpu']['name'] = gpu['name']
-        system['gpu']['driver'] = gpu['driver_version']
-
-        return system
-
     def _start(self, reconnect=False):
         """
         """
         data = {'name': self._name, 'status': self._status}
         if reconnect:
-            data['system'] = self._get_system()
+            data['system'] = get_system()
 
             try:
                 response = requests.put(f"{self._url}/api/runs", headers=self._headers, json=data)
@@ -239,7 +240,7 @@ class Simvue(object):
         data['folder'] = folder
 
         if self._status == 'running':
-            data['system'] = self._get_system()
+            data['system'] = get_system()
 
         try:
             response = requests.post(f"{self._url}/api/runs" % self._url, headers=self._headers, json=data)
