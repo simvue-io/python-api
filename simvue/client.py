@@ -21,6 +21,7 @@ QUEUE_SIZE = 10000
 CONCURRENT_DOWNLOADS = 10
 DOWNLOAD_CHUNK_SIZE = 8192
 CHECKSUM_BLOCK_SIZE = 4096
+UPLOAD_TIMEOUT = 30
 
 def downloader(job):
     """
@@ -446,7 +447,7 @@ class Simvue(object):
             # Upload file
             try:
                 with open(filename, 'rb') as fh:
-                    response = requests.put(resp.json()['url'], data=fh, timeout=30)
+                    response = requests.put(resp.json()['url'], data=fh, timeout=UPLOAD_TIMEOUT)
                     if response.status_code != 200:
                         return False
             except:
