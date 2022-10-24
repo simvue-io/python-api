@@ -19,6 +19,7 @@ from .worker import Worker
 INIT_MISSING = 'initialize a run using init() first'
 QUEUE_SIZE = 10000
 CONCURRENT_DOWNLOADS = 10
+DOWNLOAD_CHUNK_SIZE = 8192
 
 def downloader(job):
     """
@@ -35,7 +36,7 @@ def downloader(job):
         if total_length is None:
             fh.write(response.content)
         else:
-            for data in response.iter_content(chunk_size=8192):
+            for data in response.iter_content(chunk_size=DOWNLOAD_CHUNK_SIZE):
                 fh.write(data)
 
 def walk_through_files(path):
