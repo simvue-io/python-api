@@ -43,7 +43,7 @@ def downloader(job):
                 fh.write(data)
 
 def walk_through_files(path):
-    for (dirpath, dirnames, filenames) in os.walk(path):
+    for (dirpath, _, filenames) in os.walk(path):
         for filename in filenames:
             yield os.path.join(dirpath, filename)
 
