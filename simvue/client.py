@@ -670,7 +670,7 @@ class Simvue(object):
                 job['filename'] = os.path.basename(item['name'])
                 job['path'] = '%s/%s' % (path, os.path.dirname(item['name']))
 
-                if os.path.isfile('%s/%s' % (job['path'], job['filename'])):
+                if os.path.isfile(os.path.join(job['path'], job['filename'])):
                     continue
 
                 if job['path']:
