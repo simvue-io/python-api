@@ -665,6 +665,10 @@ class Simvue(object):
                 job['url'] = item['url']
                 job['filename'] = os.path.basename(item['name'])
                 job['path'] = '%s/%s' % (path, os.path.dirname(item['name']))
+
+                if os.path.isfile('%s/%s' % (job['path'], job['filename'])):
+                    continue
+
                 if job['path']:
                     os.makedirs(job['path'], exist_ok=True)
                 else:
