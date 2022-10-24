@@ -20,6 +20,7 @@ INIT_MISSING = 'initialize a run using init() first'
 QUEUE_SIZE = 10000
 CONCURRENT_DOWNLOADS = 10
 DOWNLOAD_CHUNK_SIZE = 8192
+CHECKSUM_BLOCK_SIZE = 4096
 
 def downloader(job):
     """
@@ -88,7 +89,7 @@ def calculate_sha256(filename):
     sha256_hash = hashlib.sha256()
     try:
         with open(filename, "rb") as fd:
-            for byte_block in iter(lambda: fd.read(4096), b""):
+            for byte_block in iter(lambda: fd.read(CHECKSUM_BLOCK_SIZE), b""):
                 sha256_hash.update(byte_block)
             return sha256_hash.hexdigest()
     except Exception:
