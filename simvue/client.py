@@ -409,8 +409,8 @@ class Simvue(object):
         if filetype:
             mimetypes_valid = []
             mimetypes.init()
-            for item in mimetypes.types_map:
-                mimetypes_valid.append(mimetypes.types_map[item])
+            for _, value in mimetypes.types_map.items():
+                mimetypes_valid.append(value)
 
             if filetype not in mimetypes_valid:
                 raise RuntimeError('Invalid MIME type specified')
@@ -470,8 +470,8 @@ class Simvue(object):
         if filetype:
             mimetypes_valid = []
             mimetypes.init()
-            for item in mimetypes.types_map:
-                mimetypes_valid.append(mimetypes.types_map[item])
+            for _, value in mimetypes.types_map.items():
+                mimetypes_valid.append(value)
 
             if filetype not in mimetypes_valid:
                 raise RuntimeError('Invalid MIME type specified')
