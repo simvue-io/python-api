@@ -35,7 +35,7 @@ def downloader(job):
 
     total_length = response.headers.get('content-length')
 
-    with open('%s/%s' % (job['path'], job['filename']), 'wb') as fh:
+    with open(os.path.join(job['path'], job['filename']), 'wb') as fh:
         if total_length is None:
             fh.write(response.content)
         else:
@@ -144,7 +144,7 @@ class Simvue(object):
             except Exception:
                 pass
 
-        self._headers = {"Authorization": "Bearer %s" % self._token}
+        self._headers = {"Authorization": f"Bearer {self._token}"}
 
     def __enter__(self):
         return self
@@ -163,9 +163,9 @@ class Simvue(object):
         system = {}
         system['cwd'] = os.getcwd()
         system['hostname'] = socket.gethostname()
-        system['pythonversion'] = '%d.%d.%d' % (sys.version_info.major,
-                                                sys.version_info.minor,
-                                                sys.version_info.micro)
+        system['pythonversion'] = (f"{sys.version_info.major}."
+                                   f"{sys.version_info.minor}."
+                                   f"{sys.version_info.micro}")
         system['platform'] = {}
         system['platform']['system'] = platform.system()
         system['platform']['release'] = platform.release()
@@ -187,7 +187,7 @@ class Simvue(object):
             data['system'] = self._get_system()
 
             try:
-                response = requests.put('%s/api/runs' % self._url, headers=self._headers, json=data)
+                response = requests.put(f"{self._url}/api/runs", headers=self._headers, json=data)
             except Exception:
                 return False
 
@@ -242,15 +242,15 @@ class Simvue(object):
             data['system'] = self._get_system()
 
         try:
-            response = requests.post('%s/api/runs' % self._url, headers=self._headers, json=data)
+            response = requests.post(f"{self._url}/api/runs" % self._url, headers=self._headers, json=data)
         except Exception:
             return False
 
         if response.status_code == 409:
-            raise RuntimeError('Run with name %s already exists' % name)
+            raise RuntimeError(f"Run with name {name} already exists")
 
         if response.status_code != 200:
-            raise RuntimeError('Unable to create run due to: %s', response.text)
+            raise RuntimeError(f"Unable to create run due to: {response.text}")
 
         if self._status == 'running':
             self._start()
@@ -304,7 +304,7 @@ class Simvue(object):
         data = {'name': self._name, 'metadata': metadata}
 
         try:
-            response = requests.put('%s/api/runs' % self._url, headers=self._headers, json=data)
+            response = requests.put(f"{self._url}/api/runs", headers=self._headers, json=data)
         except Exception:
             return False
 
@@ -323,7 +323,7 @@ class Simvue(object):
         data = {'name': self._name, 'tags': tags}
 
         try:
-            response = requests.put('%s/api/runs' % self._url, headers=self._headers, json=data)
+            response = requests.put(f"{self._url}/api/runs", headers=self._headers, json=data)
         except:
             return False
 
@@ -403,7 +403,7 @@ class Simvue(object):
             raise RuntimeError(INIT_MISSING)
 
         if not os.path.isfile(filename):
-            raise RuntimeError('File %s does not exist' % filename)
+            raise RuntimeError(f"File {filename} does not exist")
 
         if filetype:
             mimetypes_valid = []
@@ -440,7 +440,7 @@ class Simvue(object):
 
         # Get presigned URL
         try:
-            resp = requests.post('%s/api/data' % self._url, headers=self._headers, json=data)
+            resp = requests.post(f"{self._url}/api/data", headers=self._headers, json=data)
         except:
             return False
 
@@ -464,7 +464,7 @@ class Simvue(object):
             raise RuntimeError(INIT_MISSING)
 
         if not os.path.isdir(directory):
-            raise RuntimeError('Directory %s does not exist' % directory)
+            raise RuntimeError(f"Directory {directory} does not exist")
 
         if filetype:
             mimetypes_valid = []
@@ -491,7 +491,7 @@ class Simvue(object):
             elif os.path.isdir(item):
                 self.save_directory(item, category, filetype, preserve_path)
             else:
-                raise RuntimeError('%s: No such file or directory' % item)
+                raise RuntimeError(f"{item}: No such file or directory")
 
     def set_status(self, status):
         """
@@ -504,7 +504,7 @@ class Simvue(object):
         self._status = status
 
         try:
-            response = requests.put('%s/api/runs' % self._url, headers=self._headers, json=data)
+            response = requests.put(f"{self._url}/api/runs", headers=self._headers, json=data)
         except Exception:
             return False
 
@@ -541,7 +541,7 @@ class Simvue(object):
             data['description'] = description
 
         try:
-            response = requests.put('%s/api/folders' % self._url, headers=self._headers, json=data)
+            response = requests.put(f"{self._url}/api/folders", headers=self._headers, json=data)
         except Exception:
             return False
 
@@ -580,7 +580,7 @@ class Simvue(object):
             alert['range_high'] = range_high
 
         try:
-            response = requests.post('%s/api/alerts' % self._url, headers=self._headers, json=alert)
+            response = requests.post(f"{self._url}/api/alerts", headers=self._headers, json=alert)
         except Exception:
             return False
 
@@ -590,7 +590,7 @@ class Simvue(object):
         data = {'name': self._name, 'alert': name}
 
         try:
-            response = requests.put('%s/api/runs' % self._url, headers=self._headers, json=data)
+            response = requests.put(f"{self._url}/api/runs", headers=self._headers, json=data)
         except Exception:
             return False
 
@@ -604,7 +604,7 @@ class Simvue(object):
         params = {'run': run}
 
         try:
-            response = requests.get('%s/api/artifacts' % self._url, headers=self._headers, params=params)
+            response = requests.get(f"{self._url}/api/artifacts", headers=self._headers, params=params)
         except:
             return None
 
@@ -620,7 +620,7 @@ class Simvue(object):
         data = {'run': run, 'name': name}
 
         try:
-            response = requests.get('%s/api/artifacts' % self._url, headers=self._headers, json=data)
+            response = requests.get(f"{self._url}/api/artifacts", headers=self._headers, json=data)
         except:
             return None
 
@@ -645,7 +645,7 @@ class Simvue(object):
             params['category'] = category
 
         try:
-            response = requests.get('%s/api/artifacts' % self._url, headers=self._headers, params=params)
+            response = requests.get(f"{self._url}/api/artifacts", headers=self._headers, params=params)
         except:
             return None
 
@@ -668,7 +668,7 @@ class Simvue(object):
                 job = {}
                 job['url'] = item['url']
                 job['filename'] = os.path.basename(item['name'])
-                job['path'] = '%s/%s' % (path, os.path.dirname(item['name']))
+                job['path'] = os.path.join(path, os.path.dirname(item['name']))
 
                 if os.path.isfile(os.path.join(job['path'], job['filename'])):
                     continue
