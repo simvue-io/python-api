@@ -26,7 +26,7 @@ class Worker(threading.Thread):
         """
         Send a heartbeat, with retries
         """
-        response = requests.put('%s/api/runs/heartbeat' % self._url,
+        response = requests.put(f"{self._url}/api/runs/heartbeat",
                                 headers=self._headers,
                                 json={'name': self._name})
         response.raise_for_status()
@@ -36,7 +36,7 @@ class Worker(threading.Thread):
         """
         Send the supplied data, with retries
         """
-        response = requests.post('%s/api/%s' % (self._url, endpoint),
+        response = requests.post(f"{self._url}/api/{endpoint}",
                                  headers=self._headers_mp,
                                  data=data)
         response.raise_for_status()
