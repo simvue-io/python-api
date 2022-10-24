@@ -584,7 +584,7 @@ class Simvue(object):
         except Exception:
             return False
 
-        if response.status_code != 200 and response.status_code != 409:
+        if response.status_code not in (200, 409):
             raise RuntimeError('unable to create alert')
 
         data = {'name': self._name, 'alert': name}
