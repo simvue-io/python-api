@@ -678,7 +678,7 @@ class Simvue(object):
                 else:
                     job['path'] = path
                 downloads.append(job)
-                
+
             with ProcessPoolExecutor(CONCURRENT_DOWNLOADS) as executor:
                 for item in downloads:
                     executor.submit(downloader, item)
