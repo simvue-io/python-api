@@ -157,19 +157,18 @@ class Simvue(object):
         self._metrics_queue = None
         self._events_queue = None
 
+        # Try config file
+        try:
+            config = configparser.ConfigParser()
+            config.read('simvue.ini')
+            self._token = config.get('server', 'token')
+            self._url = config.get('server', 'url')
+        except Exception:
+            pass
+
         # Try environment variables
         self._token = os.getenv('SIMVUE_TOKEN')
         self._url = os.getenv('SIMVUE_URL')
-
-        if not self._token or not self._url:
-            # Try config file
-            try:
-                config = configparser.ConfigParser()
-                config.read('simvue.ini')
-                self._token = config.get('server', 'token')
-                self._url = config.get('server', 'url')
-            except Exception:
-                pass
 
         self._headers = {"Authorization": f"Bearer {self._token}"}
 
