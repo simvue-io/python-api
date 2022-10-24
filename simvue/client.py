@@ -157,6 +157,7 @@ class Simvue(object):
         self._metrics_queue = None
         self._events_queue = None
 
+        # Try reading from config file
         for filename in (os.path.join(os.path.expanduser("~"), '.simvue.ini'), 'simvue.ini'):
             try:
                 config = configparser.ConfigParser()
