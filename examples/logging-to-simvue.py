@@ -1,5 +1,5 @@
 import logging
-from simvue import Simvue, SimvueHandler
+from simvue import Simvue, Handler
 
 if __name__ == "__main__":
     run = Simvue()
@@ -9,7 +9,7 @@ if __name__ == "__main__":
 
     logger = logging.getLogger(__name__)
     logger.setLevel(logging.DEBUG)
-    sth = SimvueHandler(run)
+    sth = Handler(run)
     logger.addHandler(sth)
 
     logger.info("This is a Simvue logging test")

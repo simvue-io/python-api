@@ -1,6 +1,6 @@
 import logging
 
-class SimvueHandler(logging.Handler):
+class Handler(logging.Handler):
     """
     Class for handling logging to Simvue
     """
