@@ -265,7 +265,8 @@ class Simvue(object):
 
         try:
             response = requests.post(f"{self._url}/api/runs", headers=self._headers, json=data)
-        except requests.exceptions.RequestException:
+        except requests.exceptions.RequestException as err:
+            self._error(err)
             return False
 
         if response.status_code == 409:
