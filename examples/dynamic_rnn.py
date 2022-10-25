@@ -165,4 +165,5 @@ if __name__ == "__main__":
         acc = accuracy(pred, batch_y)
         run.log_metrics({'loss': float(loss), 'accuracy': float(acc)})
     
+    run.update_metadata({'loss': float(loss), 'accuracy': float(acc)})
     run.close()
