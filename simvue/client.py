@@ -188,6 +188,7 @@ class Simvue(object):
 
     def _start(self, reconnect=False):
         """
+        Start a run
         """
         data = {'name': self._name, 'status': self._status}
         if reconnect:
