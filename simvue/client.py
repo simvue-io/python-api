@@ -64,7 +64,7 @@ def get_cpu_info():
                 model_name = line.split(':')[1].strip()
             if 'Architecture' in line:
                 arch = line.split(':')[1].strip()
-    except Exception:
+    except:
         # TODO: Try /proc/cpuinfo
         pass
 
@@ -81,7 +81,7 @@ def get_gpu_info():
                                           "--format=csv"])
         lines = output.split(b'\n')
         tokens = lines[1].split(b', ')
-    except Exception:
+    except:
         return {'name': '', 'driver_version': ''}
 
     return {'name': tokens[0].decode(), 'driver_version': tokens[1].decode()}
@@ -124,7 +124,7 @@ def calculate_sha256(filename):
             for byte_block in iter(lambda: fd.read(CHECKSUM_BLOCK_SIZE), b""):
                 sha256_hash.update(byte_block)
             return sha256_hash.hexdigest()
-    except Exception:
+    except:
         pass
 
     return None
@@ -167,7 +167,7 @@ class Simvue(object):
                 config.read(filename)
                 self._token = config.get('server', 'token')
                 self._url = config.get('server', 'url')
-            except Exception:
+            except:
                 pass
 
         # Try environment variables
@@ -192,7 +192,7 @@ class Simvue(object):
 
             try:
                 response = requests.put(f"{self._url}/api/runs", headers=self._headers, json=data)
-            except Exception:
+            except requests.exceptions.RequestException:
                 return False
 
         self._start_time = tm.time()
@@ -256,7 +256,7 @@ class Simvue(object):
 
         try:
             response = requests.post(f"{self._url}/api/runs", headers=self._headers, json=data)
-        except Exception:
+        except requests.exceptions.RequestException:
             return False
 
         if response.status_code == 409:
@@ -318,7 +318,7 @@ class Simvue(object):
 
         try:
             response = requests.put(f"{self._url}/api/runs", headers=self._headers, json=data)
-        except Exception:
+        except requests.exceptions.RequestException:
             return False
 
         if response.status_code == 200:
@@ -337,7 +337,7 @@ class Simvue(object):
 
         try:
             response = requests.put(f"{self._url}/api/runs", headers=self._headers, json=data)
-        except:
+        except requests.exceptions.RequestException:
             return False
 
         if response.status_code == 200:
@@ -454,7 +454,7 @@ class Simvue(object):
         # Get presigned URL
         try:
             resp = requests.post(f"{self._url}/api/data", headers=self._headers, json=data)
-        except:
+        except requests.exceptions.RequestException:
             return False
 
         if 'url' in resp.json():
@@ -518,7 +518,7 @@ class Simvue(object):
 
         try:
             response = requests.put(f"{self._url}/api/runs", headers=self._headers, json=data)
-        except Exception:
+        except requests.exceptions.RequestException:
             return False
 
         if response.status_code == 200:
@@ -555,7 +555,7 @@ class Simvue(object):
 
         try:
             response = requests.put(f"{self._url}/api/folders", headers=self._headers, json=data)
-        except Exception:
+        except requests.exceptions.RequestException:
             return False
 
         if response.status_code == 200:
@@ -594,7 +594,7 @@ class Simvue(object):
 
         try:
             response = requests.post(f"{self._url}/api/alerts", headers=self._headers, json=alert)
-        except Exception:
+        except requests.exceptions.RequestException:
             return False
 
         if response.status_code not in (200, 409):
@@ -604,7 +604,7 @@ class Simvue(object):
 
         try:
             response = requests.put(f"{self._url}/api/runs", headers=self._headers, json=data)
-        except Exception:
+        except requests.exceptions.RequestException:
             return False
 
         if response.status_code == 200:
@@ -618,7 +618,7 @@ class Simvue(object):
 
         try:
             response = requests.get(f"{self._url}/api/artifacts", headers=self._headers, params=params)
-        except:
+        except requests.exceptions.RequestException:
             return None
 
         if response.status_code == 200:
@@ -634,7 +634,7 @@ class Simvue(object):
 
         try:
             response = requests.get(f"{self._url}/api/artifacts", headers=self._headers, json=data)
-        except:
+        except requests.exceptions.RequestException:
             return None
 
         if response.status_code == 200:
@@ -659,7 +659,7 @@ class Simvue(object):
 
         try:
             response = requests.get(f"{self._url}/api/artifacts", headers=self._headers, params=params)
-        except:
+        except requests.exceptions.RequestException:
             return None
 
         if not path:
