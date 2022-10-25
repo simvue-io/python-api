@@ -1,3 +1,4 @@
+import os
 from simvue import client
 import pytest
 
@@ -17,4 +18,28 @@ def test_missing_config():
     simv = client.Simvue()
 
     with pytest.raises(RuntimeError, match="Unable to get URL and token from environment variables or config file"):
+        simv.init()
+
+def test_invalid_url():
+    """
+    Check invalid URL
+    """
+    os.environ["SIMVUE_URL"] = "localhost"
+    os.environ["SIMVUE_TOKEN"] = "test"
+
+    simv = client.Simvue()
+
+    with pytest.raises(RuntimeError, match=r".*Invalid URL.*"):
+        simv.init()
+
+def test_invalid_credentials():
+    """
+    Check invalid config
+    """
+    os.environ["SIMVUE_URL"] = "http://localhost"
+    os.environ["SIMVUE_TOKEN"] = "test"
+
+    simv = client.Simvue()
+
+    with pytest.raises(RuntimeError, match="Failed to establish a new connection"):
         simv.init()
