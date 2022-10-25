@@ -201,6 +201,13 @@ class Simvue(object):
         if multiprocessing.current_process()._parent_pid is None:
             self._worker.start()
 
+    def _error(self, message):
+        """
+        Raise an exception if necessary and log error
+        """
+        if not self._suppress_errors:
+            raise RuntimeError(message)
+
     def init(self, name=None, metadata={}, tags=[], description=None, folder='/', status='running'):
         """
         Initialise a run
@@ -209,16 +216,16 @@ class Simvue(object):
             name = randomname.get_name()
 
         if not self._token or not self._url:
-            raise RuntimeError('Unable to get URL and token from environment variables or config file')
+            self._error('Unable to get URL and token from environment variables or config file')
 
         if not re.match(r'^[a-zA-Z0-9\-\_\s\/\.:]+$', name):
-            raise RuntimeError('specified name is invalid')
+            self._error('specified name is invalid')
 
         if not isinstance(tags, list):
-            raise RuntimeError('tags must be a list')
+            self._error('tags must be a list')
 
         if not isinstance(metadata, dict):
-            raise RuntimeError('metadata must be a dict')
+            self._error('metadata must be a dict')
 
         self._name = name
         self._status = status
@@ -235,7 +242,7 @@ class Simvue(object):
             data['description'] = description
 
         if not folder.startswith('/'):
-            raise RuntimeError('the folder must begin with /')
+            self._error('the folder must begin with /')
 
         data['folder'] = folder
 
@@ -248,10 +255,10 @@ class Simvue(object):
             return False
 
         if response.status_code == 409:
-            raise RuntimeError(f"Run with name {name} already exists")
+            self._error(f"Run with name {name} already exists")
 
         if response.status_code != 200:
-            raise RuntimeError(f"Unable to create run due to: {response.text}")
+            self._error(f"Unable to create run due to: {response.text}")
 
         if self._status == 'running':
             self._start()
@@ -281,15 +288,15 @@ class Simvue(object):
         Optional configuration
         """
         if not isinstance(suppress_errors, bool):
-            raise RuntimeError('suppress_errors must be boolean')
+            self._error('suppress_errors must be boolean')
         self._suppress_errors = suppress_errors
 
         if not isinstance(queue_blocking, bool):
-            raise RuntimeError('queue_blocking must be boolean')
+            self._error('queue_blocking must be boolean')
         self._queue_blocking = queue_blocking
 
         if not isinstance(queue_size, int):
-            raise RuntimeError('queue_size must be an integer')
+            self._error('queue_size must be an integer')
         self._queue_size = queue_size
 
     def update_metadata(self, metadata):
@@ -297,10 +304,10 @@ class Simvue(object):
         Add/update metadata
         """
         if not self._name:
-            raise RuntimeError(INIT_MISSING)
+            self._error(INIT_MISSING)
 
         if not isinstance(metadata, dict):
-            raise RuntimeError('metadata must be a dict')
+            self._error('metadata must be a dict')
 
         data = {'name': self._name, 'metadata': metadata}
 
@@ -319,7 +326,7 @@ class Simvue(object):
         Add/update tags
         """
         if not self._name:
-            raise RuntimeError(INIT_MISSING)
+            self._error(INIT_MISSING)
 
         data = {'name': self._name, 'tags': tags}
 
@@ -338,10 +345,10 @@ class Simvue(object):
         Write event
         """
         if not self._name:
-            raise RuntimeError(INIT_MISSING)
+            self._error(INIT_MISSING)
 
         if self._status != 'running':
-            raise RuntimeError('Cannot log events when not in the running state')
+            self._error('Cannot log events when not in the running state')
 
         data = {}
         data['run'] = self._name
@@ -351,7 +358,7 @@ class Simvue(object):
             if validate_timestamp(timestamp):
                 data['timestamp'] = timestamp
             else:
-                raise RuntimeError('Invalid timestamp format')
+                self._error('Invalid timestamp format')
 
         try:
             self._events_queue.put(data, block=self._queue_blocking)
@@ -365,13 +372,13 @@ class Simvue(object):
         Write metrics
         """
         if not self._name:
-            raise RuntimeError(INIT_MISSING)
+            self._error(INIT_MISSING)
 
         if self._status != 'running':
-            raise RuntimeError('Cannot log metrics when not in the running state')
+            self._error('Cannot log metrics when not in the running state')
 
         if not isinstance(metrics, dict) and not self._suppress_errors:
-            raise RuntimeError('Metrics must be a dict')
+            self._error('Metrics must be a dict')
 
         data = {}
         data['run'] = self._name
@@ -384,7 +391,7 @@ class Simvue(object):
             if validate_timestamp(timestamp):
                 data['timestamp'] = timestamp
             else:
-                raise RuntimeError('Invalid timestamp format')
+                self._error('Invalid timestamp format')
         data['step'] = self._step
 
         self._step += 1
@@ -401,10 +408,10 @@ class Simvue(object):
         Upload file
         """
         if not self._name:
-            raise RuntimeError(INIT_MISSING)
+            self._error(INIT_MISSING)
 
         if not os.path.isfile(filename):
-            raise RuntimeError(f"File {filename} does not exist")
+            self._error(f"File {filename} does not exist")
 
         if filetype:
             mimetypes_valid = []
@@ -413,7 +420,7 @@ class Simvue(object):
                 mimetypes_valid.append(value)
 
             if filetype not in mimetypes_valid:
-                raise RuntimeError('Invalid MIME type specified')
+                self._error('Invalid MIME type specified')
 
         data = {}
         if preserve_path:
@@ -462,10 +469,10 @@ class Simvue(object):
         Upload a whole directory
         """
         if not self._name:
-            raise RuntimeError(INIT_MISSING)
+            self._error(INIT_MISSING)
 
         if not os.path.isdir(directory):
-            raise RuntimeError(f"Directory {directory} does not exist")
+            self._error(f"Directory {directory} does not exist")
 
         if filetype:
             mimetypes_valid = []
@@ -474,7 +481,7 @@ class Simvue(object):
                 mimetypes_valid.append(value)
 
             if filetype not in mimetypes_valid:
-                raise RuntimeError('Invalid MIME type specified')
+                self._error('Invalid MIME type specified')
 
         for filename in walk_through_files(directory):
             if os.path.isfile(filename):
@@ -492,14 +499,14 @@ class Simvue(object):
             elif os.path.isdir(item):
                 self.save_directory(item, category, filetype, preserve_path)
             else:
-                raise RuntimeError(f"{item}: No such file or directory")
+                self._error(f"{item}: No such file or directory")
 
     def set_status(self, status):
         """
         Set run status
         """
         if status not in ('completed', 'failed', 'terminated'):
-            raise RuntimeError('invalid status')
+            self._error('invalid status')
 
         data = {'name': self._name, 'status': status}
         self._status = status
@@ -525,10 +532,10 @@ class Simvue(object):
         Add metadata to the specified folder
         """
         if not isinstance(metadata, dict):
-            raise RuntimeError('metadata must be a dict')
+            self._error('metadata must be a dict')
 
         if not isinstance(tags, list):
-            raise RuntimeError('tags must be a list')
+            self._error('tags must be a list')
 
         data = {'path': path}
 
@@ -556,16 +563,16 @@ class Simvue(object):
         Creates an alert with the specified name (if it doesn't exist) and applies it to the current run
         """
         if type not in ('is below', 'is above', 'is outside range', 'is inside range'):
-            raise RuntimeError('alert type invalid')
+            self._error('alert type invalid')
 
         if type in ('is below', 'is above') and threshold is None:
-            raise RuntimeError('threshold must be defined for the specified alert type')
+            self._error('threshold must be defined for the specified alert type')
 
         if type in ('is outside range', 'is inside range') and (range_low is None or range_high is None):
-            raise RuntimeError('range_low and range_high must be defined for the specified alert type')
+            self._error('range_low and range_high must be defined for the specified alert type')
 
         if notification not in ('none', 'email'):
-            raise RuntimeError('notification must be either none or email')
+            self._error('notification must be either none or email')
 
         alert = {'name': name,
                  'type': type,
@@ -586,7 +593,7 @@ class Simvue(object):
             return False
 
         if response.status_code not in (200, 409):
-            raise RuntimeError('unable to create alert')
+            self._error('unable to create alert')
 
         data = {'name': self._name, 'alert': name}
 
