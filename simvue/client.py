@@ -255,7 +255,7 @@ class Simvue(object):
             data['system'] = get_system()
 
         try:
-            response = requests.post(f"{self._url}/api/runs" % self._url, headers=self._headers, json=data)
+            response = requests.post(f"{self._url}/api/runs", headers=self._headers, json=data)
         except Exception:
             return False
 
