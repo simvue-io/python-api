@@ -171,8 +171,8 @@ class Simvue(object):
                 pass
 
         # Try environment variables
-        self._token = os.getenv('SIMVUE_TOKEN')
-        self._url = os.getenv('SIMVUE_URL')
+        self._token = os.getenv('SIMVUE_TOKEN', self._token)
+        self._url = os.getenv('SIMVUE_URL', self._url)
 
         self._headers = {"Authorization": f"Bearer {self._token}"}
 
