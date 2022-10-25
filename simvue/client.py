@@ -159,6 +159,7 @@ class Simvue(object):
         self._queue_size = QUEUE_SIZE
         self._metrics_queue = None
         self._events_queue = None
+        self._active = False
 
         # Try reading from config file
         for filename in (os.path.join(os.path.expanduser("~"), '.simvue.ini'), 'simvue.ini'):
@@ -206,6 +207,8 @@ class Simvue(object):
 
         if multiprocessing.current_process()._parent_pid is None:
             self._worker.start()
+
+        self._active = True
 
     def _error(self, message):
         """
@@ -314,9 +317,15 @@ class Simvue(object):
         """
         if not self._name:
             self._error(INIT_MISSING)
+            return False
+
+        if not self._active:
+            self._error('Run is not active')
+            return False
 
         if not isinstance(metadata, dict):
             self._error('metadata must be a dict')
+            return False
 
         data = {'name': self._name, 'metadata': metadata}
 
@@ -336,6 +345,11 @@ class Simvue(object):
         """
         if not self._name:
             self._error(INIT_MISSING)
+            return False
+
+        if not self._active:
+            self._error('Run is not active')
+            return False
 
         data = {'name': self._name, 'tags': tags}
 
@@ -355,9 +369,15 @@ class Simvue(object):
         """
         if not self._name:
             self._error(INIT_MISSING)
+            return False
+
+        if not self._active:
+            self._error('Run is not active')
+            return False
 
         if self._status != 'running':
             self._error('Cannot log events when not in the running state')
+            return False
 
         data = {}
         data['run'] = self._name
@@ -368,6 +388,7 @@ class Simvue(object):
                 data['timestamp'] = timestamp
             else:
                 self._error('Invalid timestamp format')
+                return False
 
         try:
             self._events_queue.put(data, block=self._queue_blocking)
@@ -382,12 +403,19 @@ class Simvue(object):
         """
         if not self._name:
             self._error(INIT_MISSING)
+            return False
+
+        if not self._active:
+            self._error('Run is not active')
+            return False
 
         if self._status != 'running':
             self._error('Cannot log metrics when not in the running state')
+            return False
 
         if not isinstance(metrics, dict) and not self._suppress_errors:
             self._error('Metrics must be a dict')
+            return False
 
         data = {}
         data['run'] = self._name
@@ -401,6 +429,7 @@ class Simvue(object):
                 data['timestamp'] = timestamp
             else:
                 self._error('Invalid timestamp format')
+                return False
         data['step'] = self._step
 
         self._step += 1
@@ -418,9 +447,15 @@ class Simvue(object):
         """
         if not self._name:
             self._error(INIT_MISSING)
+            return False
+
+        if not self._active:
+            self._error('Run is not active')
+            return False
 
         if not os.path.isfile(filename):
             self._error(f"File {filename} does not exist")
+            return False
 
         if filetype:
             mimetypes_valid = []
@@ -430,6 +465,7 @@ class Simvue(object):
 
             if filetype not in mimetypes_valid:
                 self._error('Invalid MIME type specified')
+                return False
 
         data = {}
         if preserve_path:
@@ -479,9 +515,15 @@ class Simvue(object):
         """
         if not self._name:
             self._error(INIT_MISSING)
+            return False
+
+        if not self._active:
+            self._error('Run is not active')
+            return False
 
         if not os.path.isdir(directory):
             self._error(f"Directory {directory} does not exist")
+            return False
 
         if filetype:
             mimetypes_valid = []
@@ -491,6 +533,7 @@ class Simvue(object):
 
             if filetype not in mimetypes_valid:
                 self._error('Invalid MIME type specified')
+                return False
 
         for filename in walk_through_files(directory):
             if os.path.isfile(filename):
@@ -514,6 +557,14 @@ class Simvue(object):
         """
         Set run status
         """
+        if not self._name:
+            self._error(INIT_MISSING)
+            return False
+
+        if not self._active:
+            self._error('Run is not active')
+            return False
+
         if status not in ('completed', 'failed', 'terminated'):
             self._error('invalid status')
 
@@ -534,17 +585,35 @@ class Simvue(object):
         """
         Close the run
         """
+        if not self._name:
+            self._error(INIT_MISSING)
+            return False
+
+        if not self._active:
+            self._error('Run is not active')
+            return False
+
         self.set_status('completed')
 
     def set_folder_details(self, path, metadata={}, tags=[], description=None):
         """
         Add metadata to the specified folder
         """
+        if not self._name:
+            self._error(INIT_MISSING)
+            return False
+
+        if not self._active:
+            self._error('Run is not active')
+            return False
+
         if not isinstance(metadata, dict):
             self._error('metadata must be a dict')
+            return False
 
         if not isinstance(tags, list):
             self._error('tags must be a list')
+            return False
 
         data = {'path': path}
 
@@ -571,17 +640,29 @@ class Simvue(object):
         """
         Creates an alert with the specified name (if it doesn't exist) and applies it to the current run
         """
+        if not self._name:
+            self._error(INIT_MISSING)
+            return False
+
+        if not self._active:
+            self._error('Run is not active')
+            return False
+
         if type not in ('is below', 'is above', 'is outside range', 'is inside range'):
             self._error('alert type invalid')
+            return False
 
         if type in ('is below', 'is above') and threshold is None:
             self._error('threshold must be defined for the specified alert type')
+            return False
 
         if type in ('is outside range', 'is inside range') and (range_low is None or range_high is None):
             self._error('range_low and range_high must be defined for the specified alert type')
+            return False
 
         if notification not in ('none', 'email'):
             self._error('notification must be either none or email')
+            return False
 
         alert = {'name': name,
                  'type': type,
