@@ -164,7 +164,7 @@ class Simvue(object):
         for filename in (os.path.join(os.path.expanduser("~"), '.simvue.ini'), 'simvue.ini'):
             try:
                 config = configparser.ConfigParser()
-                config.read(os.path.join(filename))
+                config.read(filename)
                 self._token = config.get('server', 'token')
                 self._url = config.get('server', 'url')
             except Exception:
