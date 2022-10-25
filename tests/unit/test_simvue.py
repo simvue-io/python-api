@@ -1,11 +1,10 @@
 from simvue import client
 import pytest
 
-def test_supress_errors():
+def test_suppress_errors():
     """
     Check that errors are surpressed
     """
-
     simv = client.Simvue()
 
     with pytest.raises(RuntimeError, match="suppress_errors must be boolean"):
