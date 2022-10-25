@@ -32,9 +32,9 @@ def test_invalid_url():
     with pytest.raises(RuntimeError, match=r".*Invalid URL.*"):
         simv.init()
 
-def test_invalid_credentials():
+def test_cannot_connect():
     """
-    Check invalid config
+    Check unable to connect during init
     """
     os.environ["SIMVUE_URL"] = "http://localhost"
     os.environ["SIMVUE_TOKEN"] = "test"
