@@ -2,6 +2,7 @@ from concurrent.futures import ProcessPoolExecutor
 import configparser
 import datetime
 import hashlib
+import logging
 import mimetypes
 import os
 import re
@@ -23,6 +24,8 @@ DOWNLOAD_CHUNK_SIZE = 8192
 CHECKSUM_BLOCK_SIZE = 4096
 UPLOAD_TIMEOUT = 30
 DOWNLOAD_TIMEOUT = 30
+
+logger = logging.getLogger(__name__)
 
 def downloader(job):
     """
@@ -207,6 +210,8 @@ class Simvue(object):
         """
         if not self._suppress_errors:
             raise RuntimeError(message)
+        else:
+            logger.error(message)
 
     def init(self, name=None, metadata={}, tags=[], description=None, folder='/', status='running'):
         """
