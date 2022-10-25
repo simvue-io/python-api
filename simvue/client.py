@@ -401,7 +401,7 @@ class Simvue(object):
 
         return True
 
-    def log_metrics(self, metrics, time=None, timestamp=None):
+    def log_metrics(self, metrics, step=None, time=None, timestamp=None):
         """
         Write metrics
         """
@@ -434,7 +434,11 @@ class Simvue(object):
             else:
                 self._error('Invalid timestamp format')
                 return False
-        data['step'] = self._step
+
+        if step is None:
+            data['step'] = self._step
+        else:
+            data['step'] = step
 
         self._step += 1
 
