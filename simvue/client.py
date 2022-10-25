@@ -160,6 +160,8 @@ class Simvue(object):
         self._metrics_queue = None
         self._events_queue = None
         self._active = False
+        self._url = None
+        self._token = None
 
         # Try reading from config file
         for filename in (os.path.join(os.path.expanduser("~"), '.simvue.ini'), 'simvue.ini'):
