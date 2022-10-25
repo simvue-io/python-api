@@ -195,6 +195,9 @@ class Simvue(object):
             except requests.exceptions.RequestException:
                 return False
 
+            if response.status_code != 200:
+                self._error('Unable to reconnect to run')
+
         self._start_time = tm.time()
 
         self._metrics_queue = multiprocessing.Manager().Queue(maxsize=self._queue_size)
