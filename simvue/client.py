@@ -264,8 +264,7 @@ class Simvue(object):
 
         if response.status_code == 409:
             self._error(f"Run with name {name} already exists")
-
-        if response.status_code != 200:
+        elif response.status_code != 200:
             self._error(f"Unable to create run due to: {response.text}")
 
         if self._status == 'running':
