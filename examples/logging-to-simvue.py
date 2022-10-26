@@ -1,8 +1,8 @@
 import logging
-from simvue import Simvue, Handler
+from simvue import Run, Handler
 
 if __name__ == "__main__":
-    run = Simvue()
+    run = Run()
 
     run.init(tags=['logging'],
              description='Logging test')

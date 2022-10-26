@@ -3,7 +3,7 @@ import os
 import sys
 import time
     
-from simvue import Simvue
+from simvue import Run
 
 if __name__ == "__main__":
     # Name of history file to collect metrics from
@@ -35,7 +35,7 @@ if __name__ == "__main__":
                         if line.startswith(attr):
                             metadata[attr] = line.split('%s= ' % attr)[1].strip()
     
-    run = Simvue()
+    run = Run()
     run.init(metadata=metadata, tags=['SU2'],
              description='SU2 tutorial https://su2code.github.io/tutorials/Inviscid_ONERAM6/')
     
