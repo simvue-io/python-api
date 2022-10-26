@@ -8,7 +8,7 @@ from tensorflow.keras import Model, layers
 import numpy as np
 import random
     
-from simvue import Simvue
+from simvue import Run
 
 if __name__ == "__main__":
     
@@ -28,7 +28,7 @@ if __name__ == "__main__":
     # Network Parameters
     num_units = 32 # number of neurons for the LSTM layer.
     
-    run = Simvue()
+    run = Run()
     run.init(metadata={'dataset.num_classes': num_classes,
                        'dataset.seq_max_len': seq_max_len,
                        'dataset.seq_min_len': seq_min_len,
