@@ -22,7 +22,7 @@ The exact contents of both of the above options can be obtained directly by clic
 
 ## Usage example
 ```
-from simvue import Simvue
+from simvue import Run
 
 ...
 
@@ -31,7 +31,7 @@ if __name__ == "__main__":
     ...
 
     # Using a context manager means that the status will be set to completed automatically
-    with Simvue() as run:
+    with Run() as run:
 
         # Specify a run name, metadata (dict), tags (list), description, folder
         run.init('example-run-name',
