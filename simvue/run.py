@@ -607,7 +607,18 @@ class Run(object):
 
         return False
 
-    def add_alert(self, name, type, metric, frequency, window, threshold=None, range_low=None, range_high=None, notification='none'):
+    def add_alert(self,
+                  name,
+                  source='metrics',
+                  frequency=5,
+                  window=5,
+                  rule=None,
+                  metric=None,
+                  threshold=None,
+                  range_low=None,
+                  range_high=None,
+                  notification='none',
+                  pattern=None):
         """
         Creates an alert with the specified name (if it doesn't exist) and applies it to the current run
         """
@@ -619,9 +630,10 @@ class Run(object):
             self._error('Run is not active')
             return False
 
-        if type not in ('is below', 'is above', 'is outside range', 'is inside range'):
-            self._error('alert type invalid')
-            return False
+        if rule:
+            if rule not in ('is below', 'is above', 'is outside range', 'is inside range'):
+                self._error('alert rule invalid')
+                return False
 
         if type in ('is below', 'is above') and threshold is None:
             self._error('threshold must be defined for the specified alert type')
@@ -635,18 +647,30 @@ class Run(object):
             self._error('notification must be either none or email')
             return False
 
+        if source not in ('metrics', 'events'):
+            self._error('source must be either metrics or events')
+            return False
+
+        alert_definition = {}
+
+        if source == 'metrics':
+            alert_definition['metric'] = metric
+            alert_definition['window'] = window
+            alert_definition['rule'] = rule
+            if threshold is not None:
+                alert_definition['threshold'] = threshold
+            elif range_low is not None and range_high is not None:
+                alert_definition['range_low'] = range_low
+                alert_definition['range_high'] = range_high
+        else:
+            alert_definition['pattern'] = pattern
+
         alert = {'name': name,
-                 'type': type,
                  'metric': metric,
                  'frequency': frequency,
-                 'window': window,
-                 'notification': notification}
-
-        if threshold is not None:
-            alert['threshold'] = threshold
-        elif range_low is not None and range_high is not None:
-            alert['range_low'] = range_low
-            alert['range_high'] = range_high
+                 'notification': notification,
+                 'source': source,
+                 'alert': alert_definition}
 
         try:
             response = requests.post(f"{self._url}/api/alerts", headers=self._headers, json=alert)
@@ -665,3 +689,5 @@ class Run(object):
 
         if response.status_code == 200:
             return True
+
+        return False
