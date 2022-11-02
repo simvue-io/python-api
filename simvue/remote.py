@@ -16,6 +16,8 @@ class Remote(object):
         self._suppress_errors = suppress_errors
         self._url, self._token = get_auth()
         self._headers = {"Authorization": f"Bearer {self._token}"}
+        self._headers_mp = self._headers.copy()
+        self._headers_mp['Content-Type'] = 'application/msgpack'
 
     def _error(self, message):
         """
@@ -104,3 +106,37 @@ class Remote(object):
             return True
 
         return False
+
+    def send_metrics(self, data):
+        """
+        Send metrics
+        """
+        try:
+            response = requests.post(f"{self._url}/api/metrics",
+                                     headers=self._headers_mp,
+                                     data=data)
+        except:
+            pass
+
+    def send_event(self, data):
+        """
+        Send events
+        """
+        try:
+            response = requests.post(f"{self._url}/api/events",
+                                     headers=self._headers_mp,
+                                     data=data)
+        except:
+            pass
+
+    def send_heartbeat(self):
+        """
+        Send heartbeat
+        """
+        try:
+            response = requests.put(f"{self._url}/api/runs/heartbeat",
+                                    headers=self._headers,
+                                    json={'name': self._name})
+        except:
+            pass
+

@@ -38,6 +38,11 @@ class Offline(object):
         with open(filename, 'w') as fh:
             json.dump(data, fh)
 
+        status = data['status']
+        filename = f"{self._directory}/{status}"
+        with open(filename, 'w') as fh:
+            fh.write('')
+
         return True
 
     def update(self, data):
@@ -48,6 +53,17 @@ class Offline(object):
         filename = f"{self._directory}/update-{unique_id}.json"
         with open(filename, 'w') as fh:
             json.dump(data, fh)
+
+        if 'status' in data:
+            status = data['status']
+            filename = f"{self._directory}/{status}"
+            with open(filename, 'w') as fh:
+                fh.write('')
+
+            if status == 'completed':
+                status_running = f"{self._directory}/running"
+                if os.path.isfile(status_running):
+                    os.remove(status_running)
 
         return True
 

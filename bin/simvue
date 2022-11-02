@@ -1,0 +1,13 @@
+import click
+
+from simvue.sender import sender
+
+@click.group(help="Simvue command line interface")
+def simvue():
+    """
+    """
+    pass
+
+
+if __name__ == "__main__":
+    simvue()

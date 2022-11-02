@@ -48,7 +48,7 @@ class Worker(threading.Thread):
             response.raise_for_status()
         else:
             unique_id = time.time()
-            filename = f"{self._directory}/{endpoint}.{unique_id}"
+            filename = f"{self._directory}/{endpoint}-{unique_id}"
             with open(filename, 'wb') as fh:
                 fh.write(data)
 
