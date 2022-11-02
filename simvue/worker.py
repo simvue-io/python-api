@@ -1,3 +1,4 @@
+import os
 import sys
 import time
 import threading
@@ -5,12 +6,14 @@ import requests
 import msgpack
 from tenacity import retry, wait_exponential, stop_after_attempt
 
+from .utilities import get_offline_directory, get_directory_name
+
 HEARTBEAT_INTERVAL = 60
 POLLING_INTERVAL = 1
 MAX_BUFFER_SEND = 5000
 
 class Worker(threading.Thread):
-    def __init__(self, metrics_queue, events_queue, name, url, headers):
+    def __init__(self, metrics_queue, events_queue, name, url, headers, offline=False):
         threading.Thread.__init__(self)
         self._parent_thread = threading.currentThread()
         self._metrics_queue = metrics_queue
@@ -20,6 +23,8 @@ class Worker(threading.Thread):
         self._headers = headers
         self._headers_mp = headers.copy()
         self._headers_mp['Content-Type'] = 'application/msgpack'
+        self._offline = offline
+        self._directory = os.path.join(get_offline_directory(), get_directory_name(name))
 
     @retry(wait=wait_exponential(multiplier=1, min=4, max=10), stop=stop_after_attempt(5))
     def heartbeat(self):
@@ -36,10 +41,16 @@ class Worker(threading.Thread):
         """
         Send the supplied data, with retries
         """
-        response = requests.post(f"{self._url}/api/{endpoint}",
-                                 headers=self._headers_mp,
-                                 data=data)
-        response.raise_for_status()
+        if not self._offline:
+            response = requests.post(f"{self._url}/api/{endpoint}",
+                                     headers=self._headers_mp,
+                                     data=data)
+            response.raise_for_status()
+        else:
+            unique_id = time.time()
+            filename = f"{self._directory}/{endpoint}.{unique_id}"
+            with open(filename, 'wb') as fh:
+                fh.write(data)
 
     def run(self):
         """
@@ -47,8 +58,8 @@ class Worker(threading.Thread):
         """
         last_heartbeat = 0
         while True:
-            # Send heartbeat
-            if time.time() - last_heartbeat > HEARTBEAT_INTERVAL:
+            # Send heartbeat if necessary
+            if time.time() - last_heartbeat > HEARTBEAT_INTERVAL and not self._offline:
                 try:
                     self.heartbeat()
                 except:

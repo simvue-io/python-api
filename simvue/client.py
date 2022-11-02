@@ -2,7 +2,7 @@ from concurrent.futures import ProcessPoolExecutor
 import os
 import requests
 
-from .utilities import get_config
+from .utilities import get_auth
 
 CONCURRENT_DOWNLOADS = 10
 DOWNLOAD_CHUNK_SIZE = 8192
@@ -31,7 +31,7 @@ class Client(object):
     Class for querying Simvue
     """
     def __init__(self):
-        self._url, self._token = get_config()
+        self._url, self._token = get_auth()
         self._headers = {"Authorization": f"Bearer {self._token}"}
 
     def list_artifacts(self, run, category=None):

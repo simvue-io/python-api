@@ -1,7 +1,8 @@
 import configparser
+import hashlib
 import os
 
-def get_config():
+def get_auth():
     """
     Get the URL and access token
     """
@@ -23,3 +24,25 @@ def get_config():
     url = os.getenv('SIMVUE_URL', url)
 
     return url, token
+
+def get_offline_directory():
+    """
+    Get directory for offline cache
+    """
+    directory = None
+
+    for filename in (os.path.join(os.path.expanduser("~"), '.simvue.ini'), 'simvue.ini'):
+        try:
+            config = configparser.ConfigParser()
+            config.read(filename)
+            directory = config.get('offline', 'cache')
+        except:
+            pass
+
+    return directory
+
+def get_directory_name(name):
+    """
+    Return the SHA256 sum of the provided name
+    """
+    return hashlib.sha256(name.encode('utf-8')).hexdigest()
