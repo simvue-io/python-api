@@ -62,6 +62,17 @@ class Offline(object):
 
         return True
 
+    def save_file(self, data):
+        """
+        Save file
+        """
+        unique_id = time.time()
+        filename = f"{self._directory}/file-{unique_id}.json"
+        with open(filename, 'w') as fh:
+            json.dump(data, fh)
+
+        return True
+
     def add_alert(self, data):
         """
         Add an alert

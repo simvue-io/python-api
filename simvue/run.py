@@ -442,21 +442,9 @@ class Run(object):
 
         data['type'] = mimetype
 
-        # Get presigned URL
-        try:
-            resp = requests.post(f"{self._url}/api/data", headers=self._headers, json=data)
-        except requests.exceptions.RequestException:
+        # Register file
+        if not self._simvue.save_file(data):
             return False
-
-        if 'url' in resp.json():
-            # Upload file
-            try:
-                with open(filename, 'rb') as fh:
-                    response = requests.put(resp.json()['url'], data=fh, timeout=UPLOAD_TIMEOUT)
-                    if response.status_code != 200:
-                        return False
-            except:
-                return False
 
         return True
 

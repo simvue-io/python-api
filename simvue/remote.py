@@ -5,6 +5,8 @@ from .utilities import get_auth
 
 logger = logging.getLogger(__name__)
 
+UPLOAD_TIMEOUT = 30
+
 class Remote(object):
     """
     Class which interacts with Simvue REST API
@@ -66,6 +68,28 @@ class Remote(object):
             return True
 
         return False
+
+    def save_file(self, data):
+        """
+        Save file
+        """
+        # Get presigned URL
+        try:
+            resp = requests.post(f"{self._url}/api/data", headers=self._headers, json=data)
+        except requests.exceptions.RequestException:
+            return False
+
+        if 'url' in resp.json():
+            # Upload file
+            try:
+                with open(data['originalPath'], 'rb') as fh:
+                    response = requests.put(resp.json()['url'], data=fh, timeout=UPLOAD_TIMEOUT)
+                    if response.status_code != 200:
+                        return False
+            except:
+                return False
+
+        return True
 
     def add_alert(self, data):
         """
