@@ -87,22 +87,33 @@ class Remote(object):
         """
         # Get presigned URL
         try:
-            resp = requests.post(f"{self._url}/api/data",
+            response = requests.post(f"{self._url}/api/data",
                                  headers=self._headers,
                                  json=data,
                                  timeout=DEFAULT_API_TIMEOUT)
-        except requests.exceptions.RequestException:
+        except requests.exceptions.RequestException as err:
+            self._error('Got exception when uploading file %s to object storage: %s', data['name'], str(err))
             return False
 
-        if 'url' in resp.json():
-            # Upload file
+        if response.status_code == 409:
+            return True
+
+        if response.status_code != 200:
+            self._error('Got status code %d when registering file %s', response.status_code, data['name'])
+            return False
+
+        if 'url' in response.json():
             try:
                 with open(data['originalPath'], 'rb') as fh:
-                    response = requests.put(resp.json()['url'], data=fh, timeout=UPLOAD_TIMEOUT)
+                    response = requests.put(resp.json()['url'],
+                                            data=fh,
+                                            timeout=UPLOAD_TIMEOUT)
                     if response.status_code != 200:
-                        return False
-            except:
-                return False
+                        self._error('Got status code %d when uploading file %s to object storage', response.status_code, data['name'])
+                        return None
+            except Exception as err:
+                self._error('Got exception when uploading file %s to object storage: %s', data['name'], str(err))
+                return None
 
         return True
 
