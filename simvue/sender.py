@@ -30,7 +30,6 @@ def sender():
     Asynchronous upload of runs to Simvue server
     """
     db = tinydb.TinyDB(os.path.join(os.path.expanduser("~"), '.simvue.json'))
-    existing = db.all()
     directory = get_offline_directory()
 
     # Deal with runs in the running or completed state
@@ -60,12 +59,12 @@ def sender():
             logger.info('Creating run with name %s', run_init['name'])
             db.insert({'id': id, 'status': status})
             remote.create_run(run_init)
-        
+
         # Send heartbeat if necessary
         if status == 'running':
             logger.info('Sending heartbeat for run with name %s', run_init['name'])
             remote.send_heartbeat()
-          
+
         # Upload metrics, events, files & metadata as necessary
         files = sorted(glob.glob(f"{current}/*"), key=os.path.getmtime)
         for record in files:
