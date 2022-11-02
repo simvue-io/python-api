@@ -1,5 +1,8 @@
+"""Send runs to server"""
 import logging
 import sys
+
+from simvue.sender import sender
 
 root = logging.getLogger()
 root.setLevel(logging.DEBUG)
@@ -9,8 +12,6 @@ handler.setLevel(logging.INFO)
 formatter = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s')
 handler.setFormatter(formatter)
 root.addHandler(handler)
-
-from simvue.sender import sender
 
 if __name__ == "__main__":
     sender()
