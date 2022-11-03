@@ -241,12 +241,14 @@ class Run(object):
         """
         return self._name
 
-    def reconnect(self, name):
+    def reconnect(self, name, offline=False):
         """
         Reconnect to a run in the created state
         """
         self._status = 'running'
+        self._offline = offline
         self._name = name
+        self._simvue = Simvue(self._name, self._offline, self._suppress_errors)
         self._start(reconnect=True)
 
     def config(self,

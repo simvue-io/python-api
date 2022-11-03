@@ -31,8 +31,9 @@ def sender():
     """
     directory = get_offline_directory()
 
-    # Deal with runs in the running or a terminal state
-    runs = glob.glob(f"{directory}/*/running") + \
+    # Deal with runs in the created, running or a terminal state
+    runs = glob.glob(f"{directory}/*/created") + \
+           glob.glob(f"{directory}/*/running") + \
            glob.glob(f"{directory}/*/completed") + \
            glob.glob(f"{directory}/*/failed") + \
            glob.glob(f"{directory}/*/terminated")
@@ -41,6 +42,8 @@ def sender():
         status = None
         if run.endswith('running'):
             status = 'running'
+        if run.endswith('created'):
+            status = 'created'
         elif run.endswith('completed'):
             status = 'completed'
         elif run.endswith('failed'):
@@ -48,7 +51,7 @@ def sender():
         elif run.endswith('terminated'):
             status = 'terminated'
 
-        current = run.replace('/running', '').replace('/completed', '').replace('/failed', '').replace('/terminated', '')
+        current = run.replace('/running', '').replace('/completed', '').replace('/failed', '').replace('/terminated', '').replace('/created', '')
 
         if os.path.isfile("f{current}/sent"):
             if status == 'running':
@@ -59,6 +62,8 @@ def sender():
                 remove_file(f"{current}/failed")
             elif status == 'terminated':
                 remove_file(f"{current}/terminated")
+            elif status == 'created':
+                remove_file(f"{current}/created")
             continue
 
         id = run.split('/')[len(run.split('/')) - 2]
@@ -71,7 +76,7 @@ def sender():
         remote = Remote(run_init['name'], suppress_errors=True)
 
         # Create run if it hasn't previously been created
-        created_file = f"{current}/created"
+        created_file = f"{current}/init"
         if not os.path.isfile(created_file):
             logger.info('Creating run with name %s', run_init['name'])
             remote.create_run(run_init)
