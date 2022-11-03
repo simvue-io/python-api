@@ -105,7 +105,7 @@ class Remote(object):
         if 'url' in response.json():
             try:
                 with open(data['originalPath'], 'rb') as fh:
-                    response = requests.put(resp.json()['url'],
+                    response = requests.put(response.json()['url'],
                                             data=fh,
                                             timeout=UPLOAD_TIMEOUT)
                     if response.status_code != 200:
