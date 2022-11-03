@@ -4,7 +4,7 @@
 ![License](https://img.shields.io/github/license/simvue-io/client)
 [![PyPI version shields.io](https://img.shields.io/pypi/v/simvue.svg)](https://pypi.python.org/pypi/ansicolortags/)
 
-Collects metadata, metrics and files from simulations in real time.
+Collects metadata, metrics and files from simulations, processing and ML training tasks running on any platform, in real time.
 
 ## Configuration
 The service URL and token can be defined as environment variables:
