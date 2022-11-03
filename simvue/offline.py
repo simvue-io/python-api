@@ -25,6 +25,16 @@ class Offline(object):
         else:
             logger.error(message)
 
+    def _write_json(self, filename, data):
+        """
+        Write JSON to file
+        """
+        try:
+            with open(filename, 'w') as fh:
+                json.dump(data, fh)
+        except Exception as err:
+            self._error(f"Unable to write file {filename} due to {str(err)}")
+
     def create_run(self, data):
         """
         Create a run
@@ -35,8 +45,7 @@ class Offline(object):
             logger.error('Unable to create directory %s due to: %s', self._directory, str(err))
         
         filename = f"{self._directory}/run.json"
-        with open(filename, 'w') as fh:
-            json.dump(data, fh)
+        self._write_json(filename, data)
 
         status = data['status']
         filename = f"{self._directory}/{status}"
@@ -50,8 +59,7 @@ class Offline(object):
         """
         unique_id = time.time()
         filename = f"{self._directory}/update-{unique_id}.json"
-        with open(filename, 'w') as fh:
-            json.dump(data, fh)
+        self._write_json(filename, data)
 
         if 'status' in data:
             status = data['status']
@@ -71,9 +79,7 @@ class Offline(object):
         """
         unique_id = time.time()
         filename = f"{self._directory}/folder-{unique_id}.json"
-        with open(filename, 'w') as fh:
-            json.dump(data, fh)
-
+        self._write_json(filename, data)
         return True
 
     def save_file(self, data):
@@ -82,9 +88,7 @@ class Offline(object):
         """
         unique_id = time.time()
         filename = f"{self._directory}/file-{unique_id}.json"
-        with open(filename, 'w') as fh:
-            json.dump(data, fh)
-
+        self._write_json(filename, data)
         return True
 
     def add_alert(self, data):
@@ -93,7 +97,5 @@ class Offline(object):
         """
         unique_id = time.time()
         filename = f"{self._directory}/alert-{unique_id}.json"
-        with open(filename, 'w') as fh:
-            json.dump(data, fh)
-
+        self._write_json(filename, data)
         return True
