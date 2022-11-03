@@ -31,22 +31,34 @@ def sender():
     """
     directory = get_offline_directory()
 
-    # Deal with runs in the running or completed state
-    runs = glob.glob(f"{directory}/*/running") + glob.glob(f"{directory}/*/completed")
+    # Deal with runs in the running or a terminal state
+    runs = glob.glob(f"{directory}/*/running") + \
+           glob.glob(f"{directory}/*/completed") + \
+           glob.glob(f"{directory}/*/failed") + \
+           glob.glob(f"{directory}/*/terminated")
+
     for run in runs:
         status = None
         if run.endswith('running'):
             status = 'running'
         elif run.endswith('completed'):
             status = 'completed'
+        elif run.endswith('failed'):
+            status = 'failed'
+        elif run.endswith('terminated'):
+            status = 'terminated'
 
-        current = run.replace('/running', '').replace('/completed', '')
+        current = run.replace('/running', '').replace('/completed', '').replace('/failed', '').replace('/terminated', '')
 
         if os.path.isfile("f{current}/sent"):
             if status == 'running':
                 remove_file(f"{current}/running")
             elif status == 'completed':
                 remove_file(f"{current}/completed")
+            elif status == 'failed':
+                remove_file(f"{current}/failed")
+            elif status == 'terminated':
+                remove_file(f"{current}/terminated")
             continue
 
         id = run.split('/')[len(run.split('/')) - 2]
@@ -97,6 +109,8 @@ def sender():
             if record.endswith('/run.json') or \
                record.endswith('/running') or \
                record.endswith('/completed') or \
+               record.endswith('/failed') or \
+               record.endswith('/terminated') or \
                record.endswith('/lost') or \
                record.endswith('/sent') or \
                record.endswith('-proc'):
@@ -146,11 +160,11 @@ def sender():
                 updates += 1
 
         # If the status is completed and there were no updates, the run must have completely finished
-        if updates == 0 and status == 'completed':
+        if updates == 0 and status in ('completed', 'failed', 'terminated'):
             logger.info('Finished sending run %s', run_init['name'])
             create_file(f"{current}/sent")
-            remove_file(f"{current}/completed")
-            data = {'name': run_init['name'], 'status': 'completed'}
+            remove_file(f"{current}/{status}")
+            data = {'name': run_init['name'], 'status': status}
             remote.update(data)
         elif updates == 0 and status == 'lost':
             logger.info('Finished sending run %s as it was lost', run_init['name'])
