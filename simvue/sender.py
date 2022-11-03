@@ -2,6 +2,8 @@ import glob
 import json
 import logging
 import os
+import time
+
 import tinydb
 
 from .remote import Remote
@@ -41,16 +43,16 @@ def sender():
         elif run.endswith('completed'):
             status = 'completed'
 
-        current = run.replace('/running', '')
-        current = run.replace('/completed', '')
+        current = run.replace('/running', '').replace('/completed', '')
 
         id = run.split('/')[len(run.split('/')) - 2]
 
         Run = tinydb.Query()
         results = db.search(Run.id == id)
         run_init = get_json(f"{current}/run.json")
+        start_time = os.path.getctime(f"{current}/run.json")
 
-        logger.info('Considering run with namd %s and id %s', run_init['name'], id)
+        logger.info('Considering run with name %s and id %s', run_init['name'], id)
 
         remote = Remote(run_init['name'], suppress_errors=True)
 
@@ -59,6 +61,29 @@ def sender():
             logger.info('Creating run with name %s', run_init['name'])
             db.insert({'id': id, 'status': status})
             remote.create_run(run_init)
+
+        if status == 'running':
+            # Check for recent heartbeat
+            heartbeat_filename = f"{current}/heartbeat"
+            if os.path.isfile(heartbeat_filename):
+                mtime = os.path.getmtime(heartbeat_filename)
+                if time.time() - mtime > 180:
+                    status = 'lost'
+
+            # Check for no recent heartbeat
+            if not os.path.isfile(heartbeat_filename):
+                if time.time() - start_time > 180:
+                    status = 'lost'
+
+        # Handle lost runs
+        if status == 'lost':
+            logger.info('Changing status to lost, name %s and id %s', run_init['name'], id)
+            status = 'lost'
+            db.update({'status': 'lost'}, Run.id == id)
+            try:
+                os.remove(f"{current}/running")
+            except Exception as err:
+                logger.error('Unable to remove running status file for run with name %s and id %s', run_init['name'], id)
 
         # Send heartbeat if necessary
         if status == 'running':
@@ -71,6 +96,7 @@ def sender():
             if record.endswith('/run.json') or \
                record.endswith('/running') or \
                record.endswith('/completed') or \
+               record.endswith('/lost') or \
                record.endswith('-proc'):
                 continue
 

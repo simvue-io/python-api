@@ -31,10 +31,14 @@ class Worker(threading.Thread):
         """
         Send a heartbeat, with retries
         """
-        response = requests.put(f"{self._url}/api/runs/heartbeat",
-                                headers=self._headers,
-                                json={'name': self._name})
-        response.raise_for_status()
+        if not self._offline:
+            response = requests.put(f"{self._url}/api/runs/heartbeat",
+                                    headers=self._headers,
+                                    json={'name': self._name})
+            response.raise_for_status()
+        else:
+            with open(f"{self._directory}/heartbeat", 'w') as fh:
+                fh.write('')
 
     @retry(wait=wait_exponential(multiplier=1, min=4, max=10), stop=stop_after_attempt(5))
     def post(self, endpoint, data):
@@ -59,7 +63,7 @@ class Worker(threading.Thread):
         last_heartbeat = 0
         while True:
             # Send heartbeat if necessary
-            if time.time() - last_heartbeat > HEARTBEAT_INTERVAL and not self._offline:
+            if time.time() - last_heartbeat > HEARTBEAT_INTERVAL:
                 try:
                     self.heartbeat()
                 except:
