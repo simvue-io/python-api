@@ -183,7 +183,7 @@ class Run(object):
         else:
             logger.error(message)
 
-    def init(self, name=None, metadata={}, tags=[], description=None, folder='/', status='running', offline=False):
+    def init(self, name=None, metadata={}, tags=[], description=None, folder='/', running=True, offline=False):
         """
         Initialise a run
         """
@@ -203,8 +203,12 @@ class Run(object):
             self._error('metadata must be a dict')
 
         self._name = name
-        self._status = status
         self._offline = offline
+
+        if running:
+            self._status = 'running'
+        else:
+            self._status = 'created'
 
         data = {'name': name,
                 'metadata': metadata,
