@@ -149,7 +149,7 @@ class Run(object):
         return self
 
     def __exit__(self, type, value, tb):
-        if self._name:
+        if self._name and self._status == 'running':
             self.set_status('completed')
 
     def _start(self, reconnect=False):
