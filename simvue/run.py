@@ -126,7 +126,8 @@ class Run(object):
     """
     Track simulation details based on token and URL
     """
-    def __init__(self):
+    def __init__(self, disabled=False):
+        self._disabled = disabled
         self._name = None
         self._suppress_errors = False
         self._queue_blocking = False
@@ -156,6 +157,9 @@ class Run(object):
         """
         Start a run
         """
+        if self._disabled:
+            return True
+
         data = {'name': self._name, 'status': self._status}
         if reconnect:
             data['system'] = get_system()
@@ -187,6 +191,9 @@ class Run(object):
         """
         Initialise a run
         """
+        if self._disabled:
+            return True
+
         if not name:
             name = randomname.get_name()
 
@@ -249,6 +256,9 @@ class Run(object):
         """
         Reconnect to a run in the created state
         """
+        if self._disabled:
+            return True
+
         self._status = 'running'
         self._offline = offline
         self._name = name
@@ -278,6 +288,9 @@ class Run(object):
         """
         Add/update metadata
         """
+        if self._disabled:
+            return True
+
         if not self._name:
             self._error(INIT_MISSING)
             return False
@@ -301,6 +314,9 @@ class Run(object):
         """
         Add/update tags
         """
+        if self._disabled:
+            return True
+
         if not self._name:
             self._error(INIT_MISSING)
             return False
@@ -320,6 +336,9 @@ class Run(object):
         """
         Write event
         """
+        if self._disabled:
+            return True
+
         if not self._name:
             self._error(INIT_MISSING)
             return False
@@ -354,6 +373,9 @@ class Run(object):
         """
         Write metrics
         """
+        if self._disabled:
+            return True
+
         if not self._name:
             self._error(INIT_MISSING)
             return False
@@ -402,6 +424,9 @@ class Run(object):
         """
         Upload file
         """
+        if self._disabled:
+            return True
+
         if not self._name:
             self._error(INIT_MISSING)
             return False
@@ -458,6 +483,9 @@ class Run(object):
         """
         Upload a whole directory
         """
+        if self._disabled:
+            return True
+
         if not self._name:
             self._error(INIT_MISSING)
             return False
@@ -490,6 +518,9 @@ class Run(object):
         """
         Save the list of files and/or directories
         """
+        if self._disabled:
+            return True
+
         for item in items:
             if os.path.isfile(item):
                 self.save(item, category, filetype, preserve_path)
@@ -502,6 +533,9 @@ class Run(object):
         """
         Set run status
         """
+        if self._disabled:
+            return True
+
         if not self._name:
             self._error(INIT_MISSING)
             return False
@@ -525,6 +559,9 @@ class Run(object):
         """
         Close the run
         """
+        if self._disabled:
+            return True
+
         if not self._name:
             self._error(INIT_MISSING)
             return False
@@ -539,6 +576,9 @@ class Run(object):
         """
         Add metadata to the specified folder
         """
+        if self._disabled:
+            return True
+
         if not self._name:
             self._error(INIT_MISSING)
             return False
@@ -586,6 +626,9 @@ class Run(object):
         """
         Creates an alert with the specified name (if it doesn't exist) and applies it to the current run
         """
+        if self._disabled:
+            return True
+
         if not self._name:
             self._error(INIT_MISSING)
             return False
