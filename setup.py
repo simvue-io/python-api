@@ -12,13 +12,14 @@ setuptools.setup(
     version=version,
     author="Andrew Lahiff",
     author_email="andrew.lahiff@ukaea.uk",
-    description="Simulation tracking",
+    description="Simulation tracking and monitoring",
     long_description=long_description,
     long_description_content_type="text/markdown",
     url="https://github.com/simvue-io/client",
     platforms=["any"],
     install_requires=["requests", "randomname", "msgpack", "tenacity"],
     package_dir={'': '.'},
-    packages=['simvue'],
+    packages=["simvue"],
     package_data={"": ["README.md"]},
+    scripts=["bin/simvue_sender"]
 )

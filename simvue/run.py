@@ -15,7 +15,8 @@ import requests
 import randomname
 
 from .worker import Worker
-from .utilities import get_config
+from .simvue import Simvue
+from .utilities import get_auth
 
 INIT_MISSING = 'initialize a run using init() first'
 QUEUE_SIZE = 10000
@@ -139,14 +140,16 @@ class Run(object):
         self._metrics_queue = None
         self._events_queue = None
         self._active = False
-        self._url, self._token = get_config()
+        self._url, self._token = get_auth()
         self._headers = {"Authorization": f"Bearer {self._token}"}
+        self._simvue = None
+        self._offline = False
 
     def __enter__(self):
         return self
 
     def __exit__(self, type, value, tb):
-        if self._name:
+        if self._name and self._status == 'running':
             self.set_status('completed')
 
     def _start(self, reconnect=False):
@@ -157,19 +160,14 @@ class Run(object):
         if reconnect:
             data['system'] = get_system()
 
-            try:
-                response = requests.put(f"{self._url}/api/runs", headers=self._headers, json=data)
-            except requests.exceptions.RequestException:
+            if not self._simvue.update(data):
                 return False
-
-            if response.status_code != 200:
-                self._error('Unable to reconnect to run')
 
         self._start_time = tm.time()
 
         self._metrics_queue = multiprocessing.Manager().Queue(maxsize=self._queue_size)
         self._events_queue = multiprocessing.Manager().Queue(maxsize=self._queue_size)
-        self._worker = Worker(self._metrics_queue, self._events_queue, self._name, self._url, self._headers)
+        self._worker = Worker(self._metrics_queue, self._events_queue, self._name, self._url, self._headers, self._offline)
 
         if multiprocessing.current_process()._parent_pid is None:
             self._worker.start()
@@ -185,7 +183,7 @@ class Run(object):
         else:
             logger.error(message)
 
-    def init(self, name=None, metadata={}, tags=[], description=None, folder='/', status='running'):
+    def init(self, name=None, metadata={}, tags=[], description=None, folder='/', running=True, offline=False):
         """
         Initialise a run
         """
@@ -205,7 +203,12 @@ class Run(object):
             self._error('metadata must be a dict')
 
         self._name = name
-        self._status = status
+        self._offline = offline
+
+        if running:
+            self._status = 'running'
+        else:
+            self._status = 'created'
 
         data = {'name': name,
                 'metadata': metadata,
@@ -226,17 +229,8 @@ class Run(object):
         if self._status == 'running':
             data['system'] = get_system()
 
-        try:
-            response = requests.post(f"{self._url}/api/runs", headers=self._headers, json=data)
-        except requests.exceptions.RequestException as err:
-            self._error(err)
-            return False
-
-        if response.status_code == 409:
-            self._error(f"Run with name {name} already exists")
-            return False
-        elif response.status_code != 200:
-            self._error(f"Unable to create run due to: {response.text}")
+        self._simvue = Simvue(self._name, self._offline, self._suppress_errors)
+        if not self._simvue.create_run(data):
             return False
 
         if self._status == 'running':
@@ -251,12 +245,14 @@ class Run(object):
         """
         return self._name
 
-    def reconnect(self, name):
+    def reconnect(self, name, offline=False):
         """
         Reconnect to a run in the created state
         """
         self._status = 'running'
+        self._offline = offline
         self._name = name
+        self._simvue = Simvue(self._name, self._offline, self._suppress_errors)
         self._start(reconnect=True)
 
     def config(self,
@@ -296,12 +292,7 @@ class Run(object):
 
         data = {'name': self._name, 'metadata': metadata}
 
-        try:
-            response = requests.put(f"{self._url}/api/runs", headers=self._headers, json=data)
-        except requests.exceptions.RequestException:
-            return False
-
-        if response.status_code == 200:
+        if self._simvue.update(data):
             return True
 
         return False
@@ -320,12 +311,7 @@ class Run(object):
 
         data = {'name': self._name, 'tags': tags}
 
-        try:
-            response = requests.put(f"{self._url}/api/runs", headers=self._headers, json=data)
-        except requests.exceptions.RequestException:
-            return False
-
-        if response.status_code == 200:
+        if self._simvue.update(data):
             return True
 
         return False
@@ -462,21 +448,9 @@ class Run(object):
 
         data['type'] = mimetype
 
-        # Get presigned URL
-        try:
-            resp = requests.post(f"{self._url}/api/data", headers=self._headers, json=data)
-        except requests.exceptions.RequestException:
+        # Register file
+        if not self._simvue.save_file(data):
             return False
-
-        if 'url' in resp.json():
-            # Upload file
-            try:
-                with open(filename, 'rb') as fh:
-                    response = requests.put(resp.json()['url'], data=fh, timeout=UPLOAD_TIMEOUT)
-                    if response.status_code != 200:
-                        return False
-            except:
-                return False
 
         return True
 
@@ -542,12 +516,7 @@ class Run(object):
         data = {'name': self._name, 'status': status}
         self._status = status
 
-        try:
-            response = requests.put(f"{self._url}/api/runs", headers=self._headers, json=data)
-        except requests.exceptions.RequestException:
-            return False
-
-        if response.status_code == 200:
+        if self._simvue.update(data):
             return True
 
         return False
@@ -597,12 +566,7 @@ class Run(object):
         if description:
             data['description'] = description
 
-        try:
-            response = requests.put(f"{self._url}/api/folders", headers=self._headers, json=data)
-        except requests.exceptions.RequestException:
-            return False
-
-        if response.status_code == 200:
+        if self._simvue.set_folder_details(data):
             return True
 
         return False
@@ -672,22 +636,13 @@ class Run(object):
                  'source': source,
                  'alert': alert_definition}
 
-        try:
-            response = requests.post(f"{self._url}/api/alerts", headers=self._headers, json=alert)
-        except requests.exceptions.RequestException:
-            return False
-
-        if response.status_code not in (200, 409):
+        if not self._simvue.add_alert(alert):
             self._error('unable to create alert')
+            return False
 
         data = {'name': self._name, 'alert': name}
 
-        try:
-            response = requests.put(f"{self._url}/api/runs", headers=self._headers, json=data)
-        except requests.exceptions.RequestException:
-            return False
-
-        if response.status_code == 200:
+        if self._simvue.update(data):
             return True
 
         return False
