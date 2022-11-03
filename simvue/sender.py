@@ -4,10 +4,8 @@ import logging
 import os
 import time
 
-import tinydb
-
 from .remote import Remote
-from .utilities import get_offline_directory
+from .utilities import get_offline_directory, create_file, remove_file
 
 logger = logging.getLogger(__name__)
 
@@ -31,7 +29,6 @@ def sender():
     """
     Asynchronous upload of runs to Simvue server
     """
-    db = tinydb.TinyDB(os.path.join(os.path.expanduser("~"), '.simvue.json'))
     directory = get_offline_directory()
 
     # Deal with runs in the running or completed state
@@ -47,8 +44,6 @@ def sender():
 
         id = run.split('/')[len(run.split('/')) - 2]
 
-        Run = tinydb.Query()
-        results = db.search(Run.id == id)
         run_init = get_json(f"{current}/run.json")
         start_time = os.path.getctime(f"{current}/run.json")
 
@@ -57,10 +52,11 @@ def sender():
         remote = Remote(run_init['name'], suppress_errors=True)
 
         # Create run if it hasn't previously been created
-        if not results:
+        created_file = f"{current}/created"
+        if not os.path.isfile(created_file):
             logger.info('Creating run with name %s', run_init['name'])
-            db.insert({'id': id, 'status': status})
             remote.create_run(run_init)
+            create_file(created_file)
 
         if status == 'running':
             # Check for recent heartbeat
@@ -79,11 +75,8 @@ def sender():
         if status == 'lost':
             logger.info('Changing status to lost, name %s and id %s', run_init['name'], id)
             status = 'lost'
-            db.update({'status': 'lost'}, Run.id == id)
-            try:
-                os.remove(f"{current}/running")
-            except Exception as err:
-                logger.error('Unable to remove running status file for run with name %s and id %s', run_init['name'], id)
+            create_file(f"{current}/lost")
+            remove_file(f"{current}/running")
 
         # Send heartbeat if necessary
         if status == 'running':
@@ -92,11 +85,13 @@ def sender():
 
         # Upload metrics, events, files & metadata as necessary
         files = sorted(glob.glob(f"{current}/*"), key=os.path.getmtime)
+        updates = 0
         for record in files:
             if record.endswith('/run.json') or \
                record.endswith('/running') or \
                record.endswith('/completed') or \
                record.endswith('/lost') or \
+               record.endswith('/sent') or \
                record.endswith('-proc'):
                 continue
 
@@ -141,20 +136,11 @@ def sender():
             # Rename processed files
             if rename:
                 os.rename(record, f"{record}-proc")
+                updates += 1
 
-            # Check if finished
-            if record.endswith('/completed'):
-                logger.info('Run %s status changed to completed', run_init['name'])
-                db.update({'status': 'completed'}, Run.id == id)
-
-    # Deal with runs in the completed state
-    runs = glob.glob(f"{directory}/*/completed")
-    for run in runs:
-        id = run.split('/')[len(run.split('/')) - 2]
-        Run = tinydb.Query()
-        results = db.search(Run.id == id)
-        if results:
-            status = results[0]['status']
-            if status != 'completed':
-                logger.info('Run with id %s status changed to completed', id)
-                db.update({'status': 'completed'}, Run.id == id)
+        # If the status is completed and there were no updates, the run must have completely finished
+        if updates == 0 and status == 'completed':
+            create_file(f"{current}/sent")
+            remove_file(f"{current}/completed")
+            data = {'name': run_init['name'], 'status': 'completed'}
+            remote.update(data)

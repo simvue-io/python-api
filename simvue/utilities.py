@@ -1,6 +1,9 @@
 import configparser
 import hashlib
+import logging
 import os
+
+logger = logging.getLogger(__name__)
 
 def get_auth():
     """
@@ -49,3 +52,23 @@ def get_directory_name(name):
     Return the SHA256 sum of the provided name
     """
     return hashlib.sha256(name.encode('utf-8')).hexdigest()
+
+def create_file(filename):
+    """
+    Create an empty file
+    """
+    try:
+        with open(filename, 'w') as fh:
+            fh.write('')
+    except Exception as err:
+        logger.error('Unable to write file %s due to: %s', filename, str(err))
+
+def remove_file(filename):
+    """
+    Remove file
+    """
+    if os.path.isfile(filename):
+        try:
+            os.remove(filename)
+        except Exception as err:
+            logger.error('Unable to remove file %s due to: %s', filename, str(err))

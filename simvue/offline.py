@@ -3,7 +3,7 @@ import logging
 import os
 import time
 
-from .utilities import get_offline_directory, get_directory_name
+from .utilities import get_offline_directory, get_directory_name, create_file
 
 logger = logging.getLogger(__name__)
 
@@ -30,9 +30,9 @@ class Offline(object):
         Create a run
         """
         try:
-            os.mkdir(self._directory)
-        except:
-            pass
+            os.makedirs(self._directory, exist_ok=True)
+        except Exception as err:
+            logger.error('Unable to create directory %s due to: %s', self._directory, str(err))
         
         filename = f"{self._directory}/run.json"
         with open(filename, 'w') as fh:
@@ -40,8 +40,7 @@ class Offline(object):
 
         status = data['status']
         filename = f"{self._directory}/{status}"
-        with open(filename, 'w') as fh:
-            fh.write('')
+        create_file(filename)
 
         return True
 
@@ -57,8 +56,7 @@ class Offline(object):
         if 'status' in data:
             status = data['status']
             filename = f"{self._directory}/{status}"
-            with open(filename, 'w') as fh:
-                fh.write('')
+            create_file(filename)
 
             if status == 'completed':
                 status_running = f"{self._directory}/running"

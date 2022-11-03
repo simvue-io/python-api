@@ -6,7 +6,7 @@ import requests
 import msgpack
 from tenacity import retry, wait_exponential, stop_after_attempt
 
-from .utilities import get_offline_directory, get_directory_name
+from .utilities import get_offline_directory, get_directory_name, create_file
 
 HEARTBEAT_INTERVAL = 60
 POLLING_INTERVAL = 1
@@ -37,8 +37,7 @@ class Worker(threading.Thread):
                                     json={'name': self._name})
             response.raise_for_status()
         else:
-            with open(f"{self._directory}/heartbeat", 'w') as fh:
-                fh.write('')
+            create_file(f"{self._directory}/heartbeat")
 
     @retry(wait=wait_exponential(multiplier=1, min=4, max=10), stop=stop_after_attempt(5))
     def post(self, endpoint, data):
