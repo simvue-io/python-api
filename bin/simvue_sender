@@ -1,17 +1,28 @@
 """Send runs to server"""
+import getpass
 import logging
 import sys
 
 from simvue.sender import sender
+from simvue.utilities import create_file, remove_file
 
-root = logging.getLogger()
-root.setLevel(logging.DEBUG)
+logger = logging.getLogger()
+logger.setLevel(logging.DEBUG)
 
 handler = logging.StreamHandler(sys.stdout)
 handler.setLevel(logging.INFO)
 formatter = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s')
 handler.setFormatter(formatter)
-root.addHandler(handler)
+logger.addHandler(handler)
 
 if __name__ == "__main__":
-    sender()
+    lockfile = f"/tmp/simvue-{getpass.getuser()}.lock"
+    if not lockfile:
+        create_file(lockfile)
+
+        try:
+            sender()
+        except Exception as err:
+            logger.error('Exception running sender: %s', str(err))
+
+        remove_file(lockfile)
