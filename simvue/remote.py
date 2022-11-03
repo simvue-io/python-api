@@ -38,11 +38,14 @@ class Remote(object):
                                      headers=self._headers,
                                      json=data,
                                      timeout=DEFAULT_API_TIMEOUT)
-        except requests.exceptions.RequestException:
+        except requests.exceptions.RequestException as err:
+            self._error(f"Exception creating run: {str(err)}")
             return False
 
-        if response.status_code != 200:
-            self._error('Unable to reconnect to run')
+        if response.status_code == 409:
+            self._error(f"Duplicate run, name {data['name']} already exists")
+        elif response.status_code != 200:
+            self._error(f"Got status code {response.status_code} when creating run")
             return False
 
         return True
@@ -56,12 +59,14 @@ class Remote(object):
                                     headers=self._headers,
                                     json=data,
                                     timeout=DEFAULT_API_TIMEOUT)
-        except requests.exceptions.RequestException:
-            pass
+        except requests.exceptions.RequestException as err:
+            self._error(f"Exception creating updating run: {str(err)}")
+            return False
 
         if response.status_code == 200:
             return True
 
+        self._error(f"Got status code {response.status_code} when updating run")
         return False
 
     def set_folder_details(self, data):
@@ -73,12 +78,14 @@ class Remote(object):
                                     headers=self._headers,
                                     json=data,
                                     timeout=DEFAULT_API_TIMEOUT)
-        except requests.exceptions.RequestException:
-            pass
+        except requests.exceptions.RequestException as err:
+            self._error(f"Exception setting folder details: {err}")
+            return False
 
         if response.status_code == 200:
             return True
 
+        self._error(f"Got status code {response.status_code} when updating folder details")
         return False
 
     def save_file(self, data):
@@ -122,16 +129,18 @@ class Remote(object):
         Add an alert
         """
         try:
-            response = requests.put(f"{self._url}/api/runs",
-                                    headers=self._headers,
-                                    json=data,
-                                    timeout=DEFAULT_API_TIMEOUT)
-        except requests.exceptions.RequestException:
-            pass
+            response = requests.post(f"{self._url}/api/alerts",
+                                     headers=self._headers,
+                                     json=data,
+                                     timeout=DEFAULT_API_TIMEOUT)
+        except requests.exceptions.RequestException as err:
+            self._error(f"Got exception when creating an alert: {str(err)}")
+            return False
 
-        if response.status_code == 200:
+        if response.status_code in (200, 409):
             return True
 
+        self._error(f"Got status code {response.status_code} when creating alert")
         return False
 
     def send_metrics(self, data):
@@ -143,8 +152,15 @@ class Remote(object):
                                      headers=self._headers_mp,
                                      data=data,
                                      timeout=DEFAULT_API_TIMEOUT)
-        except:
-            pass
+        except requests.exceptions.RequestException as err:
+            self._error(f"Exception sending metrics: {str(err)}")
+            return False
+
+        if response.status_code == 200:
+            return True
+
+        self._error(f"Got status code {response.status_code} when sending metrics")
+        return False
 
     def send_event(self, data):
         """
@@ -155,8 +171,15 @@ class Remote(object):
                                      headers=self._headers_mp,
                                      data=data,
                                      timeout=DEFAULT_API_TIMEOUT)
-        except:
-            pass
+        except requests.exceptions.RequestException as err:
+            self._error(f"Exception sending event: {str(err)}")
+            return False
+
+        if response.status_code == 200:
+            return True
+
+        self._error(f"Got status code {response.status_code} when sending events")
+        return False
 
     def send_heartbeat(self):
         """
@@ -167,5 +190,12 @@ class Remote(object):
                                     headers=self._headers,
                                     json={'name': self._name},
                                     timeout=DEFAULT_API_TIMEOUT)
-        except:
-            pass
+        except requests.exceptions.RequestException as err:
+            self._error(f"Exception creating run: {str(err)}")
+            return False
+
+        if response.status_code == 200:
+            return True
+
+        self._error(f"Got status code {response.status_code} when sending heartbeat")
+        return False
