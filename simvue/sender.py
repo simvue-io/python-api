@@ -140,6 +140,7 @@ def sender():
 
         # If the status is completed and there were no updates, the run must have completely finished
         if updates == 0 and status == 'completed':
+            logger.info('Finished sending run %s', run_init['name'])
             create_file(f"{current}/sent")
             remove_file(f"{current}/completed")
             data = {'name': run_init['name'], 'status': 'completed'}
