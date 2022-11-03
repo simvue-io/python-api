@@ -92,14 +92,14 @@ class Remote(object):
                                  json=data,
                                  timeout=DEFAULT_API_TIMEOUT)
         except requests.exceptions.RequestException as err:
-            self._error('Got exception when uploading file %s to object storage: %s', data['name'], str(err))
+            self._error(f"Got exception when uploading file {data['name']} to object storage: {str(err)}")
             return False
 
         if response.status_code == 409:
             return True
 
         if response.status_code != 200:
-            self._error('Got status code %d when registering file %s', response.status_code, data['name'])
+            self._error(f"Got status code {response.status_code} when registering file {data['name']}")
             return False
 
         if 'url' in response.json():
@@ -109,10 +109,10 @@ class Remote(object):
                                             data=fh,
                                             timeout=UPLOAD_TIMEOUT)
                     if response.status_code != 200:
-                        self._error('Got status code %d when uploading file %s to object storage', response.status_code, data['name'])
+                        self._error(f"Got status code {response.status_code} when uploading file {data['name']} to object storage")
                         return None
             except Exception as err:
-                self._error('Got exception when uploading file %s to object storage: %s', data['name'], str(err))
+                self._error(f"Got exception when uploading file {data['name']} to object storage: {str(err)}")
                 return None
 
         return True
