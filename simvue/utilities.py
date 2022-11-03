@@ -39,6 +39,9 @@ def get_offline_directory():
         except:
             pass
 
+    if not directory:
+        directory = os.path.join(os.path.expanduser("~"), ".simvue")
+
     return directory
 
 def get_directory_name(name):
