@@ -1,5 +1,6 @@
 """Send runs to server"""
 import getpass
+import os
 import logging
 import sys
 
