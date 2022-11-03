@@ -42,6 +42,13 @@ def sender():
 
         current = run.replace('/running', '').replace('/completed', '')
 
+        if os.path.isfile("f{current}/sent"):
+            if status == 'running':
+                remove_file(f"{current}/running")
+            elif status == 'completed':
+                remove_file(f"{current}/completed")
+            continue
+
         id = run.split('/')[len(run.split('/')) - 2]
 
         run_init = get_json(f"{current}/run.json")
@@ -78,8 +85,8 @@ def sender():
             create_file(f"{current}/lost")
             remove_file(f"{current}/running")
 
-        # Send heartbeat if necessary
-        if status == 'running':
+        # Send heartbeat if the heartbeat file was touched recently
+        if status == 'running' and time.time() - os.path.getmtime(heartbeat_filename) < 120:
             logger.info('Sending heartbeat for run with name %s', run_init['name'])
             remote.send_heartbeat()
 
@@ -145,3 +152,6 @@ def sender():
             remove_file(f"{current}/completed")
             data = {'name': run_init['name'], 'status': 'completed'}
             remote.update(data)
+        elif updates == 0 and status == 'lost':
+            logger.info('Finished sending run %s as it was lost', run_init['name'])
+            create_file(f"{current}/sent")
