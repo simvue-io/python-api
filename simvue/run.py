@@ -420,9 +420,9 @@ class Run(object):
 
         return True
 
-    def save(self, filename, category, filetype=None, preserve_path=False):
+    def save(self, input_data, category, filetype=None, preserve_path=False):
         """
-        Upload file
+        Upload input_data which can be a file or numpy array
         """
         if self._disabled:
             return True
@@ -435,10 +435,18 @@ class Run(object):
             self._error('Run is not active')
             return False
 
-        if not os.path.isfile(filename):
+        # check data type, if np array create a file, if file check path
+        filename=input_data
+        if isinstance(input_data, np.ndarray):
+            filename=os.getcwd() + self._name + randomname.get_name() + '.npy'
+            np.save(filename, input_data)
+        else if not os.path.isfile(filename):
             self._error(f"File {filename} does not exist")
             return False
-
+        else:
+            self._error('Expecting a file or numpy array. Filename %s does not exist' % filename)
+            return False
+            
         if filetype:
             mimetypes_valid = []
             mimetypes.init()
