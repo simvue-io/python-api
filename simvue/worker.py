@@ -13,7 +13,7 @@ POLLING_INTERVAL = 1
 MAX_BUFFER_SEND = 5000
 
 class Worker(threading.Thread):
-    def __init__(self, metrics_queue, events_queue, name, url, headers, offline=False):
+    def __init__(self, metrics_queue, events_queue, name, url, headers, mode):
         threading.Thread.__init__(self)
         self._parent_thread = threading.currentThread()
         self._metrics_queue = metrics_queue
@@ -23,7 +23,7 @@ class Worker(threading.Thread):
         self._headers = headers
         self._headers_mp = headers.copy()
         self._headers_mp['Content-Type'] = 'application/msgpack'
-        self._offline = offline
+        self._mode = mode
         self._directory = os.path.join(get_offline_directory(), get_directory_name(name))
 
     @retry(wait=wait_exponential(multiplier=1, min=4, max=10), stop=stop_after_attempt(5))
@@ -31,7 +31,7 @@ class Worker(threading.Thread):
         """
         Send a heartbeat, with retries
         """
-        if not self._offline:
+        if mode == 'online':
             response = requests.put(f"{self._url}/api/runs/heartbeat",
                                     headers=self._headers,
                                     json={'name': self._name})
@@ -44,7 +44,7 @@ class Worker(threading.Thread):
         """
         Send the supplied data, with retries
         """
-        if not self._offline:
+        if mode == 'online':
             response = requests.post(f"{self._url}/api/{endpoint}",
                                      headers=self._headers_mp,
                                      data=data)
