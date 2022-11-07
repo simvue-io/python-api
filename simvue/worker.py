@@ -31,7 +31,7 @@ class Worker(threading.Thread):
         """
         Send a heartbeat, with retries
         """
-        if mode == 'online':
+        if self._mode == 'online':
             response = requests.put(f"{self._url}/api/runs/heartbeat",
                                     headers=self._headers,
                                     json={'name': self._name})
@@ -44,7 +44,7 @@ class Worker(threading.Thread):
         """
         Send the supplied data, with retries
         """
-        if mode == 'online':
+        if self._mode == 'online':
             response = requests.post(f"{self._url}/api/{endpoint}",
                                      headers=self._headers_mp,
                                      data=data)
