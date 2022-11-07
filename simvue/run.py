@@ -190,6 +190,9 @@ class Run(object):
         """
         Initialise a run
         """
+        if self._mode not in ('online', 'offline', 'disabled'):
+            self._error('invalid mode specified, must be online, offline or disabled')
+
         if self._mode == 'disabled':
             return True
 
