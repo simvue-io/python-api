@@ -121,6 +121,34 @@ def validate_timestamp(timestamp):
 
     return True
 
+def get_filename_input(input_data, name_tag):
+    """ 
+    Determines if the input is a np.ndarray or file. If it is a np.ndarray then a file is created.
+    Filename is returned.
+
+    Parameters
+    ----------
+    input_data : np.ndarray or file
+        input can be a np array or file
+        
+    name_tag: A tag to be added to the filename. Typically the run name.
+
+    Returns
+    -------
+    filename
+        The name of the file either pointing to the np.ndarray or file
+    """          
+    filename=input_data
+    if isinstance(input_data, np.ndarray):
+        filename=os.getcwd() + name_tag + randomname.get_name() + '.npy'
+        np.save(filename, input_data)
+    else if not os.path.isfile(filename):
+        raise Exception(f"File {filename} does not exist")
+    else:
+        raise Exception('Expecting a file or numpy array. Filename %s does not exist' % filename)
+
+    return filename
+    
 
 class Run(object):
     """
@@ -420,6 +448,7 @@ class Run(object):
 
         return True
 
+        
     def save(self, input_data, category, filetype=None, preserve_path=False):
         """
         Upload input_data which can be a file or numpy array
@@ -436,15 +465,10 @@ class Run(object):
             return False
 
         # check data type, if np array create a file, if file check path
-        filename=input_data
-        if isinstance(input_data, np.ndarray):
-            filename=os.getcwd() + self._name + randomname.get_name() + '.npy'
-            np.save(filename, input_data)
-        else if not os.path.isfile(filename):
-            self._error(f"File {filename} does not exist")
-            return False
-        else:
-            self._error('Expecting a file or numpy array. Filename %s does not exist' % filename)
+        try: 
+            filename = check_input_nparray_file(input_data)
+        except ex:
+            self._error(str(ex))
             return False
             
         if filetype:
