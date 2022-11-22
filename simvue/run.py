@@ -13,6 +13,9 @@ import time as tm
 import platform
 import requests
 import randomname
+import numpy as np
+import pickle
+import dill
 
 from .worker import Worker
 from .simvue import Simvue
@@ -123,29 +126,32 @@ def validate_timestamp(timestamp):
 
 def get_filename_input(input_data, name_tag):
     """ 
-    Determines if the input is a np.ndarray or file. If it is a np.ndarray then a file is created.
-    Filename is returned.
+    Determines if the input is pickleable or a valid file. If it is pickleable and not a string then a pickle file is created 
+    and filename is returned.
+
+    If the input is a string, so a filename, then check if the file exists, else raise and exception
 
     Parameters
     ----------
-    input_data : np.ndarray or file
-        input can be a np array or file
-        
+    input_data : pickleable object or file
+       
     name_tag: A tag to be added to the filename. Typically the run name.
 
     Returns
     -------
     filename
-        The name of the file either pointing to the np.ndarray or file
+        The name of the file either pointing to the pickleable object or file
     """          
     filename=input_data
-    if isinstance(input_data, np.ndarray):
-        filename=os.getcwd() + name_tag + randomname.get_name() + '.npy'
-        np.save(filename, input_data)
-    elif not os.path.isfile(filename):
+    if dill.pickles(input_data) and isinstance(input_data, str) == False:
+        filename=name_tag +'_'+randomname.get_name() + '.pkl'
+        filehandle = open(filename, 'wb')
+        pickle.dump(input_data, filehandle)
+        filehandle.close()
+    elif not os.path.isfile(input_data):
         raise Exception(f"File {filename} does not exist")
     else:
-        raise Exception('Expecting a file or numpy array. Filename %s does not exist' % filename)
+        raise Exception('Expecting a file or pickleable object. Filename %s does not exist' % filename)
 
     return filename
     
@@ -464,11 +470,11 @@ class Run(object):
             self._error('Run is not active')
             return False
 
-        # check data type, if np array create a file, if file check path
+        # check data type, if pickleable object create a file, if file check path
         try: 
-            filename = check_input_nparray_file(input_data)
-        except ex:
-            self._error(str(ex))
+            filename = get_filename_input(input_data)
+        except Exception as error:
+            self._error(str(error))
             return False
             
         if filetype:
