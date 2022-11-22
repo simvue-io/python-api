@@ -142,7 +142,7 @@ def get_filename_input(input_data, name_tag):
     if isinstance(input_data, np.ndarray):
         filename=os.getcwd() + name_tag + randomname.get_name() + '.npy'
         np.save(filename, input_data)
-    else if not os.path.isfile(filename):
+    elif not os.path.isfile(filename):
         raise Exception(f"File {filename} does not exist")
     else:
         raise Exception('Expecting a file or numpy array. Filename %s does not exist' % filename)
