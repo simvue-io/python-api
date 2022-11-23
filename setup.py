@@ -17,7 +17,7 @@ setuptools.setup(
     long_description_content_type="text/markdown",
     url="https://github.com/simvue-io/client",
     platforms=["any"],
-    install_requires=["requests", "randomname", "msgpack", "tenacity", "pickle", "dill"],
+    install_requires=["requests", "randomname", "msgpack", "tenacity"],
     package_dir={'': '.'},
     packages=["simvue"],
     package_data={"": ["README.md"]},
