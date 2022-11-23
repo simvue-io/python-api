@@ -54,10 +54,10 @@ class Client(object):
         """
         Download an artifact
         """
-        data = {'run': run, 'name': name}
+        params = {'run': run, 'name': name}
 
         try:
-            response = requests.get(f"{self._url}/api/artifacts", headers=self._headers, json=data)
+            response = requests.get(f"{self._url}/api/artifacts", headers=self._headers, params=params)
         except requests.exceptions.RequestException:
             return None
 
