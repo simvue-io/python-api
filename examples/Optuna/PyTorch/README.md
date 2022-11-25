@@ -21,5 +21,6 @@ Run the code:
 ```
 python3 simvue_optuna_pytorch.py
 ```
-By default this will create 100 runs in Simvue, all in a folder with name `/optuna/tests/<adjective>-<noun>`, where `<adjective>` is a random
-adjective and `<noun>` is a random noun.
+By default this will create a number runs in Simvue, all in a folder with name `/optuna/tests/<adjective>-<noun>`, where `<adjective>` is a random
+adjective and `<noun>` is a random noun. Metadata and a metric `validation accuracy` is collected during each run. The metadata includes
+an attribute `state` which indicates if the run completed successfully or was pruned.
