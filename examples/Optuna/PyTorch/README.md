@@ -11,6 +11,7 @@ This example is based on the Medium post https://medium.com/optuna/optuna-meets-
 Setup a virtual environment:
 ```
 python3 -m venv venv
+source ./venv/bin/activate
 ```
 Install the required dependencies:
 ```
