@@ -1,6 +1,5 @@
 import time
 import psutil
-import multiprocessing
 
 def get_process_memory(process):
     """
