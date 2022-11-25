@@ -170,7 +170,7 @@ class Run(object):
 
         self._metrics_queue = multiprocessing.Manager().Queue(maxsize=self._queue_size)
         self._events_queue = multiprocessing.Manager().Queue(maxsize=self._queue_size)
-        self._worker = Worker(self._metrics_queue, self._events_queue, self._name, self._url, self._headers, self._mode)
+        self._worker = Worker(self._metrics_queue, self._events_queue, self._name, self._url, self._headers, self._mode, os.getpid())
 
         if multiprocessing.current_process()._parent_pid is None:
             self._worker.start()

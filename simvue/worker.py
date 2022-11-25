@@ -1,4 +1,6 @@
+import datetime
 import os
+import psutil
 import sys
 import time
 import threading
@@ -6,14 +8,16 @@ import requests
 import msgpack
 from tenacity import retry, wait_exponential, stop_after_attempt
 
+from .metrics import get_process_memory, get_process_cpu
 from .utilities import get_offline_directory, get_directory_name, create_file
 
 HEARTBEAT_INTERVAL = 60
+METRICS_INTERVAL = 30
 POLLING_INTERVAL = 1
 MAX_BUFFER_SEND = 5000
 
 class Worker(threading.Thread):
-    def __init__(self, metrics_queue, events_queue, name, url, headers, mode):
+    def __init__(self, metrics_queue, events_queue, name, url, headers, mode, pid):
         threading.Thread.__init__(self)
         self._parent_thread = threading.currentThread()
         self._metrics_queue = metrics_queue
@@ -25,6 +29,10 @@ class Worker(threading.Thread):
         self._headers_mp['Content-Type'] = 'application/msgpack'
         self._mode = mode
         self._directory = os.path.join(get_offline_directory(), get_directory_name(name))
+        self._start_time = time.time()
+        self._process = psutil.Process(pid)
+
+        get_process_cpu(self._process)
 
     @retry(wait=wait_exponential(multiplier=1, min=4, max=10), stop=stop_after_attempt(5))
     def heartbeat(self):
@@ -60,7 +68,26 @@ class Worker(threading.Thread):
         Loop sending heartbeats, metrics and events
         """
         last_heartbeat = 0
+        last_metrics = 0
         while True:
+            # Collect metrics if necessary
+            if time.time() - last_metrics > METRICS_INTERVAL:
+                cpu = get_process_cpu(self._process)
+                memory = get_process_memory(self._process)
+                if memory is not None and cpu is not None:
+                    data = {}
+                    data['step'] = 0
+                    data['run'] = self._name
+                    data['values'] = {'resources/cpu_usage': cpu,
+                                      'resources/memory_usage': memory}
+                    data['time'] = time.time() - self._start_time
+                    data['timestamp'] = datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S.%f')
+                    try:
+                        self._metrics_queue.put(data, block=False)
+                    except:
+                        pass
+                last_metrics = time.time()
+
             # Send heartbeat if necessary
             if time.time() - last_heartbeat > HEARTBEAT_INTERVAL:
                 try:
