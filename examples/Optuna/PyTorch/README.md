@@ -21,3 +21,5 @@ Run the code:
 ```
 python3 simvue_optuna_pytorch.py
 ```
+By default this will create 100 runs in Simvue, all in a folder with name `/optuna/tests/<adjective>-<noun>`, where `<adjective>` is a random
+adjective and `<noun>` is a random noun.
