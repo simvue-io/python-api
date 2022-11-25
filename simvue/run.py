@@ -144,6 +144,7 @@ class Run(object):
         self._url, self._token = get_auth()
         self._headers = {"Authorization": f"Bearer {self._token}"}
         self._simvue = None
+        self._pid = None
 
     def __enter__(self):
         return self
@@ -168,9 +169,12 @@ class Run(object):
 
         self._start_time = tm.time()
 
+        if not self._pid:
+            self._pid = os.getpid()
+
         self._metrics_queue = multiprocessing.Manager().Queue(maxsize=self._queue_size)
         self._events_queue = multiprocessing.Manager().Queue(maxsize=self._queue_size)
-        self._worker = Worker(self._metrics_queue, self._events_queue, self._name, self._url, self._headers, self._mode, os.getpid())
+        self._worker = Worker(self._metrics_queue, self._events_queue, self._name, self._url, self._headers, self._mode, self._pid)
 
         if multiprocessing.current_process()._parent_pid is None:
             self._worker.start()
@@ -264,6 +268,12 @@ class Run(object):
         self._name = name
         self._simvue = Simvue(self._name, self._mode, self._suppress_errors)
         self._start(reconnect=True)
+
+    def set_pid(self, pid):
+        """
+        Set pid of process to be monitored
+        """
+        self._pid = pid
 
     def config(self,
                suppress_errors=False,
