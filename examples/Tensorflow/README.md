@@ -1,4 +1,4 @@
-# Tensorflow example
+# Tensorflow
 
 Setup a virtual environment:
 ```
