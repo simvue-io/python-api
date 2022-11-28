@@ -144,7 +144,7 @@ class Run(object):
         self._url, self._token = get_auth()
         self._headers = {"Authorization": f"Bearer {self._token}"}
         self._simvue = None
-        self._pid = None
+        self._pid = 0
 
     def __enter__(self):
         return self
@@ -169,7 +169,7 @@ class Run(object):
 
         self._start_time = tm.time()
 
-        if not self._pid:
+        if self._pid == 0:
             self._pid = os.getpid()
 
         self._metrics_queue = multiprocessing.Manager().Queue(maxsize=self._queue_size)
@@ -278,7 +278,8 @@ class Run(object):
     def config(self,
                suppress_errors=False,
                queue_blocking=False,
-               queue_size=QUEUE_SIZE):
+               queue_size=QUEUE_SIZE,
+               disable_system_metrics=False):
         """
         Optional configuration
         """
@@ -293,6 +294,12 @@ class Run(object):
         if not isinstance(queue_size, int):
             self._error('queue_size must be an integer')
         self._queue_size = queue_size
+
+        if not isinstance(disable_system_metrics, bool):
+            self._error('disable_system_metrics must be boolean')
+
+        if disable_system_metrics:
+            self._pid = None
 
     def update_metadata(self, metadata):
         """

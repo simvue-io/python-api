@@ -40,7 +40,9 @@ class Worker(threading.Thread):
         self._mode = mode
         self._directory = os.path.join(get_offline_directory(), get_directory_name(name))
         self._start_time = time.time()
-        self._processes = update_processes(psutil.Process(pid), [])
+        self._processes = []
+        if pid:
+            self._processes = update_processes(psutil.Process(pid), [])
 
     @retry(wait=wait_exponential(multiplier=1, min=4, max=10), stop=stop_after_attempt(5))
     def heartbeat(self):
@@ -80,7 +82,7 @@ class Worker(threading.Thread):
         collected = False
         while True:
             # Collect metrics if necessary
-            if time.time() - last_metrics > METRICS_INTERVAL:
+            if time.time() - last_metrics > METRICS_INTERVAL and self._processes:
                 cpu = get_process_cpu(self._processes)
                 if not collected:
                     # Need to wait before sending metrics, otherwise first point will have zero CPU usage
