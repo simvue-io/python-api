@@ -6,7 +6,12 @@ Here we provide a number of different examples using different applications.
 [Basic example](Tensorflow/)
 
 ## Optuna
-[PyTorch](Optuna/PyTorch/README.md)
+[PyTorch](Optuna/PyTorch/)
+
+## OpenFOAM
+
+## SU2
 
 ## Logging
-[Example](Logging/README.md)
+[Example](Logging/)
+
