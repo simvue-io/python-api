@@ -41,7 +41,6 @@ class Worker(threading.Thread):
         self._directory = os.path.join(get_offline_directory(), get_directory_name(name))
         self._start_time = time.time()
         self._processes = update_processes(psutil.Process(pid), [])
-        get_process_cpu(self._processes)
 
     @retry(wait=wait_exponential(multiplier=1, min=4, max=10), stop=stop_after_attempt(5))
     def heartbeat(self):
@@ -78,24 +77,29 @@ class Worker(threading.Thread):
         """
         last_heartbeat = 0
         last_metrics = 0
+        collected = False
         while True:
             # Collect metrics if necessary
             if time.time() - last_metrics > METRICS_INTERVAL:
                 cpu = get_process_cpu(self._processes)
-                memory = get_process_memory(self._processes)
-                if memory is not None and cpu is not None:
-                    data = {}
-                    data['step'] = 0
-                    data['run'] = self._name
-                    data['values'] = {'resources/cpu_usage': cpu,
-                                      'resources/memory_usage': memory}
-                    data['time'] = time.time() - self._start_time
-                    data['timestamp'] = datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S.%f')
-                    try:
-                        self._metrics_queue.put(data, block=False)
-                    except:
-                        pass
-                last_metrics = time.time()
+                if not collected:
+                    # Need to wait before sending metrics, otherwise first point will have zero CPU usage
+                    collected = True
+                else:
+                    memory = get_process_memory(self._processes)
+                    if memory is not None and cpu is not None:
+                        data = {}
+                        data['step'] = 0
+                        data['run'] = self._name
+                        data['values'] = {'resources/cpu_usage': cpu,
+                                          'resources/memory_usage': memory}
+                        data['time'] = time.time() - self._start_time
+                        data['timestamp'] = datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S.%f')
+                        try:
+                            self._metrics_queue.put(data, block=False)
+                        except:
+                            pass
+                    last_metrics = time.time()
 
             # Send heartbeat if necessary
             if time.time() - last_heartbeat > HEARTBEAT_INTERVAL:
