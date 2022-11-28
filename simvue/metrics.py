@@ -1,28 +1,28 @@
 import time
 import psutil
 
-def get_process_memory(process):
+def get_process_memory(processes):
     """
     Get the resident set size
     """
-    try:
-        rss = process.memory_info().rss/1024/1024
-        for child in process.children(recursive=True):
-            rss += child.memory_info().rss/1024/1024
-    except:
-        return None
+    rss = 0
+    for process in processes:
+        try:
+            rss += process.memory_info().rss/1024/1024
+        except:
+            pass
 
     return rss
     
-def get_process_cpu(process):
+def get_process_cpu(processes):
     """
     Get the CPU usage
     """
-    try:
-        cpu_percent = process.cpu_percent()
-        for child in process.children(recursive=True):
-            cpu_percent += child.cpu_percent()
-    except:
-        return None
+    cpu_percent = 0
+    for process in processes:
+        try:
+            cpu_percent += process.cpu_percent()
+        except:
+            pass
 
     return cpu_percent

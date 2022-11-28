@@ -16,6 +16,16 @@ METRICS_INTERVAL = 30
 POLLING_INTERVAL = 1
 MAX_BUFFER_SEND = 5000
 
+def update_processes(parent, processes):
+    """
+    Create an array containing a list of processes
+    """
+    for child in parent.children(recursive=True):
+        if child not in processes:
+            processes.append(child)
+    return processes
+
+
 class Worker(threading.Thread):
     def __init__(self, metrics_queue, events_queue, name, url, headers, mode, pid):
         threading.Thread.__init__(self)
@@ -30,9 +40,8 @@ class Worker(threading.Thread):
         self._mode = mode
         self._directory = os.path.join(get_offline_directory(), get_directory_name(name))
         self._start_time = time.time()
-        self._process = psutil.Process(pid)
-
-        get_process_cpu(self._process)
+        self._processes = update_processes(psutil.Process(pid), [])
+        get_process_cpu(self._processes)
 
     @retry(wait=wait_exponential(multiplier=1, min=4, max=10), stop=stop_after_attempt(5))
     def heartbeat(self):
@@ -72,8 +81,8 @@ class Worker(threading.Thread):
         while True:
             # Collect metrics if necessary
             if time.time() - last_metrics > METRICS_INTERVAL:
-                cpu = get_process_cpu(self._process)
-                memory = get_process_memory(self._process)
+                cpu = get_process_cpu(self._processes)
+                memory = get_process_memory(self._processes)
                 if memory is not None and cpu is not None:
                     data = {}
                     data['step'] = 0
