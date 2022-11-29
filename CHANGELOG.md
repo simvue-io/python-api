@@ -1,8 +1,12 @@
 # Change log
 
+## v0.7.0
+
+* Collect CPU, GPU and memory resource metrics.
+
 ## v0.6.0
 
-* `offline` and `disabled` options replaced with single `mode` flag
+* `offline` and `disabled` options replaced with single `mode` flag.
 
 ## v0.5.0
 
@@ -22,6 +26,6 @@
 
 * The previous `Simvue` class has been split into `Run` and `Client`. When creating a run use the new `Run` class rather than `Simvue`.
 
-## v0.1.0
+## v0.1.0
 
-* The previous `Simvue` class has been split into `Run` and `Client`. When creating a run use the new `Run` class rather than `Simvue`.
+* First release.
