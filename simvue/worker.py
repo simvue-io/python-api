@@ -99,7 +99,7 @@ class Worker(threading.Thread):
                         data = {}
                         data['step'] = 0
                         data['run'] = self._name
-                        data['values'] = {'resources/cpu.usage': cpu,
+                        data['values'] = {'resources/cpu.usage.percent': cpu,
                                           'resources/memory.usage': memory}
                         if gpu:
                             for item in gpu:
