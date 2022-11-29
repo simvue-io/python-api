@@ -23,6 +23,8 @@ def update_processes(parent, processes):
     for child in parent.children(recursive=True):
         if child not in processes:
             processes.append(child)
+    if parent not in processes:
+        processes.append(parent)
     return processes
 
 

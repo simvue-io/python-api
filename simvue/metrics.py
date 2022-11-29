@@ -1,6 +1,6 @@
 import time
 import psutil
-import pynvml
+from .pynvml import *
 
 def get_process_memory(processes):
     """
@@ -35,10 +35,10 @@ def is_gpu_used(handle, processes):
     pids = [process.pid for process in processes]
 
     gpu_pids = []
-    for process in pynvml.nvmlDeviceGetComputeRunningProcesses(handle):
+    for process in nvmlDeviceGetComputeRunningProcesses(handle):
         gpu_pids.append(process.pid)
 
-    for process in pynvml.nvmlDeviceGetGraphicsRunningProcesses(handle):
+    for process in nvmlDeviceGetGraphicsRunningProcesses(handle):
         gpu_pids.append(process.pid)
         
     return len(list(set(gpu_pids) & set(pids))) > 0
@@ -50,17 +50,18 @@ def get_gpu_metrics(processes):
     gpu_metrics = {}
 
     try:
-        pynvml.nvmlInit()
-        device_count = pynvml.nvmlDeviceGetCount()
+        nvmlInit()
+        device_count = nvmlDeviceGetCount()
         for i in range(device_count):
-            handle = pynvml.nvmlDeviceGetHandleByIndex(i)
+            handle = nvmlDeviceGetHandleByIndex(i)
             if is_gpu_used(handle, processes):
-                utilisation_percent = pynvml.nvmlDeviceGetUtilizationRates(handle).gpu
-                memory = pynvml.nvmlDeviceGetMemoryInfo(handle)
+                utilisation_percent = nvmlDeviceGetUtilizationRates(handle).gpu
+                memory = nvmlDeviceGetMemoryInfo(handle)
                 memory_percent = 100*memory.free/memory.total
                 gpu_metrics[f"resources/gpu.utilisation.percent.{i}"] = utilisation_percent
                 gpu_metrics[f"resources/gpu.memory.percent.{i}"] = memory_percent
-        pynvml.nvmlShutdown()
+
+        nvmlShutdown()
     except:
         pass
 
