@@ -8,7 +8,7 @@ import requests
 import msgpack
 from tenacity import retry, wait_exponential, stop_after_attempt
 
-from .metrics import get_process_memory, get_process_cpu
+from .metrics import get_process_memory, get_process_cpu, get_gpu_metrics
 from .utilities import get_offline_directory, get_directory_name, create_file
 
 HEARTBEAT_INTERVAL = 60
@@ -41,6 +41,7 @@ class Worker(threading.Thread):
         self._directory = os.path.join(get_offline_directory(), get_directory_name(name))
         self._start_time = time.time()
         self._processes = []
+        self._pid = pid
         if pid:
             self._processes = update_processes(psutil.Process(pid), [])
 
@@ -83,18 +84,24 @@ class Worker(threading.Thread):
         while True:
             # Collect metrics if necessary
             if time.time() - last_metrics > METRICS_INTERVAL and self._processes:
+                if self._pid:
+                    self._processes = update_processes(psutil.Process(self._pid), self._processes)
                 cpu = get_process_cpu(self._processes)
                 if not collected:
                     # Need to wait before sending metrics, otherwise first point will have zero CPU usage
                     collected = True
                 else:
                     memory = get_process_memory(self._processes)
+                    gpu = get_gpu_metrics(self._processes)
                     if memory is not None and cpu is not None:
                         data = {}
                         data['step'] = 0
                         data['run'] = self._name
-                        data['values'] = {'resources/cpu_usage': cpu,
-                                          'resources/memory_usage': memory}
+                        data['values'] = {'resources/cpu.usage': cpu,
+                                          'resources/memory.usage': memory}
+                        if gpu:
+                            for item in gpu:
+                                data['values'][item] = gpu[item]
                         data['time'] = time.time() - self._start_time
                         data['timestamp'] = datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S.%f')
                         try:
