@@ -12,7 +12,6 @@ from .metrics import get_process_memory, get_process_cpu, get_gpu_metrics
 from .utilities import get_offline_directory, get_directory_name, create_file
 
 HEARTBEAT_INTERVAL = 60
-METRICS_INTERVAL = 30
 POLLING_INTERVAL = 1
 MAX_BUFFER_SEND = 5000
 
@@ -29,7 +28,7 @@ def update_processes(parent, processes):
 
 
 class Worker(threading.Thread):
-    def __init__(self, metrics_queue, events_queue, name, url, headers, mode, pid):
+    def __init__(self, metrics_queue, events_queue, name, url, headers, mode, pid, resources_metrics_interval):
         threading.Thread.__init__(self)
         self._parent_thread = threading.currentThread()
         self._metrics_queue = metrics_queue
@@ -43,6 +42,7 @@ class Worker(threading.Thread):
         self._directory = os.path.join(get_offline_directory(), get_directory_name(name))
         self._start_time = time.time()
         self._processes = []
+        self._resources_metrics_interval = resources_metrics_interval
         self._pid = pid
         if pid:
             self._processes = update_processes(psutil.Process(pid), [])
@@ -85,7 +85,7 @@ class Worker(threading.Thread):
         collected = False
         while True:
             # Collect metrics if necessary
-            if time.time() - last_metrics > METRICS_INTERVAL and self._processes:
+            if time.time() - last_metrics > self._resources_metrics_interval and self._processes:
                 if self._pid:
                     self._processes = update_processes(psutil.Process(self._pid), self._processes)
                 cpu = get_process_cpu(self._processes)

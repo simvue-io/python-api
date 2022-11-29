@@ -145,6 +145,7 @@ class Run(object):
         self._headers = {"Authorization": f"Bearer {self._token}"}
         self._simvue = None
         self._pid = 0
+        self._resources_metrics_interval = 30
 
     def __enter__(self):
         return self
@@ -174,7 +175,14 @@ class Run(object):
 
         self._metrics_queue = multiprocessing.Manager().Queue(maxsize=self._queue_size)
         self._events_queue = multiprocessing.Manager().Queue(maxsize=self._queue_size)
-        self._worker = Worker(self._metrics_queue, self._events_queue, self._name, self._url, self._headers, self._mode, self._pid)
+        self._worker = Worker(self._metrics_queue,
+                              self._events_queue,
+                              self._name,
+                              self._url,
+                              self._headers,
+                              self._mode,
+                              self._pid,
+                              self._resources_metrics_interval)
 
         if multiprocessing.current_process()._parent_pid is None:
             self._worker.start()
@@ -279,7 +287,8 @@ class Run(object):
                suppress_errors=False,
                queue_blocking=False,
                queue_size=QUEUE_SIZE,
-               disable_system_metrics=False):
+               disable_resources_metrics=False,
+               resources_metrics_interval=30):
         """
         Optional configuration
         """
@@ -295,11 +304,15 @@ class Run(object):
             self._error('queue_size must be an integer')
         self._queue_size = queue_size
 
-        if not isinstance(disable_system_metrics, bool):
-            self._error('disable_system_metrics must be boolean')
+        if not isinstance(disable_resources_metrics, bool):
+            self._error('disable_resources_metrics must be boolean')
 
-        if disable_system_metrics:
+        if disable_resources_metrics:
             self._pid = None
+
+        if not isinstance(resources_metrics_interval, int):
+            self._error('resources_metrics_interval must be an integer')
+        self._resources_metrics_interval = resources_metrics_interval
 
     def update_metadata(self, metadata):
         """
