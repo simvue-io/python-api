@@ -124,7 +124,7 @@ def validate_timestamp(timestamp):
 
     return True
 
-def get_filename_input(input_data, name_tag, mode):
+def get_filename_input(input_data, name_tag):
     """ 
     Determines if the input is pickleable or a valid file. If it is pickleable and not a string then a pickle file is created 
     and filename is returned.
