@@ -160,8 +160,8 @@ class Run(object):
     """
     Track simulation details based on token and URL
     """
-    def __init__(self, disabled=False):
-        self._disabled = disabled
+    def __init__(self, mode='online'):
+        self._mode = mode
         self._name = None
         self._suppress_errors = False
         self._queue_blocking = False
@@ -178,7 +178,6 @@ class Run(object):
         self._url, self._token = get_auth()
         self._headers = {"Authorization": f"Bearer {self._token}"}
         self._simvue = None
-        self._offline = False
 
     def __enter__(self):
         return self
@@ -191,7 +190,7 @@ class Run(object):
         """
         Start a run
         """
-        if self._disabled:
+        if self._mode == 'disabled':
             return True
 
         data = {'name': self._name, 'status': self._status}
@@ -205,7 +204,7 @@ class Run(object):
 
         self._metrics_queue = multiprocessing.Manager().Queue(maxsize=self._queue_size)
         self._events_queue = multiprocessing.Manager().Queue(maxsize=self._queue_size)
-        self._worker = Worker(self._metrics_queue, self._events_queue, self._name, self._url, self._headers, self._offline)
+        self._worker = Worker(self._metrics_queue, self._events_queue, self._name, self._url, self._headers, self._mode)
 
         if multiprocessing.current_process()._parent_pid is None:
             self._worker.start()
@@ -221,11 +220,14 @@ class Run(object):
         else:
             logger.error(message)
 
-    def init(self, name=None, metadata={}, tags=[], description=None, folder='/', running=True, offline=False):
+    def init(self, name=None, metadata={}, tags=[], description=None, folder='/', running=True):
         """
         Initialise a run
         """
-        if self._disabled:
+        if self._mode not in ('online', 'offline', 'disabled'):
+            self._error('invalid mode specified, must be online, offline or disabled')
+
+        if self._mode == 'disabled':
             return True
 
         if not name:
@@ -244,7 +246,6 @@ class Run(object):
             self._error('metadata must be a dict')
 
         self._name = name
-        self._offline = offline
 
         if running:
             self._status = 'running'
@@ -270,7 +271,7 @@ class Run(object):
         if self._status == 'running':
             data['system'] = get_system()
 
-        self._simvue = Simvue(self._name, self._offline, self._suppress_errors)
+        self._simvue = Simvue(self._name, self._mode, self._suppress_errors)
         if not self._simvue.create_run(data):
             return False
 
@@ -286,17 +287,16 @@ class Run(object):
         """
         return self._name
 
-    def reconnect(self, name, offline=False):
+    def reconnect(self, name):
         """
         Reconnect to a run in the created state
         """
-        if self._disabled:
+        if self._mode == 'disabled':
             return True
 
         self._status = 'running'
-        self._offline = offline
         self._name = name
-        self._simvue = Simvue(self._name, self._offline, self._suppress_errors)
+        self._simvue = Simvue(self._name, self._mode, self._suppress_errors)
         self._start(reconnect=True)
 
     def config(self,
@@ -322,7 +322,7 @@ class Run(object):
         """
         Add/update metadata
         """
-        if self._disabled:
+        if self._mode == 'disabled':
             return True
 
         if not self._name:
@@ -348,7 +348,7 @@ class Run(object):
         """
         Add/update tags
         """
-        if self._disabled:
+        if self._mode == 'disabled':
             return True
 
         if not self._name:
@@ -370,7 +370,7 @@ class Run(object):
         """
         Write event
         """
-        if self._disabled:
+        if self._mode == 'disabled':
             return True
 
         if not self._name:
@@ -407,7 +407,7 @@ class Run(object):
         """
         Write metrics
         """
-        if self._disabled:
+        if self._mode == 'disabled':
             return True
 
         if not self._name:
@@ -459,7 +459,7 @@ class Run(object):
         """
         Upload input_data which can be a file or numpy array
         """
-        if self._disabled:
+        if self._mode == 'disabled':
             return True
 
         if not self._name:
@@ -521,7 +521,7 @@ class Run(object):
         """
         Upload a whole directory
         """
-        if self._disabled:
+        if self._mode == 'disabled':
             return True
 
         if not self._name:
@@ -556,7 +556,7 @@ class Run(object):
         """
         Save the list of files and/or directories
         """
-        if self._disabled:
+        if self._mode == 'disabled':
             return True
 
         for item in items:
@@ -571,7 +571,7 @@ class Run(object):
         """
         Set run status
         """
-        if self._disabled:
+        if self._mode == 'disabled':
             return True
 
         if not self._name:
@@ -597,7 +597,7 @@ class Run(object):
         """
         Close the run
         """
-        if self._disabled:
+        if self._mode == 'disabled':
             return True
 
         if not self._name:
@@ -614,7 +614,7 @@ class Run(object):
         """
         Add metadata to the specified folder
         """
-        if self._disabled:
+        if self._mode == 'disabled':
             return True
 
         if not self._name:
@@ -664,7 +664,7 @@ class Run(object):
         """
         Creates an alert with the specified name (if it doesn't exist) and applies it to the current run
         """
-        if self._disabled:
+        if self._mode == 'disabled':
             return True
 
         if not self._name:

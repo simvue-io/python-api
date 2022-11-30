@@ -54,18 +54,19 @@ class Client(object):
         """
         Download an artifact
         """
-        data = {'run': run, 'name': name}
+        params = {'run': run, 'name': name}
 
         try:
-            response = requests.get(f"{self._url}/api/artifacts", headers=self._headers, json=data)
+            response = requests.get(f"{self._url}/api/artifacts", headers=self._headers, params=params)
         except requests.exceptions.RequestException:
             return None
 
         if response.status_code == 200:
-            url = response.json()['url']
-            downloader({'url': url,
-                        'filename': os.path.basename(name),
-                        'path': path})
+            if response.json():
+                url = response.json()[0]['url']
+                downloader({'url': url,
+                            'filename': os.path.basename(name),
+                            'path': path})
 
     def get_artifacts_as_files(self,
                                run,
