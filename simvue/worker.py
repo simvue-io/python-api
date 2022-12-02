@@ -9,7 +9,7 @@ from tenacity import retry, wait_exponential, stop_after_attempt
 from .utilities import get_offline_directory, get_directory_name, create_file
 
 HEARTBEAT_INTERVAL = 60
-POLLING_INTERVAL = 1
+POLLING_INTERVAL = 20
 MAX_BUFFER_SEND = 5000
 
 class Worker(threading.Thread):
