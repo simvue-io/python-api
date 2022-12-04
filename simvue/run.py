@@ -16,7 +16,7 @@ import randomname
 
 from .worker import Worker
 from .simvue import Simvue
-from .utilities import get_auth
+from .utilities import get_auth, get_expiry
 
 INIT_MISSING = 'initialize a run using init() first'
 QUEUE_SIZE = 10000
@@ -158,6 +158,9 @@ class Run(object):
         """
         if self._mode == 'disabled':
             return True
+
+        if tm.time() - get_expiry(self._token) > 0:
+            self._error('token has expired or is invalid')
 
         data = {'name': self._name, 'status': self._status}
         if reconnect:
