@@ -1,5 +1,6 @@
 from concurrent.futures import ProcessPoolExecutor
 import os
+import pickle
 import requests
 
 from .utilities import get_auth
@@ -49,6 +50,34 @@ class Client(object):
             return response.json()
 
         return None
+
+    def get_artifact(self, run, name):
+        """
+        Return the contents of the specified artifact
+        """
+        params = {'run': run, 'name': name}
+
+        try:
+            response = requests.get(f"{self._url}/api/artifacts", headers=self._headers, params=params)
+        except requests.exceptions.RequestException:
+            return None
+
+        if response.status_code == 200 and response.json():
+            url = response.json()[0]['url']
+
+            try:
+                response = requests.get(url, timeout=DOWNLOAD_TIMEOUT)
+            except requests.exceptions.RequestException:
+                return None
+        else:
+            return None
+
+        try:
+            content = pickle.loads(response.content)
+        except:
+            return response.content
+        else:
+            return content
 
     def get_artifact_as_file(self, run, name, path='./'):
         """

@@ -2,6 +2,7 @@ import glob
 import json
 import logging
 import os
+import shutil
 import time
 
 from .remote import Remote
@@ -39,6 +40,7 @@ def sender():
            glob.glob(f"{directory}/*/terminated")
 
     for run in runs:
+        cleanup = False
         status = None
         if run.endswith('running'):
             status = 'running'
@@ -74,6 +76,9 @@ def sender():
         logger.info('Considering run with name %s and id %s', run_init['name'], id)
 
         remote = Remote(run_init['name'], suppress_errors=True)
+
+        # Check token
+        remote.check_token()
 
         # Create run if it hasn't previously been created
         created_file = f"{current}/init"
@@ -171,6 +176,15 @@ def sender():
             remove_file(f"{current}/{status}")
             data = {'name': run_init['name'], 'status': status}
             remote.update(data)
+            cleanup = True
         elif updates == 0 and status == 'lost':
             logger.info('Finished sending run %s as it was lost', run_init['name'])
             create_file(f"{current}/sent")
+            cleanup = True
+
+        # Cleanup runs which have been dealt with
+        if cleanup:
+            try:
+                shutil.rmtree(f"{directory}/{id}")
+            except Exception as err:
+                logger.err('Got exception trying to cleanup run %s: %s', run_init['name'], str(err))

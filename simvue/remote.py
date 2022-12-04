@@ -1,7 +1,8 @@
 import logging
+import time
 import requests
 
-from .utilities import get_auth
+from .utilities import get_auth, get_expiry
 
 logger = logging.getLogger(__name__)
 
@@ -199,3 +200,10 @@ class Remote(object):
 
         self._error(f"Got status code {response.status_code} when sending heartbeat")
         return False
+
+    def check_token(self):
+        """
+        Check token
+        """
+        if time.time() - get_expiry(self._token) > 0:
+            self._error("Token has expired")
