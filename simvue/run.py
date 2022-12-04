@@ -152,6 +152,13 @@ class Run(object):
         if self._name and self._status == 'running':
             self.set_status('completed')
 
+    def _check_token(self):
+        """
+        Check if token is valid
+        """
+        if self._mode == 'online' and tm.time() - get_expiry(self._token) > 0:
+            self._error('token has expired or is invalid')
+
     def _start(self, reconnect=False):
         """
         Start a run
@@ -159,8 +166,7 @@ class Run(object):
         if self._mode == 'disabled':
             return True
 
-        if self._mode == 'online' and tm.time() - get_expiry(self._token) > 0:
-            self._error('token has expired or is invalid')
+        self._check_token()
 
         data = {'name': self._name, 'status': self._status}
         if reconnect:
@@ -239,6 +245,8 @@ class Run(object):
 
         if self._status == 'running':
             data['system'] = get_system()
+
+        self._check_token()
 
         self._simvue = Simvue(self._name, self._mode, self._suppress_errors)
         if not self._simvue.create_run(data):
