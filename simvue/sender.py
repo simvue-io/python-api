@@ -75,6 +75,9 @@ def sender():
 
         remote = Remote(run_init['name'], suppress_errors=True)
 
+        # Check token
+        remote.check_token()
+
         # Create run if it hasn't previously been created
         created_file = f"{current}/init"
         if not os.path.isfile(created_file):
