@@ -1,4 +1,5 @@
 import configparser
+import jwt
 import hashlib
 import logging
 import os
@@ -72,3 +73,14 @@ def remove_file(filename):
             os.remove(filename)
         except Exception as err:
             logger.error('Unable to remove file %s due to: %s', filename, str(err))
+
+def get_expiry(token):
+    """
+    Get expiry date from a JWT token
+    """
+    expiry = 0
+    try:
+        expiry = jwt.decode(token, options={"verify_signature": False})['exp']
+    except:
+        pass
+    return expiry
