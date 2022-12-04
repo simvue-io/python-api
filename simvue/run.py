@@ -159,7 +159,7 @@ class Run(object):
         if self._mode == 'disabled':
             return True
 
-        if tm.time() - get_expiry(self._token) > 0:
+        if self._mode == 'online' and tm.time() - get_expiry(self._token) > 0:
             self._error('token has expired or is invalid')
 
         data = {'name': self._name, 'status': self._status}
