@@ -3,6 +3,7 @@
 ## v0.7.0
 
 * Collect CPU, GPU and memory resource metrics.
+* Automatically delete temporary files used in offline mode once runs have entered a terminal state.
 
 ## v0.6.0
 
