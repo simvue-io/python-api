@@ -29,6 +29,6 @@
 
 * The previous `Simvue` class has been split into `Run` and `Client`. When creating a run use the new `Run` class rather than `Simvue`.
 
-## v0.1.0
+## v0.1.0
 
 * First release.
