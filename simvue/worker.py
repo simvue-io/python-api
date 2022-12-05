@@ -131,10 +131,8 @@ class Worker(threading.Thread):
 
             if buffer:
                 try:
-                    if self._mode == 'online':
-                        self.post('metrics', msgpack.packb(buffer, use_bin_type=True))
-                    else:
-                        self.post('metrics', buffer)
+                    if self._mode == 'online': buffer = msgpack.packb(buffer, use_bin_type=True)
+                    self.post('metrics', buffer)
                 except:
                     pass
                 buffer = []
@@ -148,10 +146,8 @@ class Worker(threading.Thread):
 
             if buffer:
                 try:
-                    if self._mode == 'online':
-                        self.post('events', msgpack.packb(buffer, use_bin_type=True))
-                    else:
-                        self.post('events', buffer)
+                    if self._mode == 'online': buffer = msgpack.packb(buffer, use_bin_type=True)
+                    self.post('events', buffer)
                 except:
                     pass
                 buffer = []
