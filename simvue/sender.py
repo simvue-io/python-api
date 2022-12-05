@@ -98,9 +98,8 @@ def sender():
         created_file = f"{current}/init"
         name = None
         if not os.path.isfile(created_file):
-            logger.info('Creating run with name %s', run_init['name'])
             name = remote.create_run(run_init)
-            print('Got name=', name)
+            logger.info('Creating run with name %s', run_init['name'])
             run_init = add_name(name, run_init, f"{current}/run.json")
             create_file(created_file)
 
