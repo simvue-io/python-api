@@ -1,4 +1,5 @@
 import datetime
+import json
 import os
 import psutil
 import sys
@@ -9,7 +10,7 @@ import msgpack
 from tenacity import retry, wait_exponential, stop_after_attempt
 
 from .metrics import get_process_memory, get_process_cpu, get_gpu_metrics
-from .utilities import get_offline_directory, get_directory_name, create_file
+from .utilities import get_offline_directory, create_file
 
 HEARTBEAT_INTERVAL = 60
 POLLING_INTERVAL = 20
@@ -28,18 +29,19 @@ def update_processes(parent, processes):
 
 
 class Worker(threading.Thread):
-    def __init__(self, metrics_queue, events_queue, name, url, headers, mode, pid, resources_metrics_interval):
+    def __init__(self, metrics_queue, events_queue, uuid, run_name, url, headers, mode, pid, resources_metrics_interval):
         threading.Thread.__init__(self)
         self._parent_thread = threading.currentThread()
         self._metrics_queue = metrics_queue
         self._events_queue = events_queue
-        self._name = name
+        self._run_name = run_name
+        self._uuid = uuid
         self._url = url
         self._headers = headers
         self._headers_mp = headers.copy()
         self._headers_mp['Content-Type'] = 'application/msgpack'
         self._mode = mode
-        self._directory = os.path.join(get_offline_directory(), get_directory_name(name))
+        self._directory = os.path.join(get_offline_directory(), self._uuid)
         self._start_time = time.time()
         self._processes = []
         self._resources_metrics_interval = resources_metrics_interval
@@ -55,7 +57,7 @@ class Worker(threading.Thread):
         if self._mode == 'online':
             response = requests.put(f"{self._url}/api/runs/heartbeat",
                                     headers=self._headers,
-                                    json={'name': self._name})
+                                    json={'name': self._run_name})
             response.raise_for_status()
         else:
             create_file(f"{self._directory}/heartbeat")
@@ -73,8 +75,8 @@ class Worker(threading.Thread):
         else:
             unique_id = time.time()
             filename = f"{self._directory}/{endpoint}-{unique_id}"
-            with open(filename, 'wb') as fh:
-                fh.write(data)
+            with open(filename, 'w') as fh:
+                json.dump(data, fh)
 
     def run(self):
         """
@@ -98,7 +100,7 @@ class Worker(threading.Thread):
                     if memory is not None and cpu is not None:
                         data = {}
                         data['step'] = 0
-                        data['run'] = self._name
+                        data['run'] = self._run_name
                         data['values'] = {'resources/cpu.usage.percent': cpu,
                                           'resources/memory.usage': memory}
                         if gpu:
@@ -129,7 +131,10 @@ class Worker(threading.Thread):
 
             if buffer:
                 try:
-                    self.post('metrics', msgpack.packb(buffer, use_bin_type=True))
+                    if self._mode == 'online':
+                        self.post('metrics', msgpack.packb(buffer, use_bin_type=True))
+                    else:
+                        self.post('metrics', buffer)
                 except:
                     pass
                 buffer = []
@@ -143,7 +148,10 @@ class Worker(threading.Thread):
 
             if buffer:
                 try:
-                    self.post('events', msgpack.packb(buffer, use_bin_type=True))
+                    if self._mode == 'online':
+                        self.post('events', msgpack.packb(buffer, use_bin_type=True))
+                    else:
+                        self.post('events', buffer)
                 except:
                     pass
                 buffer = []

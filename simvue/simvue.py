@@ -1,8 +1,8 @@
 from .remote import Remote
 from .offline import Offline
 
-def Simvue(name, mode, suppress_errors=False):
+def Simvue(name, uuid, mode, suppress_errors=False):
     if mode == 'offline':
-        return Offline(name, suppress_errors=False)
+        return Offline(name, uuid, suppress_errors=False)
     else:
-        return Remote(name, suppress_errors=False)
+        return Remote(name, uuid, suppress_errors=False)

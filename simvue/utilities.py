@@ -1,6 +1,5 @@
 import configparser
 import jwt
-import hashlib
 import logging
 import os
 
@@ -47,12 +46,6 @@ def get_offline_directory():
         directory = os.path.join(os.path.expanduser("~"), ".simvue")
 
     return directory
-
-def get_directory_name(name):
-    """
-    Return the SHA256 sum of the provided name
-    """
-    return hashlib.sha256(name.encode('utf-8')).hexdigest()
 
 def create_file(filename):
     """

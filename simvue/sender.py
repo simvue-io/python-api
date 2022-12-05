@@ -5,25 +5,39 @@ import os
 import shutil
 import time
 
+import msgpack
+
 from .remote import Remote
 from .utilities import get_offline_directory, create_file, remove_file
 
 logger = logging.getLogger(__name__)
 
-def get_json(filename):
+def add_name(name, data, filename):
+    """
+    Update name in JSON
+    """
+    if not data['name']:
+        data['name'] = name
+        with open(filename, 'w') as fh:
+            json.dump(data, fh)
+
+    return data
+
+def get_json(filename, name=None):
     """
     Get JSON from a file
     """
     with open(filename, 'r') as fh:
         data = json.load(fh)
-    return data
-
-def get_binary(filename):
-    """
-    Get binary content from a file
-    """
-    with open(filename, 'rb') as fh:
-        data = fh.read()
+    if name:
+        if 'name' in data:
+            if not data['name']:
+                data['name'] = name
+        else:
+            for item in data:
+                if 'run' in item:
+                    if not item['run']:
+                        item['run'] = name
     return data
 
 def sender():
@@ -75,16 +89,19 @@ def sender():
 
         logger.info('Considering run with name %s and id %s', run_init['name'], id)
 
-        remote = Remote(run_init['name'], suppress_errors=True)
+        remote = Remote(run_init['name'], id, suppress_errors=True)
 
         # Check token
         remote.check_token()
 
         # Create run if it hasn't previously been created
         created_file = f"{current}/init"
+        name = None
         if not os.path.isfile(created_file):
             logger.info('Creating run with name %s', run_init['name'])
-            remote.create_run(run_init)
+            name = remote.create_run(run_init)
+            print('Got name=', name)
+            run_init = add_name(name, run_init, f"{current}/run.json")
             create_file(created_file)
 
         if status == 'running':
@@ -131,37 +148,37 @@ def sender():
             # Handle metrics
             if '/metrics-' in record:
                 logger.info('Sending metrics for run %s', run_init['name'])
-                remote.send_metrics(get_binary(record))
+                remote.send_metrics(msgpack.packb(get_json(record, name), use_bin_type=True))
                 rename = True
 
             # Handle events
             if '/event-' in record:
                 logger.info('Sending event for run %s', run_init['name'])
-                remote.send_event(get_binary(record))
+                remote.send_event(msgpack.packb(get_json(record, name), use_bin_type=True))
                 rename = True
 
             # Handle updates
             if '/update-' in record:
                 logger.info('Sending update for run %s', run_init['name'])
-                remote.update(get_json(record))
+                remote.update(get_json(record, name))
                 rename = True
 
             # Handle folders
             if '/folder-' in record:
                 logger.info('Sending folder details for run %s', run_init['name'])
-                remote.set_folder_details(get_json(record))
+                remote.set_folder_details(get_json(record, name))
                 rename = True
 
             # Handle alerts
             if '/alert-' in record:
                 logger.info('Sending alert details for run %s', run_init['name'])
-                remote.add_alert(get_json(record))
+                remote.add_alert(get_json(record, name))
                 rename = True
 
             # Handle files
             if '/file-' in record:
                 logger.info('Saving file for run %s', run_init['name'])
-                remote.save_file(get_json(record))
+                remote.save_file(get_json(record, name))
                 rename = True
 
             # Rename processed files
