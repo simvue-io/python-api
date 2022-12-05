@@ -13,8 +13,9 @@ class Remote(object):
     """
     Class which interacts with Simvue REST API
     """
-    def __init__(self, name, suppress_errors=False):
+    def __init__(self, name, uuid, suppress_errors=False):
         self._name = name
+        self._uuid = uuid
         self._suppress_errors = suppress_errors
         self._url, self._token = get_auth()
         self._headers = {"Authorization": f"Bearer {self._token}"}
@@ -49,7 +50,10 @@ class Remote(object):
             self._error(f"Got status code {response.status_code} when creating run")
             return False
 
-        return True
+        if 'name' in response.json():
+            self._name = response.json()['name']
+
+        return self._name
 
     def update(self, data):
         """

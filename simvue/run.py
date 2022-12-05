@@ -11,8 +11,8 @@ import subprocess
 import sys
 import time as tm
 import platform
+import uuid
 import requests
-import randomname
 
 from .worker import Worker
 from .simvue import Simvue
@@ -127,6 +127,7 @@ class Run(object):
     Track simulation details based on token and URL
     """
     def __init__(self, mode='online'):
+        self._uuid = str(uuid.uuid4())
         self._mode = mode
         self._name = None
         self._suppress_errors = False
@@ -186,6 +187,7 @@ class Run(object):
         self._events_queue = multiprocessing.Manager().Queue(maxsize=self._queue_size)
         self._worker = Worker(self._metrics_queue,
                               self._events_queue,
+                              self._uuid,
                               self._name,
                               self._url,
                               self._headers,
@@ -217,14 +219,12 @@ class Run(object):
         if self._mode == 'disabled':
             return True
 
-        if not name:
-            name = randomname.get_name()
-
         if not self._token or not self._url:
             self._error('Unable to get URL and token from environment variables or config file')
 
-        if not re.match(r'^[a-zA-Z0-9\-\_\s\/\.:]+$', name):
-            self._error('specified name is invalid')
+        if name:
+            if not re.match(r'^[a-zA-Z0-9\-\_\s\/\.:]+$', name):
+                self._error('specified name is invalid')
 
         if not isinstance(tags, list):
             self._error('tags must be a list')
@@ -239,13 +239,15 @@ class Run(object):
         else:
             self._status = 'created'
 
-        data = {'name': name,
-                'metadata': metadata,
+        data = {'metadata': metadata,
                 'tags': tags,
                 'system': {'cpu': {},
                            'gpu': {},
                            'platform': {}},
                 'status': self._status}
+
+        if name:
+            data['name'] = name
 
         if description:
             data['description'] = description
@@ -260,13 +262,16 @@ class Run(object):
 
         self._check_token()
 
-        self._simvue = Simvue(self._name, self._mode, self._suppress_errors)
-        if not self._simvue.create_run(data):
+        self._simvue = Simvue(self._name, self._uuid, self._mode, self._suppress_errors)
+        name = self._simvue.create_run(data)
+
+        if not name:
             return False
+        elif name is not True:
+            self._name = name
 
         if self._status == 'running':
             self._start()
-
         return True
 
     @property
@@ -276,7 +281,14 @@ class Run(object):
         """
         return self._name
 
-    def reconnect(self, name):
+    @property
+    def uid(self):
+        """
+        Return the local unique identifier of the run
+        """
+        return self._uuid
+
+    def reconnect(self, name=None, uid=None):
         """
         Reconnect to a run in the created state
         """
@@ -285,7 +297,9 @@ class Run(object):
 
         self._status = 'running'
         self._name = name
-        self._simvue = Simvue(self._name, self._mode, self._suppress_errors)
+        self._uuid = uid
+
+        self._simvue = Simvue(self._name, self._uuid, self._mode, self._suppress_errors)
         self._start(reconnect=True)
 
     def set_pid(self, pid):
@@ -332,7 +346,7 @@ class Run(object):
         if self._mode == 'disabled':
             return True
 
-        if not self._name:
+        if not self._uuid and not self._name:
             self._error(INIT_MISSING)
             return False
 
@@ -358,7 +372,7 @@ class Run(object):
         if self._mode == 'disabled':
             return True
 
-        if not self._name:
+        if not self._uuid and not self._name:
             self._error(INIT_MISSING)
             return False
 
@@ -380,7 +394,7 @@ class Run(object):
         if self._mode == 'disabled':
             return True
 
-        if not self._name:
+        if not self._uuid and not self._name:
             self._error(INIT_MISSING)
             return False
 
@@ -417,7 +431,7 @@ class Run(object):
         if self._mode == 'disabled':
             return True
 
-        if not self._name:
+        if not self._uuid and not self._name:
             self._error(INIT_MISSING)
             return False
 
@@ -468,7 +482,7 @@ class Run(object):
         if self._mode == 'disabled':
             return True
 
-        if not self._name:
+        if not self._uuid and not self._name:
             self._error(INIT_MISSING)
             return False
 
@@ -527,7 +541,7 @@ class Run(object):
         if self._mode == 'disabled':
             return True
 
-        if not self._name:
+        if not self._uuid and not self._name:
             self._error(INIT_MISSING)
             return False
 
@@ -577,7 +591,7 @@ class Run(object):
         if self._mode == 'disabled':
             return True
 
-        if not self._name:
+        if not self._uuid and not self._name:
             self._error(INIT_MISSING)
             return False
 
@@ -603,7 +617,7 @@ class Run(object):
         if self._mode == 'disabled':
             return True
 
-        if not self._name:
+        if not self._uuid and not self._name:
             self._error(INIT_MISSING)
             return False
 
@@ -620,7 +634,7 @@ class Run(object):
         if self._mode == 'disabled':
             return True
 
-        if not self._name:
+        if not self._uuid and not self._name:
             self._error(INIT_MISSING)
             return False
 
@@ -670,7 +684,7 @@ class Run(object):
         if self._mode == 'disabled':
             return True
 
-        if not self._name:
+        if not self._uuid and not self._name:
             self._error(INIT_MISSING)
             return False
 

@@ -3,7 +3,7 @@ import logging
 import os
 import time
 
-from .utilities import get_offline_directory, get_directory_name, create_file
+from .utilities import get_offline_directory, create_file
 
 logger = logging.getLogger(__name__)
 
@@ -11,9 +11,10 @@ class Offline(object):
     """
     Class for offline runs
     """
-    def __init__(self, name, suppress_errors=False):
+    def __init__(self, name, uuid, suppress_errors=False):
         self._name = name
-        self._directory = os.path.join(get_offline_directory(), get_directory_name(name))
+        self._uuid = uuid
+        self._directory = os.path.join(get_offline_directory(), self._uuid)
         self._suppress_errors = suppress_errors
 
     def _error(self, message):
@@ -45,6 +46,9 @@ class Offline(object):
             logger.error('Unable to create directory %s due to: %s', self._directory, str(err))
         
         filename = f"{self._directory}/run.json"
+        if 'name' not in data:
+            data['name'] = None
+
         self._write_json(filename, data)
 
         status = data['status']
