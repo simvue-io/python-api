@@ -14,7 +14,7 @@ setuptools.setup(
     description="Simulation tracking and monitoring",
     long_description=long_description,
     long_description_content_type="text/markdown",
-    url="https://github.com/simvue-io/client",
+    url="https://simvue.io",
     platforms=["any"],
     install_requires=["requests", "msgpack", "tenacity", "pyjwt", "psutil"],
     package_dir={'': '.'},
