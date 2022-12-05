@@ -16,7 +16,7 @@ setuptools.setup(
     long_description_content_type="text/markdown",
     url="https://github.com/simvue-io/client",
     platforms=["any"],
-    install_requires=["requests", "msgpack", "tenacity", "pyjwt", "psutil", "nvidia-ml-py"],
+    install_requires=["requests", "msgpack", "tenacity", "pyjwt", "psutil"],
     package_dir={'': '.'},
     packages=["simvue"],
     package_data={"": ["README.md"]},
