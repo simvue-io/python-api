@@ -10,8 +10,7 @@ with open("README.md", "r") as fh:
 setuptools.setup(
     name="simvue",
     version=version,
-    author="Andrew Lahiff",
-    author_email="andrew.lahiff@ukaea.uk",
+    author_email="info@simvue.io",
     description="Simulation tracking and monitoring",
     long_description=long_description,
     long_description_content_type="text/markdown",
