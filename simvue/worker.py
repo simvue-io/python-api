@@ -7,8 +7,8 @@ import time
 import threading
 import requests
 import msgpack
-from tenacity import retry, wait_exponential, stop_after_attempt
 
+from .api import post, put
 from .metrics import get_process_memory, get_process_cpu, get_gpu_metrics
 from .utilities import get_offline_directory, create_file
 
@@ -49,29 +49,21 @@ class Worker(threading.Thread):
         if pid:
             self._processes = update_processes(psutil.Process(pid), [])
 
-    @retry(wait=wait_exponential(multiplier=1, min=4, max=10), stop=stop_after_attempt(5))
     def heartbeat(self):
         """
-        Send a heartbeat, with retries
+        Send a heartbeat
         """
         if self._mode == 'online':
-            response = requests.put(f"{self._url}/api/runs/heartbeat",
-                                    headers=self._headers,
-                                    json={'name': self._run_name})
-            response.raise_for_status()
+            put(f"{self._url}/api/runs/heartbeat", self._headers, {'name': self._run_name}, is_json=True)
         else:
             create_file(f"{self._directory}/heartbeat")
 
-    @retry(wait=wait_exponential(multiplier=1, min=4, max=10), stop=stop_after_attempt(5))
     def post(self, endpoint, data):
         """
-        Send the supplied data, with retries
+        Send the supplied data
         """
         if self._mode == 'online':
-            response = requests.post(f"{self._url}/api/{endpoint}",
-                                     headers=self._headers_mp,
-                                     data=data)
-            response.raise_for_status()
+            post(f"{self._url}/api/{endpoint}", self._headers_mp, data=data)
         else:
             unique_id = time.time()
             filename = f"{self._directory}/{endpoint}-{unique_id}"

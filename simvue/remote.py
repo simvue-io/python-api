@@ -2,6 +2,7 @@ import logging
 import time
 import requests
 
+from .api import post, put
 from .utilities import get_auth, get_expiry
 
 logger = logging.getLogger(__name__)
@@ -36,11 +37,8 @@ class Remote(object):
         Create a run
         """
         try:
-            response = requests.post(f"{self._url}/api/runs",
-                                     headers=self._headers,
-                                     json=data,
-                                     timeout=DEFAULT_API_TIMEOUT)
-        except requests.exceptions.RequestException as err:
+            response = post(f"{self._url}/api/runs", self._headers, data, is_json=True)
+        except:
             self._error(f"Exception creating run: {str(err)}")
             return False
 
@@ -60,11 +58,8 @@ class Remote(object):
         Update metadata, tags or status
         """
         try:
-            response = requests.put(f"{self._url}/api/runs",
-                                    headers=self._headers,
-                                    json=data,
-                                    timeout=DEFAULT_API_TIMEOUT)
-        except requests.exceptions.RequestException as err:
+            response = put(f"{self._url}/api/runs", self._headers, data)
+        except:
             self._error(f"Exception creating updating run: {str(err)}")
             return False
 
@@ -79,11 +74,8 @@ class Remote(object):
         Set folder details
         """
         try:
-            response = requests.put(f"{self._url}/api/folders",
-                                    headers=self._headers,
-                                    json=data,
-                                    timeout=DEFAULT_API_TIMEOUT)
-        except requests.exceptions.RequestException as err:
+            response = put(f"{self._url}/api/folders", self._headers, data)
+        except:
             self._error(f"Exception setting folder details: {err}")
             return False
 
@@ -99,11 +91,8 @@ class Remote(object):
         """
         # Get presigned URL
         try:
-            response = requests.post(f"{self._url}/api/data",
-                                 headers=self._headers,
-                                 json=data,
-                                 timeout=DEFAULT_API_TIMEOUT)
-        except requests.exceptions.RequestException as err:
+            response = post(f"{self._url}/api/data", self._headers, data, is_json=True)
+        except:
             self._error(f"Got exception when uploading file {data['name']} to object storage: {str(err)}")
             return False
 
@@ -115,11 +104,10 @@ class Remote(object):
             return False
 
         if 'url' in response.json():
+            url = response.json()['url']
             try:
                 with open(data['originalPath'], 'rb') as fh:
-                    response = requests.put(response.json()['url'],
-                                            data=fh,
-                                            timeout=UPLOAD_TIMEOUT)
+                    response = put(url, fh, {}, is_json=False, timeout=UPLOAD_TIMEOUT)
                     if response.status_code != 200:
                         self._error(f"Got status code {response.status_code} when uploading file {data['name']} to object storage")
                         return None
@@ -134,11 +122,8 @@ class Remote(object):
         Add an alert
         """
         try:
-            response = requests.post(f"{self._url}/api/alerts",
-                                     headers=self._headers,
-                                     json=data,
-                                     timeout=DEFAULT_API_TIMEOUT)
-        except requests.exceptions.RequestException as err:
+            response = post(f"{self._url}/api/alerts", self._headers, data, is_json=True)
+        except:
             self._error(f"Got exception when creating an alert: {str(err)}")
             return False
 
@@ -153,11 +138,8 @@ class Remote(object):
         Send metrics
         """
         try:
-            response = requests.post(f"{self._url}/api/metrics",
-                                     headers=self._headers_mp,
-                                     data=data,
-                                     timeout=DEFAULT_API_TIMEOUT)
-        except requests.exceptions.RequestException as err:
+            response = post(f"{self._url}/api/metrics", self._headers_mp, data, is_json=True)
+        except:
             self._error(f"Exception sending metrics: {str(err)}")
             return False
 
@@ -172,11 +154,8 @@ class Remote(object):
         Send events
         """
         try:
-            response = requests.post(f"{self._url}/api/events",
-                                     headers=self._headers_mp,
-                                     data=data,
-                                     timeout=DEFAULT_API_TIMEOUT)
-        except requests.exceptions.RequestException as err:
+            response = post(f"{self._url}/api/events", self._headers_mp, data, is_json=True)
+        except:
             self._error(f"Exception sending event: {str(err)}")
             return False
 
@@ -191,11 +170,8 @@ class Remote(object):
         Send heartbeat
         """
         try:
-            response = requests.put(f"{self._url}/api/runs/heartbeat",
-                                    headers=self._headers,
-                                    json={'name': self._name},
-                                    timeout=DEFAULT_API_TIMEOUT)
-        except requests.exceptions.RequestException as err:
+            response = put(f"{self._url}/api/runs/heartbeat", self._headers, {'name': self._name})
+        except:
             self._error(f"Exception creating run: {str(err)}")
             return False
 
