@@ -99,9 +99,12 @@ def sender():
         name = None
         if not os.path.isfile(created_file):
             name = remote.create_run(run_init)
-            logger.info('Creating run with name %s', run_init['name'])
-            run_init = add_name(name, run_init, f"{current}/run.json")
-            create_file(created_file)
+            if name:
+                logger.info('Creating run with name %s', run_init['name'])
+                run_init = add_name(name, run_init, f"{current}/run.json")
+                create_file(created_file)
+            else:
+                logger.error('Failure creating run')
 
         if status == 'running':
             # Check for recent heartbeat
@@ -147,38 +150,38 @@ def sender():
             # Handle metrics
             if '/metrics-' in record:
                 logger.info('Sending metrics for run %s', run_init['name'])
-                remote.send_metrics(msgpack.packb(get_json(record, name), use_bin_type=True))
-                rename = True
+                if remote.send_metrics(msgpack.packb(get_json(record, name), use_bin_type=True)):
+                    rename = True
 
             # Handle events
             if '/event-' in record:
                 logger.info('Sending event for run %s', run_init['name'])
-                remote.send_event(msgpack.packb(get_json(record, name), use_bin_type=True))
-                rename = True
+                if remote.send_event(msgpack.packb(get_json(record, name), use_bin_type=True)):
+                    rename = True
 
             # Handle updates
             if '/update-' in record:
                 logger.info('Sending update for run %s', run_init['name'])
-                remote.update(get_json(record, name))
-                rename = True
+                if remote.update(get_json(record, name)):
+                    rename = True
 
             # Handle folders
             if '/folder-' in record:
                 logger.info('Sending folder details for run %s', run_init['name'])
-                remote.set_folder_details(get_json(record, name))
-                rename = True
+                if remote.set_folder_details(get_json(record, name)):
+                    rename = True
 
             # Handle alerts
             if '/alert-' in record:
                 logger.info('Sending alert details for run %s', run_init['name'])
-                remote.add_alert(get_json(record, name))
-                rename = True
+                if remote.add_alert(get_json(record, name)):
+                    rename = True
 
             # Handle files
             if '/file-' in record:
                 logger.info('Saving file for run %s', run_init['name'])
-                remote.save_file(get_json(record, name))
-                rename = True
+                if remote.save_file(get_json(record, name)):
+                    rename = True
 
             # Rename processed files
             if rename:
@@ -188,11 +191,11 @@ def sender():
         # If the status is completed and there were no updates, the run must have completely finished
         if updates == 0 and status in ('completed', 'failed', 'terminated'):
             logger.info('Finished sending run %s', run_init['name'])
-            create_file(f"{current}/sent")
-            remove_file(f"{current}/{status}")
             data = {'name': run_init['name'], 'status': status}
-            remote.update(data)
-            cleanup = True
+            if remote.update(data):
+                create_file(f"{current}/sent")
+                remove_file(f"{current}/{status}")
+                cleanup = True
         elif updates == 0 and status == 'lost':
             logger.info('Finished sending run %s as it was lost', run_init['name'])
             create_file(f"{current}/sent")
