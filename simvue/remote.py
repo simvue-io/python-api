@@ -93,7 +93,7 @@ class Remote(object):
         try:
             response = post(f"{self._url}/api/data", self._headers, data, is_json=True)
         except:
-            self._error(f"Got exception when uploading file {data['name']} to object storage: {str(err)}")
+            self._error(f"Got exception when preparing to upload file {data['name']} to object storage: {str(err)}")
             return False
 
         if response.status_code == 409:
