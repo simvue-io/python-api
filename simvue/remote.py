@@ -107,7 +107,7 @@ class Remote(object):
             url = response.json()['url']
             try:
                 with open(data['originalPath'], 'rb') as fh:
-                    response = put(url, fh, {}, is_json=False, timeout=UPLOAD_TIMEOUT)
+                    response = put(url, {}, fh, is_json=False, timeout=UPLOAD_TIMEOUT)
                     if response.status_code != 200:
                         self._error(f"Got status code {response.status_code} when uploading file {data['name']} to object storage")
                         return None
