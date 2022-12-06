@@ -54,7 +54,7 @@ class Worker(threading.Thread):
         Send a heartbeat
         """
         if self._mode == 'online':
-            put(f"{self._url}/api/runs/heartbeat", self._headers, {'name': self._run_name}, is_json=True)
+            put(f"{self._url}/api/runs/heartbeat", self._headers, {'name': self._run_name})
         else:
             create_file(f"{self._directory}/heartbeat")
 
@@ -63,7 +63,7 @@ class Worker(threading.Thread):
         Send the supplied data
         """
         if self._mode == 'online':
-            post(f"{self._url}/api/{endpoint}", self._headers_mp, data=data)
+            post(f"{self._url}/api/{endpoint}", self._headers_mp, data=data, is_json=False)
         else:
             unique_id = time.time()
             filename = f"{self._directory}/{endpoint}-{unique_id}"

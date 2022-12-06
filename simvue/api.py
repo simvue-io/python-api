@@ -9,7 +9,7 @@ RETRY_STOP = 5
 
 @retry(wait=wait_exponential(multiplier=RETRY_MULTIPLIER, min=RETRY_MIN, max=RETRY_MAX),
                              stop=stop_after_attempt(RETRY_STOP))
-def post(url, headers, data, is_json=False):
+def post(url, headers, data, is_json=True):
     """
     HTTP POST with retries
     """
