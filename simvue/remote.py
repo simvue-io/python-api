@@ -38,7 +38,7 @@ class Remote(object):
         """
         try:
             response = post(f"{self._url}/api/runs", self._headers, data, is_json=True)
-        except:
+        except Exception as err:
             self._error(f"Exception creating run: {str(err)}")
             return False
 
@@ -59,7 +59,7 @@ class Remote(object):
         """
         try:
             response = put(f"{self._url}/api/runs", self._headers, data)
-        except:
+        except Exception as err:
             self._error(f"Exception creating updating run: {str(err)}")
             return False
 
@@ -75,7 +75,7 @@ class Remote(object):
         """
         try:
             response = put(f"{self._url}/api/folders", self._headers, data)
-        except:
+        except Exception as err:
             self._error(f"Exception setting folder details: {err}")
             return False
 
@@ -92,7 +92,7 @@ class Remote(object):
         # Get presigned URL
         try:
             response = post(f"{self._url}/api/data", self._headers, data, is_json=True)
-        except:
+        except Exception as err:
             self._error(f"Got exception when preparing to upload file {data['name']} to object storage: {str(err)}")
             return False
 
@@ -123,7 +123,7 @@ class Remote(object):
         """
         try:
             response = post(f"{self._url}/api/alerts", self._headers, data, is_json=True)
-        except:
+        except Exception as err:
             self._error(f"Got exception when creating an alert: {str(err)}")
             return False
 
@@ -139,7 +139,7 @@ class Remote(object):
         """
         try:
             response = post(f"{self._url}/api/metrics", self._headers_mp, data, is_json=True)
-        except:
+        except Exception as err:
             self._error(f"Exception sending metrics: {str(err)}")
             return False
 
@@ -155,7 +155,7 @@ class Remote(object):
         """
         try:
             response = post(f"{self._url}/api/events", self._headers_mp, data, is_json=True)
-        except:
+        except Exception as err:
             self._error(f"Exception sending event: {str(err)}")
             return False
 
@@ -171,7 +171,7 @@ class Remote(object):
         """
         try:
             response = put(f"{self._url}/api/runs/heartbeat", self._headers, {'name': self._name})
-        except:
+        except Exception as err:
             self._error(f"Exception creating run: {str(err)}")
             return False
 
