@@ -36,6 +36,7 @@ if __name__ == "__main__":
                             metadata[attr] = line.split('%s= ' % attr)[1].strip()
     
     run = Run()
+    run.set_pid(pid)
     run.init(metadata=metadata, tags=['SU2'],
              description='SU2 tutorial https://su2code.github.io/tutorials/Inviscid_ONERAM6/')
     
