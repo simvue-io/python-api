@@ -1,6 +1,6 @@
 # SU2
 
-This example is taken from https://su2code.github.io/tutorials/Inviscid_ONERAM6/.
+[SU2](https://su2code.github.io/) is open-source multi-physics and simulation design software. This Simvue example is taken from one of the tutorials: https://su2code.github.io/tutorials/Inviscid_ONERAM6/.
 
 Setup a Python virtual environment:
 ```
