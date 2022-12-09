@@ -697,11 +697,11 @@ class Run(object):
                 self._error('alert rule invalid')
                 return False
 
-        if type in ('is below', 'is above') and threshold is None:
+        if rule in ('is below', 'is above') and threshold is None:
             self._error('threshold must be defined for the specified alert type')
             return False
 
-        if type in ('is outside range', 'is inside range') and (range_low is None or range_high is None):
+        if rule in ('is outside range', 'is inside range') and (range_low is None or range_high is None):
             self._error('range_low and range_high must be defined for the specified alert type')
             return False
 
