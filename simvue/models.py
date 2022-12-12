@@ -1,6 +1,7 @@
 from datetime import datetime
 
-from pydantic import BaseModel
+import re
+from pydantic import BaseModel, constr
 from typing import Optional, List, Dict, Union
 from enum import Enum
 
@@ -10,5 +11,5 @@ class RunInput(BaseModel):
     metadata: Optional[Dict[str, Union[str, int, float, None]]]
     tags: Optional[List[str]]
     description: Optional[str]
-    folder: str
+    folder: constr(regex=r'^/.*')
     status: Optional[str]
