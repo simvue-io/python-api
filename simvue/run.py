@@ -259,11 +259,10 @@ class Run(object):
         self._check_token()
 
         # compare with pydantic RunInput model    
-        import json 
         try:
             runinput = RunInput(**data)
         except ValidationError as e:
-            self._error(json.dumps(e.json()))        
+            self._error(e)
 
         self._simvue = Simvue(self._name, self._uuid, self._mode, self._suppress_errors)
         name = self._simvue.create_run(data)
