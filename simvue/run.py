@@ -248,9 +248,6 @@ class Run(object):
         if description:
             data['description'] = description
 
-        if not folder.startswith('/'):
-            self._error('the folder must begin with /')
-
         data['folder'] = folder
 
         if self._status == 'running':
