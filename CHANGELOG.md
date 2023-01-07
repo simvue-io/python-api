@@ -1,9 +1,9 @@
 # Change log
 
-## v0.7.1
+## v0.7.2
 
 * Pydantic model is used for input validation.
-* Support NaN, -inf and inf in metadata.
+* Support NaN, -inf and inf in metadata and metrics.
 
 ## v0.7.0
 
