@@ -1,5 +1,10 @@
 # Change log
 
+## v0.7.1
+
+* Pydantic model is used for input validation.
+* Support NaN, -inf and inf in metadata.
+
 ## v0.7.0
 
 * Collect CPU, GPU and memory resource metrics.
