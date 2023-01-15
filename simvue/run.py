@@ -1,11 +1,13 @@
 import configparser
 import datetime
+import dill
 import hashlib
 import logging
 import mimetypes
 import os
 import re
 import multiprocessing
+import pickle
 import socket
 import subprocess
 import sys
@@ -96,18 +98,22 @@ def get_system():
     return system
 
 
-def calculate_sha256(filename):
+def calculate_sha256(filename, is_file):
     """
     Calculate sha256 checksum of the specified file
     """
     sha256_hash = hashlib.sha256()
-    try:
-        with open(filename, "rb") as fd:
-            for byte_block in iter(lambda: fd.read(CHECKSUM_BLOCK_SIZE), b""):
-                sha256_hash.update(byte_block)
-            return sha256_hash.hexdigest()
-    except:
-        pass
+    if is_file:
+        try:
+            with open(filename, "rb") as fd:
+                for byte_block in iter(lambda: fd.read(CHECKSUM_BLOCK_SIZE), b""):
+                    sha256_hash.update(byte_block)
+                return sha256_hash.hexdigest()
+        except:
+            pass
+    else:
+        sha256_hash.update(bytes(filename))
+        return sha256_hash.hexdigest()
 
     return None
 
@@ -474,9 +480,9 @@ class Run(object):
 
         return True
 
-    def save(self, filename, category, filetype=None, preserve_path=False):
+    def save(self, filename, category, filetype=None, preserve_path=False, name=None):
         """
-        Upload file
+        Upload file or object
         """
         if self._mode == 'disabled':
             return True
@@ -489,9 +495,13 @@ class Run(object):
             self._error('Run is not active')
             return False
 
-        if not os.path.isfile(filename):
-            self._error(f"File {filename} does not exist")
-            return False
+        is_file = False
+        if isinstance(filename, str):
+            if not os.path.isfile(filename):
+                self._error(f"File {filename} does not exist")
+                return False
+            else:
+                is_file = True
 
         if filetype:
             mimetypes_valid = []
@@ -508,16 +518,25 @@ class Run(object):
             data['name'] = filename
             if data['name'].startswith('./'):
                 data['name'] = data['name'][2:]
-        else:
+        elif is_file:
             data['name'] = os.path.basename(filename)
+
+        if name:
+            data['name'] = name
+
         data['run'] = self._name
         data['category'] = category
-        data['checksum'] = calculate_sha256(filename)
-        data['size'] = os.path.getsize(filename)
-        data['originalPath'] = os.path.abspath(os.path.expanduser(os.path.expandvars(filename)))
+
+        data['checksum'] = calculate_sha256(filename, is_file)
+        if is_file:
+            data['size'] = os.path.getsize(filename)
+            data['originalPath'] = os.path.abspath(os.path.expanduser(os.path.expandvars(filename)))
+        else:
+            data['size'] = sys.getsizeof(filename)
+            data['originalPath'] = ''
 
         # Determine mimetype
-        if not filetype:
+        if not filetype and is_file:
             mimetypes.init()
             mimetype = mimetypes.guess_type(filename)[0]
             if not mimetype:
@@ -526,6 +545,13 @@ class Run(object):
             mimetype = filetype
 
         data['type'] = mimetype
+
+        # Pickle object if necessary
+        if dill.pickles(filename) and not is_file:
+            if not name:
+                self._error('To save an object a name must be specified')
+            data['pickled'] = pickle.dumps(filename)
+            data['type'] = 'application/octet-stream'
 
         # Register file
         if not self._simvue.save_file(data):

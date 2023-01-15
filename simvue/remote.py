@@ -10,6 +10,17 @@ logger = logging.getLogger(__name__)
 UPLOAD_TIMEOUT = 30
 DEFAULT_API_TIMEOUT = 10
 
+def prepare_for_api(data_in):
+    """
+    Remove references to pickling
+    """
+    data = data_in.copy()
+    if 'pickled' in data:
+        del data['pickled']
+    if 'pickledFile' in data:
+        del data['pickledFile']
+    return data
+
 class Remote(object):
     """
     Class which interacts with Simvue REST API
@@ -90,8 +101,9 @@ class Remote(object):
         Save file
         """
         # Get presigned URL
+        print('god=', prepare_for_api(data))
         try:
-            response = post(f"{self._url}/api/data", self._headers, data)
+            response = post(f"{self._url}/api/data", self._headers, prepare_for_api(data))
         except Exception as err:
             self._error(f"Got exception when preparing to upload file {data['name']} to object storage: {str(err)}")
             return False
@@ -105,15 +117,30 @@ class Remote(object):
 
         if 'url' in response.json():
             url = response.json()['url']
-            try:
-                with open(data['originalPath'], 'rb') as fh:
-                    response = put(url, {}, fh, is_json=False, timeout=UPLOAD_TIMEOUT)
+            if 'pickled' in data and 'pickledFile' not in data:
+                try:
+                    response = put(url, {}, data['pickled'], is_json=False, timeout=UPLOAD_TIMEOUT)
                     if response.status_code != 200:
-                        self._error(f"Got status code {response.status_code} when uploading file {data['name']} to object storage")
+                        self._error(f"Got status code {response.status_code} when uploading object {data['name']} to object storage")
                         return None
-            except Exception as err:
-                self._error(f"Got exception when uploading file {data['name']} to object storage: {str(err)}")
-                return None
+                except Exception as err:
+                    self._error(f"Got exception when uploading object {data['name']} to object storage: {str(err)}")
+                    return None
+            else:
+                if 'pickledFile' in data:
+                    use_filename = data['pickledFile']
+                else:
+                    use_filename = data['originalPath']
+
+                try:
+                    with open(use_filename, 'rb') as fh:
+                        response = put(url, {}, fh, is_json=False, timeout=UPLOAD_TIMEOUT)
+                        if response.status_code != 200:
+                            self._error(f"Got status code {response.status_code} when uploading file {data['name']} to object storage")
+                            return None
+                except Exception as err:
+                    self._error(f"Got exception when uploading file {data['name']} to object storage: {str(err)}")
+                    return None
 
         return True
 

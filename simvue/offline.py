@@ -2,6 +2,7 @@ import json
 import logging
 import os
 import time
+import uuid
 
 from .utilities import get_offline_directory, create_file
 
@@ -90,6 +91,11 @@ class Offline(object):
         """
         Save file
         """
+        if 'pickled' in data:
+            temp_file = f"{self._directory}/temp-{str(uuid.uuid4())}.pickle"
+            with open(temp_file, 'wb') as fh:
+                fh.write(data['pickled'])
+            data['pickledFile'] = temp_file
         unique_id = time.time()
         filename = f"{self._directory}/file-{unique_id}.json"
         self._write_json(filename, data)
