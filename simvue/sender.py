@@ -74,7 +74,11 @@ def sender():
         elif run.endswith('terminated'):
             status = 'terminated'
 
-        current = run.replace('/running', '').replace('/completed', '').replace('/failed', '').replace('/terminated', '').replace('/created', '')
+        current = run.replace('/running', '').\
+                  replace('/completed', '').\
+                  replace('/failed', '').\
+                  replace('/terminated', '').\
+                  replace('/created', '')
 
         if os.path.isfile("f{current}/sent"):
             if status == 'running':
