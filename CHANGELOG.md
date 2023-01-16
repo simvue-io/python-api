@@ -3,6 +3,7 @@
 ## v0.8.0
 
 * Support picklable Python objects, Matplotlib and Plotly plots as artifacts.
+* (Bug fix) Events in offline mode didn't work.
 
 ## v0.7.2
 
