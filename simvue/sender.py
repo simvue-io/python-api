@@ -165,7 +165,7 @@ def sender():
 
             # Handle events
             if '/events-' in record:
-                logger.info('Sending event for run %s', run_init['name'])
+                logger.info('Sending events for run %s', run_init['name'])
                 data = get_json(record, name)
                 update_name(run_init['name'], data)
                 remote.send_event(msgpack.packb(data, use_bin_type=True))
