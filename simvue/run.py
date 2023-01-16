@@ -13,7 +13,6 @@ import time as tm
 import platform
 import uuid
 import dill
-import matplotlib.pyplot as plt
 import plotly
 
 from .worker import Worker
