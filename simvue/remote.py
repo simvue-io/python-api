@@ -101,7 +101,6 @@ class Remote(object):
         Save file
         """
         # Get presigned URL
-        print('god=', prepare_for_api(data))
         try:
             response = post(f"{self._url}/api/data", self._headers, prepare_for_api(data))
         except Exception as err:
