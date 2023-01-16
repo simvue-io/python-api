@@ -1,5 +1,9 @@
 # Change log
 
+## v0.8.0
+
+* Support picklable Python objects, Matplotlib and Plotly plots as artifacts
+
 ## v0.7.2
 
 * Pydantic model is used for input validation.
