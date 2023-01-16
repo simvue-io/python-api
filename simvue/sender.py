@@ -147,37 +147,37 @@ def sender():
             # Handle metrics
             if '/metrics-' in record:
                 logger.info('Sending metrics for run %s', run_init['name'])
-                remote.send_metrics(msgpack.packb(get_json(record, name), use_bin_type=True))
+                remote.send_metrics(msgpack.packb(get_json(record, name), use_bin_type=True), run_init['name'])
                 rename = True
 
             # Handle events
             if '/event-' in record:
                 logger.info('Sending event for run %s', run_init['name'])
-                remote.send_event(msgpack.packb(get_json(record, name), use_bin_type=True))
+                remote.send_event(msgpack.packb(get_json(record, name), use_bin_type=True), run_init['name'])
                 rename = True
 
             # Handle updates
             if '/update-' in record:
                 logger.info('Sending update for run %s', run_init['name'])
-                remote.update(get_json(record, name))
+                remote.update(get_json(record, name), run_init['name'])
                 rename = True
 
             # Handle folders
             if '/folder-' in record:
                 logger.info('Sending folder details for run %s', run_init['name'])
-                remote.set_folder_details(get_json(record, name))
+                remote.set_folder_details(get_json(record, name), run_init['name'])
                 rename = True
 
             # Handle alerts
             if '/alert-' in record:
                 logger.info('Sending alert details for run %s', run_init['name'])
-                remote.add_alert(get_json(record, name))
+                remote.add_alert(get_json(record, name), run_init['name'])
                 rename = True
 
             # Handle files
             if '/file-' in record:
                 logger.info('Saving file for run %s', run_init['name'])
-                remote.save_file(get_json(record, name))
+                remote.save_file(get_json(record, name), run_init['name'])
                 rename = True
 
             # Rename processed files

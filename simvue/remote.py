@@ -53,10 +53,13 @@ class Remote(object):
 
         return self._name
 
-    def update(self, data):
+    def update(self, data, run=None):
         """
         Update metadata, tags or status
         """
+        if run is not None:
+            data['name'] = run
+
         try:
             response = put(f"{self._url}/api/runs", self._headers, data)
         except Exception as err:
@@ -69,10 +72,13 @@ class Remote(object):
         self._error(f"Got status code {response.status_code} when updating run")
         return False
 
-    def set_folder_details(self, data):
+    def set_folder_details(self, data, run=None):
         """
         Set folder details
         """
+        if run is not None:
+            data['run'] = run
+
         try:
             response = put(f"{self._url}/api/folders", self._headers, data)
         except Exception as err:
@@ -85,10 +91,13 @@ class Remote(object):
         self._error(f"Got status code {response.status_code} when updating folder details")
         return False
 
-    def save_file(self, data):
+    def save_file(self, data, run=None):
         """
         Save file
         """
+        if run is not None:
+            data['run'] = run
+
         # Get presigned URL
         try:
             response = post(f"{self._url}/api/data", self._headers, prepare_for_api(data))
@@ -132,10 +141,13 @@ class Remote(object):
 
         return True
 
-    def add_alert(self, data):
+    def add_alert(self, data, run=None):
         """
         Add an alert
         """
+        if run is not None:
+            data['run'] = run
+
         try:
             response = post(f"{self._url}/api/alerts", self._headers, data)
         except Exception as err:
@@ -148,10 +160,13 @@ class Remote(object):
         self._error(f"Got status code {response.status_code} when creating alert")
         return False
 
-    def send_metrics(self, data):
+    def send_metrics(self, data, run=None):
         """
         Send metrics
         """
+        if run is not None:
+            data['run'] = run
+
         try:
             response = post(f"{self._url}/api/metrics", self._headers_mp, data, is_json=False)
         except Exception as err:
@@ -164,10 +179,13 @@ class Remote(object):
         self._error(f"Got status code {response.status_code} when sending metrics")
         return False
 
-    def send_event(self, data):
+    def send_event(self, data, run=None):
         """
         Send events
         """
+        if run is not None:
+            data['run'] = run
+
         try:
             response = post(f"{self._url}/api/events", self._headers_mp, data, is_json=False)
         except Exception as err:
