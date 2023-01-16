@@ -3,23 +3,12 @@ import time
 import requests
 
 from .api import post, put
-from .utilities import get_auth, get_expiry
+from .utilities import get_auth, get_expiry, prepare_for_api
 
 logger = logging.getLogger(__name__)
 
 UPLOAD_TIMEOUT = 30
 DEFAULT_API_TIMEOUT = 10
-
-def prepare_for_api(data_in):
-    """
-    Remove references to pickling
-    """
-    data = data_in.copy()
-    if 'pickled' in data:
-        del data['pickled']
-    if 'pickledFile' in data:
-        del data['pickledFile']
-    return data
 
 class Remote(object):
     """
