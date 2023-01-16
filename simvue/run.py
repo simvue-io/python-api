@@ -1,6 +1,4 @@
-import configparser
 import datetime
-import dill
 import hashlib
 import logging
 import mimetypes
@@ -14,7 +12,9 @@ import sys
 import time as tm
 import platform
 import uuid
-import requests
+import dill
+import matplotlib.pyplot as plt
+import plotly
 
 from .worker import Worker
 from .simvue import Simvue
@@ -112,7 +112,10 @@ def calculate_sha256(filename, is_file):
         except:
             pass
     else:
-        sha256_hash.update(bytes(filename))
+        if isinstance(filename, str):
+            sha256_hash.update(bytes(filename, 'utf-8'))
+        else:
+            sha256_hash.update(bytes(filename))
         return sha256_hash.hexdigest()
 
     return None
@@ -261,11 +264,11 @@ class Run(object):
 
         self._check_token()
 
-        # compare with pydantic RunInput model    
+        # compare with pydantic RunInput model
         try:
             runinput = RunInput(**data)
-        except ValidationError as e:
-            self._error(e)
+        except ValidationError as err:
+            self._error(err)
 
         self._simvue = Simvue(self._name, self._uuid, self._mode, self._suppress_errors)
         name = self._simvue.create_run(data)
@@ -504,7 +507,7 @@ class Run(object):
                 is_file = True
 
         if filetype:
-            mimetypes_valid = []
+            mimetypes_valid = ['application/vnd.plotly.v1+json']
             mimetypes.init()
             for _, value in mimetypes.types_map.items():
                 mimetypes_valid.append(value)
@@ -527,10 +530,10 @@ class Run(object):
         data['run'] = self._name
         data['category'] = category
 
-        data['checksum'] = calculate_sha256(filename, is_file)
         if is_file:
             data['size'] = os.path.getsize(filename)
             data['originalPath'] = os.path.abspath(os.path.expanduser(os.path.expandvars(filename)))
+            data['checksum'] = calculate_sha256(filename, is_file)
         else:
             data['size'] = sys.getsizeof(filename)
             data['originalPath'] = ''
@@ -550,8 +553,35 @@ class Run(object):
         if dill.pickles(filename) and not is_file:
             if not name:
                 self._error('To save an object a name must be specified')
-            data['pickled'] = pickle.dumps(filename)
-            data['type'] = 'application/octet-stream'
+
+            # Handle matplotlib & plotly
+            is_plotly = False
+            module_name = filename.__class__.__module__
+            class_name = filename.__class__.__name__
+
+            if module_name == 'plotly.graph_objs._figure' and class_name == 'Figure':
+                data_out = filename
+                is_plotly = True
+            elif module_name == 'matplotlib.figure' and class_name == 'Figure':
+                data_out = plotly.tools.mpl_to_plotly(filename)
+                is_plotly = True
+            else:
+                try:
+                    figure = filename.gcf()
+                    data_out = plotly.tools.mpl_to_plotly(figure)
+                except:
+                    pass
+                else:
+                    is_plotly = True
+
+            if is_plotly:
+                data['type'] = 'application/vnd.plotly.v1+json'
+                data['pickled'] = plotly.io.to_json(data_out, 'json')
+            else:
+                data['type'] = 'application/octet-stream'
+                data['pickled'] = pickle.dumps(filename)
+
+            data['checksum'] = calculate_sha256(data['pickled'], False)
 
         # Register file
         if not self._simvue.save_file(data):
@@ -704,7 +734,8 @@ class Run(object):
                   notification='none',
                   pattern=None):
         """
-        Creates an alert with the specified name (if it doesn't exist) and applies it to the current run
+        Creates an alert with the specified name (if it doesn't exist)
+        and applies it to the current run
         """
         if self._mode == 'disabled':
             return True
