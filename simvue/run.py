@@ -551,7 +551,7 @@ class Run(object):
         # Pickle object if necessary
         if dill.pickles(filename) and not is_file:
             if not name:
-                self._error('To save an object a name must be specified')
+                self._error('To save a Python object a name must be specified')
 
             # Handle matplotlib & plotly
             is_plotly = False
