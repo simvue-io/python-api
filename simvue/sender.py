@@ -164,7 +164,7 @@ def sender():
                 rename = True
 
             # Handle events
-            if '/event-' in record:
+            if '/events-' in record:
                 logger.info('Sending event for run %s', run_init['name'])
                 data = get_json(record, name)
                 update_name(run_init['name'], data)
