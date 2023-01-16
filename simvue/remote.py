@@ -1,6 +1,5 @@
 import logging
 import time
-import requests
 
 from .api import post, put
 from .utilities import get_auth, get_expiry, prepare_for_api
