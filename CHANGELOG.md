@@ -2,7 +2,7 @@
 
 ## v0.8.0
 
-* Support picklable Python objects, Matplotlib and Plotly plots as artifacts
+* Support picklable Python objects, Matplotlib and Plotly plots as artifacts.
 
 ## v0.7.2
 
