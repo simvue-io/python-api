@@ -1,6 +1,9 @@
 import os
 from simvue import Run
+from simvue.serialization import Serializer, Deserializer
 import pytest
+import numpy as np
+import torch
 
 def test_suppress_errors():
     """
@@ -68,3 +71,25 @@ def test_run_init_folder():
 
     assert exc_info.match(r"string does not match regex")         
 
+def test_numpy_array_serialization():
+    """
+    Check that a numpy array can be serialized then deserialized successfully
+    """
+    array = np.array([1, 2, 3, 4, 5])
+
+    serialized, mime_type = Serializer().serialize(array)
+    array_out = Deserializer().deserialize(serialized, mime_type)
+
+    assert (array == array_out).all()
+
+def test_pytorch_tensor_serialization():
+    """
+    Check that a PyTorch tensor can be serialized then deserialized successfully
+    """
+    torch.manual_seed(1724)
+    array = torch.rand(2, 3)
+
+    serialized, mime_type = Serializer().serialize(array)
+    array_out = Deserializer().deserialize(serialized, mime_type)
+
+    assert (array == array_out).all()
