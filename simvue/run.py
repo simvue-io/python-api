@@ -481,7 +481,7 @@ class Run(object):
 
         return True
 
-    def save(self, filename, category, filetype=None, preserve_path=False, name=None):
+    def save(self, filename, category, filetype=None, preserve_path=False, name=None, allow_pickle=False):
         """
         Upload file or object
         """
@@ -547,7 +547,7 @@ class Run(object):
             data['type'] = mimetype
 
         if not is_file:
-            data['pickled'], data['type'] = Serializer().serialize(filename)
+            data['pickled'], data['type'] = Serializer().serialize(filename, allow_pickle)
             data['checksum'] = calculate_sha256(data['pickled'], False)
             data['originalPath'] = ''
             data['size'] = sys.getsizeof(data['pickled'])

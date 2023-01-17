@@ -52,7 +52,7 @@ class Client(object):
 
         return None
 
-    def get_artifact(self, run, name):
+    def get_artifact(self, run, name, allow_pickle=False):
         """
         Return the contents of the specified artifact
         """
@@ -74,7 +74,7 @@ class Client(object):
         except requests.exceptions.RequestException:
             return None
 
-        content = Deserializer().deserialize(response.content, mimetype)
+        content = Deserializer().deserialize(response.content, mimetype, allow_pickle)
         if content is not None:
             return content
 
