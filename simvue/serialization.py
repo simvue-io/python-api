@@ -135,7 +135,7 @@ def _deserialize_dataframe(data):
 
     mfile = BytesIO(data)
     mfile.seek(0)
-    data = pd.read_csv(mfile)
+    data = pd.read_csv(mfile, index_col=0)
     return data
 
 def _deserialize_torch_tensor(data):
