@@ -1,8 +1,6 @@
 from io import BytesIO
 import os
 import pickle
-import numpy as np
-import pandas as pd
 import plotly
 
 class Serializer:
@@ -46,6 +44,12 @@ def _serialize_matplotlib_figure(data):
     return data, mimetype
 
 def _serialize_numpy_array(data):
+    try:
+        import numpy as np
+    except ImportError:
+        np = None
+        return None
+
     mimetype = 'application/vnd.simvue.numpy.v1'
     mfile = BytesIO()
     np.save(mfile, data, allow_pickle=False)
@@ -118,12 +122,24 @@ def _deserialize_matplotlib_figure(data):
     return data
 
 def _deserialize_numpy_array(data):
+    try:
+        import numpy as np
+    except ImportError:
+        np = None
+        return None
+
     mfile = BytesIO(data)
     mfile.seek(0)
     data = np.load(mfile, allow_pickle=False)
     return data
 
 def _deserialize_dataframe(data):
+    try:
+        import pandas as pd
+    except ImportError:
+        pd = None
+        return None
+
     mfile = BytesIO(data)
     mfile.seek(0)
     data = pd.read_csv(mfile)
