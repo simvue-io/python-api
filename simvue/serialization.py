@@ -79,7 +79,7 @@ def _serialize_torch_tensor(data):
 def _serialize_pickle(data):
     mimetype = 'application/octet-stream'
     data = pickle.dumps(data)
-    return data
+    return data, mimetype
 
 class Deserializer:
     def deserialize(self, data, mimetype, allow_pickle=False):
