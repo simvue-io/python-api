@@ -84,6 +84,7 @@ def test_numpy_array_mime_type():
 
 def test_pytorch_tensor_mime_type():
     """
+    Check that a PyTorch tensor has the correct mime-type
     """
     torch.manual_seed(1724)
     array = torch.rand(2, 3)
@@ -93,6 +94,7 @@ def test_pytorch_tensor_mime_type():
 
 def test_matplotlib_figure_mime_type():
     """
+    Check that a matplotlib figure has the correct mime-type
     """
     plt.plot([1, 2, 3, 4])
     figure = plt.gcf()
@@ -101,8 +103,9 @@ def test_matplotlib_figure_mime_type():
 
     assert (mime_type == 'application/vnd.plotly.v1+json')
 
-def test_matplotlib_figure_mime_type():
+def test_plotly_figure_mime_type():
     """
+    Check that a plotly figure has the correct mime-type
     """
     plt.plot([1, 2, 3, 4])
     figure = plt.gcf()
