@@ -71,6 +71,25 @@ def test_run_init_folder():
 
     assert exc_info.match(r"string does not match regex")         
 
+def test_numpy_array_mime_type():
+    """
+    Check that the mimetype for numpy arrays is correct
+    """
+    array = np.array([1, 2, 3, 4, 5])
+    _, mime_type = Serializer().serialize(array)
+
+    assert (mime_type == 'application/vnd.simvue.numpy.v1')
+
+def test_pytorch_tensor_mime_type():
+    """
+    """
+    torch.manual_seed(1724)
+    array = torch.rand(2, 3)
+    _, mime_type = Serializer().serialize(array)
+
+    assert (mime_type == 'application/vnd.simvue.torch.v1')
+
+
 def test_numpy_array_serialization():
     """
     Check that a numpy array can be serialized then deserialized successfully
