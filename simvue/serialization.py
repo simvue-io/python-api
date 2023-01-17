@@ -27,6 +27,10 @@ def get_serializer(data, allow_pickle):
         return _serialize_numpy_array
     elif module_name == 'pandas.core.frame' and class_name == 'DataFrame':
         return _serialize_dataframe
+    elif module_name == 'tensorflow.python.framework.ops' and class_name == 'EagerTensor':
+        return _serialize_tf_tensor
+    elif module_name == 'torch' and class_name == 'Tensor':
+        return _serialize_torch_tensor
     elif allow_pickle:
         return _serialize_pickle
     return None
@@ -57,6 +61,24 @@ def _serialize_dataframe(data):
     data = mfile.read()
     return data, mimetype
 
+def _serialize_tf_tensor(data):
+    mimetype = 'application/vnd.simvue.tf.v1'
+    return data, mimetype
+
+def _serialize_torch_tensor(data):
+    try:
+        import torch
+    except ImportError:
+        torch = None
+        return None
+
+    mimetype = 'application/vnd.simvue.torch.v1'
+    mfile = BytesIO()
+    torch.save(data, mfile)
+    mfile.seek(0)
+    data = mfile.read()
+    return data, mimetype
+
 def _serialize_pickle(data):
     mimetype = 'application/octet-stream'
     data = pickle.dumps(data)
@@ -64,12 +86,12 @@ def _serialize_pickle(data):
 
 class Deserializer:
     def deserialize(self, data, mimetype, allow_pickle=False):
-        deserializer = get_deserializer(data, mimetype, allow_pickle)
+        deserializer = get_deserializer(mimetype, allow_pickle)
         if deserializer:
             return deserializer(data)
         return None
 
-def get_deserializer(data, mimetype, allow_pickle):
+def get_deserializer(mimetype, allow_pickle):
     """
     Determine which deserializer to use
     """
@@ -83,6 +105,8 @@ def get_deserializer(data, mimetype, allow_pickle):
         return _deserialize_dataframe
     elif mimetype == 'application/octet-stream' and allow_pickle:
         return _deserialize_pickle
+    elif mimetype == 'application/vnd.simvue.torch.v1':
+        return _deserialize_torch_tensor
     return None
 
 def _deserialize_plotly_figure(data):
@@ -103,6 +127,18 @@ def _deserialize_dataframe(data):
     mfile = BytesIO(data)
     mfile.seek(0)
     data = pd.read_csv(mfile)
+    return data
+
+def _deserialize_torch_tensor(data):
+    try:
+        import torch
+    except ImportError:
+        torch = None
+        return None
+
+    mfile = BytesIO(data)
+    mfile.seek(0)
+    data = torch.load(mfile)
     return data
 
 def _deserialize_pickle(data):
