@@ -9,6 +9,27 @@ class Serializer:
             return serializer(data)
         return None, None
 
+def _is_torch_tensor(data):
+    """
+    Check if a dictionary is a PyTorch tensor or state dict
+    """
+    module_name = data.__class__.__module__
+    class_name = data.__class__.__name__
+
+    if module_name == 'collections' and class_name == 'OrderedDict':
+        valid = True
+        for item in data:
+            module_name = data[item].__class__.__module__
+            class_name = data[item].__class__.__name__
+            if module_name != 'torch' or class_name != 'Tensor':
+                valid = False
+        if valid:
+            return True
+    elif module_name == 'torch' and class_name == 'Tensor':
+        return True
+
+    return False
+
 def get_serializer(data, allow_pickle):
     """
     Determine which serializer to use
@@ -24,7 +45,7 @@ def get_serializer(data, allow_pickle):
         return _serialize_numpy_array
     elif module_name == 'pandas.core.frame' and class_name == 'DataFrame':
         return _serialize_dataframe
-    elif module_name == 'torch' and class_name == 'Tensor':
+    elif _is_torch_tensor(data):
         return _serialize_torch_tensor
     elif allow_pickle:
         return _serialize_pickle
