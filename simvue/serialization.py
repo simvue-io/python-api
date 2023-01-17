@@ -25,8 +25,6 @@ def get_serializer(data, allow_pickle):
         return _serialize_numpy_array
     elif module_name == 'pandas.core.frame' and class_name == 'DataFrame':
         return _serialize_dataframe
-    elif module_name == 'tensorflow.python.framework.ops' and class_name == 'EagerTensor':
-        return _serialize_tf_tensor
     elif module_name == 'torch' and class_name == 'Tensor':
         return _serialize_torch_tensor
     elif allow_pickle:
@@ -63,10 +61,6 @@ def _serialize_dataframe(data):
     data.to_csv(mfile)
     mfile.seek(0)
     data = mfile.read()
-    return data, mimetype
-
-def _serialize_tf_tensor(data):
-    mimetype = 'application/vnd.simvue.tf.v1'
     return data, mimetype
 
 def _serialize_torch_tensor(data):
@@ -107,10 +101,10 @@ def get_deserializer(mimetype, allow_pickle):
         return _deserialize_numpy_array
     elif mimetype == 'application/vnd.simvue.df.v1':
         return _deserialize_dataframe
-    elif mimetype == 'application/octet-stream' and allow_pickle:
-        return _deserialize_pickle
     elif mimetype == 'application/vnd.simvue.torch.v1':
         return _deserialize_torch_tensor
+    elif mimetype == 'application/octet-stream' and allow_pickle:
+        return _deserialize_pickle
     return None
 
 def _deserialize_plotly_figure(data):
