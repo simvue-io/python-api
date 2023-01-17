@@ -6,6 +6,7 @@ import numpy as np
 import torch
 import plotly
 import matplotlib.pyplot as plt
+import pandas as pd
 
 def test_suppress_errors():
     """
@@ -148,3 +149,26 @@ def test_pickle_serialization():
     data_out = Deserializer().deserialize(serialized, mime_type, allow_pickle=True)
 
     assert (data == data_out)
+
+def test_pandas_dataframe_mimetype():
+    """
+    Check that the mime-type of a Pandas dataframe is correct
+    """
+    data = {'col1': [1, 2], 'col2': [3, 4]}
+    df = pd.DataFrame(data=data)
+
+    _, mime_type = Serializer().serialize(df)
+
+    assert (mime_type == 'application/vnd.simvue.df.v1')
+
+def test_pandas_dataframe_serialization():
+    """
+    Check that a Pandas dataframe can be serialized then deserialized successfully
+    """
+    data = {'col1': [1, 2], 'col2': [3, 4]}
+    df = pd.DataFrame(data=data)
+
+    serialized, mime_type = Serializer().serialize(df)
+    df_out = Deserializer().deserialize(serialized, mime_type)
+
+    assert (df.equals(df_out))
