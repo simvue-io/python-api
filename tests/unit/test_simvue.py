@@ -4,6 +4,8 @@ from simvue.serialization import Serializer, Deserializer
 import pytest
 import numpy as np
 import torch
+import plotly
+import matplotlib.pyplot as plt
 
 def test_suppress_errors():
     """
@@ -89,6 +91,26 @@ def test_pytorch_tensor_mime_type():
 
     assert (mime_type == 'application/vnd.simvue.torch.v1')
 
+def test_matplotlib_figure_mime_type():
+    """
+    """
+    plt.plot([1, 2, 3, 4])
+    figure = plt.gcf()
+
+    _, mime_type = Serializer().serialize(figure)
+
+    assert (mime_type == 'application/vnd.plotly.v1+json')
+
+def test_matplotlib_figure_mime_type():
+    """
+    """
+    plt.plot([1, 2, 3, 4])
+    figure = plt.gcf()
+    plotly_figure = plotly.tools.mpl_to_plotly(figure)
+    
+    _, mime_type = Serializer().serialize(plotly_figure)
+    
+    assert (mime_type == 'application/vnd.plotly.v1+json')
 
 def test_numpy_array_serialization():
     """
