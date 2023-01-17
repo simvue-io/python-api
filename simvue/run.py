@@ -12,8 +12,6 @@ import sys
 import time as tm
 import platform
 import uuid
-import dill
-import plotly
 
 from .worker import Worker
 from .simvue import Simvue
