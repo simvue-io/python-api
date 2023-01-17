@@ -1,17 +1,18 @@
 from io import BytesIO
 import os
+import pickle
 import numpy as np
 import pandas as pd
 import plotly
 
 class Serializer:
-    def serialize(self, data):
-        serializer = get_serializer(data)
+    def serialize(self, data, allow_pickle=False):
+        serializer = get_serializer(data, allow_pickle)
         if serializer:
             return serializer(data)
         return None, None
 
-def get_serializer(data):
+def get_serializer(data, allow_pickle):
     """
     Determine which serializer to use
     """
@@ -26,6 +27,8 @@ def get_serializer(data):
         return _serialize_numpy_array
     elif module_name == 'pandas.core.frame' and class_name == 'DataFrame':
         return _serialize_dataframe
+    elif allow_pickle:
+        return _serialize_pickle
     return None
 
 def _serialize_plotly_figure(data):
@@ -54,14 +57,19 @@ def _serialize_dataframe(data):
     data = mfile.read()
     return data, mimetype
 
+def _serialize_pickle(data):
+    mimetype = 'application/octet-stream'
+    data = pickle.dumps(data)
+    return data
+
 class Deserializer:
-    def deserialize(self, data, mimetype):
-        deserializer = get_deserializer(data, mimetype)
+    def deserialize(self, data, mimetype, allow_pickle=False):
+        deserializer = get_deserializer(data, mimetype, allow_pickle)
         if deserializer:
             return deserializer(data)
         return None
 
-def get_deserializer(data, mimetype):
+def get_deserializer(data, mimetype, allow_pickle):
     """
     Determine which deserializer to use
     """
@@ -73,6 +81,8 @@ def get_deserializer(data, mimetype):
         return _deserialize_numpy_array
     elif mimetype == 'application/vnd.simvue.df.v1':
         return _deserialize_dataframe
+    elif mimetype == 'application/octet-stream' and allow_pickle:
+        return _deserialize_pickle
     return None
 
 def _deserialize_plotly_figure(data):
@@ -93,4 +103,8 @@ def _deserialize_dataframe(data):
     mfile = BytesIO(data)
     mfile.seek(0)
     data = pd.read_csv(mfile)
+    return data
+
+def _deserialize_pickle(data):
+    data = pickle.loads(data)
     return data
