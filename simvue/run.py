@@ -17,6 +17,7 @@ import plotly
 
 from .worker import Worker
 from .simvue import Simvue
+from .serialization import Serializer
 from .models import RunInput
 from .utilities import get_auth, get_expiry
 from pydantic import ValidationError
@@ -533,54 +534,25 @@ class Run(object):
             data['size'] = os.path.getsize(filename)
             data['originalPath'] = os.path.abspath(os.path.expanduser(os.path.expandvars(filename)))
             data['checksum'] = calculate_sha256(filename, is_file)
-        else:
-            data['size'] = sys.getsizeof(filename)
-            data['originalPath'] = ''
 
         # Determine mimetype
+        mimetype = None
         if not filetype and is_file:
             mimetypes.init()
             mimetype = mimetypes.guess_type(filename)[0]
             if not mimetype:
                 mimetype = 'application/octet-stream'
-        else:
+        elif is_file:
             mimetype = filetype
 
-        data['type'] = mimetype
+        if mimetype:
+            data['type'] = mimetype
 
-        # Pickle object if necessary
-        if dill.pickles(filename) and not is_file:
-            if not name:
-                self._error('To save a Python object a name must be specified')
-
-            # Handle matplotlib & plotly
-            is_plotly = False
-            module_name = filename.__class__.__module__
-            class_name = filename.__class__.__name__
-
-            if module_name == 'plotly.graph_objs._figure' and class_name == 'Figure':
-                data_out = filename
-                is_plotly = True
-            elif module_name == 'matplotlib.figure' and class_name == 'Figure':
-                data_out = plotly.tools.mpl_to_plotly(filename)
-                is_plotly = True
-            else:
-                try:
-                    figure = filename.gcf()
-                    data_out = plotly.tools.mpl_to_plotly(figure)
-                except:
-                    pass
-                else:
-                    is_plotly = True
-
-            if is_plotly:
-                data['type'] = 'application/vnd.plotly.v1+json'
-                data['pickled'] = plotly.io.to_json(data_out, 'json')
-            else:
-                data['type'] = 'application/octet-stream'
-                data['pickled'] = pickle.dumps(filename)
-
+        if not is_file:
+            data['pickled'], data['type'] = Serializer().serialize(filename)
             data['checksum'] = calculate_sha256(data['pickled'], False)
+            data['originalPath'] = ''
+            data['size'] = sys.getsizeof(data['pickled'])
 
         # Register file
         if not self._simvue.save_file(data):
