@@ -2,7 +2,7 @@
 
 ## v0.8.0
 
-* Support picklable Python objects, Matplotlib and Plotly plots as artifacts.
+* Support NumPy arrays, PyTorch tensors, Matplotlib and Plotly plots and picklable Python objects as artifacts.
 * (Bug fix) Events in offline mode didn't work.
 
 ## v0.7.2
