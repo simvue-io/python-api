@@ -1,9 +1,11 @@
+import codecs
 import json
 import logging
 import os
 import time
+import uuid
 
-from .utilities import get_offline_directory, create_file
+from .utilities import get_offline_directory, create_file, prepare_for_api
 
 logger = logging.getLogger(__name__)
 
@@ -90,9 +92,14 @@ class Offline(object):
         """
         Save file
         """
+        if 'pickled' in data:
+            temp_file = f"{self._directory}/temp-{str(uuid.uuid4())}.pickle"
+            with open(temp_file, 'wb') as fh:
+                fh.write(data['pickled'])
+            data['pickledFile'] = temp_file
         unique_id = time.time()
         filename = f"{self._directory}/file-{unique_id}.json"
-        self._write_json(filename, data)
+        self._write_json(filename, prepare_for_api(data, False))
         return True
 
     def add_alert(self, data):

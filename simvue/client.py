@@ -3,6 +3,7 @@ import os
 import pickle
 import requests
 
+from .serialization import Deserializer
 from .utilities import get_auth
 
 CONCURRENT_DOWNLOADS = 10
@@ -51,7 +52,7 @@ class Client(object):
 
         return None
 
-    def get_artifact(self, run, name):
+    def get_artifact(self, run, name, allow_pickle=False):
         """
         Return the contents of the specified artifact
         """
@@ -62,22 +63,22 @@ class Client(object):
         except requests.exceptions.RequestException:
             return None
 
-        if response.status_code == 200 and response.json():
-            url = response.json()[0]['url']
-
-            try:
-                response = requests.get(url, timeout=DOWNLOAD_TIMEOUT)
-            except requests.exceptions.RequestException:
-                return None
-        else:
+        if response.status_code != 200:
             return None
 
+        url = response.json()[0]['url']
+        mimetype = response.json()[0]['type']
+
         try:
-            content = pickle.loads(response.content)
-        except:
-            return response.content
-        else:
+            response = requests.get(url, timeout=DOWNLOAD_TIMEOUT)
+        except requests.exceptions.RequestException:
+            return None
+
+        content = Deserializer().deserialize(response.content, mimetype, allow_pickle)
+        if content is not None:
             return content
+
+        return response.content
 
     def get_artifact_as_file(self, run, name, path='./'):
         """

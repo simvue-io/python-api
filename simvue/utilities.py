@@ -77,3 +77,14 @@ def get_expiry(token):
     except:
         pass
     return expiry
+
+def prepare_for_api(data_in, all=True):
+    """
+    Remove references to pickling
+    """
+    data = data_in.copy()
+    if 'pickled' in data:
+        del data['pickled']
+    if 'pickledFile' in data and all:
+        del data['pickledFile']
+    return data

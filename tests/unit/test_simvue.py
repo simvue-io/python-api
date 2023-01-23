@@ -1,6 +1,12 @@
 import os
 from simvue import Run
+from simvue.serialization import Serializer, Deserializer
 import pytest
+import numpy as np
+import torch
+import plotly
+import matplotlib.pyplot as plt
+import pandas as pd
 
 def test_suppress_errors():
     """
@@ -68,3 +74,101 @@ def test_run_init_folder():
 
     assert exc_info.match(r"string does not match regex")         
 
+def test_numpy_array_mime_type():
+    """
+    Check that the mimetype for numpy arrays is correct
+    """
+    array = np.array([1, 2, 3, 4, 5])
+    _, mime_type = Serializer().serialize(array)
+
+    assert (mime_type == 'application/vnd.simvue.numpy.v1')
+
+def test_pytorch_tensor_mime_type():
+    """
+    Check that a PyTorch tensor has the correct mime-type
+    """
+    torch.manual_seed(1724)
+    array = torch.rand(2, 3)
+    _, mime_type = Serializer().serialize(array)
+
+    assert (mime_type == 'application/vnd.simvue.torch.v1')
+
+def test_matplotlib_figure_mime_type():
+    """
+    Check that a matplotlib figure has the correct mime-type
+    """
+    plt.plot([1, 2, 3, 4])
+    figure = plt.gcf()
+
+    _, mime_type = Serializer().serialize(figure)
+
+    assert (mime_type == 'application/vnd.plotly.v1+json')
+
+def test_plotly_figure_mime_type():
+    """
+    Check that a plotly figure has the correct mime-type
+    """
+    plt.plot([1, 2, 3, 4])
+    figure = plt.gcf()
+    plotly_figure = plotly.tools.mpl_to_plotly(figure)
+    
+    _, mime_type = Serializer().serialize(plotly_figure)
+    
+    assert (mime_type == 'application/vnd.plotly.v1+json')
+
+def test_numpy_array_serialization():
+    """
+    Check that a numpy array can be serialized then deserialized successfully
+    """
+    array = np.array([1, 2, 3, 4, 5])
+
+    serialized, mime_type = Serializer().serialize(array)
+    array_out = Deserializer().deserialize(serialized, mime_type)
+
+    assert (array == array_out).all()
+
+def test_pytorch_tensor_serialization():
+    """
+    Check that a PyTorch tensor can be serialized then deserialized successfully
+    """
+    torch.manual_seed(1724)
+    array = torch.rand(2, 3)
+
+    serialized, mime_type = Serializer().serialize(array)
+    array_out = Deserializer().deserialize(serialized, mime_type)
+
+    assert (array == array_out).all()
+
+def test_pickle_serialization():
+    """
+    Check that a dictionary can be serialized then deserialized successfully
+    """
+    data = {'a': 1.0, 'b': 'test'}
+
+    serialized, mime_type = Serializer().serialize(data, allow_pickle=True)
+    data_out = Deserializer().deserialize(serialized, mime_type, allow_pickle=True)
+
+    assert (data == data_out)
+
+def test_pandas_dataframe_mimetype():
+    """
+    Check that the mime-type of a Pandas dataframe is correct
+    """
+    data = {'col1': [1, 2], 'col2': [3, 4]}
+    df = pd.DataFrame(data=data)
+
+    _, mime_type = Serializer().serialize(df)
+
+    assert (mime_type == 'application/vnd.simvue.df.v1')
+
+def test_pandas_dataframe_serialization():
+    """
+    Check that a Pandas dataframe can be serialized then deserialized successfully
+    """
+    data = {'col1': [1, 2], 'col2': [3, 4]}
+    df = pd.DataFrame(data=data)
+
+    serialized, mime_type = Serializer().serialize(df)
+    df_out = Deserializer().deserialize(serialized, mime_type)
+
+    assert (df.equals(df_out))
