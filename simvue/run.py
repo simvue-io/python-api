@@ -160,9 +160,18 @@ class Run(object):
     def __enter__(self):
         return self
 
-    def __exit__(self, type, value, tb):
+    def __exit__(self, type, value, traceback):
         if self._name and self._status == 'running':
-            self.set_status('completed')
+            if not type:
+                self.set_status('completed')
+            else:
+                self.log_event(f"{type.__name__}: {value}")
+                if type.__name__ in ('KeyboardInterrupt'):
+                    self.set_status('terminated')
+                else:
+                    if traceback:
+                        self.log_event(f"Traceback: {traceback}")
+                    self.set_status('failed')
 
     def _check_token(self):
         """

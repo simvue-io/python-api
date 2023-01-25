@@ -1,5 +1,9 @@
 # Change log
 
+## v0.9.0
+
+* Set status to `failed` or `terminated` if the context manager is used and there is an exception.
+
 ## v0.8.0
 
 * Support NumPy arrays, PyTorch tensors, Matplotlib and Plotly plots and picklable Python objects as artifacts.
