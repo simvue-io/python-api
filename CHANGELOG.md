@@ -3,6 +3,7 @@
 ## v0.9.1
 
 * (Bug fix) Retries in POST/PUTs to REST APIs didn't happen.
+* Warn users if `allow_pickle=True` is required.
 
 ## v0.9.0
 
