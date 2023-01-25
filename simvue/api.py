@@ -28,6 +28,7 @@ def post(url, headers, data, is_json=True):
         data = json.dumps(data)
         headers = set_json_header(headers)
     response = requests.post(url, headers=headers, data=data, timeout=DEFAULT_API_TIMEOUT)
+    response.raise_for_status()
 
     return response
 
@@ -41,5 +42,6 @@ def put(url, headers, data, is_json=True, timeout=DEFAULT_API_TIMEOUT):
         data = json.dumps(data)
         headers = set_json_header(headers)
     response = requests.put(url, headers=headers, data=data, timeout=timeout)
+    response.raise_for_status()
 
     return response
