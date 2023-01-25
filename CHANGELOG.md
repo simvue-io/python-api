@@ -1,5 +1,9 @@
 # Change log
 
+## v0.9.1
+
+* (Bug fix) Retries in POST/PUTs to REST APIs didn't happen.
+
 ## v0.9.0
 
 * Set status to `failed` or `terminated` if the context manager is used and there is an exception.
