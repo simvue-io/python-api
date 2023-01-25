@@ -161,12 +161,11 @@ class Run(object):
         return self
 
     def __exit__(self, type, value, traceback):
-        name = type.__name__
         if self._name and self._status == 'running':
             if not type:
                 self.set_status('completed')
             else:
-                self.log_event(f"{name}: {value}")
+                self.log_event(f"{type.__name__}: {value}")
                 if type.__name__ in ('KeyboardInterrupt'):
                     self.set_status('terminated')
                 else:
