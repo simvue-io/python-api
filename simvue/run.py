@@ -557,6 +557,8 @@ class Run(object):
 
         if not is_file:
             data['pickled'], data['type'] = Serializer().serialize(filename, allow_pickle)
+            if not data['type'] and not allow_pickle:
+                self._error('Unable to save Python object, set allow_pickle to True')
             data['checksum'] = calculate_sha256(data['pickled'], False)
             data['originalPath'] = ''
             data['size'] = sys.getsizeof(data['pickled'])
