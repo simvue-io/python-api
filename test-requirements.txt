@@ -10,4 +10,3 @@ torch
 pandas
 numpy
 matplotlib
-coverage
