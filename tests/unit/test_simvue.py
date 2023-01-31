@@ -8,6 +8,7 @@ import plotly
 import matplotlib.pyplot as plt
 import pandas as pd
 
+
 def test_suppress_errors():
     """
     Check that errors are surpressed
