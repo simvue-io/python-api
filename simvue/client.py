@@ -36,13 +36,14 @@ class Client(object):
         self._url, self._token = get_auth()
         self._headers = {"Authorization": f"Bearer {self._token}"}
 
-    def get_run(self, run, system=False, metadata=False):
+    def get_run(self, run, system=False, tags=False, metadata=False):
         """
         Get a single run
         """
         params = {'name': run,
                   'filter': None,
                   'system': system,
+                  'tags': tags,
                   'metadata': metadata}
 
         try:
@@ -56,13 +57,14 @@ class Client(object):
         return None
 
 
-    def get_runs(self, filter, system=False, metadata=False):
+    def get_runs(self, filter, system=False, tags=False, metadata=False):
         """
         Get runs
         """
         params = {'name': None,
                   'filter': filter,
                   'system': system,
+                  'tags': tags,
                   'metadata': metadata}
 
         try:
