@@ -2,7 +2,7 @@
 
 ## v0.10.0
 
-* The `client` class can now be used to obtain metadata.
+* The `client` class can now be used to retrieve runs.
 
 ## v0.9.1
 
