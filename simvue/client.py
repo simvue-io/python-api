@@ -57,12 +57,12 @@ class Client(object):
         return None
 
 
-    def get_runs(self, filter, system=False, tags=False, metadata=False):
+    def get_runs(self, filters, system=False, tags=False, metadata=False):
         """
         Get runs
         """
         params = {'name': None,
-                  'filter': filter,
+                  'filters': filters,
                   'system': system,
                   'tags': tags,
                   'metadata': metadata}
