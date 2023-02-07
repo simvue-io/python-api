@@ -1,5 +1,9 @@
 # Change log
 
+## v0.10.0
+
+* The `client` class can now be used to retrieve runs.
+
 ## v0.9.1
 
 * (Bug fix) Retries in POST/PUTs to REST APIs didn't happen.

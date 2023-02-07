@@ -36,6 +36,47 @@ class Client(object):
         self._url, self._token = get_auth()
         self._headers = {"Authorization": f"Bearer {self._token}"}
 
+    def get_run(self, run, system=False, tags=False, metadata=False):
+        """
+        Get a single run
+        """
+        params = {'name': run,
+                  'filter': None,
+                  'system': system,
+                  'tags': tags,
+                  'metadata': metadata}
+
+        try:
+            response = requests.get(f"{self._url}/api/runs", headers=self._headers, params=params)
+        except requests.exceptions.RequestException:
+            return None
+
+        if response.status_code == 200:
+            return response.json()
+
+        return None
+
+
+    def get_runs(self, filters, system=False, tags=False, metadata=False):
+        """
+        Get runs
+        """
+        params = {'name': None,
+                  'filters': ','.join(filters),
+                  'system': system,
+                  'tags': tags,
+                  'metadata': metadata}
+
+        try:
+            response = requests.get(f"{self._url}/api/runs", headers=self._headers, params=params)
+        except requests.exceptions.RequestException:
+            return None
+
+        if response.status_code == 200:
+            return response.json()
+
+        return None
+
     def list_artifacts(self, run, category=None):
         """
         List artifacts associated with a run
