@@ -1,6 +1,6 @@
 # Change log
 
-## v0.10.0
+## v0.10.0
 
 * The `client` class can now be used to retrieve runs.
 
