@@ -62,7 +62,7 @@ class Client(object):
         Get runs
         """
         params = {'name': None,
-                  'filters': filters,
+                  'filters': ','.join(filters),
                   'system': system,
                   'tags': tags,
                   'metadata': metadata}
