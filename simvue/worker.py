@@ -147,7 +147,6 @@ class Worker(threading.Thread):
 
             if self._shutdown_event.is_set():
                 if self._metrics_queue.empty() and self._events_queue.empty():
-                    print('eixitig')
                     sys.exit(0)
             else:
                 counter = 0
