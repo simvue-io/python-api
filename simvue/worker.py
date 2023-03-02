@@ -148,4 +148,7 @@ class Worker(threading.Thread):
                 if self._metrics_queue.empty() and self._events_queue.empty():
                     sys.exit(0)
             else:
-                time.sleep(POLLING_INTERVAL)
+                counter = 0
+                while counter < POLLING_INTERVAL and self._parent_thread.is_alive():
+                    time.sleep(1)
+                    counter += 1
