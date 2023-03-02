@@ -29,11 +29,12 @@ def update_processes(parent, processes):
 
 
 class Worker(threading.Thread):
-    def __init__(self, metrics_queue, events_queue, uuid, run_name, url, headers, mode, pid, resources_metrics_interval):
+    def __init__(self, metrics_queue, events_queue, shutdown_event, uuid, run_name, url, headers, mode, pid, resources_metrics_interval):
         threading.Thread.__init__(self)
         self._parent_thread = threading.currentThread()
         self._metrics_queue = metrics_queue
         self._events_queue = events_queue
+        self._shutdown_event = shutdown_event
         self._run_name = run_name
         self._uuid = uuid
         self._url = url
@@ -144,11 +145,12 @@ class Worker(threading.Thread):
                     pass
                 buffer = []
 
-            if not self._parent_thread.is_alive():
+            if self._shutdown_event.is_set():
                 if self._metrics_queue.empty() and self._events_queue.empty():
+                    print('eixitig')
                     sys.exit(0)
             else:
                 counter = 0
-                while counter < POLLING_INTERVAL and self._parent_thread.is_alive():
+                while counter < POLLING_INTERVAL and not self._shutdown_event.is_set():
                     time.sleep(1)
                     counter += 1
