@@ -1,5 +1,10 @@
 # Change log
 
+## v0.10.1
+
+* The worker process now no longer gives a long delay when a run has finished (now at most ~1 second).
+* The worker process ends when the `Run()` context ends or `close` is called, rather than only when the main process exits.
+
 ## v0.10.0
 
 * The `client` class can now be used to retrieve runs.
