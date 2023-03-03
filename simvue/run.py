@@ -162,6 +162,7 @@ class Run(object):
 
     def __exit__(self, type, value, traceback):
         if self._name and self._status == 'running':
+            self._shutdown_event.set()
             if not type:
                 self.set_status('completed')
             else:
@@ -203,8 +204,10 @@ class Run(object):
 
         self._metrics_queue = multiprocessing.Manager().Queue(maxsize=self._queue_size)
         self._events_queue = multiprocessing.Manager().Queue(maxsize=self._queue_size)
+        self._shutdown_event = multiprocessing.Manager().Event()
         self._worker = Worker(self._metrics_queue,
                               self._events_queue,
+                              self._shutdown_event,
                               self._uuid,
                               self._name,
                               self._url,
@@ -659,8 +662,9 @@ class Run(object):
         if not self._active:
             self._error('Run is not active')
             return False
-
+   
         self.set_status('completed')
+        self._shutdown_event.set()
 
     def set_folder_details(self, path, metadata={}, tags=[], description=None):
         """
