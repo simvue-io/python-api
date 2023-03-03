@@ -28,7 +28,8 @@ def post(url, headers, data, is_json=True):
         data = json.dumps(data)
         headers = set_json_header(headers)
     response = requests.post(url, headers=headers, data=data, timeout=DEFAULT_API_TIMEOUT)
-    response.raise_for_status()
+    if response.status_code not in (200, 201, 409):
+        raise Exception('HTTP error')
 
     return response
 
