@@ -145,11 +145,11 @@ class Worker(threading.Thread):
                     pass
                 buffer = []
 
-            if self._shutdown_event.is_set():
+            if self._shutdown_event.is_set() or not self._parent_thread.is_alive():
                 if self._metrics_queue.empty() and self._events_queue.empty():
                     sys.exit(0)
             else:
                 counter = 0
-                while counter < POLLING_INTERVAL and not self._shutdown_event.is_set():
+                while counter < POLLING_INTERVAL and not self._shutdown_event.is_set() and self._parent_thread.is_alive():
                     time.sleep(1)
                     counter += 1
