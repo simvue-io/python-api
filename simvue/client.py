@@ -5,6 +5,7 @@ import requests
 
 from .serialization import Deserializer
 from .utilities import get_auth
+from .converters import to_dataframe
 
 CONCURRENT_DOWNLOADS = 10
 DOWNLOAD_CHUNK_SIZE = 8192
@@ -57,7 +58,7 @@ class Client(object):
         return None
 
 
-    def get_runs(self, filters, system=False, tags=False, metadata=False):
+    def get_runs(self, filters, system=False, tags=False, metadata=False, format='dict'):
         """
         Get runs
         """
@@ -73,7 +74,12 @@ class Client(object):
             return None
 
         if response.status_code == 200:
-            return response.json()
+            if format == 'dict':
+                return response.json()
+            elif format == 'dataframe':
+                return to_dataframe(response.json())
+            else:
+                return None 
 
         return None
 
