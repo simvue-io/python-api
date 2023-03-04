@@ -3,7 +3,6 @@ def to_dataframe(data):
     Convert runs to dataframe
     """
     import pandas as pd
-    
     columns = {}
     for run in data:
         for item in ('name', 'status', 'folder', 'created', 'started', 'ended'):
