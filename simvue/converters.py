@@ -6,10 +6,13 @@ def to_dataframe(data):
     
     columns = {}
     for run in data:
-        for item in ('name', 'status', 'folder', 'created'):
+        for item in ('name', 'status', 'folder', 'created', 'started', 'ended'):
             if item not in columns:
                 columns[item] = []
-            columns[item].append(run[item])
+            if item in run:
+                columns[item].append(run[item])
+            else:
+                columns[item].append()
  
         if 'system' in run:
             for section in run['system']:
