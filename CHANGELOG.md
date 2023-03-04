@@ -1,5 +1,9 @@
 # Change log
 
+## v0.11.0
+
+* Support optional dataframe output from `get_runs`.
+
 ## v0.10.1
 
 * The worker process now no longer gives a long delay when a run has finished (now at most ~1 second).
