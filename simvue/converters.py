@@ -3,6 +3,14 @@ def to_dataframe(data):
     Convert runs to dataframe
     """
     import pandas as pd
+
+    metadata = []
+    for run in data:
+        if 'metadata' in run:
+            for item in run['metadata']:
+                if item not in metadata:
+                    metadata.append(item) 
+
     columns = {}
     for run in data:
         for item in ('name', 'status', 'folder', 'created', 'started', 'ended'):
@@ -11,7 +19,7 @@ def to_dataframe(data):
             if item in run:
                 columns[item].append(run[item])
             else:
-                columns[item].append()
+                columns[item].append(None)
  
         if 'system' in run:
             for section in run['system']:
@@ -26,10 +34,13 @@ def to_dataframe(data):
                     columns['system.%s' % section].append(run['system'][section])
 
         if 'metadata' in run:
-            for item in run['metadata']:
+            for item in metadata:
                 if 'metadata.%s' % item not in columns:
                     columns['metadata.%s' % item] = []
-                columns['metadata.%s' % item].append(run['metadata'][item])
+                if item in run['metadata']:
+                    columns['metadata.%s' % item].append(run['metadata'][item])
+                else:
+                    columns['metadata.%s' % item].append(None)
 
     df = pd.DataFrame(data=columns)
     return df
