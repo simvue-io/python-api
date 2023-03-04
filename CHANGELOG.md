@@ -1,5 +1,9 @@
 # Change log
 
+## v0.11.1
+
+* Support different runs having different metadata in `get_runs` dataframe output.
+
 ## v0.11.0
 
 * Support optional dataframe output from `get_runs`.
