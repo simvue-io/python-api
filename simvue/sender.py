@@ -196,7 +196,7 @@ def sender():
             if '/file-' in record:
                 logger.info('Saving file for run %s', run_init['name'])
                 if remote.save_file(get_json(record, name), run_init['name']):
-                rename = True
+                    rename = True
 
             # Rename processed files
             if rename:
