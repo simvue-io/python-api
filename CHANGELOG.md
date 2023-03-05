@@ -1,5 +1,43 @@
 # Change log
 
+## v0.11.1
+
+* Support different runs having different metadata in `get_runs` dataframe output.
+* (Bug fix) Error message when creating a duplicate run is now more clear.
+* (Bug fix) Correction to stopping the worker thread in situations where the run never started.
+
+## v0.11.0
+
+* Support optional dataframe output from `get_runs`.
+
+## v0.10.1
+
+* The worker process now no longer gives a long delay when a run has finished (now at most ~1 second).
+* The worker process ends when the `Run()` context ends or `close` is called, rather than only when the main process exits.
+
+## v0.10.0
+
+* The `client` class can now be used to retrieve runs.
+
+## v0.9.1
+
+* (Bug fix) Retries in POST/PUTs to REST APIs didn't happen.
+* Warn users if `allow_pickle=True` is required.
+
+## v0.9.0
+
+* Set status to `failed` or `terminated` if the context manager is used and there is an exception.
+
+## v0.8.0
+
+* Support NumPy arrays, PyTorch tensors, Matplotlib and Plotly plots and picklable Python objects as artifacts.
+* (Bug fix) Events in offline mode didn't work.
+
+## v0.7.2
+
+* Pydantic model is used for input validation.
+* Support NaN, -inf and inf in metadata and metrics.
+
 ## v0.7.0
 
 * Collect CPU, GPU and memory resource metrics.

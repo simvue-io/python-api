@@ -1,9 +1,8 @@
 import logging
 import time
-import requests
 
 from .api import post, put
-from .utilities import get_auth, get_expiry
+from .utilities import get_auth, get_expiry, prepare_for_api
 
 logger = logging.getLogger(__name__)
 
@@ -53,10 +52,13 @@ class Remote(object):
 
         return self._name
 
-    def update(self, data):
+    def update(self, data, run=None):
         """
         Update metadata, tags or status
         """
+        if run is not None:
+            data['name'] = run
+
         try:
             response = put(f"{self._url}/api/runs", self._headers, data)
         except Exception as err:
@@ -69,10 +71,13 @@ class Remote(object):
         self._error(f"Got status code {response.status_code} when updating run")
         return False
 
-    def set_folder_details(self, data):
+    def set_folder_details(self, data, run=None):
         """
         Set folder details
         """
+        if run is not None:
+            data['run'] = run
+
         try:
             response = put(f"{self._url}/api/folders", self._headers, data)
         except Exception as err:
@@ -85,13 +90,16 @@ class Remote(object):
         self._error(f"Got status code {response.status_code} when updating folder details")
         return False
 
-    def save_file(self, data):
+    def save_file(self, data, run=None):
         """
         Save file
         """
+        if run is not None:
+            data['run'] = run
+
         # Get presigned URL
         try:
-            response = post(f"{self._url}/api/data", self._headers, data)
+            response = post(f"{self._url}/api/data", self._headers, prepare_for_api(data))
         except Exception as err:
             self._error(f"Got exception when preparing to upload file {data['name']} to object storage: {str(err)}")
             return False
@@ -105,22 +113,40 @@ class Remote(object):
 
         if 'url' in response.json():
             url = response.json()['url']
-            try:
-                with open(data['originalPath'], 'rb') as fh:
-                    response = put(url, {}, fh, is_json=False, timeout=UPLOAD_TIMEOUT)
+            if 'pickled' in data and 'pickledFile' not in data:
+                try:
+                    response = put(url, {}, data['pickled'], is_json=False, timeout=UPLOAD_TIMEOUT)
                     if response.status_code != 200:
-                        self._error(f"Got status code {response.status_code} when uploading file {data['name']} to object storage")
+                        self._error(f"Got status code {response.status_code} when uploading object {data['name']} to object storage")
                         return None
-            except Exception as err:
-                self._error(f"Got exception when uploading file {data['name']} to object storage: {str(err)}")
-                return None
+                except Exception as err:
+                    self._error(f"Got exception when uploading object {data['name']} to object storage: {str(err)}")
+                    return None
+            else:
+                if 'pickledFile' in data:
+                    use_filename = data['pickledFile']
+                else:
+                    use_filename = data['originalPath']
+
+                try:
+                    with open(use_filename, 'rb') as fh:
+                        response = put(url, {}, fh, is_json=False, timeout=UPLOAD_TIMEOUT)
+                        if response.status_code != 200:
+                            self._error(f"Got status code {response.status_code} when uploading file {data['name']} to object storage")
+                            return None
+                except Exception as err:
+                    self._error(f"Got exception when uploading file {data['name']} to object storage: {str(err)}")
+                    return None
 
         return True
 
-    def add_alert(self, data):
+    def add_alert(self, data, run=None):
         """
         Add an alert
         """
+        if run is not None:
+            data['run'] = run
+
         try:
             response = post(f"{self._url}/api/alerts", self._headers, data)
         except Exception as err:

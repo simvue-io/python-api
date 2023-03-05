@@ -3,7 +3,9 @@ import os
 import pickle
 import requests
 
+from .serialization import Deserializer
 from .utilities import get_auth
+from .converters import to_dataframe
 
 CONCURRENT_DOWNLOADS = 10
 DOWNLOAD_CHUNK_SIZE = 8192
@@ -35,6 +37,52 @@ class Client(object):
         self._url, self._token = get_auth()
         self._headers = {"Authorization": f"Bearer {self._token}"}
 
+    def get_run(self, run, system=False, tags=False, metadata=False):
+        """
+        Get a single run
+        """
+        params = {'name': run,
+                  'filter': None,
+                  'system': system,
+                  'tags': tags,
+                  'metadata': metadata}
+
+        try:
+            response = requests.get(f"{self._url}/api/runs", headers=self._headers, params=params)
+        except requests.exceptions.RequestException:
+            return None
+
+        if response.status_code == 200:
+            return response.json()
+
+        return None
+
+
+    def get_runs(self, filters, system=False, tags=False, metadata=False, format='dict'):
+        """
+        Get runs
+        """
+        params = {'name': None,
+                  'filters': ','.join(filters),
+                  'system': system,
+                  'tags': tags,
+                  'metadata': metadata}
+
+        try:
+            response = requests.get(f"{self._url}/api/runs", headers=self._headers, params=params)
+        except requests.exceptions.RequestException:
+            return None
+
+        if response.status_code == 200:
+            if format == 'dict':
+                return response.json()
+            elif format == 'dataframe':
+                return to_dataframe(response.json())
+            else:
+                return None 
+
+        return None
+
     def list_artifacts(self, run, category=None):
         """
         List artifacts associated with a run
@@ -51,7 +99,7 @@ class Client(object):
 
         return None
 
-    def get_artifact(self, run, name):
+    def get_artifact(self, run, name, allow_pickle=False):
         """
         Return the contents of the specified artifact
         """
@@ -62,22 +110,22 @@ class Client(object):
         except requests.exceptions.RequestException:
             return None
 
-        if response.status_code == 200 and response.json():
-            url = response.json()[0]['url']
-
-            try:
-                response = requests.get(url, timeout=DOWNLOAD_TIMEOUT)
-            except requests.exceptions.RequestException:
-                return None
-        else:
+        if response.status_code != 200:
             return None
 
+        url = response.json()[0]['url']
+        mimetype = response.json()[0]['type']
+
         try:
-            content = pickle.loads(response.content)
-        except:
-            return response.content
-        else:
+            response = requests.get(url, timeout=DOWNLOAD_TIMEOUT)
+        except requests.exceptions.RequestException:
+            return None
+
+        content = Deserializer().deserialize(response.content, mimetype, allow_pickle)
+        if content is not None:
             return content
+
+        return response.content
 
     def get_artifact_as_file(self, run, name, path='./'):
         """

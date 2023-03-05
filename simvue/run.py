@@ -1,4 +1,3 @@
-import configparser
 import datetime
 import hashlib
 import logging
@@ -6,17 +5,20 @@ import mimetypes
 import os
 import re
 import multiprocessing
+import pickle
 import socket
 import subprocess
 import sys
 import time as tm
 import platform
 import uuid
-import requests
 
 from .worker import Worker
 from .simvue import Simvue
+from .serialization import Serializer
+from .models import RunInput
 from .utilities import get_auth, get_expiry
+from pydantic import ValidationError
 
 INIT_MISSING = 'initialize a run using init() first'
 QUEUE_SIZE = 10000
@@ -94,18 +96,25 @@ def get_system():
     return system
 
 
-def calculate_sha256(filename):
+def calculate_sha256(filename, is_file):
     """
     Calculate sha256 checksum of the specified file
     """
     sha256_hash = hashlib.sha256()
-    try:
-        with open(filename, "rb") as fd:
-            for byte_block in iter(lambda: fd.read(CHECKSUM_BLOCK_SIZE), b""):
-                sha256_hash.update(byte_block)
-            return sha256_hash.hexdigest()
-    except:
-        pass
+    if is_file:
+        try:
+            with open(filename, "rb") as fd:
+                for byte_block in iter(lambda: fd.read(CHECKSUM_BLOCK_SIZE), b""):
+                    sha256_hash.update(byte_block)
+                return sha256_hash.hexdigest()
+        except:
+            pass
+    else:
+        if isinstance(filename, str):
+            sha256_hash.update(bytes(filename, 'utf-8'))
+        else:
+            sha256_hash.update(bytes(filename))
+        return sha256_hash.hexdigest()
 
     return None
 
@@ -147,13 +156,26 @@ class Run(object):
         self._simvue = None
         self._pid = 0
         self._resources_metrics_interval = 30
+        self._shutdown_event = None
 
     def __enter__(self):
         return self
 
-    def __exit__(self, type, value, tb):
+    def __exit__(self, type, value, traceback):
         if self._name and self._status == 'running':
-            self.set_status('completed')
+            if self._shutdown_event is not None:
+                self._shutdown_event.set()
+            if not type:
+                self.set_status('completed')
+            else:
+                if self._active:
+                    self.log_event(f"{type.__name__}: {value}")
+                if type.__name__ in ('KeyboardInterrupt') and self._active:
+                    self.set_status('terminated')
+                else:
+                    if traceback and self._active:
+                        self.log_event(f"Traceback: {traceback}")
+                        self.set_status('failed')
 
     def _check_token(self):
         """
@@ -185,8 +207,10 @@ class Run(object):
 
         self._metrics_queue = multiprocessing.Manager().Queue(maxsize=self._queue_size)
         self._events_queue = multiprocessing.Manager().Queue(maxsize=self._queue_size)
+        self._shutdown_event = multiprocessing.Manager().Event()
         self._worker = Worker(self._metrics_queue,
                               self._events_queue,
+                              self._shutdown_event,
                               self._uuid,
                               self._name,
                               self._url,
@@ -226,12 +250,6 @@ class Run(object):
             if not re.match(r'^[a-zA-Z0-9\-\_\s\/\.:]+$', name):
                 self._error('specified name is invalid')
 
-        if not isinstance(tags, list):
-            self._error('tags must be a list')
-
-        if not isinstance(metadata, dict):
-            self._error('metadata must be a dict')
-
         self._name = name
 
         if running:
@@ -252,15 +270,18 @@ class Run(object):
         if description:
             data['description'] = description
 
-        if not folder.startswith('/'):
-            self._error('the folder must begin with /')
-
         data['folder'] = folder
 
         if self._status == 'running':
             data['system'] = get_system()
 
         self._check_token()
+
+        # compare with pydantic RunInput model
+        try:
+            runinput = RunInput(**data)
+        except ValidationError as err:
+            self._error(err)
 
         self._simvue = Simvue(self._name, self._uuid, self._mode, self._suppress_errors)
         name = self._simvue.create_run(data)
@@ -475,9 +496,9 @@ class Run(object):
 
         return True
 
-    def save(self, filename, category, filetype=None, preserve_path=False):
+    def save(self, filename, category, filetype=None, preserve_path=False, name=None, allow_pickle=False):
         """
-        Upload file
+        Upload file or object
         """
         if self._mode == 'disabled':
             return True
@@ -490,12 +511,16 @@ class Run(object):
             self._error('Run is not active')
             return False
 
-        if not os.path.isfile(filename):
-            self._error(f"File {filename} does not exist")
-            return False
+        is_file = False
+        if isinstance(filename, str):
+            if not os.path.isfile(filename):
+                self._error(f"File {filename} does not exist")
+                return False
+            else:
+                is_file = True
 
         if filetype:
-            mimetypes_valid = []
+            mimetypes_valid = ['application/vnd.plotly.v1+json']
             mimetypes.init()
             for _, value in mimetypes.types_map.items():
                 mimetypes_valid.append(value)
@@ -509,24 +534,40 @@ class Run(object):
             data['name'] = filename
             if data['name'].startswith('./'):
                 data['name'] = data['name'][2:]
-        else:
+        elif is_file:
             data['name'] = os.path.basename(filename)
+
+        if name:
+            data['name'] = name
+
         data['run'] = self._name
         data['category'] = category
-        data['checksum'] = calculate_sha256(filename)
-        data['size'] = os.path.getsize(filename)
-        data['originalPath'] = os.path.abspath(os.path.expanduser(os.path.expandvars(filename)))
+
+        if is_file:
+            data['size'] = os.path.getsize(filename)
+            data['originalPath'] = os.path.abspath(os.path.expanduser(os.path.expandvars(filename)))
+            data['checksum'] = calculate_sha256(filename, is_file)
 
         # Determine mimetype
-        if not filetype:
+        mimetype = None
+        if not filetype and is_file:
             mimetypes.init()
             mimetype = mimetypes.guess_type(filename)[0]
             if not mimetype:
                 mimetype = 'application/octet-stream'
-        else:
+        elif is_file:
             mimetype = filetype
 
-        data['type'] = mimetype
+        if mimetype:
+            data['type'] = mimetype
+
+        if not is_file:
+            data['pickled'], data['type'] = Serializer().serialize(filename, allow_pickle)
+            if not data['type'] and not allow_pickle:
+                self._error('Unable to save Python object, set allow_pickle to True')
+            data['checksum'] = calculate_sha256(data['pickled'], False)
+            data['originalPath'] = ''
+            data['size'] = sys.getsizeof(data['pickled'])
 
         # Register file
         if not self._simvue.save_file(data):
@@ -624,8 +665,9 @@ class Run(object):
         if not self._active:
             self._error('Run is not active')
             return False
-
+   
         self.set_status('completed')
+        self._shutdown_event.set()
 
     def set_folder_details(self, path, metadata={}, tags=[], description=None):
         """
@@ -679,7 +721,8 @@ class Run(object):
                   notification='none',
                   pattern=None):
         """
-        Creates an alert with the specified name (if it doesn't exist) and applies it to the current run
+        Creates an alert with the specified name (if it doesn't exist)
+        and applies it to the current run
         """
         if self._mode == 'disabled':
             return True
@@ -697,11 +740,11 @@ class Run(object):
                 self._error('alert rule invalid')
                 return False
 
-        if type in ('is below', 'is above') and threshold is None:
+        if rule in ('is below', 'is above') and threshold is None:
             self._error('threshold must be defined for the specified alert type')
             return False
 
-        if type in ('is outside range', 'is inside range') and (range_low is None or range_high is None):
+        if rule in ('is outside range', 'is inside range') and (range_low is None or range_high is None):
             self._error('range_low and range_high must be defined for the specified alert type')
             return False
 

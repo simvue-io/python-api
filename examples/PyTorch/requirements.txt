@@ -1,5 +1,3 @@
-optuna
-randomname
 torch
 torchvision
 simvue

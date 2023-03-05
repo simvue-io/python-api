@@ -16,7 +16,7 @@ if __name__ == "__main__":
     INPUT_FILES = ['inv_ONERAM6.cfg', 'mesh_ONERAM6_inv_ffd.su2']
     
     # Store these output files
-    OUTPUT_FILES = ['flow.vtu', 'surface_flow.vtu', 'restart_flow.dat']
+    OUTPUT_FILES = ['flow.vtk', 'surface_flow.vtk', 'restart_flow.dat']
     
     # Collect these metadata attributes from the config file
     METADATA_ATTRS = ['SOLVER', 'MATH_PROBLEM', 'MACH_NUMBER', 'AOA', 'SIDESLIP_ANGLE', 'FREESTREAM_PRESSURE', 'FREESTREAM_TEMPERATURE']
@@ -36,6 +36,7 @@ if __name__ == "__main__":
                             metadata[attr] = line.split('%s= ' % attr)[1].strip()
     
     run = Run()
+    run.set_pid(pid)
     run.init(metadata=metadata, tags=['SU2'],
              description='SU2 tutorial https://su2code.github.io/tutorials/Inviscid_ONERAM6/')
     

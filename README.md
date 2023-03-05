@@ -30,7 +30,8 @@ if __name__ == "__main__":
 
     ...
 
-    # Using a context manager means that the status will be set to completed automatically
+    # Using a context manager means that the status will be set to completed automatically,
+    # and also means that if the code exits with an exception this will be reported to Simvue
     with Run() as run:
 
         # Specify a run name, metadata (dict), tags (list), description, folder
