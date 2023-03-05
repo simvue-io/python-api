@@ -171,8 +171,8 @@ def sender():
                 logger.info('Sending events for run %s', run_init['name'])
                 data = get_json(record, name)
                 update_name(run_init['name'], data)
-                remote.send_event(msgpack.packb(data, use_bin_type=True))
-                rename = True
+                if remote.send_event(msgpack.packb(data, use_bin_type=True)):
+                    rename = True
 
             # Handle updates
             if '/update-' in record:
