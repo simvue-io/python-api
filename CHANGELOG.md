@@ -3,6 +3,8 @@
 ## v0.11.1
 
 * Support different runs having different metadata in `get_runs` dataframe output.
+* (Bug fix) Error message when creating a duplicate run is now more clear.
+* (Bug fix) Correction to stopping the worker thread in situations where the run never started.
 
 ## v0.11.0
 
