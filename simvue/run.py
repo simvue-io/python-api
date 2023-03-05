@@ -156,23 +156,26 @@ class Run(object):
         self._simvue = None
         self._pid = 0
         self._resources_metrics_interval = 30
+        self._shutdown_event = None
 
     def __enter__(self):
         return self
 
     def __exit__(self, type, value, traceback):
         if self._name and self._status == 'running':
-            self._shutdown_event.set()
+            if self._shutdown_event is not None:
+                self._shutdown_event.set()
             if not type:
                 self.set_status('completed')
             else:
-                self.log_event(f"{type.__name__}: {value}")
-                if type.__name__ in ('KeyboardInterrupt'):
+                if self._active:
+                    self.log_event(f"{type.__name__}: {value}")
+                if type.__name__ in ('KeyboardInterrupt') and self._active:
                     self.set_status('terminated')
                 else:
-                    if traceback:
+                    if traceback and self._active:
                         self.log_event(f"Traceback: {traceback}")
-                    self.set_status('failed')
+                        self.set_status('failed')
 
     def _check_token(self):
         """
