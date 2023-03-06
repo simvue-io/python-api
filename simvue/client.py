@@ -48,12 +48,16 @@ class Client(object):
                   'metadata': metadata}
 
         response = requests.get(f"{self._url}/api/runs", headers=self._headers, params=params)
-        response.raise_for_status()
+
+        if response.status_code == 404:
+            if 'detail' in response.json():
+                if response.json()['detail'] == 'run does not exist':
+                    raise Exception('Run does not exist')
 
         if response.status_code == 200:
             return response.json()
 
-        return None
+        raise Exception(response.text)
 
     def get_runs(self, filters, system=False, tags=False, metadata=False, format='dict'):
         """
