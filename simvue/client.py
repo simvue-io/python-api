@@ -85,12 +85,16 @@ class Client(object):
         params = {'run': run}
 
         response = requests.get(f"{self._url}/api/artifacts", headers=self._headers, params=params)
-        response.raise_for_status()
+
+        if response.status_code == 404:
+            if 'detail' in response.json():
+                if response.json()['detail'] == 'run does not exist':
+                    raise Exception('Run does not exist')
 
         if response.status_code == 200:
             return response.json()
 
-        return None
+        raise Exception(response.text)
 
     def get_artifact(self, run, name, allow_pickle=False):
         """
@@ -99,7 +103,13 @@ class Client(object):
         params = {'run': run, 'name': name}
 
         response = requests.get(f"{self._url}/api/artifacts", headers=self._headers, params=params)
-        response.raise_for_status()
+
+        if response.status_code == 404:
+            if 'detail' in response.json():
+                if response.json()['detail'] == 'run does not exist':
+                    raise Exception('Run does not exist')
+                elif response.json()['detail'] == 'artifact does not exist':
+                    raise Exception('Artifact does not exist')
 
         if response.status_code != 200:
             return None
@@ -123,7 +133,13 @@ class Client(object):
         params = {'run': run, 'name': name}
 
         response = requests.get(f"{self._url}/api/artifacts", headers=self._headers, params=params)
-        response.raise_for_status()
+
+        if response.status_code == 404:
+            if 'detail' in response.json():
+                if response.json()['detail'] == 'run does not exist':
+                    raise Exception('Run does not exist')
+                elif response.json()['detail'] == 'artifact does not exist':
+                    raise Exception('Artifact does not exist')
 
         if response.status_code == 200:
             if response.json():
@@ -131,6 +147,9 @@ class Client(object):
                 downloader({'url': url,
                             'filename': os.path.basename(name),
                             'path': path})
+
+        else:
+            raise Exception(response.text)
 
     def get_artifacts_as_files(self,
                                run,
@@ -147,7 +166,11 @@ class Client(object):
             params['category'] = category
 
         response = requests.get(f"{self._url}/api/artifacts", headers=self._headers, params=params)
-        response.raise_for_status()
+
+        if response.status_code == 404:
+            if 'detail' in response.json():
+                if response.json()['detail'] == 'run does not exist':
+                    raise Exception('Run does not exist')
 
         if not path:
             path = './'
@@ -182,3 +205,6 @@ class Client(object):
             with ProcessPoolExecutor(CONCURRENT_DOWNLOADS) as executor:
                 for item in downloads:
                     executor.submit(downloader, item)
+
+        else:
+            raise Exception(response.text)
