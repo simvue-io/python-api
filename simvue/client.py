@@ -88,6 +88,8 @@ class Client(object):
         List artifacts associated with a run
         """
         params = {'run': run}
+        if category:
+            params['category'] = category        
 
         try:
             response = requests.get(f"{self._url}/api/artifacts", headers=self._headers, params=params)
