@@ -31,7 +31,7 @@ def update_processes(parent, processes):
 class Worker(threading.Thread):
     def __init__(self, metrics_queue, events_queue, shutdown_event, uuid, run_name, url, headers, mode, pid, resources_metrics_interval):
         threading.Thread.__init__(self)
-        self._parent_thread = threading.currentThread()
+        self._parent_thread = threading.current_thread()
         self._metrics_queue = metrics_queue
         self._events_queue = events_queue
         self._shutdown_event = shutdown_event
