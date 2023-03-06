@@ -1,5 +1,10 @@
 # Change log
 
+## v0.11.2
+
+* Raise exceptions in `Client` class methods if run does not exist or artifact does not exist.
+* (Bug fix) `list_artifacts` optional category restriction now works.
+
 ## v0.11.1
 
 * Support different runs having different metadata in `get_runs` dataframe output.
