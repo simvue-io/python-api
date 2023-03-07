@@ -162,6 +162,8 @@ class Run(object):
         return self
 
     def __exit__(self, type, value, traceback):
+        logger.debug('Automatically closing run %s in status %s', self._name, self._status)
+
         if self._name and self._status == 'running':
             if self._shutdown_event is not None:
                 self._shutdown_event.set()
