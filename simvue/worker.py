@@ -130,11 +130,12 @@ class Worker(threading.Thread):
                 self._metrics_queue.task_done()
 
             if buffer:
+                logger.debug('Sending metrics')
                 try:
                     if self._mode == 'online': buffer = msgpack.packb(buffer, use_bin_type=True)
                     self.post('metrics', buffer)
-                except:
-                    pass
+                except Exception as err:
+                    logger.error(str(err))
                 buffer = []
 
             # Send events
@@ -145,11 +146,12 @@ class Worker(threading.Thread):
                 self._events_queue.task_done()
 
             if buffer:
+                logger.debug('Sending events')
                 try:
                     if self._mode == 'online': buffer = msgpack.packb(buffer, use_bin_type=True)
                     self.post('events', buffer)
-                except:
-                    pass
+                except Exception as err:
+                    logger.error(str(err))
                 buffer = []
 
             if self._shutdown_event.is_set() or not self._parent_thread.is_alive():
