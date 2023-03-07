@@ -72,8 +72,11 @@ class Worker(threading.Thread):
         else:
             unique_id = time.time()
             filename = f"{self._directory}/{endpoint}-{unique_id}"
-            with open(filename, 'w') as fh:
-                json.dump(data, fh)
+            try:
+                with open(filename, 'w') as fh:
+                    json.dump(data, fh)
+            except Exception as err:
+                logger.error('Got exception writing offline update for %s: %s', endpoint, str(err))
 
     def run(self):
         """
