@@ -162,6 +162,8 @@ class Run(object):
         return self
 
     def __exit__(self, type, value, traceback):
+        logger.debug('Automatically closing run %s in status %s', self._name, self._status)
+
         if self._name and self._status == 'running':
             if self._shutdown_event is not None:
                 self._shutdown_event.set()
@@ -190,6 +192,8 @@ class Run(object):
         """
         if self._mode == 'disabled':
             return True
+
+        logger.debug('Starting run')
 
         self._check_token()
 
@@ -440,8 +444,8 @@ class Run(object):
 
         try:
             self._events_queue.put(data, block=self._queue_blocking)
-        except:
-            pass
+        except Exception as err:
+            logger.error(str(err))
 
         return True
 
@@ -491,8 +495,8 @@ class Run(object):
 
         try:
             self._metrics_queue.put(data, block=self._queue_blocking)
-        except:
-            pass
+        except Exception as err:
+            logger.error(str(err))
 
         return True
 

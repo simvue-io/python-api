@@ -1,5 +1,6 @@
 import datetime
 import json
+import logging
 import os
 import psutil
 import sys
@@ -11,6 +12,8 @@ import msgpack
 from .api import post, put
 from .metrics import get_process_memory, get_process_cpu, get_gpu_metrics
 from .utilities import get_offline_directory, create_file
+
+logger = logging.getLogger(__name__)
 
 HEARTBEAT_INTERVAL = 60
 POLLING_INTERVAL = 20
@@ -49,6 +52,7 @@ class Worker(threading.Thread):
         self._pid = pid
         if pid:
             self._processes = update_processes(psutil.Process(pid), [])
+        logger.debug('Worker thread started')
 
     def heartbeat(self):
         """
@@ -68,8 +72,11 @@ class Worker(threading.Thread):
         else:
             unique_id = time.time()
             filename = f"{self._directory}/{endpoint}-{unique_id}"
-            with open(filename, 'w') as fh:
-                json.dump(data, fh)
+            try:
+                with open(filename, 'w') as fh:
+                    json.dump(data, fh)
+            except Exception as err:
+                logger.error('Got exception writing offline update for %s: %s', endpoint, str(err))
 
     def run(self):
         """
@@ -147,6 +154,7 @@ class Worker(threading.Thread):
 
             if self._shutdown_event.is_set() or not self._parent_thread.is_alive():
                 if self._metrics_queue.empty() and self._events_queue.empty():
+                    logger.debug('Ending worker thread')
                     sys.exit(0)
             else:
                 counter = 0

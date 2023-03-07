@@ -35,11 +35,15 @@ class Remote(object):
         """
         Create a run
         """
+        logger.debug('Creating run with data: "%s"', data)
+
         try:
             response = post(f"{self._url}/api/runs", self._headers, data)
         except Exception as err:
             self._error(f"Exception creating run: {str(err)}")
             return False
+
+        logger.debug('Got status code %d when creating run, with response: "%s"', response.status_code, response.text)
 
         if response.status_code == 409:
             self._error(f"Duplicate run, name {data['name']} already exists")
@@ -59,11 +63,15 @@ class Remote(object):
         if run is not None:
             data['name'] = run
 
+        logger.debug('Updating run with data: "%s"', data)
+
         try:
             response = put(f"{self._url}/api/runs", self._headers, data)
         except Exception as err:
             self._error(f"Exception creating updating run: {str(err)}")
             return False
+
+        logger.debug('Got status code %d when updating run, with response: "%s"', response.status_code, response.text)
 
         if response.status_code == 200:
             return True
@@ -78,11 +86,15 @@ class Remote(object):
         if run is not None:
             data['run'] = run
 
+        logger.debug('Setting folder details with data: "%s"', data)
+
         try:
             response = put(f"{self._url}/api/folders", self._headers, data)
         except Exception as err:
             self._error(f"Exception setting folder details: {err}")
             return False
+
+        logger.debug('Got status code %d when setting folder details, with response: "%s"', response.status_code, response.text)
 
         if response.status_code == 200:
             return True
@@ -97,12 +109,16 @@ class Remote(object):
         if run is not None:
             data['run'] = run
 
+        logger.debug('Getting presigned URL for saving artifact, with data: "%s"', data)
+
         # Get presigned URL
         try:
             response = post(f"{self._url}/api/data", self._headers, prepare_for_api(data))
         except Exception as err:
             self._error(f"Got exception when preparing to upload file {data['name']} to object storage: {str(err)}")
             return False
+
+        logger.debug('Got status code %d when getting presigned URL, with response: "%s"', response.status_code, response.text)
 
         if response.status_code == 409:
             return True
@@ -116,6 +132,9 @@ class Remote(object):
             if 'pickled' in data and 'pickledFile' not in data:
                 try:
                     response = put(url, {}, data['pickled'], is_json=False, timeout=UPLOAD_TIMEOUT)
+
+                    logger.debug('Got status code %d when uploading artifact', response.status_code)
+
                     if response.status_code != 200:
                         self._error(f"Got status code {response.status_code} when uploading object {data['name']} to object storage")
                         return None
@@ -131,6 +150,9 @@ class Remote(object):
                 try:
                     with open(use_filename, 'rb') as fh:
                         response = put(url, {}, fh, is_json=False, timeout=UPLOAD_TIMEOUT)
+
+                        logger.debug('Got status code %d when uploading artifact', response.status_code)
+
                         if response.status_code != 200:
                             self._error(f"Got status code {response.status_code} when uploading file {data['name']} to object storage")
                             return None
@@ -147,11 +169,15 @@ class Remote(object):
         if run is not None:
             data['run'] = run
 
+        logger.debug('Adding alert with data: "%s"', data)
+
         try:
             response = post(f"{self._url}/api/alerts", self._headers, data)
         except Exception as err:
             self._error(f"Got exception when creating an alert: {str(err)}")
             return False
+
+        logger.debug('Got response %d when adding alert, with response: "%s"', response.status_code, response.text)
 
         if response.status_code in (200, 409):
             return True
@@ -163,11 +189,15 @@ class Remote(object):
         """
         Send metrics
         """
+        logger.debug('Sending metrics')
+
         try:
             response = post(f"{self._url}/api/metrics", self._headers_mp, data, is_json=False)
         except Exception as err:
             self._error(f"Exception sending metrics: {str(err)}")
             return False
+
+        logger.debug('Got status code %d when sending metrics', response.status_code)
 
         if response.status_code == 200:
             return True
@@ -179,11 +209,15 @@ class Remote(object):
         """
         Send events
         """
+        logger.debug('Sending events')
+
         try:
             response = post(f"{self._url}/api/events", self._headers_mp, data, is_json=False)
         except Exception as err:
             self._error(f"Exception sending event: {str(err)}")
             return False
+
+        logger.debug('Got status code %d when sending events', response.status_code)
 
         if response.status_code == 200:
             return True
@@ -195,11 +229,15 @@ class Remote(object):
         """
         Send heartbeat
         """
+        logger.debug('Sending heartbeat')
+
         try:
             response = put(f"{self._url}/api/runs/heartbeat", self._headers, {'name': self._name})
         except Exception as err:
             self._error(f"Exception creating run: {str(err)}")
             return False
+
+        logger.debug('Got status code %d when sending heartbeat', response.status_code)
 
         if response.status_code == 200:
             return True
