@@ -191,6 +191,8 @@ class Run(object):
         if self._mode == 'disabled':
             return True
 
+        logger.debug('Starting run')
+
         self._check_token()
 
         data = {'name': self._name, 'status': self._status}
