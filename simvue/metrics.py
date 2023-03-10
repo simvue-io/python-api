@@ -14,7 +14,7 @@ def get_process_memory(processes):
         try:
             rss += process.memory_info().rss/1024/1024
         except Exception as err:
-            logger.err(str(err))
+            logger.error(str(err))
 
     return rss
     
@@ -27,7 +27,7 @@ def get_process_cpu(processes):
         try:
             cpu_percent += process.cpu_percent()
         except Exception as err:
-            logger.err(str(err))
+            logger.error(str(err))
 
     return cpu_percent
 
@@ -66,6 +66,6 @@ def get_gpu_metrics(processes):
 
         nvmlShutdown()
     except Exception as err:
-        logger.err(str(err))
+        logger.error(str(err))
 
     return gpu_metrics
