@@ -82,6 +82,34 @@ class Client(object):
 
         return None
 
+    def delete_run(self, run):
+        """
+        Delete run
+        """
+        params = {'name': run}
+
+        response = requests.delete(f"{self._url}/api/runs", headers=self._headers, params=params)
+
+        if response.status_code == 200:
+            if 'runs' in response.json():
+                return response.json()['runs']
+
+        raise Exception(response.text)
+
+    def delete_runs(self, folder):
+        """
+        Delete runs in folder
+        """
+        params = {'folder': folder}
+
+        response = requests.delete(f"{self._url}/api/runs", headers=self._headers, params=params)
+
+        if response.status_code == 200:
+            if 'runs' in response.json():
+                return response.json()['runs']
+
+        raise Exception(response.text)
+
     def list_artifacts(self, run, category=None):
         """
         List artifacts associated with a run
