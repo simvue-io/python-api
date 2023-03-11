@@ -110,6 +110,22 @@ class Client(object):
 
         raise Exception(response.text)
 
+    def delete_folder(self, folder, runs=False):
+        """
+        Delete folder
+        """
+        params = {'name': folder,
+                  'delete_runs': runs}
+
+        response = requests.delete(f"{self._url}/api/folders", headers=self._headers, params=params)
+
+        if response.status_code == 200:
+            if 'runs' in response.json():
+                return response.json()['runs']
+            return []
+
+        raise Exception(response.text)
+
     def list_artifacts(self, run, category=None):
         """
         List artifacts associated with a run
