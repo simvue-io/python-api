@@ -98,7 +98,10 @@ def sender():
         run_init = get_json(f"{current}/run.json")
         start_time = os.path.getctime(f"{current}/run.json")
 
-        logger.info('Considering run with name %s and id %s', run_init['name'], id)
+        if run_init['name']:
+            logger.info('Considering run with name %s and id %s', run_init['name'], id)
+        else:
+            logger.info('Considering run with no name yet and id %s', id)
 
         remote = Remote(run_init['name'], id, suppress_errors=True)
 
@@ -110,9 +113,13 @@ def sender():
         name = None
         if not os.path.isfile(created_file):
             name = remote.create_run(run_init)
-            logger.info('Creating run with name %s', run_init['name'])
-            run_init = add_name(name, run_init, f"{current}/run.json")
-            create_file(created_file)
+            if name:
+                logger.info('Creating run with name %s', name)
+                run_init = add_name(name, run_init, f"{current}/run.json")
+                create_file(created_file)
+            else:
+                logger.error('Failure creating run')
+                continue
 
         if status == 'running':
             # Check for recent heartbeat
@@ -160,40 +167,40 @@ def sender():
                 logger.info('Sending metrics for run %s', run_init['name'])
                 data = get_json(record, name)
                 update_name(run_init['name'], data)
-                remote.send_metrics(msgpack.packb(data, use_bin_type=True))
-                rename = True
+                if remote.send_metrics(msgpack.packb(data, use_bin_type=True)):
+                    rename = True
 
             # Handle events
             if '/events-' in record:
                 logger.info('Sending events for run %s', run_init['name'])
                 data = get_json(record, name)
                 update_name(run_init['name'], data)
-                remote.send_event(msgpack.packb(data, use_bin_type=True))
-                rename = True
+                if remote.send_event(msgpack.packb(data, use_bin_type=True)):
+                    rename = True
 
             # Handle updates
             if '/update-' in record:
                 logger.info('Sending update for run %s', run_init['name'])
-                remote.update(get_json(record, name), run_init['name'])
-                rename = True
+                if remote.update(get_json(record, name), run_init['name']):
+                    rename = True
 
             # Handle folders
             if '/folder-' in record:
                 logger.info('Sending folder details for run %s', run_init['name'])
-                remote.set_folder_details(get_json(record, name), run_init['name'])
-                rename = True
+                if remote.set_folder_details(get_json(record, name), run_init['name']):
+                    rename = True
 
             # Handle alerts
             if '/alert-' in record:
                 logger.info('Sending alert details for run %s', run_init['name'])
-                remote.add_alert(get_json(record, name), run_init['name'])
-                rename = True
+                if remote.add_alert(get_json(record, name), run_init['name']):
+                    rename = True
 
             # Handle files
             if '/file-' in record:
                 logger.info('Saving file for run %s', run_init['name'])
-                remote.save_file(get_json(record, name), run_init['name'])
-                rename = True
+                if remote.save_file(get_json(record, name), run_init['name']):
+                    rename = True
 
             # Rename processed files
             if rename:
@@ -203,11 +210,11 @@ def sender():
         # If the status is completed and there were no updates, the run must have completely finished
         if updates == 0 and status in ('completed', 'failed', 'terminated'):
             logger.info('Finished sending run %s', run_init['name'])
-            create_file(f"{current}/sent")
-            remove_file(f"{current}/{status}")
             data = {'name': run_init['name'], 'status': status}
-            remote.update(data)
-            cleanup = True
+            if remote.update(data):
+                create_file(f"{current}/sent")
+                remove_file(f"{current}/{status}")
+                cleanup = True
         elif updates == 0 and status == 'lost':
             logger.info('Finished sending run %s as it was lost', run_init['name'])
             create_file(f"{current}/sent")

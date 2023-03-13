@@ -1,4 +1,5 @@
 """Send runs to server"""
+#!/usr/bin/env python
 import getpass
 import os
 import logging
@@ -24,6 +25,6 @@ if __name__ == "__main__":
         try:
             sender()
         except Exception as err:
-            logger.error('Exception running sender: %s', str(err))
+            logger.critical('Exception running sender: %s', str(err))
 
         remove_file(lockfile)
