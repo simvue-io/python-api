@@ -98,7 +98,10 @@ def sender():
         run_init = get_json(f"{current}/run.json")
         start_time = os.path.getctime(f"{current}/run.json")
 
-        logger.info('Considering run with name %s and id %s', run_init['name'], id)
+        if run_init['name']:
+            logger.info('Considering run with name %s and id %s', run_init['name'], id)
+        else:
+            logger.info('Considering run with no name yet and id %s', id)
 
         remote = Remote(run_init['name'], id, suppress_errors=True)
 
@@ -111,7 +114,7 @@ def sender():
         if not os.path.isfile(created_file):
             name = remote.create_run(run_init)
             if name:
-                logger.info('Creating run with name %s', run_init['name'])
+                logger.info('Creating run with name %s', name)
                 run_init = add_name(name, run_init, f"{current}/run.json")
                 create_file(created_file)
             else:
