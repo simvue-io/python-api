@@ -1,5 +1,9 @@
 # Change log
 
+## v0.11.4
+
+* (Bug fix) Runs created in `offline` mode using a context manager weren't automatically closed.
+
 ## v0.11.3
 
 * Added logging messages for debugging when debug level set to `debug`.
