@@ -1,5 +1,6 @@
 import datetime
 import json
+import logging
 import os
 import psutil
 import sys
@@ -11,6 +12,8 @@ import msgpack
 from .api import post, put
 from .metrics import get_process_memory, get_process_cpu, get_gpu_metrics
 from .utilities import get_offline_directory, create_file
+
+logger = logging.getLogger(__name__)
 
 HEARTBEAT_INTERVAL = 60
 POLLING_INTERVAL = 20
@@ -31,7 +34,7 @@ def update_processes(parent, processes):
 class Worker(threading.Thread):
     def __init__(self, metrics_queue, events_queue, shutdown_event, uuid, run_name, url, headers, mode, pid, resources_metrics_interval):
         threading.Thread.__init__(self)
-        self._parent_thread = threading.currentThread()
+        self._parent_thread = threading.current_thread()
         self._metrics_queue = metrics_queue
         self._events_queue = events_queue
         self._shutdown_event = shutdown_event
@@ -49,6 +52,7 @@ class Worker(threading.Thread):
         self._pid = pid
         if pid:
             self._processes = update_processes(psutil.Process(pid), [])
+        logger.debug('Worker thread started')
 
     def heartbeat(self):
         """
@@ -68,8 +72,11 @@ class Worker(threading.Thread):
         else:
             unique_id = time.time()
             filename = f"{self._directory}/{endpoint}-{unique_id}"
-            with open(filename, 'w') as fh:
-                json.dump(data, fh)
+            try:
+                with open(filename, 'w') as fh:
+                    json.dump(data, fh)
+            except Exception as err:
+                logger.error('Got exception writing offline update for %s: %s', endpoint, str(err))
 
     def run(self):
         """
@@ -123,11 +130,12 @@ class Worker(threading.Thread):
                 self._metrics_queue.task_done()
 
             if buffer:
+                logger.debug('Sending metrics')
                 try:
                     if self._mode == 'online': buffer = msgpack.packb(buffer, use_bin_type=True)
                     self.post('metrics', buffer)
-                except:
-                    pass
+                except Exception as err:
+                    logger.error(str(err))
                 buffer = []
 
             # Send events
@@ -138,15 +146,17 @@ class Worker(threading.Thread):
                 self._events_queue.task_done()
 
             if buffer:
+                logger.debug('Sending events')
                 try:
                     if self._mode == 'online': buffer = msgpack.packb(buffer, use_bin_type=True)
                     self.post('events', buffer)
-                except:
-                    pass
+                except Exception as err:
+                    logger.error(str(err))
                 buffer = []
 
             if self._shutdown_event.is_set() or not self._parent_thread.is_alive():
                 if self._metrics_queue.empty() and self._events_queue.empty():
+                    logger.debug('Ending worker thread')
                     sys.exit(0)
             else:
                 counter = 0

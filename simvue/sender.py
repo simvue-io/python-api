@@ -221,4 +221,4 @@ def sender():
             try:
                 shutil.rmtree(f"{directory}/{id}")
             except Exception as err:
-                logger.err('Got exception trying to cleanup run %s: %s', run_init['name'], str(err))
+                logger.error('Got exception trying to cleanup run %s: %s', run_init['name'], str(err))

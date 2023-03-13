@@ -1,6 +1,9 @@
+import logging
 import time
 import psutil
 from .pynvml import *
+
+logger = logging.getLogger(__name__)
 
 def get_process_memory(processes):
     """
@@ -10,8 +13,8 @@ def get_process_memory(processes):
     for process in processes:
         try:
             rss += process.memory_info().rss/1024/1024
-        except:
-            pass
+        except Exception as err:
+            logger.error(str(err))
 
     return rss
     
@@ -23,8 +26,8 @@ def get_process_cpu(processes):
     for process in processes:
         try:
             cpu_percent += process.cpu_percent()
-        except:
-            pass
+        except Exception as err:
+            logger.error(str(err))
 
     return cpu_percent
 
@@ -62,7 +65,7 @@ def get_gpu_metrics(processes):
                 gpu_metrics[f"resources/gpu.memory.percent.{i}"] = memory_percent
 
         nvmlShutdown()
-    except:
-        pass
+    except Exception as err:
+        logger.error(str(err))
 
     return gpu_metrics
