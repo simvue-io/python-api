@@ -1,5 +1,9 @@
 # Change log
 
+## v0.12.0
+
+* Add methods to the `Client` class for deleting runs and folders.
+
 ## v0.11.4
 
 * (Bug fix) Ensure `simvue_sender` can be run when installed from PyPI.
