@@ -2,6 +2,7 @@
 
 ## v0.11.4
 
+* (Bug fix) Ensure `simvue_sender` can be run when installed from PyPI.
 * (Bug fix) Runs created in `offline` mode using a context manager weren't automatically closed.
 
 ## v0.11.3
