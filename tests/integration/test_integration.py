@@ -1,3 +1,4 @@
+import configparser
 import filecmp
 import os
 import shutil
@@ -5,6 +6,23 @@ import time
 import unittest
 import uuid
 from simvue import Run, Client
+from simvue.sender import sender
+
+def update_config():
+    """
+    Rewrite offline cache into config file
+    """
+    config = configparser.ConfigParser()
+    config.read('simvue.ini')
+    token = config.get('server', 'token')
+    url = config.get('server', 'url')
+
+    current_pwd = os.getcwd()
+
+    config['offline']['cache'] = '%s/offline' % os.getcwd()
+
+    with open('simvue.ini', 'w') as configfile:
+        config.write(configfile)
 
 FOLDER = '/test-%s' % str(uuid.uuid4())
 FILENAME1 = str(uuid.uuid4())
@@ -28,6 +46,9 @@ class TestRunsBasic(unittest.TestCase):
         data = client.get_run(name)
         self.assertEqual(name, data['name'])
 
+        runs = client.delete_runs(FOLDER)
+        self.assertEqual(len(runs), 1)
+
     def test_context_run(self):
         """
         Create a run using a context manager & check that it exists
@@ -39,6 +60,9 @@ class TestRunsBasic(unittest.TestCase):
         client = Client()
         data = client.get_run(name)
         self.assertEqual(name, data['name'])
+
+        runs = client.delete_runs(FOLDER)
+        self.assertEqual(len(runs), 1)
 
     def test_run_tags(self):
         """
@@ -53,6 +77,9 @@ class TestRunsBasic(unittest.TestCase):
         client = Client()
         data = client.get_run(name, tags=True)
         self.assertEqual(tags, data['tags'])
+
+        runs = client.delete_runs(FOLDER)
+        self.assertEqual(len(runs), 1)
 
     def test_run_tags_update(self):
         """
@@ -71,6 +98,9 @@ class TestRunsBasic(unittest.TestCase):
         data = client.get_run(name, tags=True)
         self.assertEqual(tags, data['tags'])
 
+        runs = client.delete_runs(FOLDER)
+        self.assertEqual(len(runs), 1)
+
     def test_run_folder(self):
         """
         Check specified folder of run
@@ -83,6 +113,9 @@ class TestRunsBasic(unittest.TestCase):
         client = Client()
         data = client.get_run(name)
         self.assertEqual(data['folder'], FOLDER)
+
+        runs = client.delete_runs(FOLDER)
+        self.assertEqual(len(runs), 1)
 
     def test_run_metadata(self):
         """   
@@ -97,6 +130,9 @@ class TestRunsBasic(unittest.TestCase):
         client = Client()
         data = client.get_run(name, metadata=True)
         self.assertEqual(data['metadata'], metadata)
+
+        runs = client.delete_runs(FOLDER)
+        self.assertEqual(len(runs), 1)
 
     def test_run_metadata_update(self):
         """
@@ -114,6 +150,9 @@ class TestRunsBasic(unittest.TestCase):
         client = Client()
         data = client.get_run(name, metadata=True)
         self.assertEqual(data['metadata'], metadata)
+
+        runs = client.delete_runs(FOLDER)
+        self.assertEqual(len(runs), 1)
 
 class TestArtifacts(unittest.TestCase):
     def test_artifact_code(self):
@@ -138,6 +177,9 @@ class TestArtifacts(unittest.TestCase):
 
         self.assertTrue(filecmp.cmp(FILENAME1, './test/%s' % FILENAME1))
 
+        runs = client.delete_runs(FOLDER)
+        self.assertEqual(len(runs), 1)
+
     def test_artifact_input(self):
         """
         Create a run & an artifact of type 'input' & check it can be downloaded
@@ -159,6 +201,9 @@ class TestArtifacts(unittest.TestCase):
         client.get_artifact_as_file(RUNNAME2, FILENAME2, './test')
 
         self.assertTrue(filecmp.cmp(FILENAME2, './test/%s' % FILENAME2))
+
+        runs = client.delete_runs(FOLDER)
+        self.assertEqual(len(runs), 1)
 
     def test_artifact_output(self):
         """
@@ -182,6 +227,9 @@ class TestArtifacts(unittest.TestCase):
 
         self.assertTrue(filecmp.cmp(FILENAME3, './test/%s' % FILENAME3))
 
+        runs = client.delete_runs(FOLDER)
+        self.assertEqual(len(runs), 1)
+
     def test_get_artifact_invalid_run(self):
         """
         Try to obtain a file from a run which doesn't exist
@@ -193,6 +241,105 @@ class TestArtifacts(unittest.TestCase):
             
         self.assertTrue('Run does not exist' in str(context.exception))
 
+class TestRunsOffline(unittest.TestCase):
+    def test_basic_run(self):
+        """
+        Create a run, upload it & check that it exists
+        """
+        update_config()
+        try:
+            shutil.rmtree('./offline')
+        except:
+            pass
+
+        name = 'test-%s' % str(uuid.uuid4())
+        run = Run('offline')
+        run.init(name, folder=FOLDER)
+        run.close()
+
+        sender()
+
+        client = Client()
+        data = client.get_run(name)
+        self.assertEqual(name, data['name'])
+
+        runs = client.delete_runs(FOLDER)
+        self.assertEqual(len(runs), 1)
+
+    def test_run_tags(self):
+        """
+        Create a run with tags, upload it & check that it exists
+        """
+        update_config()
+        try:
+            shutil.rmtree('./offline')
+        except:
+            pass
+
+        name = 'test-%s' % str(uuid.uuid4())
+        tags = ['a1', 'b2']
+        run = Run('offline')
+        run.init(name, tags=tags, folder=FOLDER)
+        run.close()
+
+        sender()
+
+        client = Client()
+        data = client.get_run(name, tags=True)
+        self.assertEqual(name, data['name'])
+        self.assertEqual(tags, data['tags'])
+
+        runs = client.delete_runs(FOLDER)
+        self.assertEqual(len(runs), 1)
+
+    def test_run_metadata(self):
+        """
+        Create a run with metadata, upload it & check that it exists
+        """
+        update_config()
+        try:
+            shutil.rmtree('./offline')
+        except:
+            pass
+
+        name = 'test-%s' % str(uuid.uuid4())
+        metadata = {'a': 'string', 'b': 1, 'c': 2.5}
+        run = Run('offline')
+        run.init(name, metadata=metadata, folder=FOLDER)
+        run.close()
+
+        sender()
+
+        client = Client()
+        data = client.get_run(name, metadata=True)
+        self.assertEqual(name, data['name'])
+        self.assertEqual(data['metadata'], metadata)
+
+        runs = client.delete_runs(FOLDER)
+        self.assertEqual(len(runs), 1)
+
+    def test_context_run(self):
+        """
+        Create a run using a context manager, upload it & check that it exists
+        """
+        update_config()
+        try:
+            shutil.rmtree('./offline')
+        except:
+            pass
+
+        name = 'test-%s' % str(uuid.uuid4())
+        with Run('offline') as run:
+            run.init(name, folder=FOLDER)
+
+        sender()
+
+        client = Client()
+        data = client.get_run(name)
+        self.assertEqual(name, data['name'])
+
+        runs = client.delete_runs(FOLDER)
+        self.assertEqual(len(runs), 1)
 
 if __name__ == '__main__':
     unittest.main()
