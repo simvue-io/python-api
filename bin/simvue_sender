@@ -1,4 +1,5 @@
 """Send runs to server"""
+#!/usr/bin/env python
 import getpass
 import os
 import logging
