@@ -119,6 +119,7 @@ def sender():
                 create_file(created_file)
             else:
                 logger.error('Failure creating run')
+                continue
 
         if status == 'running':
             # Check for recent heartbeat
