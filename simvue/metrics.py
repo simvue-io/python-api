@@ -13,8 +13,8 @@ def get_process_memory(processes):
     for process in processes:
         try:
             rss += process.memory_info().rss/1024/1024
-        except Exception as err:
-            logger.error(str(err))
+        except:
+            pass
 
     return rss
     
@@ -26,8 +26,8 @@ def get_process_cpu(processes):
     for process in processes:
         try:
             cpu_percent += process.cpu_percent()
-        except Exception as err:
-            logger.error(str(err))
+        except:
+            pass
 
     return cpu_percent
 
