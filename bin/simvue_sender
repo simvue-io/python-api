@@ -24,6 +24,6 @@ if __name__ == "__main__":
         try:
             sender()
         except Exception as err:
-            logger.error('Exception running sender: %s', str(err))
+            logger.critical('Exception running sender: %s', str(err))
 
         remove_file(lockfile)
