@@ -3,6 +3,7 @@
 ## v0.12.0
 
 * Add methods to the `Client` class for deleting runs and folders.
+* Confusing messages about `process no longer exists` or `NVML Shared Library Not Found` no longer displayed.
 
 ## v0.11.4
 
