@@ -65,7 +65,7 @@ def get_gpu_metrics(processes):
                 gpu_metrics[f"resources/gpu.memory.percent.{i}"] = memory_percent
 
         nvmlShutdown()
-    except Exception as err:
-        logger.error(str(err))
+    except:
+        pass
 
     return gpu_metrics
