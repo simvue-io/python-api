@@ -21,9 +21,9 @@ class TestRunFolder(unittest.TestCase):
 
         client = Client()
         data = client.get_folder(folder)
-        self.assertEqual(data['name'], folder)
+        self.assertEqual(data['path'], folder)
 
-        runs = client.delete_folder(folder)
+        runs = client.delete_folder(folder, runs=True)
 
         client = Client()
         with self.assertRaises(Exception) as context:
