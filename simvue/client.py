@@ -258,3 +258,38 @@ class Client(object):
 
         else:
             raise Exception(response.text)
+
+    def get_folder(self, folder, tags=False, metadata=False):
+        """
+        Get a single folder
+        """
+        params = {'name': folder,
+                  'tags': tags,
+                  'metadata': metadata}
+
+        response = requests.get(f"{self._url}/api/folders", headers=self._headers, params=params)
+
+        if response.status_code == 404:
+            if 'detail' in response.json():
+                if response.json()['detail'] == 'no such folder':
+                    raise Exception('Folder does not exist')
+
+        if response.status_code == 200:
+            return response.json()
+
+        raise Exception(response.text)
+
+    def get_folders(self, filters, tags=False, metadata=False):
+        """
+        Get folders
+        """
+        params = {'filters': ','.join(filters),
+                  'tags': tags,
+                  'metadata': metadata}
+
+        response = requests.get(f"{self._url}/api/folders", headers=self._headers, params=params)
+
+        if response.status_code == 200:
+            return response.json()
+
+        raise Exception(response.text)
