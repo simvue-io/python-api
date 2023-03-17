@@ -1,5 +1,9 @@
 # Change log
 
+## v0.13.0
+
+* Client now reports when files have been successfully uploaded.
+
 ## v0.12.0
 
 * Add methods to the `Client` class for deleting runs and folders.
