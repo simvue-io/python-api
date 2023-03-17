@@ -1,14 +1,26 @@
 
 <p align="center">
   <img src="simvue-black.png" width="500" alt="Simvue" />
+</p>  
+ 
+<p align="center"> 
+Collect metadata, metrics and artifacts from simulations, processing and AI/ML training tasks running on any platform, in real time.
 </p>
+
+<div align="center">
 
 # Simvue Python client
 
-![License](https://img.shields.io/github/license/simvue-io/client)
-[![PyPI version shields.io](https://img.shields.io/pypi/v/simvue.svg)](https://pypi.python.org/pypi/ansicolortags/)
+<p align="center">
+  <a href="https://docs.simvue.io" target="_blank"><b>Documentation</b></a>
+</p>
 
-Collects metadata, metrics and files from simulations, processing and ML training tasks running on any platform, in real time.
+</div>
+
+<div align="center">
+<a href="https://github.com/simvue-io/client/blob/main/LICENSE" target="_blank"><img src="https://img.shields.io/github/license/simvue-io/client"/></a>
+<a href="https://pypi.org/project/simvue/" target="_blank"><img src="https://img.shields.io/pypi/v/simvue.svg"/></a>
+</div>
 
 ## Configuration
 The service URL and token can be defined as environment variables:
