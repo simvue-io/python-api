@@ -3,6 +3,7 @@ import time
 
 from .api import post, put
 from .utilities import get_auth, get_expiry, prepare_for_api
+from .version import __version__
 
 logger = logging.getLogger(__name__)
 
@@ -18,7 +19,8 @@ class Remote(object):
         self._uuid = uuid
         self._suppress_errors = suppress_errors
         self._url, self._token = get_auth()
-        self._headers = {"Authorization": f"Bearer {self._token}"}
+        self._headers = {"Authorization": f"Bearer {self._token}",
+                         "User-Agent": f"Simvue Python client {__version__}"}
         self._headers_mp = self._headers.copy()
         self._headers_mp['Content-Type'] = 'application/msgpack'
 

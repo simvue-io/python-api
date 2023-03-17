@@ -1,7 +1,7 @@
 import re
 import setuptools
 
-with open('simvue/__init__.py', 'r') as fd:
+with open('simvue/version.py', 'r') as fd:
     version = re.search(r'^__version__\s*=\s*[\'"]([^\'"]*)[\'"]', fd.read(), re.MULTILINE).group(1)
 
 with open("README.md", "r") as fh:
