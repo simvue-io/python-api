@@ -13,6 +13,7 @@ def update_config():
 
     current_pwd = os.getcwd()
 
+    config['offline'] = {}
     config['offline']['cache'] = '%s/offline' % os.getcwd()
 
     with open('simvue.ini', 'w') as configfile:
