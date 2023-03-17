@@ -2,7 +2,8 @@
 
 ## v0.13.0
 
-* Client now reports when files have been successfully uploaded.
+* Client now reports to server when files have been successfully uploaded.
+* `User-Agent` header now included in HTTP requests.
 
 ## v0.12.0
 
