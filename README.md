@@ -1,3 +1,6 @@
+# Simvue Python client
+
+<br/>
 
 <p align="center">
   <img src="simvue-black.png" width="500" alt="Simvue" />
@@ -8,19 +11,15 @@ Collect metadata, metrics and artifacts from simulations, processing and AI/ML t
 </p>
 
 <div align="center">
-
-# Simvue Python client
-
-<p align="center">
-  <a href="https://docs.simvue.io" target="_blank"><b>Documentation</b></a>
-</p>
-
-</div>
-
-<div align="center">
 <a href="https://github.com/simvue-io/client/blob/main/LICENSE" target="_blank"><img src="https://img.shields.io/github/license/simvue-io/client"/></a>
 <a href="https://pypi.org/project/simvue/" target="_blank"><img src="https://img.shields.io/pypi/v/simvue.svg"/></a>
 </div>
+
+<h3 align="center">
+ <a href="https://simvue.io"><b>Website</b></a>
+  •
+  <a href="https://docs.simvue.io"><b>Documentation</b></a>
+</h3>
 
 ## Configuration
 The service URL and token can be defined as environment variables:
@@ -96,3 +95,7 @@ if __name__ == "__main__":
         # If we weren't using a context manager we'd need to end the run
         # run.close()
 ```
+
+## License
+
+[Apache 2](https://github.com/simvue-io/client/blob/main/LICENSE) License.
