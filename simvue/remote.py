@@ -160,6 +160,17 @@ class Remote(object):
                     self._error(f"Got exception when uploading file {data['name']} to object storage: {str(err)}")
                     return None
 
+            # Confirm successful upload
+            try:
+                response = put(f"{self._url}/api/data", self._headers, prepare_for_api(data))
+            except Exception as err:
+                self._error(f"Got exception when confirming upload of file {data['name']}: {str(err)}")
+                return False
+
+            if response.status_code != 200:
+                self._error(f"Got status code {response.status_code} when confirming upload of file {data['name']}: {response.text}")
+                return False
+
         return True
 
     def add_alert(self, data, run=None):
