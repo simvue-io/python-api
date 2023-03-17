@@ -50,6 +50,17 @@ def get_cpu_info():
         # TODO: Try /proc/cpuinfo
         pass
 
+    if arch == '':
+        arch = platform.machine()
+
+    if model_name == '':
+        try:
+            info = subprocess.check_output(['sysctl', 'machdep.cpu.brand_string']).decode().strip()
+            if 'machdep.cpu.brand_string:' in info:
+                 model_name = info.split('machdep.cpu.brand_string: ')[1]
+        except:
+            pass
+        
     return model_name, arch
 
 
