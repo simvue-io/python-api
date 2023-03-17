@@ -1,4 +1,8 @@
 
+<p align="center">
+  <img src="simvue-black.png" width="500" alt="Simvue" />
+</p>
+
 # Simvue Python client
 
 ![License](https://img.shields.io/github/license/simvue-io/client)
