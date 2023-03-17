@@ -2,6 +2,7 @@
 
 ## v0.13.0
 
+* CPU architecture and processor obtained on Apple hardware.
 * Client now reports to server when files have been successfully uploaded.
 * `User-Agent` header now included in HTTP requests.
 
