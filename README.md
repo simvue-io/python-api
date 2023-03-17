@@ -14,6 +14,7 @@ Collect metadata, metrics and artifacts from simulations, processing and AI/ML t
 <a href="https://github.com/simvue-io/client/blob/main/LICENSE" target="_blank"><img src="https://img.shields.io/github/license/simvue-io/client"/></a>
 <a href="https://pypi.org/project/simvue/" target="_blank"><img src="https://img.shields.io/pypi/v/simvue.svg"/></a>
 <a href="https://pepy.tech/project/simvue"><img src="https://static.pepy.tech/badge/simvue"/></a>
+<a href="https://github.com/simvue-io/client/actions/workflows/python-app.yml"><img src="https://github.com/simvue-io/client/actions/workflows/python-app.yml/badge.svg"/></a>
 </div>
 
 <h3 align="center">
