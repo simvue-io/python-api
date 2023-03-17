@@ -28,6 +28,10 @@ def post(url, headers, data, is_json=True):
         data = json.dumps(data)
         headers = set_json_header(headers)
     response = requests.post(url, headers=headers, data=data, timeout=DEFAULT_API_TIMEOUT)
+    
+    if response.status_code in (401, 403):
+        raise Exception('Authorization error')
+        
     if response.status_code not in (200, 201, 409):
         raise Exception('HTTP error')
 
