@@ -100,4 +100,4 @@ if __name__ == "__main__":
 
 ## License
 
-[Apache 2](https://github.com/simvue-io/client/blob/main/LICENSE) License.
+Released under the terms of the [Apache 2](https://github.com/simvue-io/client/blob/main/LICENSE) license.
