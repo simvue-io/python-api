@@ -1,5 +1,9 @@
 # Change log
 
+## v0.13.1
+
+* Set `sample_by` to 0 by default (no sampling) in `get_metrics_multiple`.
+
 ## v0.13.0
 
 * Added methods to the `Client` class for retrieving metrics.
