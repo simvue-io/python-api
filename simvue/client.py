@@ -333,7 +333,7 @@ class Client(object):
 
         raise Exception(response.text)
 
-    def get_metrics_multiple(self, runs, names, xaxis, sample_by, format='list'):
+    def get_metrics_multiple(self, runs, names, xaxis, sample_by=0, format='list'):
         """
         Get time series metrics from multiple runs and/or metrics
         """
