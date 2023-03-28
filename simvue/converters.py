@@ -44,3 +44,58 @@ def to_dataframe(data):
 
     df = pd.DataFrame(data=columns)
     return df
+
+def metrics_to_dataframe(data, xaxis, name=None):
+    """
+    Convert metrics to dataframe
+    """
+    import pandas as pd
+
+    if name:
+        columns = {xaxis: [], name: []}
+        for item in data:
+            columns[xaxis].append(item[0])
+            columns[name].append(item[1])
+
+        df = pd.DataFrame(data=columns)
+    else:
+        runs = []
+        metrics = []
+        for item in data:
+            if item[2] not in runs:
+                runs.append(item[2])
+            if item[3] not in metrics:
+                metrics.append(item[3])
+
+        headers = pd.MultiIndex.from_product([runs, metrics, [xaxis, 'value']], names=["run", "metric", "column"])
+
+        newdata = {}
+        for row in data:
+            if row[2] not in newdata:
+                newdata[row[2]] = {}
+            if row[3] not in newdata[row[2]]:
+                newdata[row[2]][row[3]] = []
+
+            newdata[row[2]][row[3]].append([row[0], row[1]])
+
+        max_rows = 0
+        for run in newdata:
+            for metric in newdata[run]:
+                if len(newdata[run][metric]) > max_rows:
+                    max_rows = len(newdata[run][metric])
+
+        results = []
+        for count in range (0, max_rows):
+            line = []
+            for run in newdata:
+                for metric in newdata[run]:
+                    if count < len(newdata[run][metric]):
+                        line.append(newdata[run][metric][count][0])
+                        line.append(newdata[run][metric][count][1])
+                    else:
+                        line.append(None)
+                        line.append(None)
+            results.append(line)
+
+        df = pd.DataFrame(data=results, columns=headers)
+    return df

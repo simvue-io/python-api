@@ -5,7 +5,7 @@ import requests
 
 from .serialization import Deserializer
 from .utilities import get_auth
-from .converters import to_dataframe
+from .converters import to_dataframe, metrics_to_dataframe
 
 CONCURRENT_DOWNLOADS = 10
 DOWNLOAD_CHUNK_SIZE = 8192
@@ -290,6 +290,70 @@ class Client(object):
         response = requests.get(f"{self._url}/api/folders", headers=self._headers, params=params)
 
         if response.status_code == 200:
+            return response.json()
+
+        raise Exception(response.text)
+
+    def get_metrics_summaries(self, run, name):
+        """
+        Get summary metrics for the specified run and metrics name
+        """
+        params = {'runs': run,
+                  'metrics': name,
+                  'summary': True}
+
+        response = requests.get(f"{self._url}/api/metrics", headers=self._headers, params=params)
+
+        if response.status_code == 200:
+            return response.json()
+
+        raise Exception(response.text)
+
+    def get_metrics(self, run, name, xaxis, format='list'):
+        """
+        Get time series metrics for the specified run and metrics name
+        """
+        params = {'runs': run,
+                  'metrics': name,
+                  'summary': False,
+                  'xaxis': xaxis}
+
+        if xaxis not in ('step', 'time', 'timestamp'):
+            raise Exception('Invalid xaxis specified, should be either "step", "time", or "timestamp"')
+
+        if format not in ('list', 'dataframe'):
+            raise Exception('Invalid format specified, should be either "list" or "dataframe"')
+
+        response = requests.get(f"{self._url}/api/metrics", headers=self._headers, params=params)
+
+        if response.status_code == 200:
+            if format == 'dataframe':
+                return metrics_to_dataframe(response.json(), xaxis, name=name)
+            return response.json()
+
+        raise Exception(response.text)
+
+    def get_metrics_multiple(self, runs, names, xaxis, sample_by, format='list'):
+        """
+        Get time series metrics from multiple runs and/or metrics
+        """
+        params = {'runs': ','.join(runs),
+                  'metrics': ','.join(names),
+                  'summary': False,
+                  'sample_by': sample_by,
+                  'xaxis': xaxis}
+
+        if xaxis not in ('step', 'time'):
+            raise Exception('Invalid xaxis specified, should be either "step" or "time"')
+
+        if format not in ('list', 'dataframe'):
+            raise Exception('Invalid format specified, should be either "list" or "dataframe"')
+
+        response = requests.get(f"{self._url}/api/metrics", headers=self._headers, params=params)
+
+        if response.status_code == 200:
+            if format == 'dataframe':
+                return metrics_to_dataframe(response.json(), xaxis)
             return response.json()
 
         raise Exception(response.text)
