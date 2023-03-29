@@ -293,6 +293,20 @@ class Client(object):
             return response.json()
 
         raise Exception(response.text)
+        
+    def get_metrics_names(self, run):
+        """
+        Return a list of metrics names
+        """
+        params = {'runs': run,
+                  'timeseries': False}
+
+        response = requests.get(f"{self._url}/api/metrics", headers=self._headers, params=params)
+
+        if response.status_code == 200:
+            return response.json()
+
+        raise Exception(response.text)     
 
     def get_metrics_summaries(self, run, name):
         """
