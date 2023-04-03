@@ -203,7 +203,10 @@ class Run(object):
         """
         if self._mode == 'disabled':
             return True
-
+        
+        if self._mode != 'offline':
+            self._uuid = 'notused'
+            
         logger.debug('Starting run')
 
         self._check_token()
