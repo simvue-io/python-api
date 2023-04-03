@@ -1,5 +1,9 @@
 # Change log
 
+## v0.13.2
+
+* (Bug fix) `reconnect` works without a uuid being specified when `offline` mode isn't beind used.
+
 ## v0.13.1
 
 * Set `sample_by` to 0 by default (no sampling) in `get_metrics_multiple`.
