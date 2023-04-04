@@ -4,7 +4,7 @@ from simvue import Run, Client
 
 import common
 
-class TestRunOffline(unittest.TestCase):
+class TestRun(unittest.TestCase):
     def test_basic_run(self):
         """
         Create a run & check that it exists
