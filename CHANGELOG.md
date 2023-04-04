@@ -1,5 +1,9 @@
 # Change log
 
+## v0.14.0
+
+* Added a method to the `Client` class for retrieving events.
+
 ## v0.13.3
 
 * Allow files (`input` and `code` only) to be saved for runs in the `created` state.
