@@ -403,3 +403,19 @@ class Client(object):
             plt.ylabel(names[0])
 
         return plt       
+
+    def get_events(self, run, filter=None, start=0, num=0):
+        """
+        Return events from the specified run
+        """
+        params = {'run': run,
+                  'filter': filter
+                  'start': start,
+                  'num': num}
+
+        response = requests.get(f"{self._url}/api/events", headers=self._headers, params=params)
+
+        if response.status_code == 200:
+            return response.json()
+
+        raise Exception(response.text)
