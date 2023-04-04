@@ -10,6 +10,8 @@ from simvue.sender import sender
 
 import common
 
+
+
 class TestRunOffline(unittest.TestCase):
     def test_basic_run(self):
         """

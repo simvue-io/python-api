@@ -1,16 +1,10 @@
-import configparser
-import filecmp
-import os
-import shutil
-import time
 import unittest
 import uuid
 from simvue import Run, Client
-from simvue.sender import sender
 
 import common
 
-class TestRunOffline(unittest.TestCase):
+class TestRunFolder(unittest.TestCase):
     def test_run_folder(self):
         """
         Check specified folder of run

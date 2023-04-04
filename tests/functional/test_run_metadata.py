@@ -1,8 +1,4 @@
-import configparser
-import filecmp
-import os
-import shutil
-import time
+import random
 import unittest
 import uuid
 from simvue import Run, Client
@@ -10,13 +6,13 @@ from simvue.sender import sender
 
 import common
 
-class TestRunOffline(unittest.TestCase):
+class TestRunMetadata(unittest.TestCase):
     def test_run_metadata(self):
         """
         Check metadata can be specified & retrieved
         """
         name = 'test-%s' % str(uuid.uuid4())
-        metadata = {'a': 'string', 'b': 1, 'c': 2.5}
+        metadata = {'a': 'string', 'b': random.random(), 'c': random.random()}
         run = Run()
         run.init(name, metadata=metadata, folder=common.FOLDER)
         run.close()

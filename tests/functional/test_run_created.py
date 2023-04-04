@@ -28,5 +28,8 @@ class TestRunCreated(unittest.TestCase):
 
         run_start.close()
 
+        runs = client.delete_runs(common.FOLDER)
+        self.assertEqual(len(runs), 1)
+
 if __name__ == '__main__':
     unittest.main()

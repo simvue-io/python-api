@@ -1,14 +1,8 @@
-import configparser
-import filecmp
-import os
-import shutil
-import time
 import unittest
 import uuid
 from simvue import Run, Client
-from simvue.sender import sender
 
-class TestRunFolder(unittest.TestCase):
+class TestRunFolderMetadataFind(unittest.TestCase):
     def test_run_folder_metadata_find(self):
         """
         Create a run & folder with metadata, find it then delete it

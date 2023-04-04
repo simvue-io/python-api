@@ -1,12 +1,6 @@
-import configparser
-import filecmp
-import os
-import shutil
-import time
 import unittest
 import uuid
 from simvue import Run, Client
-from simvue.sender import sender
 
 import common
 
