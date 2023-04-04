@@ -389,10 +389,6 @@ class Run(object):
             self._error(INIT_MISSING)
             return False
 
-        if not self._active:
-            self._error('Run is not active')
-            return False
-
         if not isinstance(metadata, dict):
             self._error('metadata must be a dict')
             return False
@@ -413,10 +409,6 @@ class Run(object):
 
         if not self._uuid and not self._name:
             self._error(INIT_MISSING)
-            return False
-
-        if not self._active:
-            self._error('Run is not active')
             return False
 
         data = {'name': self._name, 'tags': tags}
@@ -525,8 +517,8 @@ class Run(object):
             self._error(INIT_MISSING)
             return False
 
-        if not self._active:
-            self._error('Run is not active')
+        if self._status == 'created' and category == 'output':
+            self._error("Cannot upload output files for runs in the created state")
             return False
 
         is_file = False

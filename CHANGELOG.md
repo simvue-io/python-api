@@ -1,5 +1,10 @@
 # Change log
 
+## v0.13.3
+
+* Allow files (`input` and `code` only) to be saved for runs in the `created` state.
+* Allow metadata and tags to be updated for runs in the `created` state.
+
 ## v0.13.2
 
 * Added `plot_metrics` method to the `Client` class to simplify plotting metrics.
