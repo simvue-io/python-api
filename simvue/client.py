@@ -409,7 +409,7 @@ class Client(object):
         Return events from the specified run
         """
         params = {'run': run,
-                  'filter': filter
+                  'filter': filter,
                   'start': start,
                   'num': num}
 
