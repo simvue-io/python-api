@@ -2,6 +2,7 @@
 
 ## v0.13.2
 
+* Added `plot_metrics` method to the `Client` class to simplify plotting metrics.
 * (Bug fix) `reconnect` works without a uuid being specified when `offline` mode isn't beind used.
 
 ## v0.13.1
