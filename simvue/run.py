@@ -525,6 +525,10 @@ class Run(object):
             self._error(INIT_MISSING)
             return False
 
+        if self._status == 'created' and category == 'output':
+            self._error("Cannot upload output files for runs in the created state")
+            return False
+
         is_file = False
         if isinstance(filename, str):
             if not os.path.isfile(filename):
