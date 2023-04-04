@@ -371,3 +371,35 @@ class Client(object):
             return response.json()
 
         raise Exception(response.text)
+        
+    def plot_metrics(self, runs, names, xaxis, sample_by=0):
+        """
+        Plot time series metrics from multiple runs and/or metrics
+        """
+        data = self.get_metrics_multiple(runs, names, xaxis, sample_by, format='dataframe')
+
+        import matplotlib.pyplot as plt
+
+        for run in runs:
+            for name in names:
+                label = None
+                if len(runs) > 1 and len(names) > 1:
+                    label = f"{run}: {name}"
+                elif len(runs) > 1 and len(names) == 1:
+                    label = run
+                elif len(runs) == 1 and len(names) > 1:
+                    label = name
+
+                plt.plot(data[(run, name, xaxis)],
+                         data[(run, name, 'value')],
+                         label=label)
+
+        if xaxis == 'step':
+            plt.xlabel('steps')
+        elif xaxis == 'time':
+            plt.xlabel('relative time')
+
+        if len(names) == 1:
+            plt.ylabel(names[0])
+
+        return plt       
