@@ -525,10 +525,6 @@ class Run(object):
             self._error(INIT_MISSING)
             return False
 
-        if not self._active:
-            self._error('Run is not active')
-            return False
-
         is_file = False
         if isinstance(filename, str):
             if not os.path.isfile(filename):
