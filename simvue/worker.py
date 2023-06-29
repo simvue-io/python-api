@@ -8,7 +8,6 @@ import time
 import threading
 import msgpack
 
-from .api import post, put
 from .metrics import get_process_memory, get_process_cpu, get_gpu_metrics
 from .utilities import get_offline_directory, create_file
 
@@ -58,6 +57,7 @@ class Worker(threading.Thread):
         Send a heartbeat
         """
         if self._mode == 'online':
+            from .api import put
             put(f"{self._url}/api/runs/heartbeat", self._headers, {'name': self._run_name})
         else:
             create_file(f"{self._directory}/heartbeat")
@@ -67,6 +67,7 @@ class Worker(threading.Thread):
         Send the supplied data
         """
         if self._mode == 'online':
+            from .api import post
             post(f"{self._url}/api/{endpoint}", self._headers_mp, data=data, is_json=False)
         else:
             unique_id = time.time()
