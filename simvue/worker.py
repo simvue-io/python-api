@@ -6,7 +6,6 @@ import psutil
 import sys
 import time
 import threading
-import requests
 import msgpack
 
 from .api import post, put
