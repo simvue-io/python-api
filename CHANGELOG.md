@@ -1,5 +1,9 @@
 # Change log
 
+## v0.14.3
+
+* Ensure import of the `requests` module is only done if actually used.
+
 ## v0.14.0
 
 * Added a method to the `Client` class for retrieving events.
