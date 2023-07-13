@@ -1,5 +1,9 @@
 # Change log
 
+## v0.15.0
+
+* Support v2 server.
+
 ## v0.14.3
 
 * Ensure import of the `requests` module is only done if actually used.
