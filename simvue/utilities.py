@@ -38,9 +38,11 @@ def get_server_version():
     try:
         response = requests.get(f"{url}/api/version")
     except:
-        return 0
+        pass
     else:
-        return 1
+        if response.status_code == 200:
+            return 1
+    return 0
 
 def get_offline_directory():
     """
