@@ -2,7 +2,7 @@ import logging
 import time
 
 from .api import post, put
-from .utilities import get_auth, get_expiry, prepare_for_api
+from .utilities import get_auth, get_expiry, prepare_for_api, get_server_version
 from .version import __version__
 
 logger = logging.getLogger(__name__)
@@ -15,6 +15,7 @@ class Remote(object):
     Class which interacts with Simvue REST API
     """
     def __init__(self, name, uuid, suppress_errors=False):
+        self._id = None
         self._name = name
         self._uuid = uuid
         self._suppress_errors = suppress_errors
@@ -23,6 +24,7 @@ class Remote(object):
                          "User-Agent": f"Simvue Python client {__version__}"}
         self._headers_mp = self._headers.copy()
         self._headers_mp['Content-Type'] = 'application/msgpack'
+        self._version = get_server_version()
 
     def _error(self, message):
         """
@@ -56,14 +58,21 @@ class Remote(object):
         if 'name' in response.json():
             self._name = response.json()['name']
 
-        return self._name
+        if 'id' in response.json():
+            self._id = response.json()['id']
+
+        return self._name, self._id
 
     def update(self, data, run=None):
         """
         Update metadata, tags or status
         """
-        if run is not None:
+        if run is not None and self._version == 0:
             data['name'] = run
+
+        if self._id and self._version > 0:
+            data['id'] = self._id
+            del data['name']
 
         logger.debug('Updating run with data: "%s"', data)
 
@@ -129,6 +138,13 @@ class Remote(object):
             self._error(f"Got status code {response.status_code} when registering file {data['name']}")
             return False
 
+        storage_id = None
+        if 'storage_id' in response.json():
+            storage_id = response.json()['storage_id']
+
+        if self._version > 0 and not storage_id:
+            return None
+
         if 'url' in response.json():
             url = response.json()['url']
             if 'pickled' in data and 'pickledFile' not in data:
@@ -163,8 +179,13 @@ class Remote(object):
                     return None
 
             # Confirm successful upload
+            path = f"{self._url}/api/data"
+            if self._version > 0:
+                path = f"{self._url}/runs/{self._id}/artifacts"
+                data['storage'] = storage_id
+
             try:
-                response = put(f"{self._url}/api/data", self._headers, prepare_for_api(data))
+                response = put(path, self._headers, prepare_for_api(data))
             except Exception as err:
                 self._error(f"Got exception when confirming upload of file {data['name']}: {str(err)}")
                 return False

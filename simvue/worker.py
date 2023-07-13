@@ -9,7 +9,7 @@ import threading
 import msgpack
 
 from .metrics import get_process_memory, get_process_cpu, get_gpu_metrics
-from .utilities import get_offline_directory, create_file
+from .utilities import get_offline_directory, create_file, get_server_version
 
 logger = logging.getLogger(__name__)
 
@@ -30,13 +30,14 @@ def update_processes(parent, processes):
 
 
 class Worker(threading.Thread):
-    def __init__(self, metrics_queue, events_queue, shutdown_event, uuid, run_name, url, headers, mode, pid, resources_metrics_interval):
+    def __init__(self, metrics_queue, events_queue, shutdown_event, uuid, run_name, run_id, url, headers, mode, pid, resources_metrics_interval):
         threading.Thread.__init__(self)
         self._parent_thread = threading.current_thread()
         self._metrics_queue = metrics_queue
         self._events_queue = events_queue
         self._shutdown_event = shutdown_event
         self._run_name = run_name
+        self._run_id = run_id
         self._uuid = uuid
         self._url = url
         self._headers = headers
@@ -47,6 +48,7 @@ class Worker(threading.Thread):
         self._start_time = time.time()
         self._processes = []
         self._resources_metrics_interval = resources_metrics_interval
+        self._version = get_server_version()
         self._pid = pid
         if pid:
             self._processes = update_processes(psutil.Process(pid), [])
@@ -56,9 +58,13 @@ class Worker(threading.Thread):
         """
         Send a heartbeat
         """
+        data = {'id': self._id}
+        if self._version == 0:
+            data = {'name': self._run_name}
+
         if self._mode == 'online':
             from .api import put
-            put(f"{self._url}/api/runs/heartbeat", self._headers, {'name': self._run_name})
+            put(f"{self._url}/api/runs/heartbeat", self._headers, data)
         else:
             create_file(f"{self._directory}/heartbeat")
 
@@ -82,6 +88,10 @@ class Worker(threading.Thread):
         """
         Loop sending heartbeats, metrics and events
         """
+        run_id = self._run_name
+        if self._version > 0:
+            run_id = self._run_id
+
         last_heartbeat = 0
         last_metrics = 0
         collected = False
@@ -100,7 +110,7 @@ class Worker(threading.Thread):
                     if memory is not None and cpu is not None:
                         data = {}
                         data['step'] = 0
-                        data['run'] = self._run_name
+                        data['run'] = run_id
                         data['values'] = {'resources/cpu.usage.percent': cpu,
                                           'resources/memory.usage': memory}
                         if gpu:

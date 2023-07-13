@@ -150,6 +150,7 @@ class Run(object):
         self._uuid = str(uuid.uuid4())
         self._mode = mode
         self._name = None
+        self._id = None
         self._suppress_errors = False
         self._queue_blocking = False
         self._status = None
@@ -231,6 +232,7 @@ class Run(object):
                               self._shutdown_event,
                               self._uuid,
                               self._name,
+                              self._id,
                               self._url,
                               self._headers,
                               self._mode,
@@ -302,7 +304,7 @@ class Run(object):
             self._error(err)
 
         self._simvue = Simvue(self._name, self._uuid, self._mode, self._suppress_errors)
-        name = self._simvue.create_run(data)
+        name, self._id = self._simvue.create_run(data)
 
         if not name:
             return False
