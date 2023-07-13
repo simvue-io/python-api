@@ -17,7 +17,7 @@ from .worker import Worker
 from .simvue import Simvue
 from .serialization import Serializer
 from .models import RunInput
-from .utilities import get_auth, get_expiry
+from .utilities import get_auth, get_expiry, get_server_version
 from pydantic import ValidationError
 
 INIT_MISSING = 'initialize a run using init() first'
@@ -169,6 +169,7 @@ class Run(object):
         self._pid = 0
         self._resources_metrics_interval = 30
         self._shutdown_event = None
+        self._version = get_server_version()
 
     def __enter__(self):
         return self
@@ -440,7 +441,8 @@ class Run(object):
             return False
 
         data = {}
-        data['run'] = self._name
+        if self._version == 0:
+            data['run'] = self._name
         data['message'] = message
         data['timestamp'] = datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S.%f')
         if timestamp is not None:

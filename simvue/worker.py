@@ -88,10 +88,6 @@ class Worker(threading.Thread):
         """
         Loop sending heartbeats, metrics and events
         """
-        run_id = self._run_name
-        if self._version > 0:
-            run_id = self._run_id
-
         last_heartbeat = 0
         last_metrics = 0
         collected = False
@@ -109,8 +105,9 @@ class Worker(threading.Thread):
                     gpu = get_gpu_metrics(self._processes)
                     if memory is not None and cpu is not None:
                         data = {}
+                        if self._version == 0:
+                            data['run'] = self._run_name
                         data['step'] = 0
-                        data['run'] = run_id
                         data['values'] = {'resources/cpu.usage.percent': cpu,
                                           'resources/memory.usage': memory}
                         if gpu:
@@ -141,6 +138,8 @@ class Worker(threading.Thread):
 
             if buffer:
                 logger.debug('Sending metrics')
+                if self._version > 0:
+                    buffer = {'metrics': buffer, 'run': self._run_id}
                 try:
                     if self._mode == 'online': buffer = msgpack.packb(buffer, use_bin_type=True)
                     self.post('metrics', buffer)
@@ -157,6 +156,8 @@ class Worker(threading.Thread):
 
             if buffer:
                 logger.debug('Sending events')
+                if self._version > 0:
+                    buffer = {'events': buffer, 'run': self._run_id}
                 try:
                     if self._mode == 'online': buffer = msgpack.packb(buffer, use_bin_type=True)
                     self.post('events', buffer)
