@@ -97,9 +97,21 @@ class Remote(object):
         if run is not None and self._version == 0:
             data['name'] = run
 
-        if self._id and self._version > 0:
-            data['id'] = self._id
-            del data['name']
+        if self._version > 0:
+            try:
+                response = post(f"{self._url}/api/folders", self._headers, data)
+            except Exception as err:
+                self._error(f"Exception creatig folder: {err}")
+                return False
+
+            if response.status_code == 200 or response.status_code == 409:
+                folder_id = response.json()['id']
+                data['id'] = folder_id
+
+                if response.status_code == 200:
+                    logger.debug('Got id of new folder: "%s"', folder_id)
+                else:
+                    logger.debug('Got id of existing folder: "%s"', folder_id)
 
         logger.debug('Setting folder details with data: "%s"', data)
 
