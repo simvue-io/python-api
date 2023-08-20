@@ -330,6 +330,13 @@ class Run(object):
         """
         return self._uuid
 
+    @property
+    def id(self):
+        """
+        Return the unique id of the run
+        """
+        return self._id
+
     def reconnect(self, name=None, uid=None):
         """
         Reconnect to a run in the created state
