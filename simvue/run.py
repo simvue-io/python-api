@@ -295,6 +295,8 @@ class Run(object):
 
         if self._status == 'running':
             data['system'] = get_system()
+        elif self._status == 'created':
+            del data['system']
 
         self._check_token()
 
