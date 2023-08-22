@@ -596,10 +596,6 @@ class Run(object):
             self._error(INIT_MISSING)
             return False
 
-        if not self._active:
-            self._error('Run is not active')
-            return False
-
         if not os.path.isdir(directory):
             self._error(f"Directory {directory} does not exist")
             return False
