@@ -1,5 +1,9 @@
 # Change log
 
+## v0.14.4 (in progress)
+
+* (Bug fix) Directories can be saved for runs in the `created` state.
+
 ## v0.14.3
 
 * Ensure import of the `requests` module is only done if actually used.
