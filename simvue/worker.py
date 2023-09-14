@@ -58,7 +58,7 @@ class Worker(threading.Thread):
         """
         Send a heartbeat
         """
-        data = {'id': self._id}
+        data = {'id': self._run_id}
         if self._version == 0:
             data = {'name': self._run_name}
 
@@ -114,7 +114,7 @@ class Worker(threading.Thread):
                             for item in gpu:
                                 data['values'][item] = gpu[item]
                         data['time'] = time.time() - self._start_time
-                        data['timestamp'] = datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S.%f')
+                        data['timestamp'] = datetime.datetime.utcnow().strftime('%Y-%m-%d %H:%M:%S.%f')
                         try:
                             self._metrics_queue.put(data, block=False)
                         except:
@@ -125,8 +125,8 @@ class Worker(threading.Thread):
             if time.time() - last_heartbeat > HEARTBEAT_INTERVAL:
                 try:
                     self.heartbeat()
-                except:
-                    pass
+                except Exception as err:
+                    logger.error('Error sending heartbeat: %s', str(err))
                 last_heartbeat = time.time()
 
             # Send metrics

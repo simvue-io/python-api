@@ -1,7 +1,7 @@
 import logging
 import time
 
-from .api import post, put
+from .api import post, put, get
 from .utilities import get_auth, get_expiry, prepare_for_api, get_server_version
 from .version import __version__
 
@@ -14,8 +14,8 @@ class Remote(object):
     """
     Class which interacts with Simvue REST API
     """
-    def __init__(self, name, uuid, suppress_errors=False):
-        self._id = None
+    def __init__(self, name, uuid, id, suppress_errors=False):
+        self._id = id
         self._name = name
         self._uuid = uuid
         self._suppress_errors = suppress_errors
@@ -72,7 +72,8 @@ class Remote(object):
 
         if self._id and self._version > 0:
             data['id'] = self._id
-            del data['name']
+            if 'name' in data:
+                del data['name']
 
         logger.debug('Updating run with data: "%s"', data)
 
@@ -233,10 +234,25 @@ class Remote(object):
         logger.debug('Got response %d when adding alert, with response: "%s"', response.status_code, response.text)
 
         if response.status_code in (200, 409):
-            return True
+            return response.json()
 
         self._error(f"Got status code {response.status_code} when creating alert")
         return False
+
+    def list_alerts(self):
+        """
+        List alerts
+        """
+        try:
+            response = get(f"{self._url}/api/alerts", self._headers)
+        except Exception as err:
+            self._error(f"Got exception when listing alerts: {str(err)}")
+            return False
+
+        if response.status_code == 200:
+            return response.json()
+
+        return {}
 
     def send_metrics(self, data):
         """

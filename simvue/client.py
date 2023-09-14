@@ -1,10 +1,11 @@
 from concurrent.futures import ProcessPoolExecutor
+import json
 import os
 import pickle
 import requests
 
 from .serialization import Deserializer
-from .utilities import get_auth
+from .utilities import get_auth, get_server_version
 from .converters import to_dataframe, metrics_to_dataframe
 
 CONCURRENT_DOWNLOADS = 10
@@ -36,18 +37,21 @@ class Client(object):
     def __init__(self):
         self._url, self._token = get_auth()
         self._headers = {"Authorization": f"Bearer {self._token}"}
+        self._version = get_server_version()
 
     def get_run(self, run, system=False, tags=False, metadata=False):
         """
         Get a single run
         """
-        params = {'name': run,
-                  'filter': None,
-                  'system': system,
-                  'tags': tags,
-                  'metadata': metadata}
-
-        response = requests.get(f"{self._url}/api/runs", headers=self._headers, params=params)
+        if self._version == 0:
+            params = {'name': run,
+                      'filter': None,
+                      'system': system,
+                      'tags': tags,
+                      'metadata': metadata}
+            response = requests.get(f"{self._url}/api/runs", headers=self._headers, params=params)
+        else:
+            response = requests.get(f"{self._url}/api/runs/{run}", headers=self._headers)
 
         if response.status_code == 404:
             if 'detail' in response.json():
@@ -180,7 +184,10 @@ class Client(object):
         """
         Download an artifact
         """
-        params = {'run': run, 'name': name}
+        if self._version == 0:
+            params = {'run': run, 'name': name}
+        else:
+            params = {'runs': json.dumps([run])}
 
         response = requests.get(f"{self._url}/api/artifacts", headers=self._headers, params=params)
 
