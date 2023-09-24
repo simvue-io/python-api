@@ -15,7 +15,7 @@ logger = logging.getLogger(__name__)
 
 HEARTBEAT_INTERVAL = 60
 POLLING_INTERVAL = 20
-MAX_BUFFER_SEND = 5000
+MAX_BUFFER_SEND = 16000
 
 def update_processes(parent, processes):
     """
@@ -171,6 +171,6 @@ class Worker(threading.Thread):
                     sys.exit(0)
             else:
                 counter = 0
-                while counter < POLLING_INTERVAL and not self._shutdown_event.is_set() and self._parent_thread.is_alive():
-                    time.sleep(1)
+                while counter < POLLING_INTERVAL and not self._shutdown_event.is_set() and self._parent_thread.is_alive() and not self._events_queue.full() and not self._metrics_queue.full():
+                    time.sleep(0.1)
                     counter += 1
