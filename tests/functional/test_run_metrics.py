@@ -40,6 +40,9 @@ class TestRunMetrics(unittest.TestCase):
         self.assertEqual(data_b, data_b_val)
         self.assertEqual(data_b_time, data_b_time_val)
 
+        metrics_names = client.get_metrics_names(run_id)
+        self.assertEqual(metrics_names, ['a', 'b'])
+
         runs = client.delete_runs(common.FOLDER)
         self.assertEqual(len(runs), 1)
 
