@@ -242,7 +242,12 @@ class Run(object):
 
         self._check_token()
 
-        data = {'name': self._name, 'status': self._status}
+        data = {'status': self._status}
+        if self._version == 0:
+            data['name'] = self._name
+        else:
+            data['id'] = self._id
+
         if reconnect:
             data['system'] = get_system()
 
@@ -368,7 +373,7 @@ class Run(object):
         """
         return self._id
 
-    def reconnect(self, name=None, uid=None, id=None):
+    def reconnect(self, run_name_or_id, uid=None):
         """
         Reconnect to a run in the created state
         """
@@ -376,9 +381,12 @@ class Run(object):
             return True
 
         self._status = 'running'
-        self._name = name
         self._uuid = uid
-        self._id = id
+
+        if self._version == 0:
+            self._name = run_name_or_id
+        else:
+            self._id = run_name_or_id
 
         self._simvue = Simvue(self._name, self._uuid, self._id, self._mode, self._suppress_errors)
         self._start(reconnect=True)
@@ -453,7 +461,12 @@ class Run(object):
             self._error(INIT_MISSING)
             return False
 
-        data = {'name': self._name, 'tags': tags}
+        data = {'tags': tags}
+
+        if self._version == 0:
+            data['name'] = self._name
+        else:
+            data['id'] = self._id
 
         if self._simvue.update(data):
             return True
