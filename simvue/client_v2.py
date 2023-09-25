@@ -349,8 +349,19 @@ class Client(object):
         """
         Get time series metrics for the specified run and metrics name
         """
-        params = {'runs': run,
-                  'metrics': name,
+        response = requests.get(f"{self._url}/api/runs/{run}", headers=self._headers)
+
+        if response.status_code == 404:
+            if 'detail' in response.json():
+                if response.json()['detail'] == 'run does not exist':
+                    raise Exception('Run does not exist')
+
+        run_name = None
+        if response.status_code == 200:
+            run_name = response.json()['name']
+
+        params = {'runs': json.dumps([run]),
+                  'metrics': json.dumps([name]),
                   'summary': False,
                   'xaxis': xaxis}
 
@@ -363,9 +374,13 @@ class Client(object):
         response = requests.get(f"{self._url}/api/metrics", headers=self._headers, params=params)
 
         if response.status_code == 200:
+            data = []
+            for item in response.json()[run][name]:
+                data.append([item[xaxis], item['value'], run_name, name])
+
             if format == 'dataframe':
-                return metrics_to_dataframe(response.json(), xaxis, name=name)
-            return response.json()
+                return metrics_to_dataframe(data, xaxis, name=name)
+            return data
 
         raise Exception(response.text)
 
