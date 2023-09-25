@@ -201,9 +201,9 @@ class Client(object):
         """
         Download an artifact
         """
-        params = {'runs': json.dumps([run])}
+        params = {'run_id': run, 'name': name}
 
-        response = requests.get(f"{self._url}/api/artifacts", headers=self._headers, params=params)
+        response = requests.get(f"{self._url}/api/runs/{run}/artifacts", headers=self._headers, params=params)
 
         if response.status_code == 404:
             if 'detail' in response.json():
