@@ -25,7 +25,7 @@ class TestArtifacts(unittest.TestCase):
 
         run.close()
 
-        run_id = common.RUNNAME1
+        run_id = common.RUNNAME3
         if common.SIMVUE_API_VERSION:
             run_id = run.id
 
