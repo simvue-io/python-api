@@ -320,10 +320,9 @@ class Client(object):
         """
         Return a list of metrics names
         """
-        params = {'runs': run,
-                  'timeseries': False}
+        params = {'runs': json.dumps([run])}
 
-        response = requests.get(f"{self._url}/api/metrics", headers=self._headers, params=params)
+        response = requests.get(f"{self._url}/api/metrics/names", headers=self._headers, params=params)
 
         if response.status_code == 200:
             return response.json()
