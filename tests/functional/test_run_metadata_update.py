@@ -16,10 +16,14 @@ class TestRunOffline(unittest.TestCase):
         run.update_metadata({'b': 2})
         run.close()
 
+        run_id = name
+        if common.SIMVUE_API_VERSION:
+            run_id = run.id
+
         metadata['b'] = 2
 
         client = Client()
-        data = client.get_run(name, metadata=True)
+        data = client.get_run(run_id, metadata=True)
         self.assertEqual(data['metadata'], metadata)
 
         runs = client.delete_runs(common.FOLDER)
