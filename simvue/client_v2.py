@@ -305,14 +305,12 @@ class Client(object):
         """
         Get folders
         """
-        params = {'filters': ','.join(filters),
-                  'tags': tags,
-                  'metadata': metadata}
+        params = {'filters': json.dumps(filters)}
 
         response = requests.get(f"{self._url}/api/folders", headers=self._headers, params=params)
 
         if response.status_code == 200:
-            return response.json()
+            return response.json()['data']
 
         raise Exception(response.text)
         
