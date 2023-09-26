@@ -174,7 +174,6 @@ class Client(object):
         params = {'run_id': run, 'name': name}
 
         response = requests.get(f"{self._url}/api/runs/{run}/artifacts", headers=self._headers, params=params)
-        print(response.status_code, response.json())
 
         if response.status_code == 404:
             if 'detail' in response.json():
