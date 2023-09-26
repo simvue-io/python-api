@@ -171,13 +171,14 @@ class Client(object):
         """
         Return the contents of the specified artifact
         """
-        params = {'run': run, 'name': name}
+        params = {'run_id': run, 'name': name}
 
-        response = requests.get(f"{self._url}/api/artifacts", headers=self._headers, params=params)
+        response = requests.get(f"{self._url}/api/runs/{run}/artifacts", headers=self._headers, params=params)
+        print(response.status_code, response.json())
 
         if response.status_code == 404:
             if 'detail' in response.json():
-                if response.json()['detail'] == 'run does not exist':
+                if response.json()['detail'] == 'No such run':
                     raise Exception('Run does not exist')
                 elif response.json()['detail'] == 'artifact does not exist':
                     raise Exception('Artifact does not exist')
