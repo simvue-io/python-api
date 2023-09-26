@@ -16,7 +16,8 @@ class TestArtifacts(unittest.TestCase):
         Create a run & an artifact of type 'output' & check it can be downloaded
         """
         run = Run()
-        run.init(common.RUNNAME3, folder=common.FOLDER)
+        folder = '/test-%s' % str(uuid.uuid4())
+        run.init(common.RUNNAME3, folder=folder)
 
         content = str(uuid.uuid4())
         with open(common.FILENAME3, 'w') as fh:
@@ -37,7 +38,7 @@ class TestArtifacts(unittest.TestCase):
 
         self.assertTrue(filecmp.cmp(common.FILENAME3, './test/%s' % common.FILENAME3))
 
-        runs = client.delete_runs(common.FOLDER)
+        runs = client.delete_runs(folder)
         self.assertEqual(len(runs), 1)
 
         shutil.rmtree('./test', ignore_errors=True)

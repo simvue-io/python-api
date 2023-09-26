@@ -17,7 +17,8 @@ class TestArtifactsCreatedState(unittest.TestCase):
         a run left in the created state
         """
         run = Run()
-        run.init(common.RUNNAME1, folder=common.FOLDER, running=False)
+        folder = '/test-%s' % str(uuid.uuid4())
+        run.init(common.RUNNAME1, folder=folder, running=False)
 
         content = str(uuid.uuid4())
         with open(common.FILENAME1, 'w') as fh:
@@ -36,7 +37,7 @@ class TestArtifactsCreatedState(unittest.TestCase):
 
         self.assertTrue(filecmp.cmp(common.FILENAME1, './test/%s' % common.FILENAME1))
 
-        runs = client.delete_runs(common.FOLDER)
+        runs = client.delete_runs(folder)
         self.assertEqual(len(runs), 1)
 
         shutil.rmtree('./test', ignore_errors=True)
