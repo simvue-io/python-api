@@ -12,9 +12,10 @@ class TestRunMetadata(unittest.TestCase):
         Check metadata can be specified & retrieved
         """
         name = 'test-%s' % str(uuid.uuid4())
+        folder = '/test-%s' % str(uuid.uuid4())
         metadata = {'a': 'string', 'b': random.random(), 'c': random.random()}
         run = Run()
-        run.init(name, metadata=metadata, folder=common.FOLDER)
+        run.init(name, metadata=metadata, folder=folder)
         run.close()
 
         run_id = name
@@ -25,7 +26,7 @@ class TestRunMetadata(unittest.TestCase):
         data = client.get_run(run_id, metadata=True)
         self.assertEqual(data['metadata'], metadata)
 
-        runs = client.delete_runs(common.FOLDER)
+        runs = client.delete_runs(folder)
         self.assertEqual(len(runs), 1)
 
 if __name__ == '__main__':

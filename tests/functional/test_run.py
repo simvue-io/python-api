@@ -10,8 +10,9 @@ class TestRun(unittest.TestCase):
         Create a run & check that it exists
         """
         name = 'test-%s' % str(uuid.uuid4())
+        folder = '/test-%s' % str(uuid.uuid4())
         run = Run()
-        run.init(name, folder=common.FOLDER)
+        run.init(name, folder=folder)
         run.close()
 
         run_id = name
@@ -22,7 +23,7 @@ class TestRun(unittest.TestCase):
         data = client.get_run(run_id)
         self.assertEqual(name, data['name'])
 
-        runs = client.delete_runs(common.FOLDER)
+        runs = client.delete_runs(folder)
         self.assertEqual(len(runs), 1)
 
 if __name__ == '__main__':

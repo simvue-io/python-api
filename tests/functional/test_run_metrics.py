@@ -11,8 +11,9 @@ class TestRunMetrics(unittest.TestCase):
         Try logging metrics and retrieving them
         """
         name = 'test-%s' % str(uuid.uuid4())
+        folder = '/test-%s' % str(uuid.uuid4())
         run = Run()
-        run.init(name, folder=common.FOLDER)
+        run.init(name, folder=folder)
         run.log_metrics({'a': 1.0})
         run.log_metrics({'a': 1.2})
 
@@ -43,7 +44,7 @@ class TestRunMetrics(unittest.TestCase):
         metrics_names = client.get_metrics_names(run_id)
         self.assertEqual(metrics_names, ['a', 'b'])
 
-        runs = client.delete_runs(common.FOLDER)
+        runs = client.delete_runs(folder)
         self.assertEqual(len(runs), 1)
 
 if __name__ == '__main__':

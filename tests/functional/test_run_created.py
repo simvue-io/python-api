@@ -10,8 +10,9 @@ class TestRunCreated(unittest.TestCase):
         Create a run in the created state, then reconnect to it
         """
         name = 'test-%s' % str(uuid.uuid4())
+        folder = '/test-%s' % str(uuid.uuid4())
         run_create = Run()
-        run_create.init(name, folder=common.FOLDER, running=False)
+        run_create.init(name, folder=folder, running=False)
 
         run_id = name
         if common.SIMVUE_API_VERSION:
@@ -32,7 +33,7 @@ class TestRunCreated(unittest.TestCase):
 
         run_start.close()
 
-        runs = client.delete_runs(common.FOLDER)
+        runs = client.delete_runs(folder)
         self.assertEqual(len(runs), 1)
 
 if __name__ == '__main__':
