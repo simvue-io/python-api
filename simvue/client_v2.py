@@ -70,7 +70,7 @@ class Client(object):
 
         if response.status_code == 200:
             if format == 'dict':
-                return response.json()
+                return response.json()['data']
             elif format == 'dataframe':
                 return to_dataframe(response.json())
             else:
