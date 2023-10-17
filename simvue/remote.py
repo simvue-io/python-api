@@ -14,7 +14,7 @@ class Remote(object):
     """
     Class which interacts with Simvue REST API
     """
-    def __init__(self, name, uuid, id, suppress_errors=False):
+    def __init__(self, name, uuid, id, suppress_errors=True):
         self._id = id
         self._name = name
         self._uuid = uuid
