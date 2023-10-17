@@ -376,8 +376,13 @@ class Client(object):
         """
         Plot time series metrics from multiple runs and/or metrics
         """
-        data = self.get_metrics_multiple(runs, names, xaxis, sample_by, format='dataframe')
+        if not isinstance(runs, list):
+            raise Exception('Invalid runs specified, must be a list of run names.')
 
+        if not isinstance(names, list):
+            raise Exception('Invalid names specified, must be a list of metric names.')
+        
+        data = self.get_metrics_multiple(runs, names, xaxis, sample_by, format='dataframe')
         import matplotlib.pyplot as plt
 
         for run in runs:
