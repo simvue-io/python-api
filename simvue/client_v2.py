@@ -70,7 +70,7 @@ class Client(object):
 
         if response.status_code == 200:
             if format == 'dict':
-                return response.json()
+                return response.json()['data']
             elif format == 'dataframe':
                 return to_dataframe(response.json())
             else:
@@ -232,11 +232,10 @@ class Client(object):
         """
         Get artifacts associated with a run & save as files
         """
-        params = {'run': run}
-        if category:
-            params['category'] = category
+        params = {}
+        params['category'] = category
 
-        response = requests.get(f"{self._url}/api/artifacts", headers=self._headers, params=params)
+        response = requests.get(f"{self._url}/api/runs/{run}/artifacts", headers=self._headers, params=params)
 
         if response.status_code == 404:
             if 'detail' in response.json():
