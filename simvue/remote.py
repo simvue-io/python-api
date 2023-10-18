@@ -198,6 +198,7 @@ class Remote(object):
                     self._error(f"Got exception when uploading file {data['name']} to object storage: {str(err)}")
                     return None
 
+        if storage_id:
             # Confirm successful upload
             path = f"{self._url}/api/data"
             if self._version > 0:
