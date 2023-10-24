@@ -191,22 +191,15 @@ class Run(object):
         self._pid = 0
         self._resources_metrics_interval = 30
         self._shutdown_event = None
-        self._version = get_server_version()
 
     def __enter__(self):
         return self
 
     def __exit__(self, type, value, traceback):
         identifier = self._id
-        if self._version == 0:
-            identifier = self._name
         logger.debug('Automatically closing run %s in status %s', identifier, self._status)
 
-        valid = self._id
-        if self._version == 0:
-            valid = self._name
-
-        if (valid or self._mode == 'offline') and self._status == 'running':
+        if (self._id or self._mode == 'offline') and self._status == 'running':
             if self._shutdown_event is not None:
                 self._shutdown_event.set()
             if not type:
@@ -243,10 +236,7 @@ class Run(object):
         self._check_token()
 
         data = {'status': self._status}
-        if self._version == 0:
-            data['name'] = self._name
-        else:
-            data['id'] = self._id
+        data['id'] = self._id
 
         if reconnect:
             data['system'] = get_system()
@@ -374,7 +364,7 @@ class Run(object):
         """
         return self._id
 
-    def reconnect(self, run_name_or_id, uid=None):
+    def reconnect(self, run_id, uid=None):
         """
         Reconnect to a run in the created state
         """
@@ -384,11 +374,7 @@ class Run(object):
         self._status = 'running'
         self._uuid = uid
 
-        if self._version == 0:
-            self._name = run_name_or_id
-        else:
-            self._id = run_name_or_id
-
+        self._id = run_id
         self._simvue = Simvue(self._name, self._uuid, self._id, self._mode, self._suppress_errors)
         self._start(reconnect=True)
 
@@ -463,11 +449,7 @@ class Run(object):
             return False
 
         data = {'tags': tags}
-
-        if self._version == 0:
-            data['name'] = self._name
-        else:
-            data['id'] = self._id
+        data['id'] = self._id
 
         if self._simvue.update(data):
             return True
@@ -494,8 +476,6 @@ class Run(object):
             return False
 
         data = {}
-        if self._version == 0:
-            data['run'] = self._name
         data['message'] = message
         data['timestamp'] = datetime.datetime.utcnow().strftime('%Y-%m-%d %H:%M:%S.%f')
         if timestamp is not None:
@@ -536,8 +516,6 @@ class Run(object):
             return False
 
         data = {}
-        if self._version == 0:
-            data['run'] = self._name
         data['values'] = metrics
         data['time'] = tm.time() - self._start_time
         if time is not None:
@@ -843,16 +821,15 @@ class Run(object):
 
         # Check if the alert already exists
         alert_id = None
-        if self._version > 0:
-            alerts = self._simvue.list_alerts()
-            if alerts:
-                for existing_alert in alerts:
-                    if existing_alert['name'] == alert['name']:
-                        if compare_alerts(existing_alert, alert):
-                            alert_id = existing_alert['id']
-                            logger.info('Existing alert found with id: %s', alert_id)
+        alerts = self._simvue.list_alerts()
+        if alerts:
+            for existing_alert in alerts:
+                if existing_alert['name'] == alert['name']:
+                    if compare_alerts(existing_alert, alert):
+                        alert_id = existing_alert['id']
+                        logger.info('Existing alert found with id: %s', alert_id)
 
-        if self._version == 0 or (self._version > 0 and not alert_id):
+        if not alert_id:
             response = self._simvue.add_alert(alert)
             if response:
                 if 'id' in response:
@@ -861,11 +838,7 @@ class Run(object):
                 self._error('unable to create alert')
                 return False
 
-        if self._version == 0:
-            data = {'name': self._name, 'alert': name}
-            if self._simvue.update(data):
-                return True
-        elif alert_id:
+        if alert_id:
             # TODO: What if we keep existing alerts/add a new one later?
             data = {'id': self._id, 'alerts': [alert_id]}
             if self._simvue.update(data):

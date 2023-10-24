@@ -1,10 +1,11 @@
 from concurrent.futures import ProcessPoolExecutor
+import json
 import os
 import pickle
 import requests
 
 from .serialization import Deserializer
-from .utilities import get_auth
+from .utilities import get_auth, get_server_version
 from .converters import to_dataframe, metrics_to_dataframe
 
 CONCURRENT_DOWNLOADS = 10
@@ -36,18 +37,13 @@ class Client(object):
     def __init__(self):
         self._url, self._token = get_auth()
         self._headers = {"Authorization": f"Bearer {self._token}"}
+        self._version = get_server_version()
 
     def get_run(self, run, system=False, tags=False, metadata=False):
         """
         Get a single run
         """
-        params = {'name': run,
-                  'filter': None,
-                  'system': system,
-                  'tags': tags,
-                  'metadata': metadata}
-
-        response = requests.get(f"{self._url}/api/runs", headers=self._headers, params=params)
+        response = requests.get(f"{self._url}/api/runs/{run}", headers=self._headers)
 
         if response.status_code == 404:
             if 'detail' in response.json():
@@ -64,17 +60,17 @@ class Client(object):
         Get runs
         """
         params = {'name': None,
-                  'filters': ','.join(filters),
-                  'system': system,
-                  'tags': tags,
-                  'metadata': metadata}
+                  'filters': json.dumps(filters),
+                  'return_basic': True,
+                  'return_system': system,
+                  'return_metadata': metadata}
 
         response = requests.get(f"{self._url}/api/runs", headers=self._headers, params=params)
         response.raise_for_status()
 
         if response.status_code == 200:
             if format == 'dict':
-                return response.json()
+                return response.json()['data']
             elif format == 'dataframe':
                 return to_dataframe(response.json())
             else:
@@ -96,13 +92,33 @@ class Client(object):
 
         raise Exception(response.text)
 
+    def _get_folder_id_from_path(self, path):
+        """
+        Get folder id for the specified path
+        """
+        params = {'filters': json.dumps([f"path == {path}"])}
+
+        response = requests.get(f"{self._url}/api/folders", headers=self._headers, params=params)
+
+        folder_id = None
+        if response.status_code == 200:
+            if 'data' in response.json():
+                if response.json()['data']:
+                    if 'id' in response.json()['data'][0]:
+                        folder_id = response.json()['data'][0]['id']
+
+        return folder_id
+
     def delete_runs(self, folder):
         """
         Delete runs in folder
         """
-        params = {'folder': folder}
+        folder_id = self._get_folder_id_from_path(folder)
+        if not folder_id:
+            return None
 
-        response = requests.delete(f"{self._url}/api/runs", headers=self._headers, params=params)
+        params = {'runs_only': True, 'runs': True}
+        response = requests.delete(f"{self._url}/api/folders/{folder_id}", headers=self._headers, params=params)
 
         if response.status_code == 200:
             if 'runs' in response.json():
@@ -114,10 +130,15 @@ class Client(object):
         """
         Delete folder
         """
-        params = {'name': folder,
-                  'delete_runs': runs}
+        folder_id = self._get_folder_id_from_path(folder)
+        if not folder_id:
+            return None
 
-        response = requests.delete(f"{self._url}/api/folders", headers=self._headers, params=params)
+        params = {}
+        if runs:
+            params['runs'] = True
+
+        response = requests.delete(f"{self._url}/api/folders/{folder_id}", headers=self._headers, params=params)
 
         if response.status_code == 200:
             if 'runs' in response.json():
@@ -150,13 +171,13 @@ class Client(object):
         """
         Return the contents of the specified artifact
         """
-        params = {'run': run, 'name': name}
+        params = {'run_id': run, 'name': name}
 
-        response = requests.get(f"{self._url}/api/artifacts", headers=self._headers, params=params)
+        response = requests.get(f"{self._url}/api/runs/{run}/artifacts", headers=self._headers, params=params)
 
         if response.status_code == 404:
             if 'detail' in response.json():
-                if response.json()['detail'] == 'run does not exist':
+                if response.json()['detail'] == 'No such run':
                     raise Exception('Run does not exist')
                 elif response.json()['detail'] == 'artifact does not exist':
                     raise Exception('Artifact does not exist')
@@ -180,9 +201,9 @@ class Client(object):
         """
         Download an artifact
         """
-        params = {'run': run, 'name': name}
+        params = {'run_id': run, 'name': name}
 
-        response = requests.get(f"{self._url}/api/artifacts", headers=self._headers, params=params)
+        response = requests.get(f"{self._url}/api/runs/{run}/artifacts", headers=self._headers, params=params)
 
         if response.status_code == 404:
             if 'detail' in response.json():
@@ -211,11 +232,10 @@ class Client(object):
         """
         Get artifacts associated with a run & save as files
         """
-        params = {'run': run}
-        if category:
-            params['category'] = category
+        params = {}
+        params['category'] = category
 
-        response = requests.get(f"{self._url}/api/artifacts", headers=self._headers, params=params)
+        response = requests.get(f"{self._url}/api/runs/{run}/artifacts", headers=self._headers, params=params)
 
         if response.status_code == 404:
             if 'detail' in response.json():
@@ -263,9 +283,7 @@ class Client(object):
         """
         Get a single folder
         """
-        params = {'name': folder,
-                  'tags': tags,
-                  'metadata': metadata}
+        params = {'filters': json.dumps([f"path == {folder}"])}
 
         response = requests.get(f"{self._url}/api/folders", headers=self._headers, params=params)
 
@@ -275,7 +293,10 @@ class Client(object):
                     raise Exception('Folder does not exist')
 
         if response.status_code == 200:
-            return response.json()
+            if len(response.json()['data']) == 0:
+                raise Exception('Folder does not exist')
+
+            return response.json()['data'][0]
 
         raise Exception(response.text)
 
@@ -283,14 +304,12 @@ class Client(object):
         """
         Get folders
         """
-        params = {'filters': ','.join(filters),
-                  'tags': tags,
-                  'metadata': metadata}
+        params = {'filters': json.dumps(filters)}
 
         response = requests.get(f"{self._url}/api/folders", headers=self._headers, params=params)
 
         if response.status_code == 200:
-            return response.json()
+            return response.json()['data']
 
         raise Exception(response.text)
         
@@ -298,10 +317,9 @@ class Client(object):
         """
         Return a list of metrics names
         """
-        params = {'runs': run,
-                  'timeseries': False}
+        params = {'runs': json.dumps([run])}
 
-        response = requests.get(f"{self._url}/api/metrics", headers=self._headers, params=params)
+        response = requests.get(f"{self._url}/api/metrics/names", headers=self._headers, params=params)
 
         if response.status_code == 200:
             return response.json()
@@ -327,8 +345,19 @@ class Client(object):
         """
         Get time series metrics for the specified run and metrics name
         """
-        params = {'runs': run,
-                  'metrics': name,
+        response = requests.get(f"{self._url}/api/runs/{run}", headers=self._headers)
+
+        if response.status_code == 404:
+            if 'detail' in response.json():
+                if response.json()['detail'] == 'run does not exist':
+                    raise Exception('Run does not exist')
+
+        run_name = None
+        if response.status_code == 200:
+            run_name = response.json()['name']
+
+        params = {'runs': json.dumps([run]),
+                  'metrics': json.dumps([name]),
                   'summary': False,
                   'xaxis': xaxis}
 
@@ -341,9 +370,13 @@ class Client(object):
         response = requests.get(f"{self._url}/api/metrics", headers=self._headers, params=params)
 
         if response.status_code == 200:
+            data = []
+            for item in response.json()[run][name]:
+                data.append([item[xaxis], item['value'], run_name, name])
+
             if format == 'dataframe':
-                return metrics_to_dataframe(response.json(), xaxis, name=name)
-            return response.json()
+                return metrics_to_dataframe(data, xaxis, name=name)
+            return data
 
         raise Exception(response.text)
 
@@ -416,6 +449,6 @@ class Client(object):
         response = requests.get(f"{self._url}/api/events", headers=self._headers, params=params)
 
         if response.status_code == 200:
-            return response.json()
+            return response.json()['data']
 
         raise Exception(response.text)
