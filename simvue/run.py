@@ -288,7 +288,7 @@ class Run(object):
         else:
             logger.error(message)
 
-    def init(self, name=None, metadata={}, tags=[], description=None, folder='/', running=True):
+    def init(self, name=None, metadata={}, tags=[], description=None, folder='/', running=True, ttl=-1):
         """
         Initialise a run
         """
@@ -317,7 +317,8 @@ class Run(object):
                 'system': {'cpu': {},
                            'gpu': {},
                            'platform': {}},
-                'status': self._status}
+                'status': self._status,
+                'ttl': ttl}
 
         if name:
             data['name'] = name
@@ -796,10 +797,6 @@ class Run(object):
 
         if not self._uuid and not self._name:
             self._error(INIT_MISSING)
-            return False
-
-        if not self._active:
-            self._error('Run is not active')
             return False
 
         if rule:
