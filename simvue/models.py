@@ -15,3 +15,4 @@ class RunInput(BaseModel):
     description: Optional[str]
     folder: FolderStrRegex
     status: Optional[str]
+    ttl: int
