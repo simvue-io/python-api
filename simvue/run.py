@@ -18,6 +18,7 @@ from .simvue import Simvue
 from .serialization import Serializer
 from .models import RunInput
 from .utilities import get_auth, get_expiry
+from .executor import Executor
 from pydantic import ValidationError
 
 INIT_MISSING = 'initialize a run using init() first'
@@ -150,6 +151,7 @@ class Run(object):
         self._uuid = str(uuid.uuid4())
         self._mode = mode
         self._name = None
+        self._executor = Executor(self)
         self._suppress_errors = False
         self._queue_blocking = False
         self._status = None
@@ -312,6 +314,9 @@ class Run(object):
         if self._status == 'running':
             self._start()
         return True
+    
+    def add_process(self, identifier: str, *cmd_args, **cmd_kwargs) -> None:
+        self._executor.add_process(identifier, *cmd_args, **cmd_kwargs)
 
     @property
     def name(self):
