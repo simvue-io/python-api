@@ -13,7 +13,8 @@ class Offline(object):
     """
     Class for offline runs
     """
-    def __init__(self, name, uuid, suppress_errors=False):
+    def __init__(self, name, uuid, id, suppress_errors=False):
+        self._id = id
         self._name = name
         self._uuid = uuid
         self._directory = os.path.join(get_offline_directory(), self._uuid)

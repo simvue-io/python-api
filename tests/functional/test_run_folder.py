@@ -10,15 +10,20 @@ class TestRunFolder(unittest.TestCase):
         Check specified folder of run
         """
         name = 'test-%s' % str(uuid.uuid4())
+        folder = '/test-%s' % str(uuid.uuid4())
         run = Run()
-        run.init(name, folder=common.FOLDER)
+        run.init(name, folder=folder)
         run.close()
 
-        client = Client()
-        data = client.get_run(name)
-        self.assertEqual(data['folder'], common.FOLDER)
+        run_id = name
+        if common.SIMVUE_API_VERSION:
+            run_id = run.id
 
-        runs = client.delete_runs(common.FOLDER)
+        client = Client()
+        data = client.get_run(run_id)
+        self.assertEqual(data['folder'], folder)
+
+        runs = client.delete_runs(folder)
         self.assertEqual(len(runs), 1)
 
 if __name__ == '__main__':

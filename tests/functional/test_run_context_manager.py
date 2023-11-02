@@ -10,14 +10,19 @@ class TestRunContext(unittest.TestCase):
         Create a run using a context manager & check that it exists
         """
         name = 'test-%s' % str(uuid.uuid4())
+        folder = '/test-%s' % str(uuid.uuid4())
         with Run() as run:
-            run.init(name, folder=common.FOLDER)
+            run.init(name, folder=folder)
+
+            run_id = name
+            if common.SIMVUE_API_VERSION:
+                run_id = run.id
 
         client = Client()
-        data = client.get_run(name)
+        data = client.get_run(run_id)
         self.assertEqual(name, data['name'])
 
-        runs = client.delete_runs(common.FOLDER)
+        runs = client.delete_runs(folder)
         self.assertEqual(len(runs), 1)
 
 if __name__ == '__main__':

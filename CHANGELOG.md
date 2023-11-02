@@ -1,8 +1,8 @@
 # Change log
 
-## v0.14.4 (in progress)
+## v0.15.0
 
-* (Bug fix) Directories can be saved for runs in the `created` state.
+* Support v2 server.
 
 ## v0.14.3
 

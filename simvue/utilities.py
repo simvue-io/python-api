@@ -2,6 +2,7 @@ import configparser
 import jwt
 import logging
 import os
+import requests
 
 logger = logging.getLogger(__name__)
 
@@ -27,6 +28,21 @@ def get_auth():
     url = os.getenv('SIMVUE_URL', url)
 
     return url, token
+
+def get_server_version():
+    """
+    Get the server version
+    """
+    url, _ = get_auth()
+
+    try:
+        response = requests.get(f"{url}/api/version")
+    except:
+        pass
+    else:
+        if response.status_code == 200:
+            return 1
+    return 0
 
 def get_offline_directory():
     """

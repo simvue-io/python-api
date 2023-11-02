@@ -17,7 +17,7 @@ from .worker import Worker
 from .simvue import Simvue
 from .serialization import Serializer
 from .models import RunInput
-from .utilities import get_auth, get_expiry
+from .utilities import get_auth, get_expiry, get_server_version
 from .executor import Executor
 from pydantic import ValidationError
 
@@ -27,6 +27,28 @@ CHECKSUM_BLOCK_SIZE = 4096
 UPLOAD_TIMEOUT = 30
 
 logger = logging.getLogger(__name__)
+
+def compare_alerts(first, second):
+    """
+    """
+    for key in ('name', 'description', 'source', 'frequency', 'notification'):
+        if key in first and key in second:
+            if not first[key]:
+                continue
+
+            if first[key] != second[key]:
+                return False
+
+    if 'alerts' in first and 'alerts' in second:
+        for key in ('rule', 'window', 'metric', 'threshold', 'range_low', 'range_high'):
+            if key in first['alerts'] and key in second['alerts']:
+                if not first[key]:
+                    continue
+
+                if first['alerts'][key] != second['alerts']['key']:
+                    return False
+
+    return True
 
 def walk_through_files(path):
     for (dirpath, _, filenames) in os.walk(path):
@@ -152,6 +174,7 @@ class Run(object):
         self._mode = mode
         self._name = None
         self._executor = Executor(self)
+        self._id = None
         self._suppress_errors = False
         self._queue_blocking = False
         self._status = None
@@ -175,9 +198,10 @@ class Run(object):
         return self
 
     def __exit__(self, type, value, traceback):
-        logger.debug('Automatically closing run %s in status %s', self._name, self._status)
+        identifier = self._id
+        logger.debug('Automatically closing run %s in status %s', identifier, self._status)
 
-        if (self._name or self._mode == 'offline') and self._status == 'running':
+        if (self._id or self._mode == 'offline') and self._status == 'running':
             if self._shutdown_event is not None:
                 self._shutdown_event.set()
             if not type:
@@ -213,7 +237,9 @@ class Run(object):
 
         self._check_token()
 
-        data = {'name': self._name, 'status': self._status}
+        data = {'status': self._status}
+        data['id'] = self._id
+
         if reconnect:
             data['system'] = get_system()
 
@@ -233,6 +259,7 @@ class Run(object):
                               self._shutdown_event,
                               self._uuid,
                               self._name,
+                              self._id,
                               self._url,
                               self._headers,
                               self._mode,
@@ -253,7 +280,7 @@ class Run(object):
         else:
             logger.error(message)
 
-    def init(self, name=None, metadata={}, tags=[], description=None, folder='/', running=True):
+    def init(self, name=None, metadata={}, tags=[], description=None, folder='/', running=True, ttl=-1):
         """
         Initialise a run
         """
@@ -282,7 +309,8 @@ class Run(object):
                 'system': {'cpu': {},
                            'gpu': {},
                            'platform': {}},
-                'status': self._status}
+                'status': self._status,
+                'ttl': ttl}
 
         if name:
             data['name'] = name
@@ -294,6 +322,8 @@ class Run(object):
 
         if self._status == 'running':
             data['system'] = get_system()
+        elif self._status == 'created':
+            del data['system']
 
         self._check_token()
 
@@ -304,7 +334,7 @@ class Run(object):
             self._error(err)
 
         self._simvue = Simvue(self._name, self._uuid, self._mode, self._suppress_errors)
-        name = self._simvue.create_run(data)
+        name, self._id = self._simvue.create_run(data)
 
         if not name:
             return False
@@ -337,7 +367,14 @@ class Run(object):
         """
         return self._uuid
 
-    def reconnect(self, name=None, uid=None):
+    @property
+    def id(self):
+        """
+        Return the unique id of the run
+        """
+        return self._id
+
+    def reconnect(self, run_id, uid=None):
         """
         Reconnect to a run in the created state
         """
@@ -345,10 +382,10 @@ class Run(object):
             return True
 
         self._status = 'running'
-        self._name = name
         self._uuid = uid
 
-        self._simvue = Simvue(self._name, self._uuid, self._mode, self._suppress_errors)
+        self._id = run_id
+        self._simvue = Simvue(self._name, self._uuid, self._id, self._mode, self._suppress_errors)
         self._start(reconnect=True)
 
     def set_pid(self, pid):
@@ -421,7 +458,8 @@ class Run(object):
             self._error(INIT_MISSING)
             return False
 
-        data = {'name': self._name, 'tags': tags}
+        data = {'tags': tags}
+        data['id'] = self._id
 
         if self._simvue.update(data):
             return True
@@ -448,9 +486,8 @@ class Run(object):
             return False
 
         data = {}
-        data['run'] = self._name
         data['message'] = message
-        data['timestamp'] = datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S.%f')
+        data['timestamp'] = datetime.datetime.utcnow().strftime('%Y-%m-%d %H:%M:%S.%f')
         if timestamp is not None:
             if validate_timestamp(timestamp):
                 data['timestamp'] = timestamp
@@ -489,12 +526,11 @@ class Run(object):
             return False
 
         data = {}
-        data['run'] = self._name
         data['values'] = metrics
         data['time'] = tm.time() - self._start_time
         if time is not None:
             data['time'] = time
-        data['timestamp'] = datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S.%f')
+        data['timestamp'] = datetime.datetime.utcnow().strftime('%Y-%m-%d %H:%M:%S.%f')
         if timestamp is not None:
             if validate_timestamp(timestamp):
                 data['timestamp'] = timestamp
@@ -747,10 +783,6 @@ class Run(object):
             self._error(INIT_MISSING)
             return False
 
-        if not self._active:
-            self._error('Run is not active')
-            return False
-
         if rule:
             if rule not in ('is below', 'is above', 'is outside range', 'is inside range'):
                 self._error('alert rule invalid')
@@ -793,13 +825,29 @@ class Run(object):
                  'source': source,
                  'alert': alert_definition}
 
-        if not self._simvue.add_alert(alert):
-            self._error('unable to create alert')
-            return False
+        # Check if the alert already exists
+        alert_id = None
+        alerts = self._simvue.list_alerts()
+        if alerts:
+            for existing_alert in alerts:
+                if existing_alert['name'] == alert['name']:
+                    if compare_alerts(existing_alert, alert):
+                        alert_id = existing_alert['id']
+                        logger.info('Existing alert found with id: %s', alert_id)
 
-        data = {'name': self._name, 'alert': name}
+        if not alert_id:
+            response = self._simvue.add_alert(alert)
+            if response:
+                if 'id' in response:
+                    alert_id = response['id']
+            else:
+                self._error('unable to create alert')
+                return False
 
-        if self._simvue.update(data):
-            return True
+        if alert_id:
+            # TODO: What if we keep existing alerts/add a new one later?
+            data = {'id': self._id, 'alerts': [alert_id]}
+            if self._simvue.update(data):
+                return True
 
         return False

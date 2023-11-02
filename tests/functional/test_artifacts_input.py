@@ -16,7 +16,8 @@ class TestArtifacts(unittest.TestCase):
         Create a run & an artifact of type 'input' & check it can be downloaded
         """
         run = Run()
-        run.init(common.RUNNAME2, folder=common.FOLDER)
+        folder = '/test-%s' % str(uuid.uuid4())
+        run.init(common.RUNNAME2, folder=folder)
 
         content = str(uuid.uuid4())
         with open(common.FILENAME2, 'w') as fh:
@@ -25,15 +26,19 @@ class TestArtifacts(unittest.TestCase):
 
         run.close()
 
+        run_id = common.RUNNAME2
+        if common.SIMVUE_API_VERSION:
+            run_id = run.id
+
         shutil.rmtree('./test', ignore_errors=True)
         os.mkdir('./test')
 
         client = Client()
-        client.get_artifact_as_file(common.RUNNAME2, common.FILENAME2, './test')
+        client.get_artifact_as_file(run_id, common.FILENAME2, './test')
 
         self.assertTrue(filecmp.cmp(common.FILENAME2, './test/%s' % common.FILENAME2))
 
-        runs = client.delete_runs(common.FOLDER)
+        runs = client.delete_runs(folder)
         self.assertEqual(len(runs), 1)
 
         shutil.rmtree('./test', ignore_errors=True)

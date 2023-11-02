@@ -9,13 +9,13 @@ import threading
 import msgpack
 
 from .metrics import get_process_memory, get_process_cpu, get_gpu_metrics
-from .utilities import get_offline_directory, create_file
+from .utilities import get_offline_directory, create_file, get_server_version
 
 logger = logging.getLogger(__name__)
 
 HEARTBEAT_INTERVAL = 60
 POLLING_INTERVAL = 20
-MAX_BUFFER_SEND = 5000
+MAX_BUFFER_SEND = 16000
 
 def update_processes(parent, processes):
     """
@@ -30,13 +30,14 @@ def update_processes(parent, processes):
 
 
 class Worker(threading.Thread):
-    def __init__(self, metrics_queue, events_queue, shutdown_event, uuid, run_name, url, headers, mode, pid, resources_metrics_interval):
+    def __init__(self, metrics_queue, events_queue, shutdown_event, uuid, run_name, run_id, url, headers, mode, pid, resources_metrics_interval):
         threading.Thread.__init__(self)
         self._parent_thread = threading.current_thread()
         self._metrics_queue = metrics_queue
         self._events_queue = events_queue
         self._shutdown_event = shutdown_event
         self._run_name = run_name
+        self._run_id = run_id
         self._uuid = uuid
         self._url = url
         self._headers = headers
@@ -47,6 +48,7 @@ class Worker(threading.Thread):
         self._start_time = time.time()
         self._processes = []
         self._resources_metrics_interval = resources_metrics_interval
+        self._version = get_server_version()
         self._pid = pid
         if pid:
             self._processes = update_processes(psutil.Process(pid), [])
@@ -56,9 +58,13 @@ class Worker(threading.Thread):
         """
         Send a heartbeat
         """
+        data = {'id': self._run_id}
+        if self._version == 0:
+            data = {'name': self._run_name}
+
         if self._mode == 'online':
             from .api import put
-            put(f"{self._url}/api/runs/heartbeat", self._headers, {'name': self._run_name})
+            put(f"{self._url}/api/runs/heartbeat", self._headers, data)
         else:
             create_file(f"{self._directory}/heartbeat")
 
@@ -99,15 +105,16 @@ class Worker(threading.Thread):
                     gpu = get_gpu_metrics(self._processes)
                     if memory is not None and cpu is not None:
                         data = {}
+                        if self._version == 0:
+                            data['run'] = self._run_name
                         data['step'] = 0
-                        data['run'] = self._run_name
                         data['values'] = {'resources/cpu.usage.percent': cpu,
                                           'resources/memory.usage': memory}
                         if gpu:
                             for item in gpu:
                                 data['values'][item] = gpu[item]
                         data['time'] = time.time() - self._start_time
-                        data['timestamp'] = datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S.%f')
+                        data['timestamp'] = datetime.datetime.utcnow().strftime('%Y-%m-%d %H:%M:%S.%f')
                         try:
                             self._metrics_queue.put(data, block=False)
                         except:
@@ -118,8 +125,8 @@ class Worker(threading.Thread):
             if time.time() - last_heartbeat > HEARTBEAT_INTERVAL:
                 try:
                     self.heartbeat()
-                except:
-                    pass
+                except Exception as err:
+                    logger.error('Error sending heartbeat: %s', str(err))
                 last_heartbeat = time.time()
 
             # Send metrics
@@ -131,6 +138,8 @@ class Worker(threading.Thread):
 
             if buffer:
                 logger.debug('Sending metrics')
+                if self._version > 0:
+                    buffer = {'metrics': buffer, 'run': self._run_id}
                 try:
                     if self._mode == 'online': buffer = msgpack.packb(buffer, use_bin_type=True)
                     self.post('metrics', buffer)
@@ -147,6 +156,8 @@ class Worker(threading.Thread):
 
             if buffer:
                 logger.debug('Sending events')
+                if self._version > 0:
+                    buffer = {'events': buffer, 'run': self._run_id}
                 try:
                     if self._mode == 'online': buffer = msgpack.packb(buffer, use_bin_type=True)
                     self.post('events', buffer)
@@ -160,6 +171,6 @@ class Worker(threading.Thread):
                     sys.exit(0)
             else:
                 counter = 0
-                while counter < POLLING_INTERVAL and not self._shutdown_event.is_set() and self._parent_thread.is_alive():
-                    time.sleep(1)
+                while counter < POLLING_INTERVAL and not self._shutdown_event.is_set() and self._parent_thread.is_alive() and not self._events_queue.full() and not self._metrics_queue.full():
+                    time.sleep(0.1)
                     counter += 1

@@ -50,3 +50,12 @@ def put(url, headers, data, is_json=True, timeout=DEFAULT_API_TIMEOUT):
     response.raise_for_status()
 
     return response
+
+def get(url, headers, timeout=DEFAULT_API_TIMEOUT):
+    """
+    HTTP GET
+    """
+    response = requests.get(url, headers=headers, timeout=timeout)
+    response.raise_for_status()
+
+    return response

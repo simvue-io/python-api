@@ -1,8 +1,8 @@
 import logging
 import time
 
-from .api import post, put
-from .utilities import get_auth, get_expiry, prepare_for_api
+from .api import post, put, get
+from .utilities import get_auth, get_expiry, prepare_for_api, get_server_version
 from .version import __version__
 
 logger = logging.getLogger(__name__)
@@ -14,7 +14,8 @@ class Remote(object):
     """
     Class which interacts with Simvue REST API
     """
-    def __init__(self, name, uuid, suppress_errors=False):
+    def __init__(self, name, uuid, id, suppress_errors=False):
+        self._id = id
         self._name = name
         self._uuid = uuid
         self._suppress_errors = suppress_errors
@@ -23,6 +24,7 @@ class Remote(object):
                          "User-Agent": f"Simvue Python client {__version__}"}
         self._headers_mp = self._headers.copy()
         self._headers_mp['Content-Type'] = 'application/msgpack'
+        self._version = get_server_version()
 
     def _error(self, message):
         """
@@ -56,14 +58,22 @@ class Remote(object):
         if 'name' in response.json():
             self._name = response.json()['name']
 
-        return self._name
+        if 'id' in response.json():
+            self._id = response.json()['id']
+
+        return self._name, self._id
 
     def update(self, data, run=None):
         """
         Update metadata, tags or status
         """
-        if run is not None:
+        if run is not None and self._version == 0:
             data['name'] = run
+
+        if self._id and self._version > 0:
+            data['id'] = self._id
+            if 'name' in data:
+                del data['name']
 
         logger.debug('Updating run with data: "%s"', data)
 
@@ -85,8 +95,24 @@ class Remote(object):
         """
         Set folder details
         """
-        if run is not None:
-            data['run'] = run
+        if run is not None and self._version == 0:
+            data['name'] = run
+
+        if self._version > 0:
+            try:
+                response = post(f"{self._url}/api/folders", self._headers, data)
+            except Exception as err:
+                self._error(f"Exception creatig folder: {err}")
+                return False
+
+            if response.status_code == 200 or response.status_code == 409:
+                folder_id = response.json()['id']
+                data['id'] = folder_id
+
+                if response.status_code == 200:
+                    logger.debug('Got id of new folder: "%s"', folder_id)
+                else:
+                    logger.debug('Got id of existing folder: "%s"', folder_id)
 
         logger.debug('Setting folder details with data: "%s"', data)
 
@@ -108,14 +134,17 @@ class Remote(object):
         """
         Save file
         """
-        if run is not None:
+        if run is not None and self._version == 0:
             data['run'] = run
+            noun = 'data'
+        elif self._id and self._version > 0:
+            noun = 'artifacts'
 
         logger.debug('Getting presigned URL for saving artifact, with data: "%s"', data)
 
         # Get presigned URL
         try:
-            response = post(f"{self._url}/api/data", self._headers, prepare_for_api(data))
+            response = post(f"{self._url}/api/{noun}", self._headers, prepare_for_api(data))
         except Exception as err:
             self._error(f"Got exception when preparing to upload file {data['name']} to object storage: {str(err)}")
             return False
@@ -128,6 +157,13 @@ class Remote(object):
         if response.status_code != 200:
             self._error(f"Got status code {response.status_code} when registering file {data['name']}")
             return False
+
+        storage_id = None
+        if 'storage_id' in response.json():
+            storage_id = response.json()['storage_id']
+
+        if self._version > 0 and not storage_id:
+            return None
 
         if 'url' in response.json():
             url = response.json()['url']
@@ -162,9 +198,15 @@ class Remote(object):
                     self._error(f"Got exception when uploading file {data['name']} to object storage: {str(err)}")
                     return None
 
+        if storage_id:
             # Confirm successful upload
+            path = f"{self._url}/api/data"
+            if self._version > 0:
+                path = f"{self._url}/api/runs/{self._id}/artifacts"
+                data['storage'] = storage_id
+
             try:
-                response = put(f"{self._url}/api/data", self._headers, prepare_for_api(data))
+                response = put(path, self._headers, prepare_for_api(data))
             except Exception as err:
                 self._error(f"Got exception when confirming upload of file {data['name']}: {str(err)}")
                 return False
@@ -193,10 +235,25 @@ class Remote(object):
         logger.debug('Got response %d when adding alert, with response: "%s"', response.status_code, response.text)
 
         if response.status_code in (200, 409):
-            return True
+            return response.json()
 
         self._error(f"Got status code {response.status_code} when creating alert")
         return False
+
+    def list_alerts(self):
+        """
+        List alerts
+        """
+        try:
+            response = get(f"{self._url}/api/alerts", self._headers)
+        except Exception as err:
+            self._error(f"Got exception when listing alerts: {str(err)}")
+            return False
+
+        if response.status_code == 200:
+            return response.json()
+
+        return {}
 
     def send_metrics(self, data):
         """
