@@ -22,7 +22,11 @@ class Executor:
                     _result = subprocess.run(command, stdout=out, stderr=err, text=True)
 
             if _result.returncode != 0:
-                runner.log_event(f"Process {proc_id} returned non-zero exit code status {_result.returncode}")
+                with open(f"{runner.name}_{proc_id}.err") as err:
+                    runner.log_event(
+                        f"Process {proc_id} returned non-zero exit code status {_result.returncode} with:"
+                        f"\n{err.read()}"
+                    )
             else:
                 runner.log_event(f"Process {proc_id} completed successfully")
         

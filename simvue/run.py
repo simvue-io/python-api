@@ -316,6 +316,11 @@ class Run(object):
         return True
     
     def add_process(self, identifier: str, *cmd_args, **cmd_kwargs) -> None:
+        _cmd_str: str = " ".join(cmd_args)
+        for kwarg, val in cmd_kwargs.items():
+            if len(kwarg) == 1:
+                _cmd_str += f"-{kwarg}{(' '+val) if val else ''}"
+        self.update_metadata({"_SIMVUE_COMMAND": _cmd_str})
         self._executor.add_process(identifier, *cmd_args, **cmd_kwargs)
 
     @property
