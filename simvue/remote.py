@@ -240,6 +240,22 @@ class Remote(object):
         self._error(f"Got status code {response.status_code} when creating alert")
         return False
 
+    def set_alert_state(self, alert_id, status):
+        """
+        Set alert state
+        """
+        data = {'run': self._id, 'alert': alert_id, 'status': status}
+        try:
+            response = put(f"{self._url}/api/alerts/status", self._headers, data)
+        except Exception as err:
+            self._error(f"Got exception when setting alert state: {str(err)}")
+            return False
+
+        if response.status_code == 200:
+            return response.json()
+
+        return {}
+
     def list_alerts(self):
         """
         List alerts
