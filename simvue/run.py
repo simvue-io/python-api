@@ -761,10 +761,35 @@ class Run(object):
 
         return False
 
+    def add_alerts(self,
+                   ids=[],
+                   names=[]):
+        """
+        Add one or more existing alerts by name or id
+        """
+        if names and not ids:
+            alerts = self._simvue.list_alerts()
+            if alerts:
+                for alert in alerts:
+                    if alert['name'] in names:
+                        ids.append(alert['id'])
+            else:
+                self._error('No existing alerts')
+                return False
+        elif not names and not ids:
+            self._error('Need to provide alert ids or alert names')
+            return False
+
+        data = {'id': self._id, 'alerts': ids}
+        if self._simvue.update(data):
+            return True
+
+        return False
+
     def add_alert(self,
                   name,
                   source='metrics',
-                  frequency=5,
+                  frequency=None,
                   window=5,
                   rule=None,
                   metric=None,
@@ -801,8 +826,8 @@ class Run(object):
             self._error('notification must be either none or email')
             return False
 
-        if source not in ('metrics', 'events'):
-            self._error('source must be either metrics or events')
+        if source not in ('metrics', 'events', 'user'):
+            self._error('source must be either metrics, events or user')
             return False
 
         alert_definition = {}
@@ -816,11 +841,12 @@ class Run(object):
             elif range_low is not None and range_high is not None:
                 alert_definition['range_low'] = range_low
                 alert_definition['range_high'] = range_high
-        else:
+        elif source == 'events':
             alert_definition['pattern'] = pattern
+        else:
+            alert_definition = None
 
         alert = {'name': name,
-                 'metric': metric,
                  'frequency': frequency,
                  'notification': notification,
                  'source': source,
@@ -852,3 +878,13 @@ class Run(object):
                 return True
 
         return False
+
+    def log_alert(self, name, state):
+        """
+        Set the state of an alert
+        """
+        if state not in ('ok', 'critical'):
+            self._error('state must be either "ok" or "critical"')
+            return False
+
+        self._simvue.set_alert_state(name, state)
