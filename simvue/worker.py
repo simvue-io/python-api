@@ -99,7 +99,10 @@ class Worker(threading.Thread):
             # Collect metrics if necessary
             if time.time() - last_metrics > self._resources_metrics_interval and self._processes:
                 if self._pid:
-                    self._processes = update_processes(psutil.Process(self._pid), self._processes)
+                    try:
+                        self._processes = update_processes(psutil.Process(self._pid), self._processes)
+                    except:
+                        self._processes = None
 
                 if self._processes is not None:
                     cpu = get_process_cpu(self._processes)
