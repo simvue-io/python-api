@@ -594,6 +594,10 @@ class Run(object):
             data['originalPath'] = os.path.abspath(os.path.expanduser(os.path.expandvars(filename)))
             data['checksum'] = calculate_sha256(filename, is_file)
 
+            if data['size'] == 0:
+                print('WARNING: saving zero-sized files not currently supported')
+                return True
+
         # Determine mimetype
         mimetype = None
         if not filetype and is_file:
