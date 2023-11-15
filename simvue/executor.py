@@ -23,10 +23,10 @@ class Executor:
     def add_process(
         self,
         identifier: str,
+        *args,
         executable: str | None = None,
         script: str | None = None,
         input_file: str | None = None,
-        *args,
         **kwargs,
     ) -> None:
         _alert_kwargs = {

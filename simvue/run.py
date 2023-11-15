@@ -347,10 +347,10 @@ class Run(object):
     
     def add_process(self,
         identifier: str,
+        *cmd_args,
         executable: str | None = None,
         script: str | None = None,
         input_file: str | None = None,
-        *cmd_args,
         **cmd_kwargs
     ) -> None:
         _cmd_str: str = ""
@@ -370,11 +370,11 @@ class Run(object):
         _cmd_str += " ".join(cmd_args)
         self.update_metadata({"_SIMVUE_COMMAND": _cmd_str})
         self._executor.add_process(
-            identifier=identifier,
+            identifier,
+            *cmd_args,
             executable=executable,
             script=script,
             input_file=input_file,
-            *cmd_args,
             **cmd_kwargs
         )
 
