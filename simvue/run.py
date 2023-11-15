@@ -198,7 +198,7 @@ class Run(object):
         return self
 
     def __exit__(self, type, value, traceback):
-        #self._executor.wait_for_completion()
+        self._executor.wait_for_completion()
         identifier = self._id
         logger.debug('Automatically closing run %s in status %s', identifier, self._status)
 
