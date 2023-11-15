@@ -719,7 +719,9 @@ class Run(object):
             self._error('Run is not active')
             return False
    
-        self.set_status('completed')
+        if self._status != 'failed':
+            self.set_status('completed')
+
         self._shutdown_event.set()
 
     def set_folder_details(self, path, metadata={}, tags=[], description=None):

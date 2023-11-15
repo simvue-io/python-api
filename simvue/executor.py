@@ -58,6 +58,7 @@ class Executor:
 
             if _result.returncode != 0:
                 with open(f"{runner.name}_{proc_id}.err") as err:
+                    runner.set_status('failed')
                     runner.log_event(
                         f"Process {proc_id} returned non-zero exit code status {_result.returncode} with:"
                         f"\n{err.read()}"
