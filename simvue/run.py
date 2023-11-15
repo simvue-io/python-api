@@ -5,7 +5,6 @@ import mimetypes
 import os
 import re
 import multiprocessing
-import pickle
 import socket
 import subprocess
 import sys
@@ -17,7 +16,7 @@ from .worker import Worker
 from .simvue import Simvue
 from .serialization import Serializer
 from .models import RunInput
-from .utilities import get_auth, get_expiry, get_server_version
+from .utilities import get_auth, get_expiry
 from .executor import Executor
 from pydantic import ValidationError
 
@@ -330,7 +329,7 @@ class Run(object):
 
         # compare with pydantic RunInput model
         try:
-            runinput = RunInput(**data)
+            RunInput(**data)
         except ValidationError as err:
             self._error(err)
 
@@ -705,7 +704,7 @@ class Run(object):
         return False
 
     def close(self):
-        """
+        """f
         Close the run
         """
         if self._mode == 'disabled':
@@ -764,11 +763,14 @@ class Run(object):
         return False
 
     def add_alerts(self,
-                   ids=[],
-                   names=[]):
+                   ids=None,
+                   names=None):
         """
         Add one or more existing alerts by name or id
         """
+        ids = ids or []
+        names = names or []
+
         if names and not ids:
             alerts = self._simvue.list_alerts()
             if alerts:
