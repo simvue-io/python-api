@@ -354,9 +354,47 @@ class Run(object):
         input_file: str | None = None,
         **cmd_kwargs
     ) -> None:
+        """Add a process to be executed to the executor.
+
+        This process can take many forms, for example a be a set of positional arguments:
+
+        ```python
+        executor.add_process("my_process", "ls", "-ltr")
+        ```
+
+        Provide explicitly the components of the command:
+
+        ```python
+        executor.add_process("my_process", executable="bash", debug=True, c="return 1")
+        executor.add_process("my_process", executable="bash", script="my_script.sh", input="parameters.dat")
+        ```
+
+        or a mixture of both. In the latter case arguments which are not 'executable', 'script', 'input'
+        are taken to be options to the command, for flags `flag=True` can be used to set the option and
+        for options taking values `option=value`.
+
+        Parameters
+        ----------
+        identifier : str
+            A unique identifier for this process
+        executable : str | None, optional
+            the main executable for the command, if not specified this is taken to be the first
+            positional argument, by default None
+        *positional_arguments
+            all other positional arguments are taken to be part of the command to execute
+        script : str | None, optional
+            the script to run, note this only work if the script is not an option, if this is the case
+            you should provide it as such and perform the upload manually, by default None
+        input_file : str | None, optional
+            the input file to run, note this only work if the input file is not an option, if this is the case
+            you should provide it as such and perform the upload manually, by default None
+        **kwargs
+            all other keyword arguments are interpreted as options to the command
+        """
         _cmd_list: typing.List[str] = []
         _pos_args = list(cmd_args)
 
+        # Assemble the command for saving to metadata as string
         if executable:
             _cmd_list += [executable]
         else:
@@ -375,9 +413,14 @@ class Run(object):
                     _cmd_list += [f"--{kwarg}"]
                 else:
                     _cmd_list += [f"--{kwarg}{(' '+val) if val else ''}"]
+
         _cmd_list += _pos_args
         _cmd_str = " ".join(_cmd_list)
+
+        # Store the command executed in metadata
         self.update_metadata({f"{identifier}_command": _cmd_str})
+
+        # Add the process to the executor
         self._executor.add_process(
             identifier,
             *_pos_args,
