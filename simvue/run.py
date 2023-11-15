@@ -345,13 +345,38 @@ class Run(object):
             self._start()
         return True
     
-    def add_process(self, identifier: str, *cmd_args, **cmd_kwargs) -> None:
-        _cmd_str: str = " ".join(cmd_args)
+    def add_process(self,
+        identifier: str,
+        executable: str | None = None,
+        script: str | None = None,
+        input_file: str | None = None,
+        *cmd_args,
+        **cmd_kwargs
+    ) -> None:
+        _cmd_str: str = ""
+        if executable:
+            _cmd_str += executable + " "
         for kwarg, val in cmd_kwargs.items():
             if len(kwarg) == 1:
-                _cmd_str += f"-{kwarg}{(' '+val) if val else ''}"
+                if isinstance(val, bool) and val:
+                    _cmd_str += f"-{kwarg} "
+                else:
+                    _cmd_str += f"-{kwarg}{(' '+val) if val else ''} "
+            else:
+                if isinstance(val, bool) and val:
+                    _cmd_str += f"--{kwarg} "
+                else:
+                    _cmd_str += f"--{kwarg}{(' '+val) if val else ''} "
+        _cmd_str += " ".join(cmd_args)
         self.update_metadata({"_SIMVUE_COMMAND": _cmd_str})
-        self._executor.add_process(identifier, *cmd_args, **cmd_kwargs)
+        self._executor.add_process(
+            identifier=identifier,
+            executable=executable,
+            script=script,
+            input_file=input_file,
+            *cmd_args,
+            **cmd_kwargs
+        )
 
     @property
     def name(self):
