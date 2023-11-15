@@ -33,6 +33,8 @@ class Executor:
             k.replace("__", ""): v for k, v in kwargs.items() if k.startswith("__")
         }
 
+        _pos_args = list(args)
+
         if script:
             self._runner.save(filename=script, category="code")
 
@@ -70,14 +72,15 @@ class Executor:
 
         if executable:
             _command += [executable]
+        else:
+            _command += [_pos_args[0]]
+            _pos_args.pop(0)
 
         if script:
             _command += [script]
 
         if input_file:
             _command += [input_file]
-
-        _command += list(args)
 
         for arg, value in kwargs.items():
             if arg.startswith("__"):
@@ -92,6 +95,8 @@ class Executor:
                     _command += [f"--{arg}"]
                 else:
                     _command += [f"--{arg}", f"{value}"]
+        
+        _command += _pos_args
 
         self._processes[identifier] = multiprocessing.Process(
             target=_exec_process,

@@ -11,6 +11,7 @@ import sys
 import time as tm
 import platform
 import uuid
+import typing
 
 from .worker import Worker
 from .simvue import Simvue
@@ -353,25 +354,33 @@ class Run(object):
         input_file: str | None = None,
         **cmd_kwargs
     ) -> None:
-        _cmd_str: str = ""
+        _cmd_list: typing.List[str] = []
+        _pos_args = list(cmd_args)
+
         if executable:
-            _cmd_str += executable + " "
+            _cmd_list += [executable]
+        else:
+            _cmd_list += [_pos_args[0]]
+            executable = _pos_args[0]
+            _pos_args.pop(0)
+
         for kwarg, val in cmd_kwargs.items():
             if len(kwarg) == 1:
                 if isinstance(val, bool) and val:
-                    _cmd_str += f"-{kwarg} "
+                    _cmd_list += [f"-{kwarg}"]
                 else:
-                    _cmd_str += f"-{kwarg}{(' '+val) if val else ''} "
+                    _cmd_list += [f"-{kwarg}{(' '+val) if val else ''}"]
             else:
                 if isinstance(val, bool) and val:
-                    _cmd_str += f"--{kwarg} "
+                    _cmd_list += [f"--{kwarg}"]
                 else:
-                    _cmd_str += f"--{kwarg}{(' '+val) if val else ''} "
-        _cmd_str += " ".join(cmd_args)
-        self.update_metadata({"_SIMVUE_COMMAND": _cmd_str})
+                    _cmd_list += [f"--{kwarg}{(' '+val) if val else ''}"]
+        _cmd_list += _pos_args
+        _cmd_str = " ".join(_cmd_list)
+        self.update_metadata({f"{identifier}_command": _cmd_str})
         self._executor.add_process(
             identifier,
-            *cmd_args,
+            *_pos_args,
             executable=executable,
             script=script,
             input_file=input_file,
