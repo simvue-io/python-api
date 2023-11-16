@@ -445,6 +445,11 @@ class Run(object):
         self._executor.kill_all()
 
     @property
+    def executor(self) -> Executor:
+        """Return the executor for this run"""
+        return self._executor
+
+    @property
     def name(self):
         """
         Return the name of the run

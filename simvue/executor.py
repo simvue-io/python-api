@@ -46,6 +46,7 @@ class Executor:
         self._exit_codes = self._manager.dict()
         self._std_err = self._manager.dict()
         self._std_out = self._manager.dict()
+        self._command_str: typing.Dict[str, str] = {}
         self._processes: typing.Dict[str, multiprocessing.Process] = {}
 
 
@@ -160,6 +161,8 @@ class Executor:
         
         _command += _pos_args
 
+        self._command_str[identifier] = " ".join(_command)
+
         self._processes[identifier] = multiprocessing.Process(
             target=_exec_process,
             args=(
@@ -178,6 +181,23 @@ class Executor:
     def success(self) -> int:
         """Return whether all attached processes completed successfully"""
         return all(i == 0 for i in self._exit_codes.values())
+    
+    def get_command(self, process_id: str) -> str:
+        """Returns the command executed within the given process.
+
+        Parameters
+        ----------
+        process_id : str
+            Unique identifier for the process
+
+        Returns
+        -------
+        str
+            command as a string
+        """
+        if not process_id in self._processes:
+            raise KeyError(f"Failed to retrieve '{process_id}', no such process")
+        return self._command_str[process_id]
 
     def _log_events(self) -> None:
         """Send log events for the result of each process"""

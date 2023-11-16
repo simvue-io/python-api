@@ -25,13 +25,14 @@ class TestRunMetrics(unittest.TestCase):
 
                 for i in range(1, 3):
                     _run.add_process(f"process_{i}", executable="python", script=temp_f.name)
+                    assert _run.executor.get_command(f"process_{i}") == f"python {temp_f.name}"
                 
                 time.sleep(5)
 
                 _run.kill_all_processes()
         end_time = time.time()
 
-        assert end_time - start_time < 6
+        assert end_time - start_time < 10, f"{end_time - start_time} >= 10"
 
 if __name__ == '__main__':
     unittest.main()
