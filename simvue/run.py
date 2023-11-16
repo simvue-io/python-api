@@ -429,6 +429,20 @@ class Run(object):
             input_file=input_file,
             **cmd_kwargs
         )
+    
+    def kill_process(self, process_id: str) -> None:
+        """Kill a running process by ID
+
+        Parameters
+        ----------
+        process_id : str
+            the unique identifier for the added process
+        """
+        self._executor.kill_process(process_id)
+
+    def kill_all_processes(self) -> None:
+        """Kill all currently running processes."""
+        self._executor.kill_all()
 
     @property
     def name(self):

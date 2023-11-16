@@ -48,6 +48,7 @@ class Executor:
         self._std_out = self._manager.dict()
         self._processes: typing.Dict[str, multiprocessing.Process] = {}
 
+
     def add_process(
         self,
         identifier: str,
@@ -197,6 +198,17 @@ class Executor:
             if self._std_out[proc_id]:
                 self._runner.save(f"{self._runner.name}_{proc_id}.out", category="output")
             
+    def kill_process(self, process_id: str) -> None:
+        """Kill a running process by ID"""
+        if not (_process := self._processes.get(process_id)):
+            logger.error(f"Failed to terminate process '{process_id}', no such identifier.")
+            return
+        _process.kill()
+
+    def kill_all(self) -> None:
+        """Kill all running processes"""
+        for process in self._processes.values():
+            process.kill()
     
     def _clear_cache_files(self) -> None:
         """Clear local log files if required"""
