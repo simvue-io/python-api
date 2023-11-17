@@ -175,7 +175,7 @@ class Run(object):
         self._name = None
         self._executor = Executor(self)
         self._id = None
-        self._suppress_errors = False
+        self._suppress_errors = True
         self._queue_blocking = False
         self._status = None
         self._upload_time_log = None
@@ -491,7 +491,7 @@ class Run(object):
         self._pid = pid
 
     def config(self,
-               suppress_errors=False,
+               suppress_errors=True,
                queue_blocking=False,
                queue_size=QUEUE_SIZE,
                disable_resources_metrics=False,
