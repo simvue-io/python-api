@@ -1,7 +1,6 @@
 from concurrent.futures import ProcessPoolExecutor
 import json
 import os
-import pickle
 import requests
 
 from .serialization import Deserializer

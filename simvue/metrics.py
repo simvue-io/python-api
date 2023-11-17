@@ -1,6 +1,4 @@
 import logging
-import time
-import psutil
 from .pynvml import *
 
 logger = logging.getLogger(__name__)
