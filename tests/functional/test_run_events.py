@@ -20,14 +20,10 @@ class TestRunEvents(unittest.TestCase):
 
         run.close()
 
-        run_id = name
-        if common.SIMVUE_API_VERSION:
-            run_id = run.id
-
         time.sleep(5)
 
         client = Client()
-        data = client.get_events(run_id)
+        data = client.get_events(run.id)
 
         data_compare = [{'timestamp': '2022-01-03 16:42:30.849617', 'message': 'test-event-1'},
                         {'timestamp': '2022-01-03 16:42:31.849617', 'message': 'test-event-2'}]

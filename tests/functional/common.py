@@ -26,5 +26,3 @@ FILENAME3 = str(uuid.uuid4())
 RUNNAME1 = 'test-%s' % str(uuid.uuid4())
 RUNNAME2 = 'test-%s' % str(uuid.uuid4())
 RUNNAME3 = 'test-%s' % str(uuid.uuid4())
-
-SIMVUE_API_VERSION = os.getenv('SIMVUE_API_VERSION')
