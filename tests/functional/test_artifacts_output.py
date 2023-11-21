@@ -26,15 +26,11 @@ class TestArtifacts(unittest.TestCase):
 
         run.close()
 
-        run_id = common.RUNNAME3
-        if common.SIMVUE_API_VERSION:
-            run_id = run.id
-
         shutil.rmtree('./test', ignore_errors=True)
         os.mkdir('./test')
 
         client = Client()
-        client.get_artifact_as_file(run_id, common.FILENAME3, './test')
+        client.get_artifact_as_file(run.id, common.FILENAME3, './test')
 
         self.assertTrue(filecmp.cmp(common.FILENAME3, './test/%s' % common.FILENAME3))
 

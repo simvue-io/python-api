@@ -14,12 +14,8 @@ class TestRunContext(unittest.TestCase):
         with Run() as run:
             run.init(name, folder=folder)
 
-            run_id = name
-            if common.SIMVUE_API_VERSION:
-                run_id = run.id
-
         client = Client()
-        data = client.get_run(run_id)
+        data = client.get_run(run.id)
         self.assertEqual(name, data['name'])
 
         runs = client.delete_runs(folder)

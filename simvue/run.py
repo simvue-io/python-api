@@ -26,6 +26,7 @@ import typing
 import types
 import glob
 import uuid
+import typing
 
 from multiprocessing.synchronize import Event
 
@@ -36,6 +37,7 @@ from .models import RunInput
 from .remote import Remote
 from .offline import Offline
 from .utilities import get_auth, get_expiry, skip_if_failed
+from .executor import Executor
 from pydantic import ValidationError
 
 INIT_MISSING: str = "initialize a run using init() first"
@@ -144,6 +146,30 @@ class Run:
     """
     Track simulation details based on token and URL
     """
+    def __init__(self, mode='online'):
+        self._uuid = str(uuid.uuid4())
+        self._mode = mode
+        self._name = None
+        self._executor = Executor(self)
+        self._id = None
+        self._suppress_errors = True
+        self._queue_blocking = False
+        self._status = None
+        self._upload_time_log = None
+        self._upload_time_event = None
+        self._data = []
+        self._events = []
+        self._step = 0
+        self._queue_size = QUEUE_SIZE
+        self._metrics_queue = None
+        self._events_queue = None
+        self._active = False
+        self._url, self._token = get_auth()
+        self._headers = {"Authorization": f"Bearer {self._token}"}
+        self._simvue = None
+        self._pid = 0
+        self._resources_metrics_interval = 30
+        self._shutdown_event = None
 
     def __init__(self, mode: str = "online") -> None:
         self._uuid: str = str(uuid.uuid4())
@@ -177,6 +203,8 @@ class Run:
         value: typing.Optional[BaseException],
         traceback: typing.Optional[types.TracebackType],
     ) -> None:
+        self._executor.wait_for_completion()
+
         identifier: str = self._id
         logger.debug(
             "Automatically closing run %s in status %s", identifier, self._status
@@ -348,6 +376,109 @@ class Run:
         if self._status == "running":
             self._start()
         return True
+    
+    def add_process(self,
+        identifier: str,
+        *cmd_args,
+        executable: str | None = None,
+        script: str | None = None,
+        input_file: str | None = None,
+        **cmd_kwargs
+    ) -> None:
+        """Add a process to be executed to the executor.
+
+        This process can take many forms, for example a be a set of positional arguments:
+
+        ```python
+        executor.add_process("my_process", "ls", "-ltr")
+        ```
+
+        Provide explicitly the components of the command:
+
+        ```python
+        executor.add_process("my_process", executable="bash", debug=True, c="return 1")
+        executor.add_process("my_process", executable="bash", script="my_script.sh", input="parameters.dat")
+        ```
+
+        or a mixture of both. In the latter case arguments which are not 'executable', 'script', 'input'
+        are taken to be options to the command, for flags `flag=True` can be used to set the option and
+        for options taking values `option=value`.
+
+        Parameters
+        ----------
+        identifier : str
+            A unique identifier for this process
+        executable : str | None, optional
+            the main executable for the command, if not specified this is taken to be the first
+            positional argument, by default None
+        *positional_arguments
+            all other positional arguments are taken to be part of the command to execute
+        script : str | None, optional
+            the script to run, note this only work if the script is not an option, if this is the case
+            you should provide it as such and perform the upload manually, by default None
+        input_file : str | None, optional
+            the input file to run, note this only work if the input file is not an option, if this is the case
+            you should provide it as such and perform the upload manually, by default None
+        **kwargs
+            all other keyword arguments are interpreted as options to the command
+        """
+        _cmd_list: typing.List[str] = []
+        _pos_args = list(cmd_args)
+
+        # Assemble the command for saving to metadata as string
+        if executable:
+            _cmd_list += [executable]
+        else:
+            _cmd_list += [_pos_args[0]]
+            executable = _pos_args[0]
+            _pos_args.pop(0)
+
+        for kwarg, val in cmd_kwargs.items():
+            if len(kwarg) == 1:
+                if isinstance(val, bool) and val:
+                    _cmd_list += [f"-{kwarg}"]
+                else:
+                    _cmd_list += [f"-{kwarg}{(' '+val) if val else ''}"]
+            else:
+                if isinstance(val, bool) and val:
+                    _cmd_list += [f"--{kwarg}"]
+                else:
+                    _cmd_list += [f"--{kwarg}{(' '+val) if val else ''}"]
+
+        _cmd_list += _pos_args
+        _cmd_str = " ".join(_cmd_list)
+
+        # Store the command executed in metadata
+        self.update_metadata({f"{identifier}_command": _cmd_str})
+
+        # Add the process to the executor
+        self._executor.add_process(
+            identifier,
+            *_pos_args,
+            executable=executable,
+            script=script,
+            input_file=input_file,
+            **cmd_kwargs
+        )
+    
+    def kill_process(self, process_id: str) -> None:
+        """Kill a running process by ID
+
+        Parameters
+        ----------
+        process_id : str
+            the unique identifier for the added process
+        """
+        self._executor.kill_process(process_id)
+
+    def kill_all_processes(self) -> None:
+        """Kill all currently running processes."""
+        self._executor.kill_all()
+
+    @property
+    def executor(self) -> Executor:
+        """Return the executor for this run"""
+        return self._executor
 
     @property
     def name(self) -> str | None:
@@ -776,10 +907,6 @@ class Run:
             self._error(INIT_MISSING)
             return False
 
-        if not self._active:
-            self._error("Run is not active")
-            return False
-
         if not os.path.isdir(directory):
             self._error(f"Directory {directory} does not exist")
             return False
@@ -866,7 +993,7 @@ class Run:
 
     @skip_if_failed("_aborted", "suppress_errors", {})
     def close(self):
-        """
+        """f
         Close the run
         """
         if self._mode == "disabled":
@@ -879,8 +1006,10 @@ class Run:
         if not self._active:
             self._error("Run is not active")
             return False
+   
+        if self._status != 'failed':
+            self.set_status('completed')
 
-        self.set_status("completed")
         self._shutdown_event.set()
 
     @skip_if_failed("_aborted", "suppress_errors", False)
@@ -923,11 +1052,16 @@ class Run:
 
         return False
 
-    @skip_if_failed("_aborted", "suppress_errors", False)
-    def add_alerts(self, ids=[], names=[]):
+    def add_alerts(self,
+        ids=None,
+        names=None
+    ) -> bool:
         """
         Add one or more existing alerts by name or id
         """
+        ids = ids or []
+        names = names or []
+
         if names and not ids:
             alerts = self._simvue.list_alerts()
             if alerts:

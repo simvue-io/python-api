@@ -127,3 +127,16 @@ dmypy.json
 
 # Pyre type checker
 .pyre/
+
+# Log files
+*.err
+*.out
+
+# Simvue files
+simvue.ini
+
+# Pyenv
+.python-version
+
+# VSCode
+.vscode/
