@@ -15,11 +15,9 @@ class TestRunOfflineContextManager(unittest.TestCase):
         """
         Create a run using a context manager, upload it & check that it exists
         """
-        common.update_config()
-        try:
-            shutil.rmtree('./offline')
-        except:
-            pass
+        test_dir = common.create_config()
+
+        os.chdir(test_dir)
 
         name = 'test-%s' % str(uuid.uuid4())
         with Run('offline') as run:

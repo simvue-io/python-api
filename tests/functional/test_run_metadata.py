@@ -1,6 +1,7 @@
 import random
 import unittest
 import uuid
+import os
 from simvue import Run, Client
 from simvue.sender import sender
 
@@ -11,10 +12,13 @@ class TestRunMetadata(unittest.TestCase):
         """
         Check metadata can be specified & retrieved
         """
+        test_dir = next(common.create_config())
+
+        os.chdir(test_dir)
         name = 'test-%s' % str(uuid.uuid4())
         folder = '/test-%s' % str(uuid.uuid4())
         metadata = {'a': 'string', 'b': random.random(), 'c': random.random()}
-        run = Run()
+        run = Run(mode='offline')
         run.init(name, metadata=metadata, folder=folder)
         run.close()
 

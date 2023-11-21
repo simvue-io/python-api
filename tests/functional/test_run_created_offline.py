@@ -1,4 +1,4 @@
-import shutil
+import os
 import unittest
 import uuid
 from simvue import Run, Client
@@ -11,11 +11,9 @@ class TestRunCreated(unittest.TestCase):
         """
         Create a run in the created state, then reconnect to it
         """
-        common.update_config()
-        try:
-            shutil.rmtree('./offline')
-        except:
-            pass
+        test_dir = common.create_config()
+
+        os.chdir(test_dir)
 
         name = 'test-%s' % str(uuid.uuid4())
         run_create = Run('offline')

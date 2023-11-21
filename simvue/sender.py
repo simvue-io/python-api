@@ -114,6 +114,9 @@ def sender():
         if not os.path.isfile(created_file):
             name = remote.create_run(run_init)
             if name:
+                if not current or not os.path.exists(directory):
+                    logger.error("No directory defined for writing")
+                    return False
                 logger.info('Creating run with name %s', name)
                 run_init = add_name(name, run_init, f"{current}/run.json")
                 create_file(created_file)

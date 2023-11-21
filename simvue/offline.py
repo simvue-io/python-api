@@ -42,10 +42,14 @@ class Offline(object):
         """
         Create a run
         """
+        if not self._directory:
+            logger.error("No directory specified")
+            return False
         try:
             os.makedirs(self._directory, exist_ok=True)
         except Exception as err:
             logger.error('Unable to create directory %s due to: %s', self._directory, str(err))
+            return False
         
         filename = f"{self._directory}/run.json"
         if 'name' not in data:
@@ -69,6 +73,9 @@ class Offline(object):
 
         if 'status' in data:
             status = data['status']
+            if not self._directory or not os.path.exists(self._directory):
+                self._error("No directory defined for writing")
+                return False
             filename = f"{self._directory}/{status}"
             create_file(filename)
 

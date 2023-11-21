@@ -17,11 +17,9 @@ class TestRunOffline(unittest.TestCase):
         """
         Create a run, upload it & check that it exists
         """
-        common.update_config()
-        try:
-            shutil.rmtree('./offline')
-        except:
-            pass
+        test_dir = common.create_config()
+
+        os.chdir(test_dir)
 
         name = 'test-%s' % str(uuid.uuid4())
         run = Run('offline')

@@ -177,7 +177,7 @@ class Worker(threading.Thread):
             if self._shutdown_event.is_set() or not self._parent_thread.is_alive():
                 if self._metrics_queue.empty() and self._events_queue.empty():
                     logger.debug('Ending worker thread')
-                    sys.exit(0)
+                    return
             else:
                 counter = 0
                 while counter < POLLING_INTERVAL and not self._shutdown_event.is_set() and self._parent_thread.is_alive() and not self._events_queue.full() and not self._metrics_queue.full():

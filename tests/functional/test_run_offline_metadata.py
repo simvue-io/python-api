@@ -15,11 +15,9 @@ class TestRunOfflineMetadata(unittest.TestCase):
         """
         Create a run with metadata, upload it & check that it exists
         """
-        common.update_config()
-        try:
-            shutil.rmtree('./offline')
-        except:
-            pass
+        test_dir = common.create_config()
+
+        os.chdir(test_dir)
 
         name = 'test-%s' % str(uuid.uuid4())
         metadata = {'a': 'string', 'b': 1, 'c': 2.5}

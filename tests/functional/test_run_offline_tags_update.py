@@ -15,11 +15,9 @@ class TestRunOffline(unittest.TestCase):
         """
         Check tags can be updated & retrieved
         """
-        common.update_config()
-        try:
-            shutil.rmtree('./offline')
-        except:
-            pass
+        test_dir = common.create_config()
+
+        os.chdir(test_dir)
 
         name = 'test-%s' % str(uuid.uuid4())
         tags = ['a1']
