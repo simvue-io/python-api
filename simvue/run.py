@@ -193,6 +193,7 @@ class Run(object):
         self._pid = 0
         self._resources_metrics_interval = 30
         self._shutdown_event = None
+        self._storage_id = None
 
     def __enter__(self):
         return self
@@ -495,7 +496,8 @@ class Run(object):
                queue_blocking=False,
                queue_size=QUEUE_SIZE,
                disable_resources_metrics=False,
-               resources_metrics_interval=30):
+               resources_metrics_interval=30,
+               storage_id=None):
         """
         Optional configuration
         """
@@ -520,6 +522,9 @@ class Run(object):
         if not isinstance(resources_metrics_interval, int):
             self._error('resources_metrics_interval must be an integer')
         self._resources_metrics_interval = resources_metrics_interval
+
+        if storage_id:
+            self._storage_id = storage_id
 
     def update_metadata(self, metadata):
         """
@@ -724,6 +729,9 @@ class Run(object):
             data['checksum'] = calculate_sha256(data['pickled'], False)
             data['originalPath'] = ''
             data['size'] = sys.getsizeof(data['pickled'])
+
+        if self._storage_id:
+            data['storage'] = self._storage_id
 
         # Register file
         if not self._simvue.save_file(data):
