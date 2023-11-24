@@ -140,3 +140,4 @@ simvue.ini
 
 # VSCode
 .vscode/
+.env

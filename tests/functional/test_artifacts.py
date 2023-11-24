@@ -46,3 +46,13 @@ def test_artifact_output(create_a_run: RunTestInfo, created: bool, file_type: st
     runs = client.delete_runs(create_a_run.folder)
     assert len(runs) == 1
 
+
+@pytest.mark.artifacts
+def test_get_artifact_invalid_run(create_a_run: RunTestInfo) -> None:
+    """
+    Try to obtain a file from a run which doesn't exist
+    """
+    client = Client()
+    with pytest.raises(Exception) as context:
+        client.get_artifact(create_a_run.run_name, create_a_run.folder)   
+        assert 'Run does not exist' in str(context.exception)

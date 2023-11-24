@@ -418,7 +418,11 @@ class Client(object):
 
         if response.status_code == 200:
             data = []
-            for item in response.json()[run][name]:
+            if not (_run := response.json().get(run)):
+                raise KeyError(f"Failed to retrieve run '{run}'")
+            if (_items := _run.get(name)) is None:
+                raise KeyError(f"Failed to retrieve '{name}' from run '{run}'")
+            for item in _items:
                 data.append([item[xaxis], item["value"], run_name, name])
 
             if format == "dataframe":
