@@ -274,7 +274,9 @@ class Run:
         # If an error is thrown Simvue Client will now enter an aborted
         # state allowing other Python code to complete, but putting
         # the client out of action, hence job is now 'lost'
-        self._simvue.update({"name": self._name, "status": "lost"})
+        if self._simvue:
+            self._simvue.update({"name": self._name, "status": "lost"})
+
         self._aborted = True
 
     @skip_if_failed("_aborted", "suppress_errors", None)
