@@ -1,10 +1,11 @@
 import pytest
 import logging
 from simvue.run import Run
+from conftest import RunTestInfo
 
 
 @pytest.mark.unit
-def test_run_init_folder_fail(create_a_run) -> None:
+def test_run_init_folder_fail(create_a_run: RunTestInfo) -> None:
     """
     Check that run.init throws an exception if folder input is not specified correctly
     """
@@ -23,7 +24,7 @@ def test_run_init_folder_fail(create_a_run) -> None:
 
 
 @pytest.mark.unit
-def test_run_init_metadata_fail(create_a_run) -> None:
+def test_run_init_metadata_fail(create_a_run: RunTestInfo) -> None:
     """
     Check that run.init throws an exception if tuples are passed into metadata dictionary
     """
@@ -42,7 +43,7 @@ def test_run_init_metadata_fail(create_a_run) -> None:
 
 
 @pytest.mark.unit
-def test_run_init_tags_fail(create_a_run) -> None:
+def test_run_init_tags_fail(create_a_run: RunTestInfo) -> None:
     """
     Check that run.init throws an exception if tags are not a list
     """
@@ -104,3 +105,36 @@ def test_suppress_errors_default(caplog):
     caplog.set_level(logging.ERROR)
     
     assert "disable_resources_metrics must be boolean" in caplog.text
+
+
+@pytest.mark.unit
+@pytest.mark.parametrize(
+    "func,args,expect", [
+        ("init", (), None),
+        ("add_process", ("",), None),
+        ("config", (), False),
+        ("update_metadata", ({},), False),
+        ("update_tags", ([],), False),
+        ("log_event", ("",), False),
+        ("log_metrics", ({},), False),
+        ("save", ("", ""), False),
+        ("save_directory", ("", ""), False),
+        ("save_all", ([], ""), False),
+        ("close", (), {}),
+        ("set_folder_details", ("",), False),
+        ("add_alerts", (), False),
+        ("add_alert", ("",), False),
+        ("log_alert", ("", ""), False)
+    ],
+)
+def test_dormant_after_suppress(func, args, expect) -> None:
+    """
+    Check class methods return defaults if error raised
+    """
+    run = Run()
+
+    run.config(suppress_errors=True)
+    run.config(disable_resources_metrics=123)
+
+    assert (_got := getattr(run, func)(*args)) == expect, \
+    f"Assertion failed for '{func}': {_got} != {expect}"

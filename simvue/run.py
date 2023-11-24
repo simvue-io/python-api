@@ -279,7 +279,7 @@ class Run:
 
         self._aborted = True
 
-    @skip_if_failed("_aborted", "suppress_errors", None)
+    @skip_if_failed("_aborted", "_suppress_errors", None)
     def init(
         self,
         name: str | None = None,
@@ -356,7 +356,8 @@ class Run:
         if self._status == "running":
             self._start()
         return True
-    
+
+    @skip_if_failed("_aborted", "_suppress_errors", None)
     def add_process(self,
         identifier: str,
         *cmd_args,
@@ -373,7 +374,7 @@ class Run:
         executor.add_process("my_process", "ls", "-ltr")
         ```
 
-        Provide explicitly the components of the command:
+        Provide explicitly the cfomponents of the command:
 
         ```python
         executor.add_process("my_process", executable="bash", debug=True, c="return 1")
@@ -503,14 +504,14 @@ class Run:
         """
         self._pid = pid
 
-    @skip_if_failed("_aborted", "suppress_errors", False)
+    @skip_if_failed("_aborted", "_suppress_errors", False)
     def config(
         self,
-        suppress_errors: bool = False,
-        queue_blocking: bool = False,
-        queue_size: int = QUEUE_SIZE,
-        disable_resources_metrics: bool = False,
-        resources_metrics_interval: int = 30,
+        suppress_errors: bool | None = None,
+        queue_blocking: bool | None = None,
+        queue_size: int | None = None,
+        disable_resources_metrics: bool | None = None,
+        resources_metrics_interval: int | None = None,
     ) -> None:
         """Optional configuration
 
@@ -529,30 +530,37 @@ class Run:
         resources_metrics_interval : int, optional
             how often to gather resource metrics, by default 30
         """
-        if not isinstance(suppress_errors, bool):
-            self._error("suppress_errors must be boolean")
+        # The arguments are None by default so all configurations do
+        # not have to be repeated every time a user wants to update just
+        # one of them
+        if suppress_errors is not None:
+            if not isinstance(suppress_errors, bool):
+                self._error("suppress_errors must be boolean")
+            self._suppress_errors = suppress_errors
 
-        self._suppress_errors = suppress_errors
+        if queue_blocking is not None:
+            if not isinstance(queue_blocking, bool):
+                self._error("queue_blocking must be boolean")
+            self._queue_blocking = queue_blocking
 
-        if not isinstance(queue_blocking, bool):
-            self._error("queue_blocking must be boolean")
-        self._queue_blocking = queue_blocking
+        if queue_size is not None:
+            if not isinstance(queue_size, int):
+                self._error("queue_size must be an integer")
+            self._queue_size = queue_size
 
-        if not isinstance(queue_size, int):
-            self._error("queue_size must be an integer")
-        self._queue_size = queue_size
-
-        if not isinstance(disable_resources_metrics, bool):
-            self._error("disable_resources_metrics must be boolean")
+        if disable_resources_metrics is not None:
+            if not isinstance(disable_resources_metrics, bool):
+                self._error("disable_resources_metrics must be boolean")
 
         if disable_resources_metrics:
             self._pid = None
 
-        if not isinstance(resources_metrics_interval, int):
-            self._error("resources_metrics_interval must be an integer")
-        self._resources_metrics_interval = resources_metrics_interval
+        if resources_metrics_interval is not None:
+            if not isinstance(resources_metrics_interval, int):
+                self._error("resources_metrics_interval must be an integer")
+            self._resources_metrics_interval = resources_metrics_interval
 
-    @skip_if_failed("_aborted", "suppress_errors", False)
+    @skip_if_failed("_aborted", "_suppress_errors", False)
     def update_metadata(self, metadata: typing.Dict[str, typing.Any]) -> bool:
         """Update metadata for this run.
 
@@ -585,7 +593,7 @@ class Run:
 
         return False
 
-    @skip_if_failed("_aborted", "suppress_errors", False)
+    @skip_if_failed("_aborted", "_suppress_errors", False)
     def update_tags(self, tags: typing.List[str]) -> bool:
         """Update list of tags for this run
 
@@ -613,7 +621,7 @@ class Run:
 
         return False
 
-    @skip_if_failed("_aborted", "suppress_errors", False)
+    @skip_if_failed("_aborted", "_suppress_errors", False)
     def log_event(self, message: str, timestamp: str | None = None) -> bool:
         """Write an event to the server.
 
@@ -662,7 +670,7 @@ class Run:
 
         return True
 
-    @skip_if_failed("_aborted", "suppress_errors", False)
+    @skip_if_failed("_aborted", "_suppress_errors", False)
     def log_metrics(
         self,
         metrics: typing.Dict[str, str | int | float],
@@ -761,7 +769,7 @@ class Run:
 
         return data
 
-    @skip_if_failed("_aborted", "suppress_errors", False)
+    @skip_if_failed("_aborted", "_suppress_errors", False)
     def save(
         self,
         filename: str,
@@ -854,7 +862,7 @@ class Run:
         # Register file
         return bool(self._simvue.save_file(data))
 
-    @skip_if_failed("_aborted", "suppress_errors", False)
+    @skip_if_failed("_aborted", "_suppress_errors", False)
     def save_directory(
         self,
         directory: str,
@@ -907,7 +915,7 @@ class Run:
 
         return True
 
-    @skip_if_failed("_aborted", "suppress_errors", False)
+    @skip_if_failed("_aborted", "_suppress_errors", False)
     def save_all(
         self,
         items: typing.List[str],
@@ -944,7 +952,7 @@ class Run:
             else:
                 self._error(f"{item}: No such file or directory")
 
-    @skip_if_failed("_aborted", "suppress_errors", False)
+    @skip_if_failed("_aborted", "_suppress_errors", False)
     def set_status(self, status):
         """
         Set run status
@@ -971,7 +979,7 @@ class Run:
 
         return False
 
-    @skip_if_failed("_aborted", "suppress_errors", {})
+    @skip_if_failed("_aborted", "_suppress_errors", {})
     def close(self):
         """f
         Close the run
@@ -992,8 +1000,14 @@ class Run:
 
         self._shutdown_event.set()
 
-    @skip_if_failed("_aborted", "suppress_errors", False)
-    def set_folder_details(self, path, metadata={}, tags=[], description=None):
+    @skip_if_failed("_aborted", "_suppress_errors", False)
+    def set_folder_details(
+        self,
+        path: str,
+        metadata: typing.Dict[str, typing.Any] | None = None,
+        tags: typing.List[str] | None=None,
+        description: str | None=None
+    ) -> bool:
         """
         Add metadata to the specified folder
         """
@@ -1008,7 +1022,7 @@ class Run:
             self._error("Run is not active")
             return False
 
-        if not isinstance(metadata, dict):
+        if metadata and not isinstance(metadata, dict):
             self._error("metadata must be a dict")
             return False
 
@@ -1032,6 +1046,7 @@ class Run:
 
         return False
 
+    @skip_if_failed("_aborted", "_suppress_errors", False)
     def add_alerts(self,
         ids=None,
         names=None
@@ -1061,7 +1076,7 @@ class Run:
 
         return False
 
-    @skip_if_failed("_aborted", "suppress_errors", False)
+    @skip_if_failed("_aborted", "_suppress_errors", False)
     def add_alert(
         self,
         name,
@@ -1168,7 +1183,7 @@ class Run:
 
         return False
 
-    @skip_if_failed("_aborted", "suppress_errors", False)
+    @skip_if_failed("_aborted", "_suppress_errors", False)
     def log_alert(self, name, state):
         """
         Set the state of an alert
