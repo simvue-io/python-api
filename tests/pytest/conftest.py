@@ -5,9 +5,19 @@ import os
 import uuid
 import dataclasses
 
-from simvue.client import Client
-
 SIMVUE_API_VERSION = os.getenv('SIMVUE_API_VERSION', 1)
+
+
+@pytest.fixture
+def check_env(request) -> None:
+    for item in request.session.items:
+        if item.get_closest_marker('online') is not None:
+            for env_var in ("SIMVUE_TOKEN", "SIMVUE_URL"):
+                if not os.getenv(env_var, None):
+                    raise AssertionError(
+                        f"Environment variable {env_var} must be set for this test"
+                    )
+
 
 def create_config(directory: str) -> None:
     """
@@ -25,43 +35,25 @@ def create_config(directory: str) -> None:
 
 
 @pytest.fixture
-def test_directory() -> str:
-    with tempfile.TemporaryDirectory() as temp_d:
-        create_config(temp_d)
-        yield temp_d
-
-@pytest.fixture(scope="session")
 def session_directory() -> str:
     with tempfile.TemporaryDirectory() as temp_d:
         create_config(temp_d)
         yield temp_d
 
-
 @dataclasses.dataclass
 class RunTestInfo:
     run_name: str
     file_name: str
-    client: Client
     session_dir: str
+    folder: str
     
-def _create_a_run(temp_dir: str) -> RunTestInfo:
-    _client = Client()
+
+@pytest.fixture
+def create_a_run(session_directory: str, check_env: None) -> RunTestInfo:
     _run_id = f'{uuid.uuid4()}'
     _file_name = f'test-{uuid.uuid4()}'
-    _test_dir = os.path.join(temp_dir, "test")
+    _test_dir = os.path.join(session_directory, "test")
+    _folder = f"/test-{uuid.uuid4()}"
     os.makedirs(_test_dir, exist_ok=True)
-    return RunTestInfo(_run_id, _file_name, _client, temp_dir)
-
-
-@pytest.fixture(scope="session")
-def create_run_1(session_directory: str) -> RunTestInfo:
-    return _create_a_run(session_directory)
-    
-
-@pytest.fixture(scope="session")
-def create_run_2(session_directory: str) -> RunTestInfo:
-    return _create_a_run(session_directory)
-
-@pytest.fixture(scope="session")
-def create_run_3(session_directory: str) -> RunTestInfo:
-    return _create_a_run(session_directory)
+    os.chdir(session_directory)
+    return RunTestInfo(_run_id, _file_name, session_directory, _folder)

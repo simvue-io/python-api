@@ -38,6 +38,8 @@ class Client(object):
 
     def __init__(self):
         self._url, self._token = get_auth()
+        if not self._url:
+            raise AssertionError("Failed to retrieve URL from configuration")
         self._headers = {"Authorization": f"Bearer {self._token}"}
         self._version = get_server_version()
 
@@ -51,7 +53,7 @@ class Client(object):
         if (
             response.status_code != 200
         ):
-            raise Exception(response.json().get("detail", "Request failed"))
+            raise Exception(f"Request for run {run} failed with: {response.json().get('detail', 'Request failed')}")
 
         return response.json()
 

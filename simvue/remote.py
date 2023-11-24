@@ -1,5 +1,6 @@
 import logging
 import time
+import typing
 
 from .api import post, put, get
 from .utilities import get_auth, get_expiry, prepare_for_api, get_server_version
@@ -35,7 +36,7 @@ class Remote(object):
         else:
             logger.error(message)
 
-    def create_run(self, data):
+    def create_run(self, data) -> typing.Tuple[str | None, str | None]:
         """
         Create a run
         """
@@ -45,15 +46,16 @@ class Remote(object):
             response = post(f"{self._url}/api/runs", self._headers, data)
         except Exception as err:
             self._error(f"Exception creating run: {str(err)}")
-            return False
+            return (None, None)
 
         logger.debug('Got status code %d when creating run, with response: "%s"', response.status_code, response.text)
 
         if response.status_code == 409:
             self._error(f"Duplicate run, name {data['name']} already exists")
+            return (None, None)
         elif response.status_code != 200:
             self._error(f"Got status code {response.status_code} when creating run")
-            return False
+            return (None, None)
 
         if 'name' in response.json():
             self._name = response.json()['name']

@@ -146,36 +146,12 @@ class Run:
     """
     Track simulation details based on token and URL
     """
-    def __init__(self, mode='online'):
-        self._uuid = str(uuid.uuid4())
-        self._mode = mode
-        self._name = None
-        self._executor = Executor(self)
-        self._id = None
-        self._suppress_errors = True
-        self._queue_blocking = False
-        self._status = None
-        self._upload_time_log = None
-        self._upload_time_event = None
-        self._data = []
-        self._events = []
-        self._step = 0
-        self._queue_size = QUEUE_SIZE
-        self._metrics_queue = None
-        self._events_queue = None
-        self._active = False
-        self._url, self._token = get_auth()
-        self._headers = {"Authorization": f"Bearer {self._token}"}
-        self._simvue = None
-        self._pid = 0
-        self._resources_metrics_interval = 30
-        self._shutdown_event = None
-
     def __init__(self, mode: str = "online") -> None:
         self._uuid: str = str(uuid.uuid4())
         self._mode: str = mode
         self._name: str | None = None
         self._id: str | None = None
+        self._executor = Executor(self)
         self._suppress_errors: bool = False
         self._queue_blocking: bool = False
         self._status: str | None = None
@@ -217,7 +193,8 @@ class Run:
             self._shutdown_event.set()
 
         if not type:
-            self.set_status("completed")
+            if self._active:
+                self.set_status("completed")
         else:
             if self._active:
                 self.log_event(f"{type.__name__}: {value}")
@@ -288,7 +265,8 @@ class Run:
         """
         Raise an exception if necessary and log error
         """
-        self._shutdown_event.set()
+        if self._shutdown_event is not None:
+            self._shutdown_event.set()
         if not self._suppress_errors:
             raise RuntimeError(message)
         logger.error(message)
@@ -320,7 +298,7 @@ class Run:
         if self._mode == "disabled":
             return True
 
-        if not self._token or not self._url:
+        if (not self._token or not self._url) and self._mode != "offline":
             self._error(
                 "Unable to get URL and token from environment variables or config file"
             )

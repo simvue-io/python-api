@@ -3,6 +3,7 @@ import jwt
 import logging
 import os
 import requests
+import contextlib
 import typing
 
 logger = logging.getLogger(__name__)
@@ -62,13 +63,11 @@ def get_auth():
         os.path.join(os.path.expanduser("~"), ".simvue.ini"),
         "simvue.ini",
     ):
-        try:
+        with contextlib.suppress(Exception):
             config = configparser.ConfigParser()
             config.read(filename)
             token = config.get("server", "token")
             url = config.get("server", "url")
-        except:
-            pass
 
     # Try environment variables
     token = os.getenv("SIMVUE_TOKEN", token)
@@ -112,6 +111,8 @@ def get_offline_directory():
 
     if not directory:
         directory = os.path.join(os.path.expanduser("~"), ".simvue")
+
+    os.makedirs(directory, exist_ok=True)
 
     return directory
 

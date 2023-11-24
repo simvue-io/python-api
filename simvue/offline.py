@@ -19,6 +19,8 @@ class Offline(object):
         self._directory = os.path.join(get_offline_directory(), self._uuid)
         self._suppress_errors = suppress_errors
 
+        os.makedirs(self._directory, exist_ok=True)
+
     def _error(self, message):
         """
         Raise an exception if necessary and log error
