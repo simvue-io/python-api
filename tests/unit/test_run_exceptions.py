@@ -4,7 +4,7 @@ from simvue.run import Run
 
 
 @pytest.mark.unit
-def test_run_init_folder_fail() -> None:
+def test_run_init_folder_fail(create_a_run) -> None:
     """
     Check that run.init throws an exception if folder input is not specified correctly
     """
@@ -23,7 +23,7 @@ def test_run_init_folder_fail() -> None:
 
 
 @pytest.mark.unit
-def test_run_init_metadata_fail() -> None:
+def test_run_init_metadata_fail(create_a_run) -> None:
     """
     Check that run.init throws an exception if tuples are passed into metadata dictionary
     """
@@ -42,7 +42,7 @@ def test_run_init_metadata_fail() -> None:
 
 
 @pytest.mark.unit
-def test_run_init_tags_fail() -> None:
+def test_run_init_tags_fail(create_a_run) -> None:
     """
     Check that run.init throws an exception if tags are not a list
     """
