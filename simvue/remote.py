@@ -136,17 +136,11 @@ class Remote(object):
         """
         Save file
         """
-        if run is not None and self._version == 0:
-            data['run'] = run
-            noun = 'data'
-        elif self._id and self._version > 0:
-            noun = 'artifacts'
-
         logger.debug('Getting presigned URL for saving artifact, with data: "%s"', data)
 
         # Get presigned URL
         try:
-            response = post(f"{self._url}/api/{noun}", self._headers, prepare_for_api(data))
+            response = post(f"{self._url}/api/artifacts", self._headers, prepare_for_api(data))
         except Exception as err:
             self._error(f"Got exception when preparing to upload file {data['name']} to object storage: {str(err)}")
             return False

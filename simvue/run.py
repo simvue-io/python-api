@@ -146,7 +146,6 @@ class Run:
     """
     Track simulation details based on token and URL
     """
-
     def __init__(self, mode: str = "online") -> None:
         self._uuid: str = str(uuid.uuid4())
         self._mode: str = mode
@@ -170,6 +169,7 @@ class Run:
         self._pid: int = 0
         self._resources_metrics_interval: int = 30
         self._shutdown_event: Event | None = None
+        self._storage_id: int | None = None
 
     def __enter__(self) -> "Run":
         return self
@@ -514,6 +514,7 @@ class Run:
         queue_size: int | None = None,
         disable_resources_metrics: bool | None = None,
         resources_metrics_interval: int | None = None,
+        storage_id: int | None = None
     ) -> None:
         """Optional configuration
 
@@ -561,6 +562,8 @@ class Run:
             if not isinstance(resources_metrics_interval, int):
                 self._error("resources_metrics_interval must be an integer")
             self._resources_metrics_interval = resources_metrics_interval
+
+        self._storage_id = storage_id or self._storage_id
 
     @skip_if_failed("_aborted", "_suppress_errors", False)
     def update_metadata(self, metadata: typing.Dict[str, typing.Any]) -> bool:
@@ -860,6 +863,9 @@ class Run:
             data["checksum"] = calculate_sha256(data["pickled"], False)
             data["originalPath"] = ""
             data["size"] = sys.getsizeof(data["pickled"])
+
+        if self._storage_id:
+            data['storage'] = self._storage_id
 
         # Register file
         return bool(self._simvue.save_file(data))

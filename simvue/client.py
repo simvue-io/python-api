@@ -380,7 +380,7 @@ class Client(object):
 
         raise Exception(response.text)
 
-    def get_metrics(self, run, name, xaxis, format="list"):
+    def get_metrics(self, run, name, xaxis, max_points=0, format='list'):
         """
         Get time series metrics for the specified run and metrics name
         """
@@ -395,12 +395,10 @@ class Client(object):
         if response.status_code == 200:
             run_name = response.json()["name"]
 
-        params = {
-            "runs": json.dumps([run]),
-            "metrics": json.dumps([name]),
-            "summary": False,
-            "xaxis": xaxis,
-        }
+        params = {'runs': json.dumps([run]),
+                  'metrics': json.dumps([name]),
+                  'xaxis': xaxis,
+                  'max_points': max_points}
 
         if xaxis not in ("step", "time", "timestamp"):
             raise Exception(
@@ -431,17 +429,15 @@ class Client(object):
 
         raise Exception(response.text)
 
-    def get_metrics_multiple(self, runs, names, xaxis, sample_by=0, format="list"):
+    def get_metrics_multiple(self, runs, names, xaxis, max_points=0, aggregate=False, format='list'):
         """
         Get time series metrics from multiple runs and/or metrics
         """
-        params = {
-            "runs": ",".join(runs),
-            "metrics": ",".join(names),
-            "summary": False,
-            "sample_by": sample_by,
-            "xaxis": xaxis,
-        }
+        params = {'runs': json.dumps(runs),
+                  'metrics': json.dumps(names),
+                  'aggregate': aggregate,
+                  'max_points': max_points,
+                  'xaxis': xaxis}
 
         if xaxis not in ("step", "time"):
             raise Exception(
@@ -458,13 +454,24 @@ class Client(object):
         )
 
         if response.status_code == 200:
-            if format == "dataframe":
+            data = []
+            if not aggregate:
+                for run in response.json():
+                    for name in response.json()[run]:
+                        for item in response.json()[run][name]:
+                            data.append([item[xaxis], item['value'], run, name])
+            else:
+                for name in response.json():
+                    for item in response.json()[name]:
+                        data.append([item[xaxis], item['min'], item['average'], item['max'], name])
+
+            if format == 'dataframe':
                 return metrics_to_dataframe(response.json(), xaxis)
-            return response.json()
+            return data
 
         raise Exception(response.text)
-
-    def plot_metrics(self, runs, names, xaxis, sample_by=0):
+        
+    def plot_metrics(self, runs, names, xaxis, max_points=0):
         """
         Plot time series metrics from multiple runs and/or metrics
         """
@@ -474,7 +481,7 @@ class Client(object):
         if not isinstance(names, list):
             raise Exception('Invalid names specified, must be a list of metric names.')
         
-        data = self.get_metrics_multiple(runs, names, xaxis, sample_by, format='dataframe')
+        data = self.get_metrics_multiple(runs, names, xaxis, max_points, format='dataframe')
         import matplotlib.pyplot as plt
 
         for run in runs:
