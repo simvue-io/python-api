@@ -146,6 +146,7 @@ class Run:
     """
     Track simulation details based on token and URL
     """
+
     def __init__(self, mode: str = "online") -> None:
         self._uuid: str = str(uuid.uuid4())
         self._mode: str = mode
@@ -358,13 +359,14 @@ class Run:
         return True
 
     @skip_if_failed("_aborted", "_suppress_errors", None)
-    def add_process(self,
+    def add_process(
+        self,
         identifier: str,
         *cmd_args,
         executable: str | None = None,
         script: str | None = None,
         input_file: str | None = None,
-        **cmd_kwargs
+        **cmd_kwargs,
     ) -> None:
         """Add a process to be executed to the executor.
 
@@ -439,9 +441,9 @@ class Run:
             executable=executable,
             script=script,
             input_file=input_file,
-            **cmd_kwargs
+            **cmd_kwargs,
         )
-    
+
     def kill_process(self, process_id: str) -> None:
         """Kill a running process by ID
 
@@ -498,7 +500,7 @@ class Run:
         )
         self._start(reconnect=True)
 
-    def set_pid(self, pid):
+    def set_pid(self, pid: str) -> None:
         """
         Set pid of process to be monitored
         """
@@ -928,7 +930,7 @@ class Run:
         Parameters
         ----------
         items : typing.List[str]
-            a list of items to 
+            a list of items to
         category : str
             _description_
         filetype : str | None, optional
@@ -953,7 +955,7 @@ class Run:
                 self._error(f"{item}: No such file or directory")
 
     @skip_if_failed("_aborted", "_suppress_errors", False)
-    def set_status(self, status):
+    def set_status(self, status: str) -> bool:
         """
         Set run status
         """
@@ -980,7 +982,7 @@ class Run:
         return False
 
     @skip_if_failed("_aborted", "_suppress_errors", {})
-    def close(self):
+    def close(self) -> bool | None:
         """f
         Close the run
         """
@@ -994,9 +996,9 @@ class Run:
         if not self._active:
             self._error("Run is not active")
             return False
-   
-        if self._status != 'failed':
-            self.set_status('completed')
+
+        if self._status != "failed":
+            self.set_status("completed")
 
         self._shutdown_event.set()
 
@@ -1005,8 +1007,8 @@ class Run:
         self,
         path: str,
         metadata: typing.Dict[str, typing.Any] | None = None,
-        tags: typing.List[str] | None=None,
-        description: str | None=None
+        tags: typing.List[str] | None = None,
+        description: str | None = None,
     ) -> bool:
         """
         Add metadata to the specified folder
@@ -1047,9 +1049,8 @@ class Run:
         return False
 
     @skip_if_failed("_aborted", "_suppress_errors", False)
-    def add_alerts(self,
-        ids=None,
-        names=None
+    def add_alerts(
+        self, ids: typing.List[str] | None = None, names: typing.List[str] | None = None
     ) -> bool:
         """
         Add one or more existing alerts by name or id
@@ -1058,14 +1059,15 @@ class Run:
         names = names or []
 
         if names and not ids:
-            alerts = self._simvue.list_alerts()
-            if alerts:
-                for alert in alerts:
-                    if alert["name"] in names:
-                        ids.append(alert["id"])
-            else:
+            alerts = self._simvue.list_alerts() or []
+            if not alerts:
                 self._error("No existing alerts")
                 return False
+            ids += [
+                alert["id"]
+                for alert in alerts
+                if alert["name"] in names
+            ]
         elif not names and not ids:
             self._error("Need to provide alert ids or alert names")
             return False
