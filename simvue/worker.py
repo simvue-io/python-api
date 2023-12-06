@@ -52,7 +52,7 @@ class Worker(threading.Thread):
         self._start_time = time.time()
         self._processes = []
         self._resources_metrics_interval = resources_metrics_interval
-        self._version = get_server_version()
+        self._version: int | None = get_server_version()
         self._pid = pid
         if pid:
             self._processes = update_processes(psutil.Process(pid), [])
@@ -114,7 +114,7 @@ class Worker(threading.Thread):
                         gpu = get_gpu_metrics(self._processes)
                         if memory is not None and cpu is not None:
                             data = {}
-                            if self._version == 0:
+                            if not self._version:
                                 data['run'] = self._run_name
                             data['step'] = 0
                             data['values'] = {'resources/cpu.usage.percent': cpu,
@@ -147,7 +147,7 @@ class Worker(threading.Thread):
 
             if buffer:
                 logger.debug('Sending metrics')
-                if self._version > 0:
+                if self._version:
                     buffer = {'metrics': buffer, 'run': self._run_id}
                 try:
                     if self._mode == 'online': buffer = msgpack.packb(buffer, use_bin_type=True)
@@ -165,7 +165,7 @@ class Worker(threading.Thread):
 
             if buffer:
                 logger.debug('Sending events')
-                if self._version > 0:
+                if self._version:
                     buffer = {'events': buffer, 'run': self._run_id}
                 try:
                     if self._mode == 'online': buffer = msgpack.packb(buffer, use_bin_type=True)

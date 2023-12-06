@@ -31,11 +31,11 @@ import typing
 from multiprocessing.synchronize import Event
 
 from .worker import Worker
-from .simvue import Simvue
+from .factory import Simvue
 from .serialization import Serializer
 from .models import RunInput
-from .remote import Remote
-from .offline import Offline
+from .factory.remote import Remote
+from .factory.offline import Offline
 from .utilities import get_auth, get_expiry, skip_if_failed
 from .executor import Executor
 from pydantic import ValidationError
@@ -868,7 +868,7 @@ class Run:
             data['storage'] = self._storage_id
 
         # Register file
-        return bool(self._simvue.save_file(data))
+        return self._simvue.save_file(data)
 
     @skip_if_failed("_aborted", "_suppress_errors", False)
     def save_directory(

@@ -76,38 +76,40 @@ def get_auth():
     return url, token
 
 
-def get_server_version():
+def get_server_version() -> int  | None:
     """
     Get the server version
     """
     url, _ = get_auth()
 
-    try:
+    with contextlib.suppress(Exception):
         response = requests.get(f"{url}/api/version")
-    except:
-        pass
-    else:
-        if response.status_code == 200:
-            return 1
-    return 0
+        
+        if response.status_code != 200:
+            return None
+
+        _response_json: dict[str, str] = response.json()
+
+        if (_version_string := _response_json.get("version")):
+            return int(_version_string.split(".", 1)[0])
+
+    return None
 
 
-def get_offline_directory():
+def get_offline_directory() -> str:
     """
     Get directory for offline cache
     """
-    directory = None
+    directory: str | None = None
 
     for filename in (
         os.path.join(os.path.expanduser("~"), ".simvue.ini"),
         "simvue.ini",
     ):
-        try:
+        with contextlib.suppress(Exception):
             config = configparser.ConfigParser()
             config.read(filename)
             directory = config.get("offline", "cache")
-        except:
-            pass
 
     if not directory:
         directory = os.path.join(os.path.expanduser("~"), ".simvue")

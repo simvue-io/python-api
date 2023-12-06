@@ -1,101 +1,108 @@
-def to_dataframe(data):
+import typing
+
+if typing.TYPE_CHECKING:
+    from pandas import DataFrame
+
+
+def to_dataframe(data: list[dict[str, typing.Any]]) -> "DataFrame":
     """
     Convert runs to dataframe
     """
     import pandas as pd
 
-    metadata = []
-    for run in data:
-        if 'metadata' in run:
-            for item in run['metadata']:
-                if item not in metadata:
-                    metadata.append(item) 
+    metadata: list[dict[str, typing.Any]] = []
+    columns: dict[str, list[typing.Any]] = {
+        "name": [],
+        "status": [],
+        "folder": [],
+        "created": [],
+        "started": [],
+        "ended": []
+    }
 
-    columns = {}
     for run in data:
-        for item in ('name', 'status', 'folder', 'created', 'started', 'ended'):
-            if item not in columns:
-                columns[item] = []
-            if item in run:
-                columns[item].append(run[item])
-            else:
-                columns[item].append(None)
+        metadata += [
+            item for item in run.get("metadata", [])
+            if item not in metadata
+        ]
+
+        for label, column in columns.items():
+            column.append(run.get(label))
+
+        _system_info: dict[str, dict | str | int | float] = run.get("system", {})
  
-        if 'system' in run:
-            for section in run['system']:
-                if section in ('cpu', 'gpu', 'platform'):
-                    for item in run['system'][section]:
-                        if 'system.%s.%s' % (section, item) not in columns:
-                            columns['system.%s.%s' % (section, item)] = []
-                        columns['system.%s.%s' % (section, item)].append(run['system'][section][item])
-                else:
-                    if 'system.%s' % section not in columns:
-                        columns['system.%s' % section] = []
-                    columns['system.%s' % section].append(run['system'][section])
+        for section, values in _system_info.items():
+            if section in ("cpu", "gpu", "platform"):
+                for label, item in values.items():
+                    _key = f"system.{section}.{label}"
+                    columns[_key] = columns.get(_key, []).append(item)
+            else:
+                _key = f"system.{section}"
+                columns[_key] = columns.get(_key, []).append(values)
 
-        if 'metadata' in run:
-            for item in metadata:
-                if 'metadata.%s' % item not in columns:
-                    columns['metadata.%s' % item] = []
-                if item in run['metadata']:
-                    columns['metadata.%s' % item].append(run['metadata'][item])
-                else:
-                    columns['metadata.%s' % item].append(None)
+        for label in metadata:
+            _item = run.get("metadata", {}).get(label)
+            _key = f"metadata{section}.{label}"
+            columns[_key] = columns.get(_key, []).append(_item)
 
-    df = pd.DataFrame(data=columns)
-    return df
+    return pd.DataFrame(data=columns)
 
-def metrics_to_dataframe(data, xaxis, name=None):
+
+def metrics_to_dataframe(data: list[list[str]], xaxis: str, name: str | None=None):
     """
     Convert metrics to dataframe
     """
     import pandas as pd
 
     if name:
-        columns = {xaxis: [], name: []}
+        columns: dict[str, list[str | int | float]] = {
+            xaxis: [],
+            name: []
+        }
         for item in data:
             columns[xaxis].append(item[0])
             columns[name].append(item[1])
 
-        df = pd.DataFrame(data=columns)
-    else:
-        runs = []
-        metrics = []
-        for item in data:
-            if item[2] not in runs:
-                runs.append(item[2])
-            if item[3] not in metrics:
-                metrics.append(item[3])
+        return pd.DataFrame(data=columns)
 
-        headers = pd.MultiIndex.from_product([runs, metrics, [xaxis, 'value']], names=["run", "metric", "column"])
+    runs = []
+    metrics = []
 
-        newdata = {}
-        for row in data:
-            if row[2] not in newdata:
-                newdata[row[2]] = {}
-            if row[3] not in newdata[row[2]]:
-                newdata[row[2]][row[3]] = []
+    for item in data:
+        if item[2] not in runs:
+            runs.append(item[2])
+        if item[3] not in metrics:
+            metrics.append(item[3])
 
-            newdata[row[2]][row[3]].append([row[0], row[1]])
+    headers = pd.MultiIndex.from_product([runs, metrics, [xaxis, "value"]], names=["run", "metric", "column"])
 
-        max_rows = 0
+    newdata = {}
+    for row in data:
+        if row[2] not in newdata:
+            newdata[row[2]] = {}
+        if row[3] not in newdata[row[2]]:
+            newdata[row[2]][row[3]] = []
+
+        newdata[row[2]][row[3]].append([row[0], row[1]])
+
+    max_rows = 0
+    for run in newdata:
+        for metric in newdata[run]:
+            if len(newdata[run][metric]) > max_rows:
+                max_rows = len(newdata[run][metric])
+
+    results = []
+    for count in range (0, max_rows):
+        line = []
         for run in newdata:
             for metric in newdata[run]:
-                if len(newdata[run][metric]) > max_rows:
-                    max_rows = len(newdata[run][metric])
+                if count < len(newdata[run][metric]):
+                    line.append(newdata[run][metric][count][0])
+                    line.append(newdata[run][metric][count][1])
+                else:
+                    line.append(None)
+                    line.append(None)
+        results.append(line)
 
-        results = []
-        for count in range (0, max_rows):
-            line = []
-            for run in newdata:
-                for metric in newdata[run]:
-                    if count < len(newdata[run][metric]):
-                        line.append(newdata[run][metric][count][0])
-                        line.append(newdata[run][metric][count][1])
-                    else:
-                        line.append(None)
-                        line.append(None)
-            results.append(line)
-
-        df = pd.DataFrame(data=results, columns=headers)
+    df = pd.DataFrame(data=results, columns=headers)
     return df

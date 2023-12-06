@@ -7,7 +7,7 @@ import time
 
 import msgpack
 
-from .remote import Remote
+from .factory.remote import Remote
 from .utilities import get_offline_directory, create_file, remove_file
 
 logger = logging.getLogger(__name__)

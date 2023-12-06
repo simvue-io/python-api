@@ -1,7 +1,12 @@
 from concurrent.futures import ProcessPoolExecutor
 import json
 import os
+import typing
 import requests
+
+from typing import TYPE_CHECKING:
+    from pandas import DataFrame
+    from plotly.serializers import Fi 
 
 from .serialization import Deserializer
 from .utilities import get_auth, get_server_version
@@ -12,14 +17,14 @@ DOWNLOAD_CHUNK_SIZE = 8192
 DOWNLOAD_TIMEOUT = 30
 
 
-def downloader(job):
+def downloader(job: dict[str, typing.Any]) -> dict[str, typing.Any] | None:
     """
     Download the specified file to the specified directory
     """
     try:
         response = requests.get(job["url"], stream=True, timeout=DOWNLOAD_TIMEOUT)
     except requests.exceptions.RequestException:
-        return
+        return None
 
     total_length = response.headers.get("content-length")
 
@@ -29,6 +34,8 @@ def downloader(job):
         else:
             for data in response.iter_content(chunk_size=DOWNLOAD_CHUNK_SIZE):
                 fh.write(data)
+    
+    return response.json()
 
 
 class Client(object):
@@ -36,31 +43,31 @@ class Client(object):
     Class for querying Simvue
     """
 
-    def __init__(self):
+    def __init__(self) -> None:
         self._url, self._token = get_auth()
+
         if not self._url:
             raise AssertionError("Failed to retrieve URL from configuration")
-        self._headers = {"Authorization": f"Bearer {self._token}"}
-        self._version = get_server_version()
 
-    def get_run(self, run, system=False, tags=False, metadata=False):
+        self._headers: dict[str, str] = {"Authorization": f"Bearer {self._token}"}
+        self._version: int | None = get_server_version()
+
+    def get_run(self, run: int) -> dict[str, typing.Any] | None:
         """
         Get a single run
         """
         response = requests.get(f"{self._url}/api/runs/{run}", headers=self._headers)
 
-
         if (
             response.status_code != 200
         ):
-            raise Exception(f"Request for run {run} failed with: {response.json().get('detail', 'Request failed')}")
+            raise AssertionError(f"Request for run {run} failed with: {response.json().get('detail', 'Request failed')}")
 
         return response.json()
 
-
     def get_runs(
         self, filters, system=False, tags=False, metadata=False, format="dict"
-    ):
+    ) -> dict[str, typing.Any] | None | "DataFrame":
         """
         Get runs
         """
@@ -83,11 +90,11 @@ class Client(object):
             elif format == "dataframe":
                 return to_dataframe(response.json())
             else:
-                raise Exception("invalid format specified")
+                raise AssertionError("invalid format specified")
 
         return None
 
-    def delete_run(self, run):
+    def delete_run(self, run: int) -> dict[str, typing.Any] | None:
         """
         Delete run
         """
@@ -97,13 +104,12 @@ class Client(object):
             f"{self._url}/api/runs", headers=self._headers, params=params
         )
 
-        if response.status_code == 200:
-            if "runs" in response.json():
-                return response.json()["runs"]
+        if response.status_code == 200 and (_runs := response.json().get("runs")):
+            return _runs
 
-        raise Exception(response.text)
+        raise AssertionError(response.text)
 
-    def _get_folder_id_from_path(self, path):
+    def _get_folder_id_from_path(self, path: str) -> str | None:
         """
         Get folder id for the specified path
         """
@@ -113,62 +119,60 @@ class Client(object):
             f"{self._url}/api/folders", headers=self._headers, params=params
         )
 
-        folder_id = None
-        if response.status_code == 200:
-            if "data" in response.json():
-                if response.json()["data"]:
-                    if "id" in response.json()["data"][0]:
-                        folder_id = response.json()["data"][0]["id"]
+        if all([
+            response.status_code == 200,
+            len(_data := response.json().get("data", [])) > 0,
+            _id := _data[0].get("id")
+        ]):
+            return _id
 
-        return folder_id
+        return None
 
-    def delete_runs(self, folder):
+    def delete_runs(self, folder: str) -> dict[str, typing.Any] | None:
         """
         Delete runs in folder
         """
-        folder_id = self._get_folder_id_from_path(folder)
-        if not folder_id:
+        if not (folder_id := self._get_folder_id_from_path(folder)):
             return None
 
-        params = {"runs_only": True, "runs": True}
+        params: dict[str, bool] = {"runs_only": True, "runs": True}
+
         response = requests.delete(
-            f"{self._url}/api/folders/{folder_id}", headers=self._headers, params=params
+            f"{self._url}/api/folders/{folder_id}",
+            headers=self._headers,
+            params=params
         )
 
-        if response.status_code == 200:
-            if "runs" in response.json():
-                return response.json()["runs"]
+        if response.status_code == 200 and (_runs := response.json().get("runs")):
+            return _runs
 
-        raise Exception(response.text)
+        raise AssertionError(response.text)
 
-    def delete_folder(self, folder, runs=False):
+    def delete_folder(self, folder: str, runs: bool=False) -> dict[str, typing.Any] | None:
         """
         Delete folder
         """
-        folder_id = self._get_folder_id_from_path(folder)
-        if not folder_id:
+        if not (folder_id := self._get_folder_id_from_path(folder)):
             return None
 
-        params = {}
-        if runs:
-            params["runs"] = True
+        params: dict[str, bool] = {"runs": True} if runs else {}
 
         response = requests.delete(
-            f"{self._url}/api/folders/{folder_id}", headers=self._headers, params=params
+            f"{self._url}/api/folders/{folder_id}",
+            headers=self._headers,
+            params=params
         )
 
-        if response.status_code == 200:
-            if "runs" in response.json():
-                return response.json()["runs"]
-            return []
+        if response.status_code == 200 and (_runs := response.json().get("runs")):
+            return _runs
 
-        raise Exception(response.text)
+        raise AssertionError(response.text)
 
-    def list_artifacts(self, run, category=None):
+    def list_artifacts(self, run, category=None) -> dict[str, typing.Any] | None:
         """
         List artifacts associated with a run
         """
-        params = {"run": run}
+        params: dict[str, ] = {"run": run}
         if category:
             params["category"] = category
 
@@ -176,21 +180,22 @@ class Client(object):
             f"{self._url}/api/artifacts", headers=self._headers, params=params
         )
 
-        if response.status_code == 404:
-            if "detail" in response.json():
-                if response.json()["detail"] == "run does not exist":
-                    raise Exception("Run does not exist")
+        if (
+            response.status_code == 404 and
+            response.json().get("detail") == "run does not exist"
+        ):
+            raise AssertionError("Run does not exist")
 
         if response.status_code == 200:
             return response.json()
 
-        raise Exception(response.text)
+        raise AssertionError(response.text)
 
-    def get_artifact(self, run, name, allow_pickle=False):
+    def get_artifact(self, run: int, name: str, allow_pickle: bool=False) -> Figure | None:
         """
         Return the contents of the specified artifact
         """
-        params = {"run_id": run, "name": name}
+        params: dict[str, int | str] = {"run_id": run, "name": name}
 
         response = requests.get(
             f"{self._url}/api/runs/{run}/artifacts",
@@ -198,11 +203,10 @@ class Client(object):
             params=params,
         )
 
-        if response.status_code == 404:
-            if "detail" in response.json():
-                if response.json()["detail"] == "No such run":
+        if response.status_code == 404 and (_detail := response.json().get("detail")):
+                if _detail == "No such run":
                     raise Exception("Run does not exist")
-                elif response.json()["detail"] == "artifact does not exist":
+                elif _detail == "artifact does not exist":
                     raise Exception("Artifact does not exist")
 
         if response.status_code != 200:
