@@ -1,6 +1,7 @@
 import copy
 import json
 import requests
+import simvue.exceptions as sv_exc
 from tenacity import retry, wait_exponential, stop_after_attempt
 
 DEFAULT_API_TIMEOUT = 10
@@ -19,7 +20,7 @@ def set_json_header(headers):
     return headers
 
 @retry(wait=wait_exponential(multiplier=RETRY_MULTIPLIER, min=RETRY_MIN, max=RETRY_MAX),
-                             stop=stop_after_attempt(RETRY_STOP))
+                             stop=stop_after_attempt(RETRY_STOP), reraise=True)
 def post(url, headers, data, is_json=True):
     """
     HTTP POST with retries
@@ -30,10 +31,10 @@ def post(url, headers, data, is_json=True):
     response = requests.post(url, headers=headers, data=data, timeout=DEFAULT_API_TIMEOUT)
     
     if response.status_code in (401, 403):
-        raise Exception('Authorization error')
+        raise sv_exc.SimvueConnectionError(f'Authorization error [{response.status_code}]: {response.text}')
         
     if response.status_code not in (200, 201, 409):
-        raise Exception('HTTP error')
+        raise sv_exc.SimvueConnectionError(f'Connection failed [{response.status_code}]: {response.text}')
 
     return response
 
