@@ -59,6 +59,7 @@ class Executor:
         script: str | None = None,
         input_file: str | None = None,
         print_stdout: bool=False,
+        env: typing.Optional[typing.Dict[str, str]] = None,
         completion_callback: typing.Callable | None=None,
         **kwargs,
     ) -> None:
@@ -104,6 +105,8 @@ class Executor:
         input_file : str | None, optional
             the input file to run, note this only work if the input file is not an option, if this is the case
             you should provide it as such and perform the upload manually, by default None
+        env : typing.Dict[str, str], optional
+            environment variables for process
         completion_callback : typing.Callable | None, optional
             callback to run when process terminates
         """
@@ -134,7 +137,8 @@ class Executor:
             std_err: typing.Dict[str, str],
             std_out: typing.Dict[str, str],
             run_on_exit: typing.Callable=completion_callback,
-            print_out: bool=print_stdout
+            print_out: bool=print_stdout,
+            environment: typing.Optional[typing.Dict[str, str]]=env
         ) -> None:
             _logger = logging.getLogger(proc_id)
             with open(f"{runner.name}_{proc_id}.err", "w") as err:
@@ -143,7 +147,8 @@ class Executor:
                         command,
                         stdout=subprocess.PIPE,
                         stderr=subprocess.PIPE,
-                        universal_newlines=True
+                        universal_newlines=True,
+                        env=environment
                     )
                     
                     while True:

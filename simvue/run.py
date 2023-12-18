@@ -359,6 +359,7 @@ class Run(object):
         input_file: str | None = None,
         print_stdout: bool = False,
         completion_callback: typing.Callable | None=None,
+        env: typing.Optional[typing.Dict[str, str]]=None,
         **cmd_kwargs
     ) -> None:
         """Add a process to be executed to the executor.
@@ -407,6 +408,8 @@ class Run(object):
             print output of command to the terminal, default is False
         completion_callback : typing.Callable | None, optional
             callback to run when process terminates
+        env : typing.Dict[str, str], optional
+            environment variables for process
         **kwargs
             all other keyword arguments are interpreted as options to the command
         """
@@ -448,6 +451,7 @@ class Run(object):
             input_file=input_file,
             print_stdout=print_stdout,
             completion_callback=completion_callback,
+            env=env,
             **cmd_kwargs
         )
     
