@@ -217,6 +217,10 @@ class Run(object):
                     if traceback and self._active:
                         self.log_event(f"Traceback: {traceback}")
                         self.set_status('failed')
+        
+        if (_non_zero := self.executor.exit_status):
+            logger.error(f"Simvue process executor terminated with non-zero exit status {_non_zero}")
+            sys.exit(_non_zero)
 
     def _check_token(self):
         """
@@ -272,10 +276,6 @@ class Run(object):
             self._worker.start()
 
         self._active = True
-
-        if (_non_zero := self.executor.exit_status):
-            logger.error(f"Simvue process executor terminated with non-zero exit status {_non_zero}")
-            sys.exit(_non_zero)
 
     def _error(self, message):
         """
