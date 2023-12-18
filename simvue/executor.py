@@ -14,6 +14,7 @@ import typing
 import subprocess
 import multiprocessing
 import logging
+import sys
 import os
 
 if typing.TYPE_CHECKING:
@@ -234,6 +235,16 @@ class Executor:
     def success(self) -> int:
         """Return whether all attached processes completed successfully"""
         return all(i == 0 for i in self._exit_codes.values())
+    
+    @property
+    def exit_status(self) -> int:
+        """Returns the first non-zero exit status if applicable"""
+        _non_zero = [i for i in self._exit_codes.values() if i != 0]
+
+        if _non_zero:
+            return _non_zero[0]
+        
+        return 0
     
     def get_command(self, process_id: str) -> str:
         """Returns the command executed within the given process.

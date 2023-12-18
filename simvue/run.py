@@ -273,6 +273,10 @@ class Run(object):
 
         self._active = True
 
+        if (_non_zero := self.executor.exit_status):
+            logger.error(f"Simvue process executor terminated with non-zero exit status {_non_zero}")
+            sys.exit(_non_zero)
+
     def _error(self, message):
         """
         Raise an exception if necessary and log error
