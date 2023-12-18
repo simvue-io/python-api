@@ -54,11 +54,11 @@ class Executor:
     def add_process(
         self,
         identifier: str,
-        print_stdout: bool=False,
         *args,
         executable: str | None = None,
         script: str | None = None,
         input_file: str | None = None,
+        print_stdout: bool=False,
         completion_callback: typing.Callable | None=None,
         **kwargs,
     ) -> None:
