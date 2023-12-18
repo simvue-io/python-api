@@ -53,6 +53,7 @@ class Executor:
     def add_process(
         self,
         identifier: str,
+        print_stdout: bool=False,
         *args,
         executable: str | None = None,
         script: str | None = None,
@@ -82,6 +83,8 @@ class Executor:
         ----------
         identifier : str
             A unique identifier for this process
+        print_stdout : bool, optional
+            print output of command to stdout
         executable : str | None, optional
             the main executable for the command, if not specified this is taken to be the first
             positional argument, by default None
@@ -119,9 +122,32 @@ class Executor:
             std_err: typing.Dict[str, str],
             std_out: typing.Dict[str, str]
         ) -> None:
+            _logger = logging.getLogger(proc_id)
             with open(f"{runner.name}_{proc_id}.err", "w") as err:
                 with open(f"{runner.name}_{proc_id}.out", "w") as out:
-                    _result = subprocess.run(command, stdout=out, stderr=err, text=True)
+                    _result = subprocess.Popen(
+                        command,
+                        stdout=subprocess.PIPE,
+                        stderr=subprocess.PIPE,
+                        universal_newlines=True
+                    )
+                    
+                    while True:
+                        _std_out_line = _result.stdout.readline()
+                        _std_err_line = _result.stderr.readline()
+
+                        if _std_out_line:
+                            out.write(_std_out_line)
+                            _logger.info(_std_out_line)
+
+                        if _std_err_line:
+                            err.write(_std_err_line)
+                            _logger.error(_std_err_line)
+                        
+                        if not _std_err_line and not _std_out_line:
+                            break
+
+            _status_code = _result.wait()
 
             with open(f"{runner.name}_{proc_id}.err") as err:
                 std_err[proc_id] = err.read()
@@ -129,7 +155,7 @@ class Executor:
             with open(f"{runner.name}_{proc_id}.out") as out:
                 std_out[proc_id] = out.read()
 
-            exit_status_dict[proc_id] = _result.returncode
+            exit_status_dict[proc_id] = _status_code
 
         _command: typing.List[str] = []
 
@@ -195,7 +221,7 @@ class Executor:
         str
             command as a string
         """
-        if not process_id in self._processes:
+        if process_id not in self._processes:
             raise KeyError(f"Failed to retrieve '{process_id}', no such process")
         return self._command_str[process_id]
 
