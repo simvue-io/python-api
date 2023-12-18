@@ -120,7 +120,8 @@ class Executor:
             runner: "simvue.Run",
             exit_status_dict: typing.Dict[str, int],
             std_err: typing.Dict[str, str],
-            std_out: typing.Dict[str, str]
+            std_out: typing.Dict[str, str],
+            print_out: bool=print_stdout
         ) -> None:
             _logger = logging.getLogger(proc_id)
             with open(f"{runner.name}_{proc_id}.err", "w") as err:
@@ -138,11 +139,13 @@ class Executor:
 
                         if _std_out_line:
                             out.write(_std_out_line)
-                            _logger.info(_std_out_line)
+                            if print_out:
+                                _logger.info(_std_out_line)
 
                         if _std_err_line:
                             err.write(_std_err_line)
-                            _logger.error(_std_err_line)
+                            if print_out:
+                                _logger.error(_std_err_line)
                         
                         if not _std_err_line and not _std_out_line:
                             break
