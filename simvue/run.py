@@ -202,9 +202,18 @@ class Run:
             if type.__name__ in ("KeyboardInterrupt") and self._active:
                 self.set_status("terminated")
             else:
-                if traceback and self._active:
-                    self.log_event(f"Traceback: {traceback}")
-                    self.set_status("failed")
+                if self._active:
+                    self.log_event(f"{type.__name__}: {value}")
+                if type.__name__ in ('KeyboardInterrupt') and self._active:
+                    self.set_status('terminated')
+                else:
+                    if traceback and self._active:
+                        self.log_event(f"Traceback: {traceback}")
+                        self.set_status('failed')
+        
+        if (_non_zero := self.executor.exit_status):
+            logger.error(f"Simvue process executor terminated with non-zero exit status {_non_zero}")
+            sys.exit(_non_zero)
 
     def _check_token(self) -> None:
         """
@@ -366,7 +375,10 @@ class Run:
         executable: str | None = None,
         script: str | None = None,
         input_file: str | None = None,
-        **cmd_kwargs,
+        print_stdout: bool = False,
+        completion_callback: typing.Callable | None=None,
+        env: typing.Optional[typing.Dict[str, str]]=None,
+        **cmd_kwargs
     ) -> None:
         """Add a process to be executed to the executor.
 
@@ -387,6 +399,14 @@ class Run:
         are taken to be options to the command, for flags `flag=True` can be used to set the option and
         for options taking values `option=value`.
 
+        When the process has completed if a function has been provided for the `completion_callback` argument
+        this will be called, this callback is expected to take the following form:
+
+        ```python
+        def callback_function(status_code: int, std_out: str, std_err: str) -> None:
+            ...
+        ```
+
         Parameters
         ----------
         identifier : str
@@ -402,6 +422,12 @@ class Run:
         input_file : str | None, optional
             the input file to run, note this only work if the input file is not an option, if this is the case
             you should provide it as such and perform the upload manually, by default None
+        print_stdout : bool, optional
+            print output of command to the terminal, default is False
+        completion_callback : typing.Callable | None, optional
+            callback to run when process terminates
+        env : typing.Dict[str, str], optional
+            environment variables for process
         **kwargs
             all other keyword arguments are interpreted as options to the command
         """
@@ -441,7 +467,10 @@ class Run:
             executable=executable,
             script=script,
             input_file=input_file,
-            **cmd_kwargs,
+            print_stdout=print_stdout,
+            completion_callback=completion_callback,
+            env=env,
+            **cmd_kwargs
         )
 
     def kill_process(self, process_id: str) -> None:
