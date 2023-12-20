@@ -468,3 +468,36 @@ class Client(object):
             return response.json()['data']
 
         raise Exception(response.text)
+    
+    def get_alerts(self, run, triggered_only = True, names_only = True):
+        """_summary_
+
+        Parameters
+        ----------
+        run : str
+            The ID of the run to find alerts for
+        triggered_only : bool, optional
+            Whether to only return details about alerts which are currently triggered, by default True
+        names_only: bool, optional
+            Whether to only return the names of the alerts (otherwise return the full details of the alerts), by default True
+        """
+        response = requests.get(f"{self._url}/api/runs/{run}", headers=self._headers)
+
+        if response.status_code == 404:
+            if 'detail' in response.json():
+                if response.json()['detail'] == 'run does not exist':
+                    raise Exception('Run does not exist')
+
+        elif response.status_code == 200:
+            if triggered_only:
+                if names_only:
+                    return [alert['alert']['name'] for alert in response.json()['alerts'] if alert['status']['current'] != 'ok']
+                else:
+                    return [alert for alert in response.json()['alerts'] if alert['status']['current'] != 'ok']
+            else:
+                if names_only:
+                    return [alert['alert']['name'] for alert in response.json()['alerts']]
+                else:
+                    return response.json()['alerts']
+
+        raise Exception(response.text)
