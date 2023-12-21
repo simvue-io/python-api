@@ -1,7 +1,3 @@
-import configparser
-import filecmp
-import os
-import shutil
 import time
 import unittest
 import uuid
@@ -10,7 +6,7 @@ from simvue.sender import sender
 
 import common
 
-class TestArtifacts(unittest.TestCase):
+class TestGetAlerts(unittest.TestCase):
     def test_get_alerts(self):
         """
         Create a run & two alerts, make one alert be triggered
