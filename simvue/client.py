@@ -39,6 +39,22 @@ class Client(object):
         self._headers = {"Authorization": f"Bearer {self._token}"}
         self._version = get_server_version()
 
+    def get_run_id_from_name(self, name):
+        """
+        Get run id for the specified run name
+        """
+        params = {'filters': json.dumps([f"name == {name}"])}
+
+        response = requests.get(f"{self._url}/api/runs", headers=self._headers, params=params)
+
+        if response.status_code == 200:
+            if 'data' in response.json():
+                if len(response.json()['data']) > 1:
+                    raise Exception("Could not collect ID - more than one run exists with this name.")
+                else:
+                        return response.json()['data'][0]['id']
+        raise Exception(response.text)
+
     def get_run(self, run, system=False, tags=False, metadata=False):
         """
         Get a single run
@@ -476,8 +492,8 @@ class Client(object):
         ----------
         run : str
             The ID of the run to find alerts for
-        triggered_only : bool, optional
-            Whether to only return details about alerts which are currently triggered, by default True
+        critical_only : bool, optional
+            Whether to only return details about alerts which are currently critical, by default True
         names_only: bool, optional
             Whether to only return the names of the alerts (otherwise return the full details of the alerts), by default True
         """
@@ -491,9 +507,9 @@ class Client(object):
         elif response.status_code == 200:
             if triggered_only:
                 if names_only:
-                    return [alert['alert']['name'] for alert in response.json()['alerts'] if alert['status']['current'] != 'ok']
+                    return [alert['alert']['name'] for alert in response.json()['alerts'] if alert['status']['current'] == 'critical']
                 else:
-                    return [alert for alert in response.json()['alerts'] if alert['status']['current'] != 'ok']
+                    return [alert for alert in response.json()['alerts'] if alert['status']['current'] == 'critical']
             else:
                 if names_only:
                     return [alert['alert']['name'] for alert in response.json()['alerts']]
