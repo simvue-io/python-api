@@ -1,6 +1,6 @@
 import pytest
 from simvue.converters import to_dataframe, metric_set_dataframe, metric_to_dataframe
-from simvue.serialization import Serializer, Deserializer
+from simvue.serialization import serialize, deserialize, _is_torch_tensor
 
 
 try:
@@ -31,6 +31,49 @@ except ImportError:
 
 
 @pytest.mark.unit
+@pytest.mark.skipif(torch is None, reason="PyTorch not installed")
+@pytest.mark.parametrize(
+    "obj_type", (
+        "tensor",
+        "dict_tensor_full",
+        "dict_tensor_partial",
+        "dict_tensor_full_ordered",
+        "dict_tensor_partial_ordered",
+        "other"
+    )
+)
+def test_is_pytorch_tensor(obj_type: str) -> None:
+    """
+    PyTorch tensor check function test
+    """
+    import collections
+
+    if obj_type == "tensor":
+        torch.manual_seed(1724)
+        array = torch.rand(2, 3)
+    elif obj_type.startswith("dict_tensor_full"):
+        torch.manual_seed(1724)
+        array = {
+            k: torch.rand(2, 3)
+            for k in range(10)
+        }
+    elif obj_type.startswith("dict_tensor_partial"):
+        torch.manual_seed(1724)
+        array = {
+            k: torch.rand(2, 3)
+            for k in range(8)
+        }
+        array["other"] = 2
+    else:
+        array = list(range(10))
+    
+    if obj_type.endswith("ordered"):
+        array = collections.OrderedDict(array)
+
+    assert _is_torch_tensor(array) == (obj_type in ("tensor", "dict_tensor_full", "dict_tensor_full_ordered"))
+
+
+@pytest.mark.unit
 @pytest.mark.skipif(plt is None, reason="Matplotlib not installed")
 def test_matplotlib_figure_mime_type() -> None:
     """
@@ -39,7 +82,7 @@ def test_matplotlib_figure_mime_type() -> None:
     plt.plot([1, 2, 3, 4])
     figure = plt.gcf()
 
-    _, mime_type = Serializer().serialize(figure)
+    _, mime_type = serialize(figure)
 
     assert (mime_type == 'application/vnd.plotly.v1+json')
 
@@ -51,7 +94,7 @@ def test_numpy_array_mime_type() -> None:
     Check that the mimetype for numpy arrays is correct
     """
     array = np.array([1, 2, 3, 4, 5])
-    _, mime_type = Serializer().serialize(array)
+    _, mime_type = serialize(array)
 
     assert (mime_type == 'application/vnd.simvue.numpy.v1')
 
@@ -65,7 +108,7 @@ def test_pandas_dataframe_mimetype() -> None:
     data = {'col1': [1, 2], 'col2': [3, 4]}
     df = pd.DataFrame(data=data)
 
-    _, mime_type = Serializer().serialize(df)
+    _, mime_type = serialize(df)
 
     assert (mime_type == 'application/vnd.simvue.df.v1')
 
@@ -79,8 +122,8 @@ def test_pandas_dataframe_serialization() -> None:
     data = {'col1': [1, 2], 'col2': [3, 4]}
     df = pd.DataFrame(data=data)
 
-    serialized, mime_type = Serializer().serialize(df)
-    df_out = Deserializer().deserialize(serialized, mime_type)
+    serialized, mime_type = serialize(df, False)
+    df_out = deserialize(serialized, mime_type)
 
     assert (df.equals(df_out))
 
@@ -93,8 +136,8 @@ def test_numpy_array_serialization() -> None:
     """
     array = np.array([1, 2, 3, 4, 5])
 
-    serialized, mime_type = Serializer().serialize(array)
-    array_out = Deserializer().deserialize(serialized, mime_type)
+    serialized, mime_type = serialize(array)
+    array_out = deserialize(serialized, mime_type)
 
     assert (array == array_out).all()
 
@@ -106,8 +149,8 @@ def test_pickle_serialization():
     """
     data = {'a': 1.0, 'b': 'test'}
 
-    serialized, mime_type = Serializer().serialize(data, allow_pickle=True)
-    data_out = Deserializer().deserialize(serialized, mime_type, allow_pickle=True)
+    serialized, mime_type = serialize(data, allow_pickle=True)
+    data_out = deserialize(serialized, mime_type, allow_pickle=True)
 
     assert (data == data_out)
 
@@ -122,7 +165,7 @@ def test_plotly_figure_mime_type() -> None:
     figure = plt.gcf()
     plotly_figure = plotly.tools.mpl_to_plotly(figure)
 
-    _, mime_type = Serializer().serialize(plotly_figure)
+    _, mime_type = serialize(plotly_figure)
 
     assert (mime_type == 'application/vnd.plotly.v1+json')
 
@@ -135,7 +178,7 @@ def test_pytorch_tensor_mime_type():
     """
     torch.manual_seed(1724)
     array = torch.rand(2, 3)
-    _, mime_type = Serializer().serialize(array)
+    _, mime_type = serialize(array)
 
     assert (mime_type == 'application/vnd.simvue.torch.v1')
 
@@ -149,8 +192,8 @@ def test_pytorch_tensor_serialization() -> None:
     torch.manual_seed(1724)
     array = torch.rand(2, 3)
 
-    serialized, mime_type = Serializer().serialize(array)
-    array_out = Deserializer().deserialize(serialized, mime_type)
+    serialized, mime_type = serialize(array)
+    array_out = deserialize(serialized, mime_type)
 
     assert (array == array_out).all()
 

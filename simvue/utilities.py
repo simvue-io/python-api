@@ -120,7 +120,7 @@ def get_offline_directory() -> str | tempfile.TemporaryDirectory:
     # If no directory is specified the user does
     # not want to keep the cache so use temporary directory
     if not directory:
-        return tempfile.TemporaryDirectory(delete=False).name
+        return tempfile.mkdtemp()
 
     os.makedirs(directory, exist_ok=True)
 

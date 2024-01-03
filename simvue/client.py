@@ -10,7 +10,7 @@ from typing import TYPE_CHECKING
 if TYPE_CHECKING:
     from pandas import DataFrame
 
-from .serialization import Deserializer
+from .serialization import deserialize
 from .utilities import get_auth, get_server_version
 from .converters import to_dataframe, metric_set_dataframe, metric_to_dataframe
 
@@ -225,7 +225,7 @@ class Client:
         response = requests.get(url, timeout=DOWNLOAD_TIMEOUT)
         response.raise_for_status()
 
-        content = Deserializer().deserialize(response.content, mimetype, allow_pickle)
+        content = deserialize(response.content, mimetype, allow_pickle)
         if content is not None:
             return content
 

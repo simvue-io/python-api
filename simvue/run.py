@@ -32,7 +32,7 @@ from multiprocessing.synchronize import Event
 
 from .worker import Worker
 from .factory import Simvue
-from .serialization import Serializer
+from .serialization import serialize
 from .models import RunInput
 from .factory.remote import Remote
 from .factory.offline import Offline
@@ -265,6 +265,7 @@ class Run:
             self._mode,
             self._pid,
             self._resources_metrics_interval,
+            self._suppress_errors
         )
 
         if multiprocessing.current_process()._parent_pid is None:
@@ -899,7 +900,7 @@ class Run:
                 return False
             data |= file_data
         else:
-            data["pickled"], data["type"] = Serializer().serialize(
+            data["pickled"], data["type"] = serialize(
                 filename, allow_pickle
             )
             if not data["type"] and not allow_pickle:
