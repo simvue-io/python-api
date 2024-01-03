@@ -48,23 +48,25 @@ class Worker(threading.Thread):
         self._headers_mp = headers.copy()
         self._headers_mp['Content-Type'] = 'application/msgpack'
         self._mode = mode
-        self._directory = os.path.join(get_offline_directory(), self._uuid)
+        self._directory = os.path.join(get_offline_directory(), self._uuid or "run_session")
         self._start_time = time.time()
         self._processes = []
         self._resources_metrics_interval = resources_metrics_interval
         self._version: int | None = get_server_version()
         self._pid = pid
+
+        if not os.path.exists(self._directory):
+            os.makedirs(self._directory, exist_ok=True)
+
         if pid:
             self._processes = update_processes(psutil.Process(pid), [])
         logger.debug('Worker thread started')
 
-    def heartbeat(self):
+    def heartbeat(self) -> None:
         """
         Send a heartbeat
         """
         data = {'id': self._run_id}
-        if self._version == 0:
-            data = {'name': self._run_name}
 
         if self._mode == 'online':
             from .api import put
@@ -72,7 +74,7 @@ class Worker(threading.Thread):
         else:
             create_file(f"{self._directory}/heartbeat")
 
-    def post(self, endpoint, data):
+    def post(self, endpoint, data) -> bool:
         """
         Send the supplied data
         """
@@ -80,6 +82,9 @@ class Worker(threading.Thread):
             from .api import post
             post(f"{self._url}/api/{endpoint}", self._headers_mp, data=data, is_json=False)
         else:
+            if not os.path.isdir(self._directory):
+                logger.error(f"Cannot write to offline directory '{self._directory}', directory not found.")
+                return False
             unique_id = time.time()
             filename = f"{self._directory}/{endpoint}-{unique_id}"
             try:
@@ -87,6 +92,8 @@ class Worker(threading.Thread):
                     json.dump(data, fh)
             except Exception as err:
                 logger.error('Got exception writing offline update for %s: %s', endpoint, str(err))
+        
+        return True
 
     def run(self):
         """
@@ -114,8 +121,7 @@ class Worker(threading.Thread):
                         gpu = get_gpu_metrics(self._processes)
                         if memory is not None and cpu is not None:
                             data = {}
-                            if not self._version:
-                                data['run'] = self._run_name
+
                             data['step'] = 0
                             data['values'] = {'resources/cpu.usage.percent': cpu,
                                           'resources/memory.usage': memory}
@@ -123,7 +129,7 @@ class Worker(threading.Thread):
                                 for item in gpu:
                                     data['values'][item] = gpu[item]
                             data['time'] = time.time() - self._start_time
-                            data['timestamp'] = datetime.datetime.utcnow().strftime('%Y-%m-%d %H:%M:%S.%f')
+                            data['timestamp'] = datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S.%f')
                             try:
                                 self._metrics_queue.put(data, block=False)
                             except:
@@ -134,9 +140,9 @@ class Worker(threading.Thread):
             if time.time() - last_heartbeat > HEARTBEAT_INTERVAL:
                 try:
                     self.heartbeat()
+                    last_heartbeat = time.time()
                 except Exception as err:
                     logger.error('Error sending heartbeat: %s', str(err))
-                last_heartbeat = time.time()
 
             # Send metrics
             buffer = []
@@ -147,8 +153,9 @@ class Worker(threading.Thread):
 
             if buffer:
                 logger.debug('Sending metrics')
-                if self._version:
-                    buffer = {'metrics': buffer, 'run': self._run_id}
+
+                buffer = {'metrics': buffer, 'run': self._run_id}
+
                 try:
                     if self._mode == 'online': buffer = msgpack.packb(buffer, use_bin_type=True)
                     self.post('metrics', buffer)
@@ -165,8 +172,9 @@ class Worker(threading.Thread):
 
             if buffer:
                 logger.debug('Sending events')
-                if self._version:
-                    buffer = {'events': buffer, 'run': self._run_id}
+                
+                buffer = {'events': buffer, 'run': self._run_id}
+                
                 try:
                     if self._mode == 'online': buffer = msgpack.packb(buffer, use_bin_type=True)
                     self.post('events', buffer)

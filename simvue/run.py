@@ -152,7 +152,7 @@ class Run:
         self._name: str | None = None
         self._id: str | None = None
         self._executor = Executor(self)
-        self._suppress_errors: bool = False
+        self._suppress_errors: bool = True
         self._queue_blocking: bool = False
         self._status: str | None = None
         self._step: int = 0
@@ -222,15 +222,16 @@ class Run:
         if self._mode == "online" and tm.time() - get_expiry(self._token) > 0:
             self._error("token has expired or is invalid")
 
-    def _start(self, reconnect: bool = False) -> bool | None:
+    def _start(self, reconnect: bool = False) -> bool:
         """
         Start a run
         """
         if self._mode == "disabled":
-            return True
+            self._error("Cannot start run, Simvue is disabled")
+            return False
 
         if self._mode != "offline":
-            self._uuid = "notused"
+            self._uuid = None
 
         logger.debug("Starting run")
 
@@ -240,8 +241,8 @@ class Run:
 
         if reconnect:
             data["system"] = get_system()
-
             if not self._simvue.update(data):
+                self._error("Failed to update session data")
                 return False
 
         self._start_time = tm.time()
@@ -308,7 +309,8 @@ class Run:
             return False
 
         if self._mode == "disabled":
-            return True
+            self._error("Cannot initialise, Simvue is disabled")
+            return False
 
         if (not self._token or not self._url) and self._mode != "offline":
             self._error(
@@ -354,6 +356,7 @@ class Run:
             RunInput(**data)
         except ValidationError as err:
             self._error(err)
+            return False
 
         self._simvue = Simvue(self._name, self._uuid, self._mode, self._suppress_errors)
         name, self._id = self._simvue.create_run(data)
@@ -513,22 +516,26 @@ class Run:
         """
         return self._id
 
-    def reconnect(self, run_id, uid=None):
+    @skip_if_failed("_aborted", "_suppress_errors", False)
+    def reconnect(self, run_id, uid=None) -> bool:
         """
         Reconnect to a run in the created state
         """
         if self._mode == "disabled":
-            return True
+            self._error("Cannot reconnect, Simvue is disabled")
+            return False
 
         self._status = "running"
         self._uuid = uid
 
         self._id = run_id
+
         self._simvue = Simvue(
-            self._name, self._uuid, self._id, self._mode, self._suppress_errors
+            self._name, self._uuid, self._mode, self._suppress_errors
         )
         self._start(reconnect=True)
 
+    @skip_if_failed("_aborted", "_suppress_errors", None)
     def set_pid(self, pid: str) -> None:
         """
         Set pid of process to be monitored
@@ -569,6 +576,8 @@ class Run:
             if not isinstance(suppress_errors, bool):
                 self._error("suppress_errors must be boolean")
             self._suppress_errors = suppress_errors
+            if self._simvue:
+                self._simvue._suppress_errors = suppress_errors
 
         if queue_blocking is not None:
             if not isinstance(queue_blocking, bool):
@@ -610,7 +619,8 @@ class Run:
             whether update of metadata was successful
         """
         if self._mode == "disabled":
-            return True
+            self._error("Cannot update metadata, Simvue is disabled")
+            return False
 
         if not self._uuid and not self._name:
             self._error(INIT_MISSING)
@@ -642,7 +652,8 @@ class Run:
             whether tag application was successful
         """
         if self._mode == "disabled":
-            return True
+            self._error("Cannot update tags, Simvue is disabled")
+            return False
 
         if not self._uuid and not self._name:
             self._error(INIT_MISSING)
@@ -672,14 +683,15 @@ class Run:
             whether event creation was successful
         """
         if self._mode == "disabled":
-            return True
+            self._error("Cannot log event, Simvue is disabled")
+            return False
 
         if not self._uuid and not self._name:
             self._error(INIT_MISSING)
             return False
 
         if not self._active:
-            self._error("Run is not active")
+            self._error("Cannot log event, run is not active")
             return False
 
         if self._status != "running":
@@ -688,7 +700,7 @@ class Run:
 
         data = {}
         data["message"] = message
-        data["timestamp"] = datetime.datetime.utcnow().strftime("%Y-%m-%d %H:%M:%S.%f")
+        data["timestamp"] = datetime.datetime.now(datetime.UTC).strftime("%Y-%m-%d %H:%M:%S.%f")
         if timestamp is not None:
             if validate_timestamp(timestamp):
                 data["timestamp"] = timestamp
@@ -732,14 +744,15 @@ class Run:
             if the metric update was successful
         """
         if self._mode == "disabled":
-            return True
+            self._error("Cannot log metrics, Simvue is disabled")
+            return False
 
         if not self._uuid and not self._name:
             self._error(INIT_MISSING)
             return False
 
         if not self._active:
-            self._error("Run is not active")
+            self._error("Cannot log metrics, run is not active")
             return False
 
         if self._status != "running":
@@ -757,7 +770,7 @@ class Run:
 
         if time is not None:
             data["time"] = time
-        data["timestamp"] = datetime.datetime.utcnow().strftime("%Y-%m-%d %H:%M:%S.%f")
+        data["timestamp"] = datetime.datetime.now(datetime.UTC).strftime("%Y-%m-%d %H:%M:%S.%f")
         if timestamp is not None:
             if validate_timestamp(timestamp):
                 data["timestamp"] = timestamp
@@ -836,7 +849,8 @@ class Run:
             returns True if file submission was successful
         """
         if self._mode == "disabled":
-            return True
+            self._error("Cannot save file, Simvue is disabled")
+            return False
 
         if not self._uuid and not self._name:
             self._error(INIT_MISSING)
@@ -881,6 +895,7 @@ class Run:
         if is_file:
             file_data = self._assemble_file_data(filename, filetype, is_file)
             if not file_data:
+                self._error("No file data assembled.")
                 return False
             data |= file_data
         else:
@@ -926,7 +941,8 @@ class Run:
             returns True if upload was successful
         """
         if self._mode == "disabled":
-            return True
+            self._error("Cannot save directory, Simvue is disabled")
+            return False
 
         if not self._uuid and not self._name:
             self._error(INIT_MISSING)
@@ -979,7 +995,8 @@ class Run:
             _description_
         """
         if self._mode == "disabled":
-            return True
+            self._error("Cannot save all, Simvue is disabled")
+            return False
 
         for item in items:
             if os.path.isfile(item):
@@ -995,41 +1012,45 @@ class Run:
         Set run status
         """
         if self._mode == "disabled":
-            return True
+            self._error("Cannot set status, Simvue is disabled")
+            return False
 
         if not self._uuid and not self._name:
             self._error(INIT_MISSING)
             return False
 
         if not self._active:
-            self._error("Run is not active")
+            self._error("Cannot set statis, run is not active")
             return False
 
         if status not in ("completed", "failed", "terminated"):
             self._error("invalid status")
+            return False
+
+        if not self._name:
+            self._error("Failed to retrieve name from run")
+            return False
 
         data = {"name": self._name, "status": status}
         self._status = status
 
-        if self._simvue.update(data):
-            return True
-
-        return False
+        return self._simvue.update(data) is not None
 
     @skip_if_failed("_aborted", "_suppress_errors", {})
     def close(self) -> bool | None:
-        """f
+        """
         Close the run
         """
         if self._mode == "disabled":
-            return True
+            self._error("Cannot close run, Simvue is disabled")
+            return False
 
         if not self._uuid and not self._name:
             self._error(INIT_MISSING)
             return False
 
         if not self._active:
-            self._error("Run is not active")
+            self._error("Cannot close the run, run is not active")
             return False
 
         if self._status != "failed":
@@ -1049,21 +1070,22 @@ class Run:
         Add metadata to the specified folder
         """
         if self._mode == "disabled":
-            return True
+            self._error("Cannot set folder details, Simvue is disabled")
+            return False
 
         if not self._uuid and not self._name:
             self._error(INIT_MISSING)
             return False
 
         if not self._active:
-            self._error("Run is not active")
+            self._error("Cannot set folder details, run is not active")
             return False
 
         if metadata and not isinstance(metadata, dict):
             self._error("metadata must be a dict")
             return False
 
-        if not isinstance(tags, list):
+        if tags and not isinstance(tags, list):
             self._error("tags must be a list")
             return False
 
@@ -1133,21 +1155,22 @@ class Run:
         and applies it to the current run
         """
         if self._mode == "disabled":
-            return True
+            self._error("Cannot add alert, Simvue is disabled")
+            return False
 
         if not self._uuid and not self._name:
             self._error(INIT_MISSING)
             return False
 
-        if rule:
-            if rule not in (
-                "is below",
-                "is above",
-                "is outside range",
-                "is inside range",
-            ):
-                self._error("alert rule invalid")
-                return False
+        if rule not in (
+            "is below",
+            "is above",
+            "is outside range",
+            "is inside range",
+            None
+        ):
+            self._error("alert rule invalid")
+            return False
 
         if rule in ("is below", "is above") and threshold is None:
             self._error("threshold must be defined for the specified alert type")

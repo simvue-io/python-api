@@ -3,6 +3,8 @@ import json
 import logging
 import os
 import shutil
+import typing
+import flatdict
 import time
 
 import msgpack
@@ -16,8 +18,15 @@ def update_name(name, data):
     """
     Update name in metrics/events
     """
-    for item in data:
-        item['run'] = name
+    flat_data = flatdict.FlatDict(data)
+    for label in flat_data.keys():
+        if any([
+            label == "run",
+            len(_split_label := label.split(":")) > 1 and
+            _split_label[-1] == "run"
+        ]):
+            flat_data[label] = name
+    return flat_data.as_dict()
 
 def add_name(name, data, filename):
     """
@@ -36,22 +45,25 @@ def get_json(filename, name=None):
     """
     with open(filename, 'r') as fh:
         data = json.load(fh)
-    if name:
-        if 'name' in data:
-            if not data['name']:
-                data['name'] = name
-        else:
-            for item in data:
-                if 'run' in item:
-                    if not item['run']:
-                        item['run'] = name
-    return data
 
-def sender():
+    if not name:
+        return data
+
+
+    if 'name' in data and not data['name']:
+        data['name'] = name
+        return data
+    
+    return update_name(name, data)
+
+
+def sender(suppress_errors: bool=True) -> list[str]:
     """
     Asynchronous upload of runs to Simvue server
     """
     directory = get_offline_directory()
+
+    logger.debug(f"Finding runs in directory '{directory}'")
 
     # Deal with runs in the created, running or a terminal state
     runs = glob.glob(f"{directory}/*/created") + \
@@ -59,8 +71,15 @@ def sender():
            glob.glob(f"{directory}/*/completed") + \
            glob.glob(f"{directory}/*/failed") + \
            glob.glob(f"{directory}/*/terminated")
+    
+    if not runs:
+        logger.warning("Sender called but no runs to upload.")
+        return []
+
+    upload_run_ids: list[str] = []
 
     for run in runs:
+        run_id: str | None = None
         cleanup = False
         status = None
         if run.endswith('running'):
@@ -80,7 +99,7 @@ def sender():
                   replace('/terminated', '').\
                   replace('/created', '')
 
-        if os.path.isfile("f{current}/sent"):
+        if os.path.isfile(f"{current}/sent"):
             if status == 'running':
                 remove_file(f"{current}/running")
             elif status == 'completed':
@@ -93,17 +112,22 @@ def sender():
                 remove_file(f"{current}/created")
             continue
 
-        id = run.split('/')[len(run.split('/')) - 2]
+        unique_identifier = run.split('/')[len(run.split('/')) - 2]
 
-        run_init = get_json(f"{current}/run.json")
-        start_time = os.path.getctime(f"{current}/run.json")
+        if not os.path.exists((_run_file := os.path.join(current, "run.json"))):
+            raise FileNotFoundError(
+                f"Failed to initialise run from sender, file '{_run_file}' not found"
+            )
+
+        run_init = get_json(_run_file)
+        start_time = os.path.getctime(_run_file)
 
         if run_init['name']:
-            logger.info('Considering run with name %s and id %s', run_init['name'], id)
+            logger.info('Considering run with name %s and id %s', run_init['name'], unique_identifier)
         else:
-            logger.info('Considering run with no name yet and id %s', id)
+            logger.info('Considering run with no name yet and id %s', unique_identifier)
 
-        remote = Remote(run_init['name'], id, suppress_errors=True)
+        remote = Remote(run_init['name'], unique_identifier, suppress_errors=suppress_errors)
 
         # Check token
         remote.check_token()
@@ -112,17 +136,25 @@ def sender():
         created_file = f"{current}/init"
         name = None
         if not os.path.isfile(created_file):
-            name = remote.create_run(run_init)
+            name, run_id = remote.create_run(run_init)
             if name:
                 if not current or not os.path.exists(directory):
-                    logger.error("No directory defined for writing")
-                    return False
+                    raise FileNotFoundError("No directory defined for writing")
                 logger.info('Creating run with name %s', name)
-                run_init = add_name(name, run_init, f"{current}/run.json")
-                create_file(created_file)
+                run_init = add_name(name, run_init, _run_file)
+                with open(created_file, "w") as out_f:
+                    out_f.write(run_id)
+                if not run_id:
+                    logger.error(f"Failed to retrieve a run ID for '{name}'")
+                    continue
+                upload_run_ids.append(run_id)
             else:
                 logger.error('Failure creating run')
                 continue
+        else:
+            logger.debug("Retrieving ID from existing run file")
+            run_id = open(created_file).read().strip()
+            upload_run_ids.append(run_id)
 
         if status == 'running':
             # Check for recent heartbeat
@@ -139,7 +171,7 @@ def sender():
 
         # Handle lost runs
         if status == 'lost':
-            logger.info('Changing status to lost, name %s and id %s', run_init['name'], id)
+            logger.info('Changing status to lost, name %s and id %s', run_init['name'], unique_identifier)
             status = 'lost'
             create_file(f"{current}/lost")
             remove_file(f"{current}/running")
@@ -165,48 +197,86 @@ def sender():
 
             rename = False
 
+            updatable_record_types: tuple[str, ...] = (
+                "metrics",
+                "events",
+                "update",
+                "folder",
+                "alert",
+                "file"
+            )
+
+            if (
+                not rename and
+                not any(f"/{i}" in record for i in updatable_record_types)
+            ):
+                continue
+
+            if not rename:
+                try:
+                    _json_data: dict = get_json(record, name)
+                    _json_data["id"] = run_id
+                except TypeError as e:
+                    raise TypeError(f"Failed to parse '{name}' in '{record}': {e}")
+
+            print(record, name, _json_data)
+
             # Handle metrics
             if '/metrics-' in record:
-                logger.info('Sending metrics for run %s', run_init['name'])
-                data = get_json(record, name)
-                update_name(run_init['name'], data)
-                if remote.send_metrics(msgpack.packb(data, use_bin_type=True)):
+                logger.info('Sending metrics for run %s with record: %s', run_init['name'], _json_data)
+                update_name(run_init['name'], _json_data)
+                if remote.send_metrics(msgpack.packb(_json_data, use_bin_type=True)):
                     rename = True
 
             # Handle events
-            if '/events-' in record:
-                logger.info('Sending events for run %s', run_init['name'])
-                data = get_json(record, name)
-                update_name(run_init['name'], data)
-                if remote.send_event(msgpack.packb(data, use_bin_type=True)):
+            elif '/events-' in record:
+                logger.info('Sending events for run %s with record: %s', run_init['name'], _json_data)
+                update_name(run_init['name'], _json_data)
+                if remote.send_event(msgpack.packb(_json_data, use_bin_type=True)):
                     rename = True
 
             # Handle updates
-            if '/update-' in record:
-                logger.info('Sending update for run %s', run_init['name'])
-                if remote.update(get_json(record, name), run_init['name']):
+            elif '/update-' in record:
+                logger.info('Sending update for run %s with record: %s', run_init['name'], _json_data)
+                
+                if (_name := run_init.get("name")):
+                    _json_data["run"] =  _name
+                
+                if remote.update(_json_data):
                     rename = True
 
             # Handle folders
-            if '/folder-' in record:
-                logger.info('Sending folder details for run %s', run_init['name'])
-                if remote.set_folder_details(get_json(record, name), run_init['name']):
+            elif '/folder-' in record:
+                logger.info('Sending folder details for run %s with record: %s', run_init['name'], _json_data)
+                
+                if (_name := run_init.get("name")):
+                    _json_data["run"] =  _name
+                
+                if remote.set_folder_details(_json_data):
                     rename = True
 
             # Handle alerts
-            if '/alert-' in record:
-                logger.info('Sending alert details for run %s', run_init['name'])
-                if remote.add_alert(get_json(record, name), run_init['name']):
+            elif '/alert-' in record:
+                logger.info('Sending alert details for run %s with record: %s', run_init['name'], _json_data)
+                
+                if (_name := run_init.get("name")):
+                    _json_data["run"] =  _name
+
+                if remote.add_alert(_json_data):
                     rename = True
 
             # Handle files
-            if '/file-' in record:
-                logger.info('Saving file for run %s', run_init['name'])
-                if remote.save_file(get_json(record, name), run_init['name']):
+            elif '/file-' in record:
+                logger.info('Saving file for run %s with record: %s', run_init['name'], _json_data)
+                
+                if (_name := run_init.get("name")):
+                    _json_data["run"] =  _name
+                
+                if remote.save_file(_json_data):
                     rename = True
 
             # Rename processed files
-            if rename:
+            elif rename:
                 os.rename(record, f"{record}-proc")
                 updates += 1
 
@@ -226,6 +296,8 @@ def sender():
         # Cleanup runs which have been dealt with
         if cleanup:
             try:
-                shutil.rmtree(f"{directory}/{id}")
+                shutil.rmtree(f"{directory}/{unique_identifier}")
             except Exception as err:
                 logger.error('Got exception trying to cleanup run %s: %s', run_init['name'], str(err))
+
+        return upload_run_ids

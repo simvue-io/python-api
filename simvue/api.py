@@ -39,8 +39,8 @@ def post(url, headers, data, is_json=True):
     return response
 
 @retry(wait=wait_exponential(multiplier=RETRY_MULTIPLIER, min=RETRY_MIN, max=RETRY_MAX),
-                             stop=stop_after_attempt(RETRY_STOP))
-def put(url, headers, data, is_json=True, timeout=DEFAULT_API_TIMEOUT):
+                             stop=stop_after_attempt(RETRY_STOP), reraise=True)
+def put(url, headers, data=None, is_json=True, timeout=DEFAULT_API_TIMEOUT):
     """
     HTTP PUT with retries
     """

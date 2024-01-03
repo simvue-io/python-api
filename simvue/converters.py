@@ -1,4 +1,5 @@
 import typing
+import flatdict
 
 if typing.TYPE_CHECKING:
     from pandas import DataFrame
@@ -10,99 +11,59 @@ def to_dataframe(data: list[dict[str, typing.Any]]) -> "DataFrame":
     """
     import pandas as pd
 
-    metadata: list[dict[str, typing.Any]] = []
-    columns: dict[str, list[typing.Any]] = {
-        "name": [],
-        "status": [],
-        "folder": [],
-        "created": [],
-        "started": [],
-        "ended": []
-    }
+    columns: dict[str, list[int | float | str | None]] = {}
 
-    for run in data:
-        metadata += [
-            item for item in run.get("metadata", [])
-            if item not in metadata
-        ]
+    for i, run in enumerate(data):
+        for column, value in flatdict.FlatDict(run, delimiter=".").items():
+            # If the column does not exist create a new one as a list of None
+            # these will be filled if present for a run else left as None
+            if not columns.get(column):
+                columns[column] = [None] * len(data)
 
-        for label, column in columns.items():
-            column.append(run.get(label))
-
-        _system_info: dict[str, dict | str | int | float] = run.get("system", {})
- 
-        for section, values in _system_info.items():
-            if section in ("cpu", "gpu", "platform"):
-                for label, item in values.items():
-                    _key = f"system.{section}.{label}"
-                    columns[_key] = columns.get(_key, []).append(item)
-            else:
-                _key = f"system.{section}"
-                columns[_key] = columns.get(_key, []).append(values)
-
-        for label in metadata:
-            _item = run.get("metadata", {}).get(label)
-            _key = f"metadata{section}.{label}"
-            columns[_key] = columns.get(_key, []).append(_item)
+            columns[column][i] = value
 
     return pd.DataFrame(data=columns)
 
 
-def metrics_to_dataframe(data: list[list[str]], xaxis: str, name: str | None=None):
+def metric_to_dataframe(
+    data: list[list[int | float]],
+    step_axis_label: str,
+    name: str | None = None
+) -> "DataFrame":
+    """
+    Convert single  to dataframe
+    """
+    import pandas as pd
+
+    columns: dict[str, list[str | int | float]] = {
+        step_axis_label: [i[0] for i in data],
+        name: [i[1] for i in data],
+    }
+    return pd.DataFrame(data=columns)
+
+
+def metric_set_dataframe(
+    data: dict[str, list[int | float]],
+    step_axis_label: str,
+) -> "DataFrame":
     """
     Convert metrics to dataframe
     """
     import pandas as pd
 
-    if name:
-        columns: dict[str, list[str | int | float]] = {
-            xaxis: [],
-            name: []
-        }
-        for item in data:
-            columns[xaxis].append(item[0])
-            columns[name].append(item[1])
+    _df_dict: dict[str, list[str | int | float]] = {
+        "run": [],
+        step_axis_label: []
+    }
 
-        return pd.DataFrame(data=columns)
+    for name, run in data.items():
+        for label, metric_steps in run.items():
+            if label not in _df_dict:
+                _df_dict[label] = []
+            _df_dict["run"] = [name] * len(metric_steps)
+            _df_dict[step_axis_label] = [i["step"] for i in metric_steps]
+            _df_dict[label] += [i["value"] for i in metric_steps]
 
-    runs = []
-    metrics = []
-
-    for item in data:
-        if item[2] not in runs:
-            runs.append(item[2])
-        if item[3] not in metrics:
-            metrics.append(item[3])
-
-    headers = pd.MultiIndex.from_product([runs, metrics, [xaxis, "value"]], names=["run", "metric", "column"])
-
-    newdata = {}
-    for row in data:
-        if row[2] not in newdata:
-            newdata[row[2]] = {}
-        if row[3] not in newdata[row[2]]:
-            newdata[row[2]][row[3]] = []
-
-        newdata[row[2]][row[3]].append([row[0], row[1]])
-
-    max_rows = 0
-    for run in newdata:
-        for metric in newdata[run]:
-            if len(newdata[run][metric]) > max_rows:
-                max_rows = len(newdata[run][metric])
-
-    results = []
-    for count in range (0, max_rows):
-        line = []
-        for run in newdata:
-            for metric in newdata[run]:
-                if count < len(newdata[run][metric]):
-                    line.append(newdata[run][metric][count][0])
-                    line.append(newdata[run][metric][count][1])
-                else:
-                    line.append(None)
-                    line.append(None)
-        results.append(line)
-
-    df = pd.DataFrame(data=results, columns=headers)
-    return df
+    _df = pd.DataFrame(_df_dict)
+    _df.set_index(["run", "step"], inplace=True)
+    return _df

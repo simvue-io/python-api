@@ -4,7 +4,9 @@ import logging
 import os
 import requests
 import contextlib
+import tempfile
 import typing
+import functools
 
 logger = logging.getLogger(__name__)
 
@@ -96,9 +98,13 @@ def get_server_version() -> int  | None:
     return None
 
 
-def get_offline_directory() -> str:
+@functools.lru_cache
+def get_offline_directory() -> str | tempfile.TemporaryDirectory:
     """
     Get directory for offline cache
+
+    This function is cached so the same directory is returned
+    if a temporary directory has been created
     """
     directory: str | None = None
 
@@ -111,23 +117,27 @@ def get_offline_directory() -> str:
             config.read(filename)
             directory = config.get("offline", "cache")
 
+    # If no directory is specified the user does
+    # not want to keep the cache so use temporary directory
     if not directory:
-        directory = os.path.join(os.path.expanduser("~"), ".simvue")
+        return tempfile.TemporaryDirectory(delete=False).name
 
     os.makedirs(directory, exist_ok=True)
 
     return directory
 
 
-def create_file(filename):
+def create_file(filename) -> bool:
     """
     Create an empty file
     """
     try:
         with open(filename, "w") as fh:
             fh.write("")
+        return True
     except Exception as err:
         logger.error("Unable to write file %s due to: %s", filename, str(err))
+        return False
 
 
 def remove_file(filename):

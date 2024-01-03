@@ -5,12 +5,12 @@ import logging
 
 class SimvueBaseClass(abc.ABC):
     @abc.abstractmethod
-    def __init__(self, name: str, uniq_id: uuid.UUID, identifier: int, suppress_errors: bool) -> None:
-        self._logger = logging.getLogger(f"Simvue.{self.__class__.__name__}")
+    def __init__(self, name: str, uniq_id: uuid.UUID, suppress_errors: bool) -> None:
+        self._logger = logging.getLogger(f"simvue.{self.__class__.__name__}")
         self._suppress_errors: bool = suppress_errors
         self._uuid: str = uniq_id
         self._name: str = name
-        self._id: int = identifier
+        self._id: int | None = None
         self._aborted: bool = False
 
     def _error(self, message: str) -> None:
@@ -22,10 +22,6 @@ class SimvueBaseClass(abc.ABC):
         else:
             self._logger.error(message)
             self._aborted = True
-
-    @abc.abstractmethod
-    def _write_json(self, filename: str, data) -> None:
-        pass
 
     @abc.abstractmethod
     def create_run(self, data: dict[str, typing.Any]) -> dict[str, typing.Any] | None:

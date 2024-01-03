@@ -4,18 +4,22 @@ import time
 import uuid
 import typing
 import glob
+import logging
 
 from simvue.utilities import get_offline_directory, create_file, prepare_for_api, skip_if_failed
 from simvue.factory.base import SimvueBaseClass
+
+logger = logging.getLogger(__name__)
 
 
 class Offline(SimvueBaseClass):
     """
     Class for offline runs
     """
-    def __init__(self, name: str, uniq_id: str, identifier: int, suppress_errors: bool=True) -> None:
+    def __init__(self, name: str, uniq_id: str, suppress_errors: bool=True) -> None:
+        super().__init__(name, uniq_id, suppress_errors)
+
         self._directory: str = os.path.join(get_offline_directory(), self._uuid)
-        super().__init__(name, uniq_id, identifier, suppress_errors)
 
         os.makedirs(self._directory, exist_ok=True)
 
@@ -52,6 +56,9 @@ class Offline(SimvueBaseClass):
             return (None, None)
         
         filename = f"{self._directory}/run.json"
+
+        logger.debug(f"Creating run in '{filename}'")
+
         if 'name' not in data:
             data['name'] = None
 
@@ -78,6 +85,9 @@ class Offline(SimvueBaseClass):
                 self._error("No directory defined for writing")
                 return None
             filename = f"{self._directory}/{status}"
+            
+            logger.debug(f"Writing API data to file '{filename}'")
+            
             create_file(filename)
 
             if status == 'completed':

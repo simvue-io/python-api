@@ -2,10 +2,22 @@ import pytest
 import tempfile
 import configparser
 import os
+import pytest_mock
+import logging
+import shutil
 import uuid
 import dataclasses
 
+import simvue.utilities as sv_util
+
 SIMVUE_API_VERSION = os.getenv('SIMVUE_API_VERSION', 1)
+CURRENT_RUN_DIR = os.getcwd()
+TEST_RUN_ID = f"{uuid.uuid4()}".split('-')[0]
+
+logging.getLogger("simvue").setLevel(logging.DEBUG)
+logger = logging.getLogger("SimvueTest")
+logger.setLevel(logging.DEBUG)
+
 
 
 @pytest.fixture
@@ -49,11 +61,40 @@ class RunTestInfo:
     
 
 @pytest.fixture
-def create_a_run(session_directory: str, check_env: None) -> RunTestInfo:
-    _run_id = f'{uuid.uuid4()}'
-    _file_name = f'test-{uuid.uuid4()}'
+def create_a_run(
+    session_directory: str,
+    mocker: pytest_mock.MockerFixture,
+    check_env: None,
+) -> RunTestInfo:
+    _run_id: str = str(uuid.uuid4()).split("-")[0]
+    _run_name = f'client_test_{_run_id}'
+    _file_name = f'test_{_run_id}'
     _test_dir = os.path.join(session_directory, "test")
-    _folder = f"/test-{uuid.uuid4()}"
+    _folder = f"/simvue-client-tests/run_{TEST_RUN_ID}"
     os.makedirs(_test_dir, exist_ok=True)
     os.chdir(session_directory)
-    return RunTestInfo(_run_id, _file_name, session_directory, _folder)
+    return RunTestInfo(_run_name, _file_name, session_directory, _folder)
+
+
+# Create post-test hook
+def pytest_runtest_makereport(item, call) -> None:
+    """Make sure the session returns to the current directory
+    
+    Important as in some tests the directory is changed to a temporary
+    one that is then destroyed and this breaks Pytest if the test fails
+    """
+
+    os.chdir(CURRENT_RUN_DIR)
+
+    if not (_contents := os.listdir(sv_util.get_offline_directory())):
+        return
+
+    logger.info(f"Clearing offline run directory: {sv_util.get_offline_directory()}")
+    logger.debug(f"Contents: {_contents}")
+
+    # clear runs in directory after test but do not remove directory itself
+    for root, dir, files in os.walk(sv_util.get_offline_directory()):
+        for file in files:
+            os.unlink(os.path.join(root, file))
+        for directory in dir:
+            shutil.rmtree(os.path.join(root, directory))

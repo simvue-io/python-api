@@ -20,7 +20,13 @@ def test_artifact_output(create_a_run: RunTestInfo, created: bool, file_type: st
     Create a run & an artifact of type 'output' & check it can be downloaded
     """
     run = Run()
-    run.init(create_a_run.run_name, folder=create_a_run.folder, running=not created)
+    run.config(suppress_errors=False)
+    run.init(
+        create_a_run.run_name,
+        folder=create_a_run.folder,
+        running=not created,
+        tags=["simvue-client-test", "test_artifact_output"]
+    )
 
     content = str(uuid.uuid4())
 
@@ -34,12 +40,13 @@ def test_artifact_output(create_a_run: RunTestInfo, created: bool, file_type: st
             run.save(_out_file, file_type)
             assert "Cannot upload output files for runs in the created state" in f"{e.value}"
     else:
-        run.save(_out_file, file_type)
+        assert run.save(_out_file, file_type)
         run.close()
 
     client = Client()
 
     if not created:
+        os.path.exists(os.path.join(create_a_run.session_dir, "test", create_a_run.file_name))
         client.get_artifact_as_file(run.id, create_a_run.file_name, os.path.join(create_a_run.session_dir, "test"))
         assert filecmp.cmp(_out_file, os.path.join(create_a_run.session_dir, "test", create_a_run.file_name))
 

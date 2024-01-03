@@ -8,7 +8,7 @@ class Handler(logging.Handler):
         logging.Handler.__init__(self)
         self._client = client
 
-    def emit(self, record):
+    def emit(self, record) -> None:
         if 'simvue.' in record.name:
             return
 
@@ -19,8 +19,8 @@ class Handler(logging.Handler):
         except Exception:
             logging.Handler.handleError(self, record)
 
-    def flush(self):
+    def flush(self) -> None:
         pass
 
-    def close(self):
+    def close(self) -> None:
         pass

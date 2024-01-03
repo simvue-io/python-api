@@ -2,29 +2,33 @@ from concurrent.futures import ProcessPoolExecutor
 import json
 import os
 import typing
+import logging
 import requests
 
-from typing import TYPE_CHECKING:
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
     from pandas import DataFrame
-    from plotly.serializers import Fi 
 
 from .serialization import Deserializer
 from .utilities import get_auth, get_server_version
-from .converters import to_dataframe, metrics_to_dataframe
+from .converters import to_dataframe, metric_set_dataframe, metric_to_dataframe
 
 CONCURRENT_DOWNLOADS = 10
 DOWNLOAD_CHUNK_SIZE = 8192
 DOWNLOAD_TIMEOUT = 30
 
+logger = logging.getLogger(__name__)
 
-def downloader(job: dict[str, typing.Any]) -> dict[str, typing.Any] | None:
+
+def downloader(job: dict[str, typing.Any]) -> bool:
     """
     Download the specified file to the specified directory
     """
     try:
         response = requests.get(job["url"], stream=True, timeout=DOWNLOAD_TIMEOUT)
     except requests.exceptions.RequestException:
-        return None
+        return False
 
     total_length = response.headers.get("content-length")
 
@@ -34,11 +38,11 @@ def downloader(job: dict[str, typing.Any]) -> dict[str, typing.Any] | None:
         else:
             for data in response.iter_content(chunk_size=DOWNLOAD_CHUNK_SIZE):
                 fh.write(data)
-    
-    return response.json()
+
+    return True
 
 
-class Client(object):
+class Client:
     """
     Class for querying Simvue
     """
@@ -58,16 +62,16 @@ class Client(object):
         """
         response = requests.get(f"{self._url}/api/runs/{run}", headers=self._headers)
 
-        if (
-            response.status_code != 200
-        ):
-            raise AssertionError(f"Request for run {run} failed with: {response.json().get('detail', 'Request failed')}")
+        if response.status_code != 200:
+            raise AssertionError(
+                f"Request for run {run} failed with: {response.json().get('detail', 'Request failed')}"
+            )
 
         return response.json()
 
     def get_runs(
-        self, filters, system=False, tags=False, metadata=False, format="dict"
-    ) -> dict[str, typing.Any] | None | "DataFrame":
+        self, filters: list[str], system=False, metadata=False, format="dict"
+    ) -> typing.Union[dict[str, typing.Any], None, "DataFrame"]:
         """
         Get runs
         """
@@ -98,7 +102,7 @@ class Client(object):
         """
         Delete run
         """
-        params = {"name": run}
+        params = {"run_id": run}
 
         response = requests.delete(
             f"{self._url}/api/runs", headers=self._headers, params=params
@@ -119,11 +123,13 @@ class Client(object):
             f"{self._url}/api/folders", headers=self._headers, params=params
         )
 
-        if all([
-            response.status_code == 200,
-            len(_data := response.json().get("data", [])) > 0,
-            _id := _data[0].get("id")
-        ]):
+        if all(
+            [
+                response.status_code == 200,
+                len(_data := response.json().get("data", [])) > 0,
+                _id := _data[0].get("id"),
+            ]
+        ):
             return _id
 
         return None
@@ -133,14 +139,13 @@ class Client(object):
         Delete runs in folder
         """
         if not (folder_id := self._get_folder_id_from_path(folder)):
+            logger.info(f"No match for folder '{folder}' nothing to be deleted.")
             return None
 
         params: dict[str, bool] = {"runs_only": True, "runs": True}
 
         response = requests.delete(
-            f"{self._url}/api/folders/{folder_id}",
-            headers=self._headers,
-            params=params
+            f"{self._url}/api/folders/{folder_id}", headers=self._headers, params=params
         )
 
         if response.status_code == 200 and (_runs := response.json().get("runs")):
@@ -148,7 +153,9 @@ class Client(object):
 
         raise AssertionError(response.text)
 
-    def delete_folder(self, folder: str, runs: bool=False) -> dict[str, typing.Any] | None:
+    def delete_folder(
+        self, folder: str, runs: bool = False
+    ) -> dict[str, typing.Any] | None:
         """
         Delete folder
         """
@@ -158,9 +165,7 @@ class Client(object):
         params: dict[str, bool] = {"runs": True} if runs else {}
 
         response = requests.delete(
-            f"{self._url}/api/folders/{folder_id}",
-            headers=self._headers,
-            params=params
+            f"{self._url}/api/folders/{folder_id}", headers=self._headers, params=params
         )
 
         if response.status_code == 200 and (_runs := response.json().get("runs")):
@@ -172,7 +177,7 @@ class Client(object):
         """
         List artifacts associated with a run
         """
-        params: dict[str, ] = {"run": run}
+        params: dict[str,] = {"run": run}
         if category:
             params["category"] = category
 
@@ -181,8 +186,8 @@ class Client(object):
         )
 
         if (
-            response.status_code == 404 and
-            response.json().get("detail") == "run does not exist"
+            response.status_code == 404
+            and response.json().get("detail") == "run does not exist"
         ):
             raise AssertionError("Run does not exist")
 
@@ -191,7 +196,7 @@ class Client(object):
 
         raise AssertionError(response.text)
 
-    def get_artifact(self, run: int, name: str, allow_pickle: bool=False) -> Figure | None:
+    def get_artifact(self, run: int, name: str, allow_pickle: bool = False):
         """
         Return the contents of the specified artifact
         """
@@ -204,16 +209,18 @@ class Client(object):
         )
 
         if response.status_code == 404 and (_detail := response.json().get("detail")):
-                if _detail == "No such run":
-                    raise Exception("Run does not exist")
-                elif _detail == "artifact does not exist":
-                    raise Exception("Artifact does not exist")
+            if _detail == "No such run":
+                raise Exception("Run does not exist")
+            elif _detail == "artifact does not exist":
+                raise Exception("Artifact does not exist")
 
         if response.status_code != 200:
             return None
 
-        url = response.json()[0]["url"]
-        mimetype = response.json()[0]["type"]
+        _json_response: dict = response.json()
+
+        url = _json_response[0]["url"]
+        mimetype = _json_response[0]["type"]
 
         response = requests.get(url, timeout=DOWNLOAD_TIMEOUT)
         response.raise_for_status()
@@ -246,12 +253,15 @@ class Client(object):
         if response.status_code == 200:
             if response.json():
                 url = response.json()[0]["url"]
-                downloader(
+                if not downloader(
                     {"url": url, "filename": os.path.basename(name), "path": path}
-                )
+                ):
+                    raise Exception("Failed to download file data")
 
         else:
-            raise requests.RequestException(f"Retrieval of artifacts for run '{run}' failed with: {response.json()['detail']}")
+            raise requests.RequestException(
+                f"Retrieval of artifacts for run '{run}' failed with: {response.json()['detail']}"
+            )
 
     def get_artifacts_as_files(
         self,
@@ -384,64 +394,102 @@ class Client(object):
 
         raise Exception(response.text)
 
-    def get_metrics(self, run, name, xaxis, max_points=0, format='list'):
+    def get_metrics(
+        self,
+        run: str,
+        name: str,
+        xaxis: typing.Union[typing.Literal["step"], typing.Literal["time"]],
+        max_points: int = -1,
+        format: typing.Union[
+            typing.Literal["list"], typing.Literal["dataframe"]
+        ] = "list",
+    ):
         """
         Get time series metrics for the specified run and metrics name
         """
-        response = requests.get(f"{self._url}/api/runs/{run}", headers=self._headers)
+        logger.debug(f"Sending request: {self._url}/api/runs/{run}")
+        response_run = requests.get(f"{self._url}/api/runs/{run}", headers=self._headers)
 
-        if response.status_code == 404:
-            if "detail" in response.json():
-                if response.json()["detail"] == "run does not exist":
-                    raise Exception("Run does not exist")
+        if response_run.status_code == 404:
+            raise AssertionError(f"Run with ID '{run}' does not exist")
 
-        run_name = None
-        if response.status_code == 200:
-            run_name = response.json()["name"]
+        if response_run.status_code != 200:
+            raise requests.HTTPError(f"{response_run.status_code}: {response_run.text}")
 
-        params = {'runs': json.dumps([run]),
-                  'metrics': json.dumps([name]),
-                  'xaxis': xaxis,
-                  'max_points': max_points}
+        run_name = response_run.json().get("name")
+
+        params = {
+            "runs": f'["{run}"]',
+            "metrics": f'["{name}"]',
+            "xaxis": xaxis,
+            "max_points": max_points,
+        }
 
         if xaxis not in ("step", "time", "timestamp"):
-            raise Exception(
+            raise AssertionError(
                 'Invalid xaxis specified, should be either "step", "time", or "timestamp"'
             )
 
         if format not in ("list", "dataframe"):
-            raise Exception(
+            raise AssertionError(
                 'Invalid format specified, should be either "list" or "dataframe"'
             )
+        
+        # FIXME: Server rejects lists in usual form so have to create URL manually
+        _url: str = f"{self._url}/api/metrics?{'&'.join(a+'='+str(b) for a, b in params.items())}"
 
-        response = requests.get(
-            f"{self._url}/api/metrics", headers=self._headers, params=params
+        logger.debug(
+            f"Sending request: {_url}"
         )
 
-        if response.status_code == 200:
-            data = []
-            if not (_run := response.json().get(run)):
-                raise KeyError(f"Failed to retrieve run '{run}'")
-            if (_items := _run.get(name)) is None:
-                raise KeyError(f"Failed to retrieve '{name}' from run '{run}'")
-            for item in _items:
-                data.append([item[xaxis], item["value"], run_name, name])
+        response_metrics = requests.get(
+            f"{self._url}/api/metrics",
+            params=params,
+            headers=self._headers
+        )
 
-            if format == "dataframe":
-                return metrics_to_dataframe(data, xaxis, name=name)
-            return data
+        if response_metrics.status_code == 404:
+            raise AssertionError(
+                f"Metric '{name}' not found for run '{run}: {run_name}'"
+            )
 
-        raise Exception(response.text)
+        if response_metrics.status_code != 200:
+            raise requests.HTTPError(f"{response_metrics.status_code}: {response_metrics.text}")
 
-    def get_metrics_multiple(self, runs, names, xaxis, max_points=0, aggregate=False, format='list'):
+        _json_data: dict = response_metrics.json()
+
+        if not _json_data:
+            raise AssertionError(
+                f"No results found for metric '{name}' in run '{run}: {run_name}'"
+            )
+
+        data: list[int | float] = []
+
+        if (_items := _json_data.get(name)) is None:
+            raise KeyError(
+                f"Failed to retrieve metric '{name}' from run '{run}: {run_name}'"
+            )
+        for item in _items:
+            data.append([item[xaxis], item["value"], run_name, name])
+
+        if format == "dataframe":
+            return metric_to_dataframe(data, xaxis, name=name)
+
+        return data
+
+    def get_metrics_multiple(
+        self, runs, names, xaxis, max_points=0, aggregate=False, format="list"
+    ):
         """
         Get time series metrics from multiple runs and/or metrics
         """
-        params = {'runs': json.dumps(runs),
-                  'metrics': json.dumps(names),
-                  'aggregate': aggregate,
-                  'max_points': max_points,
-                  'xaxis': xaxis}
+        params = {
+            "runs": json.dumps(runs),
+            "metrics": json.dumps(names),
+            "aggregate": aggregate,
+            "max_points": max_points,
+            "xaxis": xaxis,
+        }
 
         if xaxis not in ("step", "time"):
             raise Exception(
@@ -463,29 +511,39 @@ class Client(object):
                 for run in response.json():
                     for name in response.json()[run]:
                         for item in response.json()[run][name]:
-                            data.append([item[xaxis], item['value'], run, name])
+                            data.append([item[xaxis], item["value"], run, name])
             else:
                 for name in response.json():
                     for item in response.json()[name]:
-                        data.append([item[xaxis], item['min'], item['average'], item['max'], name])
+                        data.append(
+                            [
+                                item[xaxis],
+                                item["min"],
+                                item["average"],
+                                item["max"],
+                                name,
+                            ]
+                        )
 
-            if format == 'dataframe':
-                return metrics_to_dataframe(response.json(), xaxis)
+            if format == "dataframe":
+                return metric_set_dataframe(response.json(), xaxis)
             return data
 
         raise Exception(response.text)
-        
+
     def plot_metrics(self, runs, names, xaxis, max_points=0):
         """
         Plot time series metrics from multiple runs and/or metrics
         """
         if not isinstance(runs, list):
-            raise Exception('Invalid runs specified, must be a list of run names.')
+            raise Exception("Invalid runs specified, must be a list of run names.")
 
         if not isinstance(names, list):
-            raise Exception('Invalid names specified, must be a list of metric names.')
-        
-        data = self.get_metrics_multiple(runs, names, xaxis, max_points, format='dataframe')
+            raise Exception("Invalid names specified, must be a list of metric names.")
+
+        data = self.get_metrics_multiple(
+            runs, names, xaxis, max_points, format="dataframe"
+        )
         import matplotlib.pyplot as plt
 
         for run in runs:

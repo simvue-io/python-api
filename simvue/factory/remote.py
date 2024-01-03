@@ -3,7 +3,13 @@ import time
 import typing
 
 from simvue.api import post, put, get
-from simvue.utilities import get_auth, get_expiry, prepare_for_api, get_server_version, skip_if_failed
+from simvue.utilities import (
+    get_auth,
+    get_expiry,
+    prepare_for_api,
+    get_server_version,
+    skip_if_failed,
+)
 from simvue.factory.base import SimvueBaseClass
 
 from simvue.version import __version__
@@ -19,12 +25,7 @@ class Remote(SimvueBaseClass):
     Class which interacts with Simvue REST API
     """
 
-    def __init__(
-        self, name: str,
-        uniq_id: str,
-        identifier: int,
-        suppress_errors: bool = True
-    ) -> None:
+    def __init__(self, name: str, uniq_id: str, suppress_errors: bool = True) -> None:
         self._url, self._token = get_auth()
         self._headers: dict[str, str] = {
             "Authorization": f"Bearer {self._token}",
@@ -34,10 +35,10 @@ class Remote(SimvueBaseClass):
             "Content-Type": "application/msgpack"
         }
         self._version: int | None = get_server_version()
-        super().__init__(name, uniq_id, identifier, suppress_errors)
+        super().__init__(name, uniq_id, suppress_errors)
 
     @skip_if_failed("_aborted", "_suppress_errors", (None, None))
-    def create_run(self, data) -> typing.Tuple[str | None, str | None]:
+    def create_run(self, data) -> typing.Tuple[str | None, int | None]:
         """
         Create a run
         """
@@ -71,14 +72,13 @@ class Remote(SimvueBaseClass):
         return self._name, self._id
 
     @skip_if_failed("_aborted", "_suppress_errors", None)
-    def update(self, data: dict[str, typing.Any], run=None) -> dict[str, typing.Any] | None:
+    def update(
+        self, data: dict[str, typing.Any], _=None
+    ) -> dict[str, typing.Any] | None:
         """
         Update metadata, tags or status
         """
-        if run is not None and not self._version:
-            data["name"] = run
-
-        if self._id and self._version:
+        if self._id:
             data["id"] = self._id
             data.pop("name", None)
 
@@ -87,7 +87,7 @@ class Remote(SimvueBaseClass):
         try:
             response = put(f"{self._url}/api/runs", self._headers, data)
         except Exception as err:
-            self._error(f"Exception creating updating run: {err}")
+            self._error(f"Exception updating run: {err}")
             return None
 
         logger.debug(
@@ -97,7 +97,7 @@ class Remote(SimvueBaseClass):
         )
 
         if response.status_code == 200:
-            return response.json()
+            return data
 
         self._error(f"Got status code {response.status_code} when updating run")
         return None
@@ -110,21 +110,20 @@ class Remote(SimvueBaseClass):
         if run is not None and not self._version:
             data["name"] = run
 
-        if self._version:
-            try:
-                response = post(f"{self._url}/api/folders", self._headers, data)
-            except Exception as err:
-                self._error(f"Exception creatig folder: {err}")
-                return None
+        try:
+            response = post(f"{self._url}/api/folders", self._headers, data)
+        except Exception as err:
+            self._error(f"Exception creatig folder: {err}")
+            return None
 
-            if response.status_code == 200 or response.status_code == 409:
-                folder_id = response.json()["id"]
-                data["id"] = folder_id
+        if response.status_code == 200 or response.status_code == 409:
+            folder_id = response.json()["id"]
+            data["id"] = folder_id
 
-                if response.status_code == 200:
-                    logger.debug('Got id of new folder: "%s"', folder_id)
-                else:
-                    logger.debug('Got id of existing folder: "%s"', folder_id)
+            if response.status_code == 200:
+                logger.debug('Got id of new folder: "%s"', folder_id)
+            else:
+                logger.debug('Got id of existing folder: "%s"', folder_id)
 
         logger.debug('Setting folder details with data: "%s"', data)
 
@@ -148,7 +147,7 @@ class Remote(SimvueBaseClass):
         )
         return None
 
-    @skip_if_failed("_aborted", "_suppress_errors", None)
+    @skip_if_failed("_aborted", "_suppress_errors", False)
     def save_file(self, data: dict[str, typing.Any]) -> dict[str, typing.Any] | None:
         """
         Save file
@@ -185,7 +184,7 @@ class Remote(SimvueBaseClass):
         if "storage_id" in response.json():
             storage_id = response.json()["storage_id"]
 
-        if self._version and not storage_id:
+        if not storage_id:
             return None
 
         if "url" in response.json():
@@ -240,11 +239,8 @@ class Remote(SimvueBaseClass):
                     return None
 
         if storage_id:
-            # Confirm successful upload
-            path = f"{self._url}/api/data"
-            if self._version:
-                path = f"{self._url}/api/runs/{self._id}/artifacts"
-                data["storage"] = storage_id
+            path = f"{self._url}/api/runs/{self._id}/artifacts"
+            data["storage"] = storage_id
 
             try:
                 response = put(path, self._headers, prepare_for_api(data))
@@ -260,7 +256,7 @@ class Remote(SimvueBaseClass):
                 )
                 return None
 
-        return response.json()
+        return data
 
     @skip_if_failed("_aborted", "_suppress_errors", False)
     def add_alert(self, data, run=None):
@@ -378,7 +374,7 @@ class Remote(SimvueBaseClass):
 
         try:
             response = put(
-                f"{self._url}/api/runs/heartbeat", self._headers, {"name": self._name}
+                f"{self._url}/api/runs/heartbeat", self._headers, {"id": self._id}
             )
         except Exception as err:
             self._error(f"Exception creating run: {str(err)}")

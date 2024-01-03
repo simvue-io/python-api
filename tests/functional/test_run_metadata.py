@@ -8,11 +8,12 @@ from conftest import RunTestInfo
 
 def metadata_update(test_run: RunTestInfo, close_run: bool, offline: bool) -> None:
     metadata = {'a': 'string', 'b': 1, 'c': 2.5}
-    run = Run()
-    run.init(test_run.run_name, metadata=metadata, folder=test_run.folder, running=False)
-    
+    run = Run("offline" if offline else "online")
+    run.init(test_run.run_name, metadata=metadata, folder=test_run.folder, running=close_run, tags=["simvue-client-test", f"test_metadata_update_{'offline' if offline else 'online'}"])
+    run.config(suppress_errors=False)
+
     if offline:
-        sender()
+        sender(suppress_errors=False)
     
     run.update_metadata({'b': 2})
 
@@ -22,10 +23,12 @@ def metadata_update(test_run: RunTestInfo, close_run: bool, offline: bool) -> No
         run.close()
 
     if offline:
-        sender()
+        _run_ids = sender(suppress_errors=False)
+        assert _run_ids, "No runs were retrieved"
+        
 
     client = Client()
-    data = client.get_run(run.id, metadata=True)
+    data = client.get_run(run.id if not offline else _run_ids[-1])
     assert data['metadata'] == metadata
 
     runs = client.delete_runs(test_run.folder)
@@ -39,7 +42,7 @@ def metadata_update(test_run: RunTestInfo, close_run: bool, offline: bool) -> No
     "close_run", (True, False),
     ids=("close_run", "leave_running")
 )
-def test_metadata_update(create_a_run: RunTestInfo, close_run: bool) -> None:
+def test_metadata_update_online(create_a_run: RunTestInfo, close_run: bool) -> None:
     """
     Check metadata can be updated & retrieved
     """
@@ -58,15 +61,18 @@ def test_metadata_update_offline(create_a_run: RunTestInfo) -> None:
 
 def metadata(run_info: RunTestInfo, offline: bool) -> None:
     metadata = {'a': 'string', 'b': random.random(), 'c': random.random()}
-    run = Run(mode='offline')
-    run.init(run_info.run_name, metadata=metadata, folder=run_info.folder)
+    run = Run(mode='offline' if offline else 'online')
+    run.init(run_info.run_name, metadata=metadata, folder=run_info.folder, tags=["simvue-client-test", f"test_metadata_{'offline' if offline else 'online'}"])
+    run.config(suppress_errors=False)
     run.close()
 
     if offline:
-        sender()
+        _run_ids = sender(suppress_errors=False)
+        assert _run_ids, "No runs were retrieved"
+        
 
     client = Client()
-    data = client.get_run(run.id, metadata=True)
+    data = client.get_run(run.id if not offline else _run_ids[-1])
     assert data['metadata'] == metadata
 
     runs = client.delete_runs(run_info.folder)

@@ -54,7 +54,7 @@ def test_run_init_tags_fail(create_a_run: RunTestInfo) -> None:
 
     with pytest.raises(RuntimeError) as exc_info:
         run.init(metadata={'dataset.x1_lower': x1_lower, 'dataset.x1_upper': x1_upper}, tags=1,
-                description="A test to validate tag inputs passed into run.init"
+                description="A test to validate tag inputs passed into run.init",
         )
 
     assert exc_info.match(r"value is not a valid list")

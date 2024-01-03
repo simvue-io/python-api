@@ -15,22 +15,28 @@ def context_run(run_info: RunTestInfo, offline: bool) -> None:
     """
     Create a run using a context manager & check that it exists
     """
-    with Run() as run:
-        run.init(run_info.run_name, folder=run_info.folder)
+    run = Run(mode = "offline" if offline else "online")
+    run.init(run_info.run_name, folder=run_info.folder, tags=["simvue-client-test", f"test_context_run_{'offline' if offline else 'online'}"])
+    run.config(suppress_errors=False)
 
     if offline:
-        sender()
-
+        run.close()
+        _run_ids = sender(suppress_errors=False)
+        assert _run_ids, "No runs were retrieved"
+        
     client = Client()
-    data = client.get_run(run.id)
+    data = client.get_run(run.id if not offline else _run_ids[-1])
     assert run_info.run_name == data["name"]
 
-    runs = client.delete_runs(run_info.folder)
-    assert len(runs) == 1
+    client.delete_runs(run_info.folder)
+
+    _n_runs: int = client.get_runs(filters=[f"folder.path == {run_info.folder}"])
+
+    assert len(_n_runs) == 0
 
 
 @pytest.mark.run
-def test_context_run(create_a_run: RunTestInfo) -> None:
+def test_context_run_online(create_a_run: RunTestInfo) -> None:
     context_run(create_a_run, False)
 
 
@@ -45,16 +51,18 @@ def basic_run(run: RunTestInfo, mode: str) -> None:
     Create a run in the created state, then reconnect to it
     """
     run_create = Run(mode)
-    run_create.init(run.run_name, folder=run.folder, running=False)
+    run_create.init(run.run_name, folder=run.folder, running=False, tags=["simvue-client-test", f"test_basic_run_{mode}"])
+    run_create.config(suppress_errors=False)
     uid = run_create.uid
 
     assert run.run_name == run_create.name
 
     if mode == "offline":
-        sender()
+        _uploaded_runs = sender(suppress_errors=False)
+        assert _uploaded_runs, "No runs were retrieved"
 
     client = Client()
-    data = client.get_run(run_create.id)
+    data = client.get_run(_uploaded_runs[-1] if mode == "offline" else run_create.id)
 
     assert data["status"] == "created"
 
@@ -62,12 +70,14 @@ def basic_run(run: RunTestInfo, mode: str) -> None:
     run_start.reconnect(run_create.id, uid if mode == "offline" else None)
 
     if mode == "offline":
-        sender()
+        _uploaded_runs = sender(suppress_errors=False)
 
-    data = client.get_run(run_start.id)
+        assert _uploaded_runs
+
+        data = client.get_run(_uploaded_runs[-1])
+    else:
+        data = client.get_run(run_create.id)
     assert data["status"] == "running"
-
-    run_start.close()
 
     runs = client.delete_runs(run.folder)
     assert len(runs) == 1
@@ -91,7 +101,7 @@ def test_events(create_a_run: RunTestInfo) -> None:
     Try logging events and retrieving them
     """
     run = Run()
-    run.init(create_a_run.run_name, folder=create_a_run.folder)
+    run.init(create_a_run.run_name, folder=create_a_run.folder, tags=["simvue-client-test", "test_events"])
 
     run.log_event('test-event-1', timestamp='2022-01-03 16:42:30.849617')
     run.log_event('test-event-2', timestamp='2022-01-03 16:42:31.849617')
@@ -119,7 +129,7 @@ def test_run_metrics(create_a_run: RunTestInfo) -> None:
     Try logging metrics and retrieving them
     """
     run = Run()
-    run.init(create_a_run.run_name, folder=create_a_run.folder)
+    run.init(create_a_run.run_name, folder=create_a_run.folder, tags=["simvue-client-test", "test_run_metrics"])
     run.log_metrics({'a': 1.0})
     run.log_metrics({'a': 1.2})
 

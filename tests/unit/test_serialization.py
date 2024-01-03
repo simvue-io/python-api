@@ -1,5 +1,5 @@
 import pytest
-from simvue.converters import to_dataframe
+from simvue.converters import to_dataframe, metric_set_dataframe, metric_to_dataframe
 from simvue.serialization import Serializer, Deserializer
 
 
@@ -113,7 +113,7 @@ def test_pickle_serialization():
 
 
 @pytest.mark.unit
-@pytest.mark.skipif(plotly is None, reason="Plotly not installed")
+@pytest.mark.skipif(plt is None or plotly is None, reason="Plotly not installed")
 def test_plotly_figure_mime_type() -> None:
     """
     Check that a plotly figure has the correct mime-type
@@ -156,6 +156,7 @@ def test_pytorch_tensor_serialization() -> None:
 
 
 @pytest.mark.unit
+@pytest.mark.skipif(pd is None, reason="Pandas not installed")
 def test_to_dataframe() -> None:
     """
     Check that runs can be successfully converted to a dataframe
@@ -177,16 +178,26 @@ def test_to_dataframe() -> None:
 
     runs_df = to_dataframe(runs)
 
-    assert(runs_df.columns.to_list() == ['name',
-                                         'status',
-                                         'folder',
-                                         'created',
-                                         'started',
-                                         'ended',
-                                         'metadata.a1',
-                                         'metadata.b1',
-                                         'metadata.a2',
-                                         'metadata.b2'])
+    _expected = [
+        'name',
+        'status',
+        'folder',
+        'created',
+        'started',
+        'ended',
+        'metadata.a1',
+        'metadata.b1',
+        'metadata.a2',
+        'metadata.b2'
+    ]
+
+    try:
+        assert(runs_df.columns.to_list() == _expected)
+    except AssertionError:
+        _not_in_result = [i for i in _expected if i not in runs_df.columns.to_list()]
+        raise AssertionError(
+            f"Dataframe creation failed, missing columns: {_not_in_result}"
+        )
 
     data = runs_df.to_dict('records')
     for run, data_entry in zip(runs, data):
@@ -198,3 +209,49 @@ def test_to_dataframe() -> None:
             index = f"metadata.{item}"
             assert(index in data_entry)
             assert(run['metadata'][item] == data_entry[index])
+
+
+@pytest.mark.unit
+@pytest.mark.skipif(pd is None, reason="Pandas not installed")
+def test_metric_to_dataframe() -> None:
+    _input: list[list[int | float]] = [
+        (x, y, a, b)
+        for x, y, a, b in
+        zip(
+            list(range(10)),
+            list(range(100, 110)),
+            ["run_test"] * 10,
+            ["other"] * 10
+        )
+    ]
+
+    metric_to_dataframe(_input, step_axis_label="step", name="test_metric")
+
+
+def test_metric_set_dataframe() -> None:
+    _input = {
+        "G3VDT4qHactqrsh6CcyPip": {
+            "a": [
+            {
+                "value": 1.0,
+                "step": 0
+            },
+            {
+                "value": 1.2,
+                "step": 1
+            }
+            ],
+            "b": [
+            {
+                "value": 2.0,
+                "step": 0
+            },
+            {
+                "value": 2.3,
+                "step": 1
+            }
+            ]
+        }
+    }
+    _df = metric_set_dataframe(_input, step_axis_label="step")
+    assert _df.iloc[0].name[0] == "G3VDT4qHactqrsh6CcyPip"

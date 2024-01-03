@@ -11,7 +11,7 @@ def test_folder_find_delete(create_a_run: RunTestInfo) -> None:
     Create a run & folder, find the folder then delete it
     """
     run = Run()
-    run.init(create_a_run.run_name, folder=create_a_run.folder)
+    run.init(create_a_run.run_name, folder=create_a_run.folder, tags=["simvue-client-test", "test_folder_find_delete"])
     run.close()
 
     client = Client()
@@ -33,7 +33,7 @@ def test_folder_metadata_find(create_a_run: RunTestInfo) -> None:
     Create a run & folder with metadata, find it then delete it
     """
     run = Run()
-    run.init(create_a_run.run_name, folder=create_a_run.folder)
+    run.init(create_a_run.run_name, folder=create_a_run.folder,  tags=["simvue-client-test", "test_folder_metadata_find"])
     run.set_folder_details(path=create_a_run.folder, metadata={'atest': 5.0})
     run.close()
 
@@ -57,7 +57,7 @@ def test_folder_init(create_a_run: RunTestInfo) -> None:
     Check specified folder of run
     """
     run = Run()
-    run.init(create_a_run.run_name, folder=create_a_run.folder)
+    run.init(create_a_run.run_name, folder=create_a_run.folder, tags=["simvue-client-test", "test_folder_init"])
     run.close()
 
     client = Client()

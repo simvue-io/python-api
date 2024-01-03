@@ -9,16 +9,19 @@ def run_tags(run_info: RunTestInfo, offline: bool) -> None:
     """
     Check tags can be specified & retrieved
     """
-    tags = ['a1', 'b2']
-    run = Run()
-    run.init(run_info.run_name, tags=tags, folder=run_info.folder)
+    tags = ['a1', 'b2', "simvue-client-test", f"test_run_tags_{'offline' if offline else 'online'}"]
+    run = Run("offline" if offline else "online")
+    run.init(run_info.run_name, folder=run_info.folder, tags=tags)
+    run.config(suppress_errors=False)
     run.close()
 
     if offline:
-        sender()
+        _run_ids = sender(suppress_errors=False)
+        assert _run_ids, "No runs were retrieved"
+        
 
     client = Client()
-    data = client.get_run(run.id, tags=True)
+    data = client.get_run(run.id if not offline else _run_ids[-1])
     assert tags == data['tags']
 
     runs = client.delete_runs(run_info.folder)
@@ -49,23 +52,27 @@ def run_tags_update(run_info: RunTestInfo, close_run: bool, offline: bool) -> No
     Check tags can be updated & retrieved
     """
     tags = ['a1']
-    run = Run()
-    run.init(run_info.run_name, tags=tags, folder=run_info.folder)
+    run = Run("offline" if offline else "online")
+    run.init(run_info.run_name, folder=run_info.folder, tags=tags+["simvue-client-test", f"test_run_tags_update_{'offline' if offline else 'online'}"])
+    run.config(suppress_errors=False)
 
     if offline:
-        sender()
+        _run_ids = sender(suppress_errors=False)
+        
 
-    run.update_tags(['a1', 'b2'])
+    run.update_tags(['a1', 'b2', "simvue-client-test", "test_run_tags_update"])
     tags.append('b2')
 
     if close_run:
         run.close()
     
     if offline:
-        sender()
+        _run_ids = sender(suppress_errors=False)
+        assert _run_ids, "No runs were retrieved"
+        
 
     client = Client()
-    data = client.get_run(run.id, tags=True)
+    data = client.get_run(run.id if not offline else _run_ids[-1])
     assert tags == data['tags']
 
     runs = client.delete_runs(run_info.folder)
