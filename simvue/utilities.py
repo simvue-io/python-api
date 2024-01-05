@@ -53,7 +53,7 @@ def skip_if_failed(
     return decorator
 
 
-def get_auth() -> tuple[str, str]:
+def get_auth() -> tuple[str | None, str | None]:
     """
     Get the URL and access token
     """
