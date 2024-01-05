@@ -101,15 +101,15 @@ def sender(suppress_errors: bool=True) -> list[str]:
 
         if os.path.isfile(f"{current}/sent"):
             if status == 'running':
-                remove_file(f"{current}/running")
+                remove_file(f"{current}/running", suppress_errors)
             elif status == 'completed':
-                remove_file(f"{current}/completed")
+                remove_file(f"{current}/completed", suppress_errors)
             elif status == 'failed':
-                remove_file(f"{current}/failed")
+                remove_file(f"{current}/failed", suppress_errors)
             elif status == 'terminated':
-                remove_file(f"{current}/terminated")
+                remove_file(f"{current}/terminated", suppress_errors)
             elif status == 'created':
-                remove_file(f"{current}/created")
+                remove_file(f"{current}/created", suppress_errors)
             continue
 
         unique_identifier = run.split('/')[len(run.split('/')) - 2]

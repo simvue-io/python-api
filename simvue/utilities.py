@@ -140,36 +140,40 @@ def create_file(filename) -> bool:
         return False
 
 
-def remove_file(filename):
+def remove_file(filename: str, suppress_errors: bool) -> None:
     """
     Remove file
     """
-    if os.path.isfile(filename):
-        try:
-            os.remove(filename)
-        except Exception as err:
-            logger.error("Unable to remove file %s due to: %s", filename, str(err))
+    if not os.path.isfile(filename):
+        return
+    
+    try:
+        os.remove(filename)
+    except Exception as err:
+        if suppress_errors:
+            logger.error("Unable to remove file %s due to: %s", filename, err)
+        else:
+            raise err
 
 
-def get_expiry(token):
+def get_expiry(token: str) -> int:
     """
     Get expiry date from a JWT token
     """
-    expiry = 0
-    try:
+    expiry: int = 0
+    with contextlib.suppress(Exception):
         expiry = jwt.decode(token, options={"verify_signature": False})["exp"]
-    except:
-        pass
     return expiry
 
 
-def prepare_for_api(data_in, all=True):
+def prepare_for_api(data_in: dict[str, typing.Any], all: bool=True) -> dict[str, typing.Any]:
     """
     Remove references to pickling
     """
     data = data_in.copy()
-    if "pickled" in data:
-        del data["pickled"]
-    if "pickledFile" in data and all:
-        del data["pickledFile"]
+    data.pop("pickled", None)
+
+    if all:
+        data.pop("pickledFile", None)
+
     return data
