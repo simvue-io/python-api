@@ -3,6 +3,7 @@ import os
 import uuid
 import random
 import time
+import requests
 
 from simvue.run import Run
 from simvue.sender import sender
@@ -133,13 +134,13 @@ def test_run_metrics(create_a_run: RunTestInfo) -> None:
     run.log_metrics({'a': 1.0})
     run.log_metrics({'a': 1.2})
 
-    run.log_metrics({'b': 2.0}, step=10, time=2.0)
-    run.log_metrics({'b': 2.3}, step=11, time=3.0)
+    run.log_metrics({'b': 2.0}, step=10, time=2)
+    run.log_metrics({'b': 2.3}, step=11, time=3)
 
     run.close()
 
     time.sleep(5)
-
+    
     client = Client()
     data_a = client.get_metrics(run.id, 'a', 'step')
     data_b = client.get_metrics(run.id, 'b', 'step')

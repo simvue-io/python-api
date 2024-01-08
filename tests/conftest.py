@@ -6,6 +6,7 @@ import pytest_mock
 import logging
 import shutil
 import uuid
+import requests
 import glob
 import dataclasses
 
@@ -105,3 +106,18 @@ def pytest_runtest_makereport(item, call) -> None:
 
     for file in _process_err + _process_out:
         os.remove(file)
+
+
+    if not os.environ.get("SIMVUE_TESTS_KEEP_RUNS"):
+        _url, _token = sv_util.get_auth()
+
+        _headers = {
+            "Accept": "application/json",
+            "Authorization": f"Bearer {_token}"
+        }
+
+        _res = requests.get(f'{_url}/api/runs?filters["has tag.simvue-client-test]', headers=_headers)
+        _runs = [i["id"] for i in _res.json()["data"]]
+
+        for run in _runs:
+            requests.delete(f'{_url}/api/runs/{run}', headers=_headers)

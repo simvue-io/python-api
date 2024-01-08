@@ -210,7 +210,7 @@ class Run:
                     if traceback and self._active:
                         self.log_event(f"Traceback: {traceback}")
                         self.set_status('failed')
-        
+
         if (_non_zero := self.executor.exit_status):
             logger.error(f"Simvue process executor terminated with non-zero exit status {_non_zero}")
             sys.exit(_non_zero)
@@ -793,6 +793,7 @@ class Run:
         self._step += 1
 
         try:
+            logger.debug(f"Adding metric to queue: {data}")
             self._metrics_queue.put(data, block=self._queue_blocking)
         except Exception as err:
             logger.error(str(err))

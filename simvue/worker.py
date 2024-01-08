@@ -10,6 +10,9 @@ import contextlib
 import multiprocessing
 import msgpack
 
+from multiprocessing.synchronize import Event
+from typing_extensions import Buffer
+
 from .metrics import get_process_memory, get_process_cpu, get_gpu_metrics
 from .utilities import get_offline_directory, create_file, get_server_version
 
@@ -23,9 +26,9 @@ MAX_BUFFER_SEND = 16000
 class Worker(threading.Thread):
     def __init__(
         self,
-        metrics_queue: multiprocessing.Queue,
-        events_queue: multiprocessing.Queue,
-        shutdown_event: multiprocessing.Event,
+        sysinfo_queue: multiprocessing.JoinableQueue,
+        events_queue: multiprocessing.JoinableQueue,
+        shutdown_event: Event,
         uuid: uuid.UUID,
         run_name: str,
         run_id: str,
@@ -38,9 +41,9 @@ class Worker(threading.Thread):
     ) -> None:
         threading.Thread.__init__(self)
         self._parent_thread: threading.Thread = threading.current_thread()
-        self._metrics_queue: multiprocessing.JoinableQueue = metrics_queue
+        self._sysinfo_queue: multiprocessing.JoinableQueue = sysinfo_queue
         self._events_queue: multiprocessing.JoinableQueue = events_queue
-        self._shutdown_event: multiprocessing.Event = shutdown_event
+        self._shutdown_event: Event = shutdown_event
         self._run_name = run_name
         self._run_id = run_id
         self._uuid = uuid
@@ -129,56 +132,91 @@ class Worker(threading.Thread):
 
         return True
 
+    def _send_objects(self, queue: multiprocessing.JoinableQueue, label: str) -> None:
+        buffer: list[Buffer] = []
+
+        while not queue.empty() and len(buffer) < MAX_BUFFER_SEND:
+            item: Buffer = queue.get(block=False)
+            buffer.append(item)
+            queue.task_done()
+
+        if not buffer:
+            return
+
+        logger.debug(f"Sending {label}")
+
+        obj: dict[str, str | Buffer] = {label: buffer, "run": self._run_id}
+
+        try:
+            if self._mode == "online":
+                obj = msgpack.packb(obj, use_bin_type=True)
+            self.post(label, obj)
+        except Exception as err:
+            if self._suppress_errors:
+                logger.error(f"Failed to post {label}: %s", err)
+            else:
+                raise err
+
+    def _collect_sysinfo(self) -> float:
+        cpu = get_process_cpu(self.processes)
+        memory = get_process_memory(self.processes)
+        gpu = get_gpu_metrics(self.processes)
+
+        if memory is not None and cpu is not None:
+            data = {}
+
+            data["step"] = 0
+            data["values"] = {
+                "resources/cpu.usage.percent": cpu,
+                "resources/memory.usage": memory,
+            }
+            if gpu:
+                for item in gpu:
+                    data["values"][item] = gpu[item]
+            data["time"] = time.time() - self._start_time
+            data["timestamp"] = datetime.datetime.now().strftime(
+                "%Y-%m-%d %H:%M:%S.%f"
+            )
+
+            try:
+                self._sysinfo_queue.put(data, block=False)
+            except Exception as err:
+                if self._suppress_errors:
+                    logger.error("Failed to add system info to submission queue: %s", err)
+                else:
+                    raise err
+
+        return time.time()
+
+    def _send_all(self, record_sys_info: bool=True) -> float:
+        latest_sys_info_record_time: float = 0
+
+        if record_sys_info:
+            latest_sys_info_record_time = self._collect_sysinfo()
+
+        # Send metrics
+        self._send_objects(self._sysinfo_queue, "metrics")
+
+        # Send events
+        self._send_objects(self._events_queue, "events")
+
+        return latest_sys_info_record_time
+
     def run(self) -> None:
         """
         Loop sending heartbeats, metrics and events
         """
         last_heartbeat: float = 0
-        last_metrics: float = 0
+        latest_sysinfo: float = 0
         collected: bool = False
 
         while True:
             # Collect metrics if necessary
             if not (
-                time.time() - last_metrics > self._resources_metrics_interval
+                time.time() - latest_sysinfo > self._resources_metrics_interval
                 and self.processes
             ):
                 continue
-
-            cpu = get_process_cpu(self.processes)
-
-            if not collected:
-                # Need to wait before sending metrics, otherwise first point will have zero CPU usage
-                collected = True
-            else:
-                memory = get_process_memory(self.processes)
-                gpu = get_gpu_metrics(self.processes)
-
-                if memory is not None and cpu is not None:
-                    data = {}
-
-                    data["step"] = 0
-                    data["values"] = {
-                        "resources/cpu.usage.percent": cpu,
-                        "resources/memory.usage": memory,
-                    }
-                    if gpu:
-                        for item in gpu:
-                            data["values"][item] = gpu[item]
-                    data["time"] = time.time() - self._start_time
-                    data["timestamp"] = datetime.datetime.now().strftime(
-                        "%Y-%m-%d %H:%M:%S.%f"
-                    )
-
-                    try:                    
-                        self._metrics_queue.put(data, block=False)
-                    except Exception as err:
-                        if self._suppress_errors:
-                            logger.error("Failed to add metrics to submission queue: %s", err)
-                        else:
-                            raise err
-
-                last_metrics = time.time()
 
             # Send heartbeat if necessary
             if time.time() - last_heartbeat > HEARTBEAT_INTERVAL:
@@ -191,57 +229,18 @@ class Worker(threading.Thread):
                     else:
                         raise err
 
-            # Send metrics
-            buffer: list = []
-            while not self._metrics_queue.empty() and len(buffer) < MAX_BUFFER_SEND:
-                item = self._metrics_queue.get(block=False)
-                buffer.append(item)
-                self._metrics_queue.task_done()
+            latest_sysinfo = self._send_all(collected)
 
-            if buffer:
-                logger.debug("Sending metrics")
+            # Need to wait before sending sys info, otherwise first point will have zero CPU usage
+            if not collected:
+                collected = True
 
-                buffer = {"metrics": buffer, "run": self._run_id}
-
-                try:
-                    if self._mode == "online":
-                        buffer = msgpack.packb(buffer, use_bin_type=True)
-                    self.post("metrics", buffer)
-                except Exception as err:
-                    if self._suppress_errors:
-                        logger.error("Failed to post metrics: %s", err)
-                    else:
-                        raise err
-                buffer = []
-
-            # Send events
-            buffer = []
-            while not self._events_queue.empty() and len(buffer) < MAX_BUFFER_SEND:
-                item = self._events_queue.get(block=False)
-                buffer.append(item)
-                self._events_queue.task_done()
-
-            if buffer:
-                logger.debug("Sending events")
-
-                buffer = {"events": buffer, "run": self._run_id}
-
-                try:
-                    if self._mode == "online":
-                        buffer = msgpack.packb(buffer, use_bin_type=True)
-                    self.post("events", buffer)
-                except Exception as err:
-                    if self._suppress_errors:
-                        logger.error("Failed to post events: %s", err)
-                    else:
-                        raise err
-
-                buffer = []
-
-            if self._shutdown_event.is_set() or not self._parent_thread.is_alive():
-                if self._metrics_queue.empty() and self._events_queue.empty():
-                    logger.debug("Ending worker thread")
-                    return
+            if all([
+                self._shutdown_event.is_set() or not self._parent_thread.is_alive(),
+                self._sysinfo_queue.empty() and self._events_queue.empty()
+            ]):
+                logger.debug("Ending worker thread")
+                return
             else:
                 counter = 0
                 while (
@@ -249,7 +248,7 @@ class Worker(threading.Thread):
                     and not self._shutdown_event.is_set()
                     and self._parent_thread.is_alive()
                     and not self._events_queue.full()
-                    and not self._metrics_queue.full()
+                    and not self._sysinfo_queue.full()
                 ):
                     time.sleep(0.1)
                     counter += 1
