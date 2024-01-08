@@ -6,6 +6,7 @@ import pytest_mock
 import logging
 import shutil
 import uuid
+import glob
 import dataclasses
 
 import simvue.utilities as sv_util
@@ -98,3 +99,9 @@ def pytest_runtest_makereport(item, call) -> None:
             os.unlink(os.path.join(root, file))
         for directory in dir:
             shutil.rmtree(os.path.join(root, directory))
+
+    _process_err: list[str] = glob.glob(os.path.join(os.getcwd(), "client_test_*_process_*.err"))
+    _process_out: list[str] = glob.glob(os.path.join(os.getcwd(), "client_test_*_process_*.out"))
+
+    for file in _process_err + _process_out:
+        os.remove(file)
