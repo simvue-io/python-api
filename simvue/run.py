@@ -701,7 +701,11 @@ class Run:
 
         data = {}
         data["message"] = message
-        data["timestamp"] = datetime.datetime.now(datetime.UTC).strftime("%Y-%m-%d %H:%M:%S.%f")
+
+        if sys.version_info < (3, 12):
+            data["timestamp"] = datetime.datetime.utcnow().strftime("%Y-%m-%d %H:%M:%S.%f")
+        else:
+            data["timestamp"] = datetime.datetime.now(datetime.UTC).strftime("%Y-%m-%d %H:%M:%S.%f")
         if timestamp is not None:
             if validate_timestamp(timestamp):
                 data["timestamp"] = timestamp
@@ -771,7 +775,12 @@ class Run:
 
         if time is not None:
             data["time"] = time
-        data["timestamp"] = datetime.datetime.now(datetime.UTC).strftime("%Y-%m-%d %H:%M:%S.%f")
+
+        if sys.version_info < (3, 12):
+            data["timestamp"] = datetime.datetime.utcnow().strftime("%Y-%m-%d %H:%M:%S.%f")
+        else:
+            data["timestamp"] = datetime.datetime.now(datetime.UTC).strftime("%Y-%m-%d %H:%M:%S.%f")
+
         if timestamp is not None:
             if validate_timestamp(timestamp):
                 data["timestamp"] = timestamp
