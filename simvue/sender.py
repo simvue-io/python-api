@@ -174,7 +174,7 @@ def sender(suppress_errors: bool=True) -> list[str]:
             logger.info('Changing status to lost, name %s and id %s', run_init['name'], unique_identifier)
             status = 'lost'
             create_file(f"{current}/lost")
-            remove_file(f"{current}/running")
+            remove_file(f"{current}/running", suppress_errors)
 
         # Send heartbeat if the heartbeat file was touched recently
         if status == 'running' and time.time() - os.path.getmtime(heartbeat_filename) < 120:
@@ -218,8 +218,6 @@ def sender(suppress_errors: bool=True) -> list[str]:
                     _json_data["id"] = run_id
                 except TypeError as e:
                     raise TypeError(f"Failed to parse '{name}' in '{record}': {e}")
-
-            print(record, name, _json_data)
 
             # Handle metrics
             if '/metrics-' in record:
@@ -286,7 +284,7 @@ def sender(suppress_errors: bool=True) -> list[str]:
             data = {'name': run_init['name'], 'status': status}
             if remote.update(data):
                 create_file(f"{current}/sent")
-                remove_file(f"{current}/{status}")
+                remove_file(f"{current}/{status}", suppress_errors)
                 cleanup = True
         elif updates == 0 and status == 'lost':
             logger.info('Finished sending run %s as it was lost', run_init['name'])

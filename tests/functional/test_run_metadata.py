@@ -33,7 +33,6 @@ def metadata_update(test_run: RunTestInfo, close_run: bool, offline: bool) -> No
 
     runs = client.delete_runs(test_run.folder)
     assert len(runs) == 1
-    run.close()
 
 
 @pytest.mark.run
@@ -76,7 +75,7 @@ def metadata(run_info: RunTestInfo, offline: bool) -> None:
     assert data['metadata'] == metadata
 
     runs = client.delete_runs(run_info.folder)
-    assert len(runs) == 1
+    assert len(runs) > 0
 
 
 

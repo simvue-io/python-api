@@ -80,7 +80,8 @@ class Remote(SimvueBaseClass):
         """
         if self._id:
             data["id"] = self._id
-            data.pop("name", None)
+        
+        data.pop("name", None)
 
         logger.debug('Updating run with data: "%s"', data)
 
@@ -325,6 +326,8 @@ class Remote(SimvueBaseClass):
         Send metrics
         """
         logger.debug("Sending metrics")
+
+        raise Exception(data)
 
         try:
             response = post(

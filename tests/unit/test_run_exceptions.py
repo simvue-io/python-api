@@ -14,6 +14,7 @@ def test_run_init_folder_fail(create_a_run: RunTestInfo) -> None:
     x1_upper = 6
 
     run = Run(mode='offline')
+    run.config(suppress_errors=False)
 
     with pytest.raises(RuntimeError) as exc_info:
         run.init(metadata={'dataset.x1_lower': x1_lower, 'dataset.x1_upper': x1_upper}, tags=[1,2,3], folder='test_folder',
@@ -33,6 +34,7 @@ def test_run_init_metadata_fail(create_a_run: RunTestInfo) -> None:
     x1_upper = 6,
 
     run = Run(mode='offline')
+    run.config(suppress_errors=False)
 
     with pytest.raises(RuntimeError) as exc_info:
         run.init(metadata={'dataset.x1_lower': x1_lower, 'dataset.x1_upper': x1_upper},
@@ -51,6 +53,7 @@ def test_run_init_tags_fail(create_a_run: RunTestInfo) -> None:
     x1_upper = 6
 
     run = Run(mode='offline')
+    run.config(suppress_errors=False)
 
     with pytest.raises(RuntimeError) as exc_info:
         run.init(metadata={'dataset.x1_lower': x1_lower, 'dataset.x1_upper': x1_upper}, tags=1,
