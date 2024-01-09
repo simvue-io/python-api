@@ -5,6 +5,7 @@ import uuid
 import typing
 import glob
 import logging
+import pathlib
 
 from simvue.utilities import get_offline_directory, create_file, prepare_for_api, skip_if_failed
 from simvue.factory.base import SimvueBaseClass
@@ -28,6 +29,9 @@ class Offline(SimvueBaseClass):
         """
         Write JSON to file
         """
+        if not os.path.isdir(os.path.dirname(filename)):
+            self._error("Cannot write file '{filename}', parent directory does not exist")
+
         try:
             with open(filename, 'w') as fh:
                 json.dump(data, fh)
@@ -165,6 +169,8 @@ class Offline(SimvueBaseClass):
     
     @skip_if_failed("_aborted", "_suppress_errors", None)
     def send_heartbeat(self) -> dict[str, typing.Any] | None:
+        logger.debug(f"Creating heartbeat file: {os.path.join(self._directory, 'heartbeat')}")
+        pathlib.Path(os.path.join(self._directory, "heartbeat"), "a").touch()
         return {"success": True}
 
     @skip_if_failed("_aborted", "_suppress_errors", False)
