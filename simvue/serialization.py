@@ -2,6 +2,28 @@ import io
 import pickle
 import typing
 import enum
+import simvue.utilities as sv_util
+
+try:
+    import plotly
+except ImportError:
+    plotly = None
+
+try:
+    import numpy
+except ImportError:
+    numpy = None
+
+try:
+    import torch
+except ImportError:
+    torch = None
+
+try:
+    import pandas
+except ImportError:
+    pandas = None
+
 
 if typing.TYPE_CHECKING:
     from numpy import ndarray
@@ -57,45 +79,34 @@ def serialize(
     return None, None
 
 
+@sv_util.check_extra("plot")
 def _serialize_plotly_figure(
     data,
 ) -> tuple[str | typing.Any | None, SimvueMimeType] | tuple[None, None]:
-    try:
-        import plotly
-    except ImportError:
-        return None, None
-
     data = plotly.io.to_json(data, "json")
     return data, SimvueMimeType.Plotly
 
 
+@sv_util.check_extra("plot")
 def _serialize_matplotlib_figure(
     data,
 ) -> tuple[str | typing.Any | None, SimvueMimeType] | tuple[None, None]:
-    try:
-        import plotly
-    except ImportError:
-        return None, None
-
     data = plotly.io.to_json(plotly.tools.mpl_to_plotly(data), "json")
     return data, SimvueMimeType.Plotly
 
 
+@sv_util.check_extra("dataset")
 def _serialize_numpy_array(
     data: "ndarray",
 ) -> tuple[bytes, SimvueMimeType] | tuple[None, None]:
-    try:
-        import numpy as np
-    except ImportError:
-        return None, None
-
     mfile = io.BytesIO()
-    np.save(mfile, data, allow_pickle=False)
+    numpy.save(mfile, data, allow_pickle=False)
     mfile.seek(0)
     data = mfile.read()
     return data, SimvueMimeType.Numpy
 
 
+@sv_util.check_extra("dataset")
 def _serialize_dataframe(data: "DataFrame") -> tuple[bytes, SimvueMimeType]:
     mfile = io.BytesIO()
     data.to_csv(mfile)
@@ -104,15 +115,10 @@ def _serialize_dataframe(data: "DataFrame") -> tuple[bytes, SimvueMimeType]:
     return bytes_data, SimvueMimeType.Pandas
 
 
+@sv_util.check_extra("torch")
 def _serialize_torch_tensor(
     data: "Tensor",
 ) -> tuple[bytes, SimvueMimeType] | tuple[None, None]:
-    try:
-        import torch
-    except ImportError:
-        torch = None
-        return None, None
-
     mfile = io.BytesIO()
     torch.save(data, mfile)
     mfile.seek(0)
@@ -126,10 +132,10 @@ def _serialize_pickle(data: typing.Any):
 
 
 def deserialize(
-        data: typing.Any,
-        mimetype: SimvueMimeType,
-        allow_pickle: bool=False
-    ) -> typing.Union["Figure", "FigureWidget", "DataFrame", "ndarray", "Tensor", typing.Any, None]:
+    data: typing.Any,
+    mimetype: SimvueMimeType,
+    allow_pickle: bool=False
+) -> typing.Union["Figure", "FigureWidget", "DataFrame", "ndarray", "Tensor", typing.Any, None]:
     """
     Deserialize the given data
     """
@@ -146,42 +152,31 @@ def deserialize(
     return None
 
 
+@sv_util.check_extra("plot")
 def _deserialize_plot_figure(
     data: typing.Any,
 ) -> typing.Union["Figure", "FigureWidget", None]:
-    try:
-        import plotly
-    except ImportError:
-        return None
-
     data = plotly.io.from_json(data)
     return data
 
 
+@sv_util.check_extra("dataset")
 def _deserialize_numpy_array(data: "Buffer") -> typing.Union["ndarray", None]:
-    try:
-        import numpy as np
-    except ImportError:
-        return None
-
     mfile = io.BytesIO(data)
     mfile.seek(0)
-    data: "ndarray" = np.load(mfile, allow_pickle=False)
+    data: "ndarray" = numpy.load(mfile, allow_pickle=False)
     return data
 
 
+@sv_util.check_extra("dataset")
 def _deserialize_dataframe(data: "Buffer") -> typing.Union["DataFrame", None]:
-    try:
-        import pandas as pd
-    except ImportError:
-        return None
-
     mfile = io.BytesIO(data)
     mfile.seek(0)
-    data = pd.read_csv(mfile, index_col=0)
+    data = pandas.read_csv(mfile, index_col=0)
     return data
 
 
+@sv_util.check_extra("torch")
 def _deserialize_torch_tensor(data: "Buffer") -> typing.Union["Tensor", None]:
     try:
         import torch

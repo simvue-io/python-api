@@ -5,13 +5,18 @@ import typing
 import logging
 import requests
 
+try:
+    import matplotlib as plt
+except ImportError:
+    plt = None
+
 from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
     from pandas import DataFrame
 
 from .serialization import deserialize
-from .utilities import get_auth, get_server_version
+from .utilities import get_auth, get_server_version, check_extra
 from .converters import to_dataframe, metric_set_dataframe, metric_to_dataframe
 
 CONCURRENT_DOWNLOADS = 10
@@ -210,9 +215,9 @@ class Client:
 
         if response.status_code == 404 and (_detail := response.json().get("detail")):
             if _detail == "No such run":
-                raise Exception("Run does not exist")
+                raise RuntimeError("Run does not exist")
             elif _detail == "artifact does not exist":
-                raise Exception("Artifact does not exist")
+                raise RuntimeError("Artifact does not exist")
 
         if response.status_code != 200:
             return None
@@ -246,9 +251,9 @@ class Client:
         if response.status_code == 404:
             if "detail" in response.json():
                 if response.json()["detail"] == "run does not exist":
-                    raise Exception("Run does not exist")
+                    raise RuntimeError("Run does not exist")
                 elif response.json()["detail"] == "artifact does not exist":
-                    raise Exception("Artifact does not exist")
+                    raise RuntimeError("Artifact does not exist")
 
         if response.status_code == 200:
             if response.json():
@@ -256,7 +261,7 @@ class Client:
                 if not downloader(
                     {"url": url, "filename": os.path.basename(name), "path": path}
                 ):
-                    raise Exception("Failed to download file data")
+                    raise RuntimeError("Failed to download file data")
 
         else:
             raise requests.RequestException(
@@ -287,7 +292,7 @@ class Client:
         if response.status_code == 404:
             if "detail" in response.json():
                 if response.json()["detail"] == "run does not exist":
-                    raise Exception("Run does not exist")
+                    raise RuntimeError("Run does not exist")
 
         if not path:
             path = "./"
@@ -324,7 +329,7 @@ class Client:
                     executor.submit(downloader, item)
 
         else:
-            raise Exception(response.text)
+            raise RuntimeError(response.text)
 
     def get_folder(self, folder, tags=False, metadata=False):
         """
@@ -339,15 +344,15 @@ class Client:
         if response.status_code == 404:
             if "detail" in response.json():
                 if response.json()["detail"] == "no such folder":
-                    raise Exception("Folder does not exist")
+                    raise RuntimeError("Folder does not exist")
 
         if response.status_code == 200:
             if len(response.json()["data"]) == 0:
-                raise Exception("Folder does not exist")
+                raise RuntimeError("Folder does not exist")
 
             return response.json()["data"][0]
 
-        raise Exception(response.text)
+        raise RuntimeError(response.text)
 
     def get_folders(self, filters, tags=False, metadata=False):
         """
@@ -362,7 +367,7 @@ class Client:
         if response.status_code == 200:
             return response.json()["data"]
 
-        raise Exception(response.text)
+        raise RuntimeError(response.text)
 
     def get_metrics_names(self, run):
         """
@@ -377,7 +382,7 @@ class Client:
         if response.status_code == 200:
             return response.json()
 
-        raise Exception(response.text)
+        raise RuntimeError(response.text)
 
     def get_metrics_summaries(self, run, name):
         """
@@ -392,7 +397,7 @@ class Client:
         if response.status_code == 200:
             return response.json()
 
-        raise Exception(response.text)
+        raise RuntimeError(response.text)
 
     def get_metrics(
         self,
@@ -492,12 +497,12 @@ class Client:
         }
 
         if xaxis not in ("step", "time"):
-            raise Exception(
+            raise ValueError(
                 'Invalid xaxis specified, should be either "step" or "time"'
             )
 
         if format not in ("list", "dataframe"):
-            raise Exception(
+            raise ValueError(
                 'Invalid format specified, should be either "list" or "dataframe"'
             )
 
@@ -529,22 +534,22 @@ class Client:
                 return metric_set_dataframe(response.json(), xaxis)
             return data
 
-        raise Exception(response.text)
+        raise RuntimeError(response.text)
 
+    @check_extra("plot")
     def plot_metrics(self, runs, names, xaxis, max_points=0):
         """
         Plot time series metrics from multiple runs and/or metrics
         """
         if not isinstance(runs, list):
-            raise Exception("Invalid runs specified, must be a list of run names.")
+            raise ValueError("Invalid runs specified, must be a list of run names.")
 
         if not isinstance(names, list):
-            raise Exception("Invalid names specified, must be a list of metric names.")
+            raise ValueError("Invalid names specified, must be a list of metric names.")
 
         data = self.get_metrics_multiple(
             runs, names, xaxis, max_points, format="dataframe"
         )
-        import matplotlib.pyplot as plt
 
         for run in runs:
             for name in names:
@@ -583,4 +588,4 @@ class Client:
         if response.status_code == 200:
             return response.json()["data"]
 
-        raise Exception(response.text)
+        raise RuntimeError(response.text)

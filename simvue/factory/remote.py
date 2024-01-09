@@ -327,7 +327,6 @@ class Remote(SimvueBaseClass):
         """
         logger.debug("Sending metrics")
 
-        raise Exception(data)
 
         try:
             response = post(
