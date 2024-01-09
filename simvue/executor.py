@@ -54,9 +54,9 @@ class Executor:
         self,
         identifier: str,
         *args,
-        executable: str | None = None,
-        script: str | None = None,
-        input_file: str | None = None,
+        executable: typing.Optional[str]= None,
+        script: typing.Optional[str]= None,
+        input_file: typing.Optional[str]= None,
         **kwargs,
     ) -> None:
         """Add a process to be executed to the executor.
