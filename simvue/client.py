@@ -6,7 +6,7 @@ import logging
 import requests
 
 try:
-    import matplotlib as plt
+    import matplotlib.pyplot as plt
 except ImportError:
     plt = None
 
@@ -469,8 +469,29 @@ class Client:
         return data
 
     def get_metrics_multiple(
-        self, runs, names, xaxis, max_points=0, aggregate=False, format="list"
-    ):
+        self,
+        runs: list[str],
+        names: list[str],
+        xaxis: typing.Literal["step", "time"],
+        max_points: int=0,
+        aggregate: bool=False,
+        format: typing.Literal["list", "dataframe"]="list"
+    ) -> typing.Union[
+            list[tuple[
+                typing.Union[int, float],
+                typing.Union[int, float],
+                str,
+                str
+            ]],
+            list[tuple[
+                typing.Union[int, float],
+                typing.Union[int, float],
+                typing.Union[int, float],
+                typing.Union[int, float],
+                str
+            ]],
+            "DataFrame"
+        ]:
         """
         Get time series metrics from multiple runs and/or metrics
         """
@@ -496,34 +517,63 @@ class Client:
             f"{self._url}/api/metrics", headers=self._headers, params=params
         )
 
-        if response.status_code == 200:
-            data = []
-            if not aggregate:
-                for run in response.json():
-                    for name in response.json()[run]:
-                        for item in response.json()[run][name]:
-                            data.append([item[xaxis], item["value"], run, name])
-            else:
-                for name in response.json():
-                    for item in response.json()[name]:
-                        data.append(
-                            [
-                                item[xaxis],
-                                item["min"],
-                                item["average"],
-                                item["max"],
-                                name,
-                            ]
+        if response.status_code != 200:
+            raise RuntimeError(response.text)
+
+        if format == "dataframe":
+            return metric_set_dataframe(response.json(), xaxis)
+
+        name: str
+
+        if aggregate:
+            _data_agg: list[tuple[
+                typing.Union[int, float],
+                typing.Union[int, float],
+                typing.Union[int, float],
+                typing.Union[int, float],
+                str
+            ]] = []
+
+            for name in response.json():
+                for item in response.json()[name]:
+                    _axis_value: typing.Union[int, float] = item[xaxis]
+                    _min_value: typing.Union[int, float] = item["min"]
+                    _avg_value: typing.Union[int, float] = item["average"]
+                    _max_value: typing.Union[int, float] = item["max"]
+                    _data_agg.append(
+                        (
+                            _axis_value,
+                            _min_value,
+                            _avg_value,
+                            _max_value,
+                            name,
                         )
-
-            if format == "dataframe":
-                return metric_set_dataframe(response.json(), xaxis)
-            return data
-
-        raise RuntimeError(response.text)
+                    )
+            return _data_agg
+        
+        _data: list[tuple[
+            typing.Union[int, float],
+            typing.Union[int, float],
+            str,
+            str
+        ]] = []
+        for run in response.json():
+            for name in response.json()[run]:
+                for item in response.json()[run][name]:
+                    _axis_value: typing.Union[int, float] = item[xaxis]
+                    _value: typing.Union[int, float] = item["value"]
+                    _data.append((_axis_value, _value, run, name))
+        return _data
 
     @check_extra("plot")
-    def plot_metrics(self, runs, names, xaxis, max_points=0):
+    def plot_metrics(
+        self,
+        runs: list[str],
+        names: list[str], 
+        xaxis: typing.Literal["step", "time"],
+        max_points: int=0,
+        out_file: typing.Optional[str]=None
+    ) -> None:
         """
         Plot time series metrics from multiple runs and/or metrics
         """
@@ -559,13 +609,31 @@ class Client:
         if len(names) == 1:
             plt.ylabel(names[0])
 
-        return plt
+        if out_file:
+            plt.savefig(out_file)
+        else:
+            plt.show()
 
-    def get_events(self, run, filter=None, start=0, num=0):
+    def get_events(
+        self,
+        run: str,
+        filters: typing.Optional[list[str]]=None,
+        start: int=0,
+        count: int=0,
+        timestamp_begin: typing.Optional[str]=None,
+        timestamp_end: typing.Optional[str]=None
+    ) -> list[dict]:
         """
         Return events from the specified run
         """
-        params = {"run": run, "filter": filter, "start": start, "num": num}
+        params = {
+            "run": run,
+            "filters": json.dumps(filters),
+            "start": start,
+            "count": count,
+            "timestamp_begin": timestamp_begin,
+            "timestamp_end": timestamp_end
+        }
 
         response = requests.get(
             f"{self._url}/api/events", headers=self._headers, params=params

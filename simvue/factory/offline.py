@@ -46,7 +46,7 @@ class Offline(SimvueBaseClass):
         return data
 
     @skip_if_failed("_aborted", "_suppress_errors", (None, None))
-    def create_run(self, data) -> typing.Tuple[typing.Optional[str], typing.Optional[str]]:
+    def create_run(self, data) -> tuple[typing.Optional[str], typing.Optional[str]]:
         """
         Create a run
         """

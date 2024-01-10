@@ -47,8 +47,8 @@ class Executor:
         self._exit_codes = self._manager.dict()
         self._std_err = self._manager.dict()
         self._std_out = self._manager.dict()
-        self._command_str: typing.Dict[str, str] = {}
-        self._processes: typing.Dict[str, multiprocessing.Process] = {}
+        self._command_str: dict[str, str] = {}
+        self._processes: dict[str, multiprocessing.Process] = {}
 
 
     def add_process(
@@ -59,7 +59,7 @@ class Executor:
         script: typing.Optional[str] = None,
         input_file: typing.Optional[str] = None,
         print_stdout: bool=False,
-        env: typing.Optional[typing.Dict[str, str]] = None,
+        env: typing.Optional[dict[str, str]] = None,
         completion_callback: typing.Optional[typing.Callable[[int, str, str], None]]=None,
         **kwargs,
     ) -> None:
@@ -105,7 +105,7 @@ class Executor:
         input_file : str | None, optional
             the input file to run, note this only work if the input file is not an option, if this is the case
             you should provide it as such and perform the upload manually, by default None
-        env : typing.Dict[str, str], optional
+        env : dict[str, str], optional
             environment variables for process
         completion_callback : typing.Callable | None, optional
             callback to run when process terminates
@@ -131,14 +131,14 @@ class Executor:
 
         def _exec_process(
             proc_id: str,
-            command: typing.List[str],
+            command: list[str],
             runner: "simvue.Run",
-            exit_status_dict: typing.Dict[str, int],
-            std_err: typing.Dict[str, str],
-            std_out: typing.Dict[str, str],
+            exit_status_dict: dict[str, int],
+            std_err: dict[str, str],
+            std_out: dict[str, str],
             run_on_exit: typing.Callable=completion_callback,
             print_out: bool=print_stdout,
-            environment: typing.Optional[typing.Dict[str, str]]=env
+            environment: typing.Optional[dict[str, str]]=env
         ) -> None:
             _logger = logging.getLogger(proc_id)
             with open(f"{runner.name}_{proc_id}.err", "w") as err:
@@ -187,7 +187,7 @@ class Executor:
                 std_err=std_err[proc_id]
             )
 
-        _command: typing.List[str] = []
+        _command: list[str] = []
 
         if executable:
             _command += [executable]

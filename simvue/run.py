@@ -61,19 +61,19 @@ def walk_through_files(path) -> typing.Iterator[str]:
     return glob.iglob(os.path.join(path, "**"), recursive=True)
 
 
-def get_cpu_info() -> typing.Tuple[str, str]:
+def get_cpu_info() -> tuple[str, str]:
     """
     Get CPU info
     """
-    cpu_info: typing.Dict[str, typing.Any] = cpuinfo.get_cpu_info()
+    cpu_info: dict[str, typing.Any] = cpuinfo.get_cpu_info()
     return cpu_info["brand_raw"], cpu_info["arch_string_raw"]
 
 
-def get_gpu_info() -> typing.Dict[str, str]:
+def get_gpu_info() -> dict[str, str]:
     """
     Get GPU info
     """
-    gpus: typing.List[GPUtil.GPU] = GPUtil.getGPUs()
+    gpus: list[GPUtil.GPU] = GPUtil.getGPUs()
 
     if not gpus:
         return {"name": "", "driver_version": ""}
@@ -81,14 +81,14 @@ def get_gpu_info() -> typing.Dict[str, str]:
     return {"name": gpus[0].name, "driver_version": gpus[0].driver}
 
 
-def get_system() -> typing.Dict[str, typing.Any]:
+def get_system() -> dict[str, typing.Any]:
     """
     Get system details
     """
     cpu = get_cpu_info()
     gpu = get_gpu_info()
 
-    system: typing.Dict[str, typing.Any] = {}
+    system: dict[str, typing.Any] = {}
     system["cwd"] = os.getcwd()
     system["hostname"] = socket.gethostname()
     system["pythonversion"] = (
@@ -162,7 +162,7 @@ class Run:
         self._active: bool = False
         self._aborted: bool = False
         self._url, self._token = get_auth()
-        self._headers: typing.Dict[str, str] = {
+        self._headers: dict[str, str] = {
             "Authorization": f"Bearer {self._token}"
         }
         self._simvue: typing.Union[Offline, Remote, None] = None
@@ -295,8 +295,8 @@ class Run:
     def init(
         self,
         name: typing.Optional[str] = None,
-        metadata: typing.Optional[typing.Dict[str, typing.Any]] = None,
-        tags: typing.Optional[typing.List[str]] = None,
+        metadata: typing.Optional[dict[str, typing.Any]] = None,
+        tags: typing.Optional[list[str]] = None,
         description: typing.Optional[str] = None,
         folder: str = "/",
         running: bool = True,
@@ -381,7 +381,7 @@ class Run:
         input_file: typing.Optional[str] = None,
         print_stdout: bool = False,
         completion_callback: typing.Optional[typing.Callable]=None,
-        env: typing.Optional[typing.Dict[str, str]]=None,
+        env: typing.Optional[dict[str, str]]=None,
         **cmd_kwargs
     ) -> None:
         """Add a process to be executed to the executor.
@@ -430,12 +430,12 @@ class Run:
             print output of command to the terminal, default is False
         completion_callback : typing.Callable | None, optional
             callback to run when process terminates
-        env : typing.Dict[str, str], optional
+        env : dict[str, str], optional
             environment variables for process
         **kwargs
             all other keyword arguments are interpreted as options to the command
         """
-        _cmd_list: typing.List[str] = []
+        _cmd_list: list[str] = []
         _pos_args = list(cmd_args)
 
         # Assemble the command for saving to metadata as string
@@ -536,8 +536,10 @@ class Run:
         )
         self._start(reconnect=True)
 
+        return True
+
     @skip_if_failed("_aborted", "_suppress_errors", None)
-    def set_pid(self, pid: str) -> None:
+    def set_pid(self, pid: int) -> None:
         """
         Set pid of process to be monitored
         """
@@ -605,12 +607,12 @@ class Run:
         self._storage_id = storage_id or self._storage_id
 
     @skip_if_failed("_aborted", "_suppress_errors", False)
-    def update_metadata(self, metadata: typing.Dict[str, typing.Any]) -> bool:
+    def update_metadata(self, metadata: dict[str, typing.Any]) -> bool:
         """Update metadata for this run.
 
         Parameters
         ----------
-        metadata : typing.Dict[str, typing.Any]
+        metadata : dict[str, typing.Any]
             a dictionary containing key-value pairs for the metadata to
             send to the server
 
@@ -639,12 +641,12 @@ class Run:
         return False
 
     @skip_if_failed("_aborted", "_suppress_errors", False)
-    def update_tags(self, tags: typing.List[str]) -> bool:
+    def update_tags(self, tags: list[str]) -> bool:
         """Update list of tags for this run
 
         Parameters
         ----------
-        tags : typing.List[str]
+        tags : list[str]
             list of tags to apply to the current run
 
         Returns
@@ -724,7 +726,7 @@ class Run:
     @skip_if_failed("_aborted", "_suppress_errors", False)
     def log_metrics(
         self,
-        metrics: typing.Dict[str, typing.Union[str, int, float]],
+        metrics: dict[str, typing.Union[str, int, float]],
         step: typing.Optional[int] = None,
         time: typing.Optional[int] = None,
         timestamp: typing.Optional[str] = None,
@@ -733,7 +735,7 @@ class Run:
 
         Parameters
         ----------
-        metrics : typing.Dict[str, str  |  int  |  float]
+        metrics : dict[str, str  |  int  |  float]
             a dictionary containing metrics to be recorded, these
             are key-value pairs and can be updated every interval
         step : int | None, optional
@@ -768,7 +770,7 @@ class Run:
             self._error("Metrics must be a dict")
             return False
 
-        data: typing.Dict[str, typing.Union[int, float, str]] = {
+        data: dict[str, typing.Union[int, float, str]] = {
             "values": metrics,
             "time": tm.time() - self._start_time,
         }
@@ -805,7 +807,7 @@ class Run:
         self, filename: str, filetype: typing.Optional[str], is_file: bool
     ) -> typing.Optional[dict[str, typing.Any]]:
         """Collect information for a given file"""
-        data: typing.Dict[str, typing.Any] = {}
+        data: dict[str, typing.Any] = {}
         data["size"] = os.path.getsize(filename)
         data["originalPath"] = os.path.abspath(
             os.path.expanduser(os.path.expandvars(filename))
@@ -889,7 +891,7 @@ class Run:
                 self._error("Invalid MIME type specified")
                 return False
 
-        data: typing.Dict[str, typing.Any] = {}
+        data: dict[str, typing.Any] = {}
 
         if preserve_path:
             # If the path starts with ./ or .\ this automatically removes it
@@ -923,7 +925,7 @@ class Run:
             data['storage'] = self._storage_id
 
         # Register file
-        return self._simvue.save_file(data)
+        return self._simvue.save_file(data) # type: ignore
 
     @skip_if_failed("_aborted", "_suppress_errors", False)
     def save_directory(
@@ -982,7 +984,7 @@ class Run:
     @skip_if_failed("_aborted", "_suppress_errors", False)
     def save_all(
         self,
-        items: typing.List[str],
+        items: list[str],
         category: typing.Literal["input", "output", "code"],
         filetype: typing.Optional[str] = None,
         preserve_path: bool = False,
@@ -991,7 +993,7 @@ class Run:
 
         Parameters
         ----------
-        items : typing.List[str]
+        items : list[str]
             a list of items to save
         category : str
             category of file
@@ -1046,7 +1048,7 @@ class Run:
         data = {"name": self._name, "status": status}
         self._status = status
 
-        return self._simvue.update(data) is not None
+        return self._simvue.update(data) is not None # type: ignore
 
     @skip_if_failed("_aborted", "_suppress_errors", {})
     def close(self) -> typing.Optional[bool]:
@@ -1068,14 +1070,15 @@ class Run:
         if self._status != "failed":
             self.set_status("completed")
 
-        self._shutdown_event.set()
+        if self._shutdown_event:
+            self._shutdown_event.set()
 
     @skip_if_failed("_aborted", "_suppress_errors", False)
     def set_folder_details(
         self,
         path: str,
         metadata: typing.Optional[dict[str, typing.Any]] = None,
-        tags: typing.Optional[typing.List[str]] = None,
+        tags: typing.Optional[list[str]] = None,
         description: typing.Optional[str] = None,
     ) -> bool:
         """
@@ -1112,7 +1115,7 @@ class Run:
         if description:
             data["description"] = description
 
-        if self._simvue.set_folder_details(data):
+        if self._simvue.set_folder_details(data): # type: ignore
             return True
 
         return False
@@ -1130,7 +1133,7 @@ class Run:
         names = names or []
 
         if names and not ids:
-            alerts = self._simvue.list_alerts() or []
+            alerts = self._simvue.list_alerts() or [] # type: ignore
             if not alerts:
                 self._error("No existing alerts")
                 return False
@@ -1144,7 +1147,7 @@ class Run:
             return False
 
         data = {"id": self._id, "alerts": ids}
-        if self._simvue.update(data):
+        if self._simvue.update(data): # type: ignore
             return True
 
         return False
@@ -1152,18 +1155,18 @@ class Run:
     @skip_if_failed("_aborted", "_suppress_errors", False)
     def add_alert(
         self,
-        name,
-        source="metrics",
-        frequency=None,
-        window=5,
-        rule=None,
-        metric=None,
-        threshold=None,
-        range_low=None,
-        range_high=None,
-        notification="none",
-        pattern=None,
-    ):
+        name: str,
+        source: typing.Literal["metrics", "events", "user"]="metrics",
+        frequency: typing.Optional[int]=None,
+        window: int=5,
+        rule: typing.Optional[typing.Literal["is above", "is below", "is inside range"]]=None,
+        metric: typing.Optional[str]=None,
+        threshold: typing.Union[int, float, None]=None,
+        range_low: typing.Optional[float]=None,
+        range_high: typing.Optional[float]=None,
+        notification: typing.Literal["none", "email"]="none",
+        pattern: typing.Optional[str]=None,
+    ) -> bool:
         """
         Creates an alert with the specified name (if it doesn't exist)
         and applies it to the current run
@@ -1232,7 +1235,7 @@ class Run:
 
         # Check if the alert already exists
         alert_id = None
-        alerts = self._simvue.list_alerts()
+        alerts = self._simvue.list_alerts() # type: ignore
         if alerts:
             for existing_alert in alerts:
                 if existing_alert["name"] == alert["name"]:
@@ -1241,7 +1244,7 @@ class Run:
                         logger.info("Existing alert found with id: %s", alert_id)
 
         if not alert_id:
-            response = self._simvue.add_alert(alert)
+            response = self._simvue.add_alert(alert) # type: ignore
             if response:
                 if "id" in response:
                     alert_id = response["id"]
@@ -1252,13 +1255,13 @@ class Run:
         if alert_id:
             # TODO: What if we keep existing alerts/add a new one later?
             data = {"id": self._id, "alerts": [alert_id]}
-            if self._simvue.update(data):
+            if self._simvue.update(data): # type: ignore
                 return True
 
         return False
 
     @skip_if_failed("_aborted", "_suppress_errors", False)
-    def log_alert(self, name, state):
+    def log_alert(self, name: str, state: typing.Literal["ok", "critical"]) -> bool:
         """
         Set the state of an alert
         """
@@ -1266,4 +1269,6 @@ class Run:
             self._error('state must be either "ok" or "critical"')
             return False
 
-        self._simvue.set_alert_state(name, state)
+        self._simvue.set_alert_state(name, state) # type: ignore
+
+        return True

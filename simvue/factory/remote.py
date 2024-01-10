@@ -38,7 +38,7 @@ class Remote(SimvueBaseClass):
         super().__init__(name, uniq_id, suppress_errors)
 
     @skip_if_failed("_aborted", "_suppress_errors", (None, None))
-    def create_run(self, data) -> typing.Tuple[typing.Optional[str], typing.Optional[int]]:
+    def create_run(self, data) -> tuple[typing.Optional[str], typing.Optional[int]]:
         """
         Create a run
         """
