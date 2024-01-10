@@ -6,6 +6,7 @@ import psutil
 import uuid
 import time
 import threading
+import typing
 import contextlib
 import multiprocessing
 import msgpack
@@ -58,7 +59,7 @@ class Worker(threading.Thread):
         )
         self._start_time = time.time()
         self._resources_metrics_interval = resources_metrics_interval
-        self._version: int | None = get_server_version()
+        self._version: typing.Optional[int] = get_server_version()
         self._parent_process = psutil.Process(pid) if pid else None
 
         if not os.path.exists(self._directory):
@@ -145,7 +146,7 @@ class Worker(threading.Thread):
 
         logger.debug(f"Sending {label}")
 
-        obj: dict[str, str | Buffer] = {label: buffer, "run": self._run_id}
+        obj: dict[str, typing.Union[str, Buffer]] = {label: buffer, "run": self._run_id}
 
         try:
             if self._mode == "online":

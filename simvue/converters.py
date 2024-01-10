@@ -11,7 +11,7 @@ def to_dataframe(data: list[dict[str, typing.Any]]) -> "DataFrame":
     """
     import pandas as pd
 
-    columns: dict[str, list[int | float | str | None]] = {}
+    columns: dict[str, list[typing.Union[int, float, str, None]]] = {}
 
     for i, run in enumerate(data):
         for column, value in flatdict.FlatDict(run, delimiter=".").items():
@@ -26,16 +26,16 @@ def to_dataframe(data: list[dict[str, typing.Any]]) -> "DataFrame":
 
 
 def metric_to_dataframe(
-    data: list[list[int | float]],
+    data: list[list[typing.Union[int, float]]],
     step_axis_label: str,
-    name: str | None = None
+    name: str
 ) -> "DataFrame":
     """
     Convert single  to dataframe
     """
     import pandas as pd
 
-    columns: dict[str, list[str | int | float]] = {
+    columns: dict[str, list[typing.Union[int, float, str]]] = {
         step_axis_label: [i[0] for i in data],
         name: [i[1] for i in data],
     }
@@ -43,7 +43,7 @@ def metric_to_dataframe(
 
 
 def metric_set_dataframe(
-    data: dict[str, list[int | float]],
+    data: dict[str, dict[str, typing.Union[int, float]]],
     step_axis_label: str,
 ) -> "DataFrame":
     """
@@ -51,7 +51,7 @@ def metric_set_dataframe(
     """
     import pandas as pd
 
-    _df_dict: dict[str, list[str | int | float]] = {
+    _df_dict: dict[str, list[typing.Union[int, float, str]]] = {
         "run": [],
         step_axis_label: []
     }

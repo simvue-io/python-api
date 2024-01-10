@@ -41,7 +41,7 @@ def check_extra(extra_name: str) -> typing.Callable:
 def skip_if_failed(
     failure_attr: str,
     ignore_exc_attr: str,
-    on_failure_return: typing.Any | None = None
+    on_failure_return: typing.Optional[typing.Any] = None
 ) -> typing.Callable:
     """Decorator for ensuring if Simvue throws an exception any other code continues.
 
@@ -80,7 +80,7 @@ def skip_if_failed(
     return decorator
 
 
-def get_auth() -> tuple[str | None, str | None]:
+def get_auth() -> tuple[typing.Optional[str], typing.Optional[str]]:
     """
     Get the URL and access token
     """
@@ -105,7 +105,7 @@ def get_auth() -> tuple[str | None, str | None]:
     return url, token
 
 
-def get_server_version() -> int  | None:
+def get_server_version() -> typing.Optional[int]:
     """
     Get the server version
     """
@@ -126,14 +126,14 @@ def get_server_version() -> int  | None:
 
 
 @functools.lru_cache
-def get_offline_directory() -> str | tempfile.TemporaryDirectory:
+def get_offline_directory() -> typing.Union[str, tempfile.TemporaryDirectory]:
     """
     Get directory for offline cache
 
     This function is cached so the same directory is returned
     if a temporary directory has been created
     """
-    directory: str | None = None
+    directory: typing.Optional[str] = None
 
     for filename in (
         os.path.join(os.path.expanduser("~"), ".simvue.ini"),

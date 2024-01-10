@@ -110,7 +110,7 @@ def get_system() -> typing.Dict[str, typing.Any]:
     return system
 
 
-def calculate_sha256(filename: str, is_file: bool) -> str | None:
+def calculate_sha256(filename: str, is_file: bool) -> typing.Optional[str]:
     """
     Calculate sha256 checksum of the specified file
     """
@@ -149,27 +149,27 @@ class Run:
     def __init__(self, mode: str = "online") -> None:
         self._uuid: str = str(uuid.uuid4())
         self._mode: str = mode
-        self._name: str | None = None
-        self._id: str | None = None
+        self._name: typing.Optional[str] = None
+        self._id: typing.Optional[str] = None
         self._executor = Executor(self)
         self._suppress_errors: bool = True
         self._queue_blocking: bool = False
-        self._status: str | None = None
+        self._status: typing.Optional[str] = None
         self._step: int = 0
         self._queue_size: int = QUEUE_SIZE
-        self._metrics_queue: None | multiprocessing.Queue = None
-        self._events_queue: None | multiprocessing.Queue = None
+        self._metrics_queue: typing.Optional[multiprocessing.Queue] = None
+        self._events_queue: typing.Optional[multiprocessing.Queue] = None
         self._active: bool = False
         self._aborted: bool = False
         self._url, self._token = get_auth()
         self._headers: typing.Dict[str, str] = {
             "Authorization": f"Bearer {self._token}"
         }
-        self._simvue: Offline | Remote | None = None
+        self._simvue: typing.Union[Offline, Remote, None] = None
         self._pid: int = 0
         self._resources_metrics_interval: int = 30
-        self._shutdown_event: Event | None = None
-        self._storage_id: int | None = None
+        self._shutdown_event: typing.Optional[Event] = None
+        self._storage_id: typing.Optional[int] = None
 
     def __enter__(self) -> "Run":
         return self
@@ -294,10 +294,10 @@ class Run:
     @skip_if_failed("_aborted", "_suppress_errors", None)
     def init(
         self,
-        name: str | None = None,
-        metadata: typing.Dict[str, typing.Any] | None = None,
-        tags: typing.List[str] | None = None,
-        description: str | None = None,
+        name: typing.Optional[str] = None,
+        metadata: typing.Optional[typing.Dict[str, typing.Any]] = None,
+        tags: typing.Optional[typing.List[str]] = None,
+        description: typing.Optional[str] = None,
         folder: str = "/",
         running: bool = True,
         ttl: int = -1,
@@ -376,11 +376,11 @@ class Run:
         self,
         identifier: str,
         *cmd_args,
-        executable: str | None = None,
-        script: str | None = None,
-        input_file: str | None = None,
+        executable: typing.Optional[str] = None,
+        script: typing.Optional[str] = None,
+        input_file: typing.Optional[str] = None,
         print_stdout: bool = False,
-        completion_callback: typing.Callable | None=None,
+        completion_callback: typing.Optional[typing.Callable]=None,
         env: typing.Optional[typing.Dict[str, str]]=None,
         **cmd_kwargs
     ) -> None:
@@ -497,7 +497,7 @@ class Run:
         return self._executor
 
     @property
-    def name(self) -> str | None:
+    def name(self) -> typing.Optional[str]:
         """
         Return the name of the run
         """
@@ -511,7 +511,7 @@ class Run:
         return self._uuid
 
     @property
-    def id(self) -> str | None:
+    def id(self) -> typing.Optional[str]:
         """
         Return the unique id of the run
         """
@@ -546,12 +546,12 @@ class Run:
     @skip_if_failed("_aborted", "_suppress_errors", False)
     def config(
         self,
-        suppress_errors: bool | None = None,
-        queue_blocking: bool | None = None,
-        queue_size: int | None = None,
-        disable_resources_metrics: bool | None = None,
-        resources_metrics_interval: int | None = None,
-        storage_id: int | None = None
+        suppress_errors: typing.Optional[bool] = None,
+        queue_blocking: typing.Optional[bool] = None,
+        queue_size: typing.Optional[int] = None,
+        disable_resources_metrics: typing.Optional[bool] = None,
+        resources_metrics_interval: typing.Optional[int] = None,
+        storage_id: typing.Optional[int] = None
     ) -> None:
         """Optional configuration
 
@@ -668,7 +668,7 @@ class Run:
         return False
 
     @skip_if_failed("_aborted", "_suppress_errors", False)
-    def log_event(self, message: str, timestamp: str | None = None) -> bool:
+    def log_event(self, message: str, timestamp: typing.Optional[str] = None) -> bool:
         """Write an event to the server.
 
         Parameters
@@ -724,10 +724,10 @@ class Run:
     @skip_if_failed("_aborted", "_suppress_errors", False)
     def log_metrics(
         self,
-        metrics: typing.Dict[str, str | int | float],
-        step: int | None = None,
-        time: int | None = None,
-        timestamp: str | None = None,
+        metrics: typing.Dict[str, typing.Union[str, int, float]],
+        step: typing.Optional[int] = None,
+        time: typing.Optional[int] = None,
+        timestamp: typing.Optional[str] = None,
     ) -> bool:
         """Send metrics to the server.
 
@@ -768,7 +768,7 @@ class Run:
             self._error("Metrics must be a dict")
             return False
 
-        data: typing.Dict[str, int | float | str] = {
+        data: typing.Dict[str, typing.Union[int, float, str]] = {
             "values": metrics,
             "time": tm.time() - self._start_time,
         }
@@ -802,8 +802,8 @@ class Run:
         return True
 
     def _assemble_file_data(
-        self, filename: str, filetype: str | None, is_file: bool
-    ) -> typing.Dict[str, typing.Any] | None:
+        self, filename: str, filetype: typing.Optional[str], is_file: bool
+    ) -> typing.Optional[dict[str, typing.Any]]:
         """Collect information for a given file"""
         data: typing.Dict[str, typing.Any] = {}
         data["size"] = os.path.getsize(filename)
@@ -831,10 +831,10 @@ class Run:
     def save(
         self,
         filename: str,
-        category: str,
-        filetype: str | None = None,
+        category: typing.Literal["input", "output", "code"],
+        filetype: typing.Optional[str] = None,
         preserve_path: bool = False,
-        name: str | None = None,
+        name: typing.Optional[str] = None,
         allow_pickle: bool = False,
     ) -> bool:
         """Save a file associated with this run to the server
@@ -929,8 +929,8 @@ class Run:
     def save_directory(
         self,
         directory: str,
-        category: str,
-        filetype: str | None = None,
+        category: typing.Literal["input", "output", "code"],
+        filetype: typing.Optional[str] = None,
         preserve_path: bool = False,
     ) -> bool:
         """Upload contents of an entire directory
@@ -940,7 +940,7 @@ class Run:
         directory : str
             the directory from which to upload
         category : str
-            the category of the contained files (input/output/other)
+            the category of the contained files (input/output/code)
         filetype : str | None, optional
             the type of the file, by default None
         preserve_path : bool, optional
@@ -983,8 +983,8 @@ class Run:
     def save_all(
         self,
         items: typing.List[str],
-        category: str,
-        filetype: str | None = None,
+        category: typing.Literal["input", "output", "code"],
+        filetype: typing.Optional[str] = None,
         preserve_path: bool = False,
     ) -> bool:
         """Save a set of files.
@@ -992,9 +992,9 @@ class Run:
         Parameters
         ----------
         items : typing.List[str]
-            a list of items to
+            a list of items to save
         category : str
-            _description_
+            category of file
         filetype : str | None, optional
             _description_, by default None
         preserve_path : bool, optional
@@ -1016,6 +1016,7 @@ class Run:
                 self.save_directory(item, category, filetype, preserve_path)
             else:
                 self._error(f"{item}: No such file or directory")
+        return True
 
     @skip_if_failed("_aborted", "_suppress_errors", False)
     def set_status(self, status: str) -> bool:
@@ -1048,7 +1049,7 @@ class Run:
         return self._simvue.update(data) is not None
 
     @skip_if_failed("_aborted", "_suppress_errors", {})
-    def close(self) -> bool | None:
+    def close(self) -> typing.Optional[bool]:
         """
         Close the run
         """
@@ -1073,9 +1074,9 @@ class Run:
     def set_folder_details(
         self,
         path: str,
-        metadata: typing.Dict[str, typing.Any] | None = None,
-        tags: typing.List[str] | None = None,
-        description: str | None = None,
+        metadata: typing.Optional[dict[str, typing.Any]] = None,
+        tags: typing.Optional[typing.List[str]] = None,
+        description: typing.Optional[str] = None,
     ) -> bool:
         """
         Add metadata to the specified folder
@@ -1118,7 +1119,9 @@ class Run:
 
     @skip_if_failed("_aborted", "_suppress_errors", False)
     def add_alerts(
-        self, ids: typing.List[str] | None = None, names: typing.List[str] | None = None
+        self,
+        ids: typing.Optional[list[str]] = None,
+        names: typing.Optional[list[str]] = None
     ) -> bool:
         """
         Add one or more existing alerts by name or id

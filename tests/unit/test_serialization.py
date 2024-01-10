@@ -1,4 +1,5 @@
 import pytest
+import typing
 from simvue.converters import to_dataframe, metric_set_dataframe, metric_to_dataframe
 from simvue.serialization import serialize, deserialize, _is_torch_tensor
 
@@ -257,7 +258,7 @@ def test_to_dataframe() -> None:
 @pytest.mark.unit
 @pytest.mark.skipif(pd is None, reason="Pandas not installed")
 def test_metric_to_dataframe() -> None:
-    _input: list[list[int | float]] = [
+    _input: list[list[typing.Union[int, float]]] = [
         (x, y, a, b)
         for x, y, a, b in
         zip(

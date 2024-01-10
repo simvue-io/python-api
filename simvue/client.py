@@ -59,9 +59,9 @@ class Client:
             raise AssertionError("Failed to retrieve URL from configuration")
 
         self._headers: dict[str, str] = {"Authorization": f"Bearer {self._token}"}
-        self._version: int | None = get_server_version()
+        self._version: typing.Optional[int] = get_server_version()
 
-    def get_run(self, run: int) -> dict[str, typing.Any] | None:
+    def get_run(self, run: int) -> typing.Optional[dict[str, typing.Any]]:
         """
         Get a single run
         """
@@ -103,7 +103,7 @@ class Client:
 
         return None
 
-    def delete_run(self, run: int) -> dict[str, typing.Any] | None:
+    def delete_run(self, run: int) -> typing.Optional[dict[str, typing.Any]]:
         """
         Delete run
         """
@@ -139,7 +139,7 @@ class Client:
 
         return None
 
-    def delete_runs(self, folder: str) -> dict[str, typing.Any] | None:
+    def delete_runs(self, folder: str) -> typing.Optional[dict[str, typing.Any]]:
         """
         Delete runs in folder
         """
@@ -160,7 +160,7 @@ class Client:
 
     def delete_folder(
         self, folder: str, runs: bool = False
-    ) -> dict[str, typing.Any] | None:
+    ) -> typing.Optional[dict[str, typing.Any]]:
         """
         Delete folder
         """
@@ -178,7 +178,7 @@ class Client:
 
         raise AssertionError(response.text)
 
-    def list_artifacts(self, run, category=None) -> dict[str, typing.Any] | None:
+    def list_artifacts(self, run, category=None) -> typing.Optional[dict[str, typing.Any]]:
         """
         List artifacts associated with a run
         """
@@ -201,11 +201,11 @@ class Client:
 
         raise AssertionError(response.text)
 
-    def get_artifact(self, run: int, name: str, allow_pickle: bool = False):
+    def get_artifact(self, run: int, name: str, allow_pickle: bool = False) -> typing.Union[None, bytes, dict[str, typing.Any]]:
         """
         Return the contents of the specified artifact
         """
-        params: dict[str, int | str] = {"run_id": run, "name": name}
+        params: dict[str, typing.Union[int, str]] = {"run_id": run, "name": name}
 
         response = requests.get(
             f"{self._url}/api/runs/{run}/artifacts",
@@ -236,7 +236,7 @@ class Client:
 
         return response.content
 
-    def get_artifact_as_file(self, run, name, path="./"):
+    def get_artifact_as_file(self, run, name, path="./") -> None:
         """
         Download an artifact
         """
@@ -270,17 +270,21 @@ class Client:
 
     def get_artifacts_as_files(
         self,
-        run,
-        path=None,
-        category=None,
-        startswith=None,
-        contains=None,
-        endswith=None,
-    ):
+        run: str,
+        path: typing.Optional[str]=None,
+        category: typing.Union[typing.Literal["code", "input", "output"], None]=None,
+        startswith: typing.Optional[str]=None,
+        contains: typing.Optional[str]=None,
+        endswith: typing.Optional[str]=None,
+    ) -> None:
         """
         Get artifacts associated with a run & save as files
         """
-        params = {}
+        params: dict[
+            str,
+            typing.Union[typing.Literal["code", "input", "output"], None, str]
+        ] = {}
+
         params["category"] = category
 
         response = requests.get(
@@ -289,10 +293,12 @@ class Client:
             params=params,
         )
 
-        if response.status_code == 404:
-            if "detail" in response.json():
-                if response.json()["detail"] == "run does not exist":
-                    raise RuntimeError("Run does not exist")
+        if all([
+            response.status_code == 404,
+            "detail" in response.json(),
+            response.json()["detail"] == "run does not exist"
+        ]):
+            raise RuntimeError("Run does not exist")
 
         if not path:
             path = "./"
@@ -300,15 +306,12 @@ class Client:
         if response.status_code == 200:
             downloads = []
             for item in response.json():
-                if startswith:
-                    if not item["name"].startswith(startswith):
-                        continue
-                if contains:
-                    if contains not in item["name"]:
-                        continue
-                if endswith:
-                    if not item["name"].endswith(endswith):
-                        continue
+                if startswith and not item["name"].startswith(startswith):
+                    continue
+                if contains and contains not in item["name"]:
+                    continue
+                if endswith and not item["name"].endswith(endswith):
+                    continue
 
                 job = {}
                 job["url"] = item["url"]
@@ -331,7 +334,7 @@ class Client:
         else:
             raise RuntimeError(response.text)
 
-    def get_folder(self, folder, tags=False, metadata=False):
+    def get_folder(self, folder: str) -> dict[str, typing.Any]:
         """
         Get a single folder
         """
@@ -341,10 +344,12 @@ class Client:
             f"{self._url}/api/folders", headers=self._headers, params=params
         )
 
-        if response.status_code == 404:
-            if "detail" in response.json():
-                if response.json()["detail"] == "no such folder":
-                    raise RuntimeError("Folder does not exist")
+        if all([
+            response.status_code == 404,
+            "detail" in response.json(),
+            response.json()["detail"] == "no such folder"
+        ]):
+            raise RuntimeError("Folder does not exist")
 
         if response.status_code == 200:
             if len(response.json()["data"]) == 0:
@@ -354,7 +359,7 @@ class Client:
 
         raise RuntimeError(response.text)
 
-    def get_folders(self, filters, tags=False, metadata=False):
+    def get_folders(self, filters: list[str]) -> dict[str, typing.Any]:
         """
         Get folders
         """
@@ -369,7 +374,7 @@ class Client:
 
         raise RuntimeError(response.text)
 
-    def get_metrics_names(self, run):
+    def get_metrics_names(self, run: str) -> list[str]:
         """
         Return a list of metrics names
         """
@@ -377,21 +382,6 @@ class Client:
 
         response = requests.get(
             f"{self._url}/api/metrics/names", headers=self._headers, params=params
-        )
-
-        if response.status_code == 200:
-            return response.json()
-
-        raise RuntimeError(response.text)
-
-    def get_metrics_summaries(self, run, name):
-        """
-        Get summary metrics for the specified run and metrics name
-        """
-        params = {"runs": run, "metrics": name, "summary": True}
-
-        response = requests.get(
-            f"{self._url}/api/metrics", headers=self._headers, params=params
         )
 
         if response.status_code == 200:
@@ -411,6 +401,8 @@ class Client:
     ):
         """
         Get time series metrics for the specified run and metrics name
+
+        FIXME: This does not yet work due to server requesting string list
         """
         logger.debug(f"Sending request: {self._url}/api/runs/{run}")
         response_run = requests.get(f"{self._url}/api/runs/{run}", headers=self._headers)
@@ -439,13 +431,7 @@ class Client:
             raise AssertionError(
                 'Invalid format specified, should be either "list" or "dataframe"'
             )
-        
-        # FIXME: Server rejects lists in usual form so have to create URL manually
-        _url: str = f"{self._url}/api/metrics?{'&'.join(a+'='+str(b) for a, b in params.items())}"
 
-        logger.debug(
-            f"Sending request: {_url}"
-        )
 
         response_metrics = requests.get(
             f"{self._url}/api/metrics",
@@ -468,7 +454,7 @@ class Client:
                 f"No results found for metric '{name}' in run '{run}: {run_name}'"
             )
 
-        data: list[int | float] = []
+        data: list[typing.Union[int, float]] = []
 
         if (_items := _json_data.get(name)) is None:
             raise KeyError(

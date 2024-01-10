@@ -57,7 +57,7 @@ def _is_torch_tensor(data: typing.Any) -> bool:
 def serialize(
     data: typing.Any,
     allow_pickle: bool=False
-) -> typing.Callable[[typing.Any], tuple[typing.Any | None, SimvueMimeType | None]]:
+) -> typing.Callable[[typing.Any], tuple[typing.Optional[typing.Any], typing.Optional[SimvueMimeType]]]:
     """
     Determine which serializer to use
     """
@@ -82,7 +82,10 @@ def serialize(
 @sv_util.check_extra("plot")
 def _serialize_plotly_figure(
     data,
-) -> tuple[str | typing.Any | None, SimvueMimeType] | tuple[None, None]:
+) -> typing.Union[
+        tuple[typing.Union[str, typing.Any, None], SimvueMimeType],
+        tuple[None, None]
+    ]:
     data = plotly.io.to_json(data, "json")
     return data, SimvueMimeType.Plotly
 
@@ -90,7 +93,10 @@ def _serialize_plotly_figure(
 @sv_util.check_extra("plot")
 def _serialize_matplotlib_figure(
     data,
-) -> tuple[str | typing.Any | None, SimvueMimeType] | tuple[None, None]:
+) -> typing.Union[
+        tuple[typing.Union[str, typing.Any, None], SimvueMimeType],
+        tuple[None, None]
+    ]:
     data = plotly.io.to_json(plotly.tools.mpl_to_plotly(data), "json")
     return data, SimvueMimeType.Plotly
 
@@ -98,7 +104,7 @@ def _serialize_matplotlib_figure(
 @sv_util.check_extra("dataset")
 def _serialize_numpy_array(
     data: "ndarray",
-) -> tuple[bytes, SimvueMimeType] | tuple[None, None]:
+) -> typing.Union[tuple[bytes, SimvueMimeType], tuple[None, None]]:
     mfile = io.BytesIO()
     numpy.save(mfile, data, allow_pickle=False)
     mfile.seek(0)
@@ -118,7 +124,7 @@ def _serialize_dataframe(data: "DataFrame") -> tuple[bytes, SimvueMimeType]:
 @sv_util.check_extra("torch")
 def _serialize_torch_tensor(
     data: "Tensor",
-) -> tuple[bytes, SimvueMimeType] | tuple[None, None]:
+) -> typing.Union[tuple[bytes, SimvueMimeType], tuple[None, None]]:
     mfile = io.BytesIO()
     torch.save(data, mfile)
     mfile.seek(0)
@@ -126,7 +132,7 @@ def _serialize_torch_tensor(
     return bytes_data, SimvueMimeType.Torch
 
 
-def _serialize_pickle(data: typing.Any):
+def _serialize_pickle(data: typing.Any) -> tuple[bytes, SimvueMimeType]:
     bytes_data = pickle.dumps(data)
     return bytes_data, SimvueMimeType.OctetStream
 
@@ -135,7 +141,15 @@ def deserialize(
     data: typing.Any,
     mimetype: SimvueMimeType,
     allow_pickle: bool=False
-) -> typing.Union["Figure", "FigureWidget", "DataFrame", "ndarray", "Tensor", typing.Any, None]:
+) -> typing.Union[
+        "Figure",
+        "FigureWidget",
+        "DataFrame",
+        "ndarray",
+        "Tensor", 
+        typing.Any,
+        None
+    ]:
     """
     Deserialize the given data
     """

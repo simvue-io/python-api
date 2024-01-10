@@ -79,7 +79,7 @@ def sender(suppress_errors: bool=True) -> list[str]:
     upload_run_ids: list[str] = []
 
     for run in runs:
-        run_id: str | None = None
+        run_id: typing.Optional[str] = None
         cleanup = False
         status = None
         if run.endswith('running'):

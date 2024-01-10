@@ -34,11 +34,11 @@ class Remote(SimvueBaseClass):
         self._headers_mp: dict[str, str] = self._headers | {
             "Content-Type": "application/msgpack"
         }
-        self._version: int | None = get_server_version()
+        self._version: typing.Optional[int] = get_server_version()
         super().__init__(name, uniq_id, suppress_errors)
 
     @skip_if_failed("_aborted", "_suppress_errors", (None, None))
-    def create_run(self, data) -> typing.Tuple[str | None, int | None]:
+    def create_run(self, data) -> typing.Tuple[typing.Optional[str], typing.Optional[int]]:
         """
         Create a run
         """
@@ -74,7 +74,7 @@ class Remote(SimvueBaseClass):
     @skip_if_failed("_aborted", "_suppress_errors", None)
     def update(
         self, data: dict[str, typing.Any], _=None
-    ) -> dict[str, typing.Any] | None:
+    ) -> typing.Optional[dict[str, typing.Any]]:
         """
         Update metadata, tags or status
         """
@@ -104,7 +104,7 @@ class Remote(SimvueBaseClass):
         return None
 
     @skip_if_failed("_aborted", "_suppress_errors", None)
-    def set_folder_details(self, data, run=None) -> dict[str, typing.Any] | None:
+    def set_folder_details(self, data, run=None) -> typing.Optional[dict[str, typing.Any]]:
         """
         Set folder details
         """
@@ -149,7 +149,7 @@ class Remote(SimvueBaseClass):
         return None
 
     @skip_if_failed("_aborted", "_suppress_errors", False)
-    def save_file(self, data: dict[str, typing.Any]) -> dict[str, typing.Any] | None:
+    def save_file(self, data: dict[str, typing.Any]) -> typing.Optional[dict[str, typing.Any]]:
         """
         Save file
         """
@@ -288,7 +288,7 @@ class Remote(SimvueBaseClass):
         return False
 
     @skip_if_failed("_aborted", "_suppress_errors", {})
-    def set_alert_state(self, alert_id, status) -> dict[str, typing.Any] | None:
+    def set_alert_state(self, alert_id, status) -> typing.Optional[dict[str, typing.Any]]:
         """
         Set alert state
         """
@@ -321,7 +321,7 @@ class Remote(SimvueBaseClass):
         return []
 
     @skip_if_failed("_aborted", "_suppress_errors", None)
-    def send_metrics(self, data: dict[str, typing.Any]) -> dict[str, typing.Any] | None:
+    def send_metrics(self, data: dict[str, typing.Any]) -> typing.Optional[dict[str, typing.Any]]:
         """
         Send metrics
         """
@@ -345,7 +345,7 @@ class Remote(SimvueBaseClass):
         return None
 
     @skip_if_failed("_aborted", "_suppress_errors", None)
-    def send_event(self, data: dict[str, typing.Any]) -> dict[str, typing.Any] | None:
+    def send_event(self, data: dict[str, typing.Any]) -> typing.Optional[dict[str, typing.Any]]:
         """
         Send events
         """
@@ -368,7 +368,7 @@ class Remote(SimvueBaseClass):
         return None
 
     @skip_if_failed("_aborted", "_suppress_errors", None)
-    def send_heartbeat(self) -> dict[str, typing.Any] | None:
+    def send_heartbeat(self) -> typing.Optional[dict[str, typing.Any]]:
         """
         Send heartbeat
         """
