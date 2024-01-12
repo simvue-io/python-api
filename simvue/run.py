@@ -350,9 +350,9 @@ class Run(object):
     def add_process(self,
         identifier: str,
         *cmd_args,
-        executable: str | None = None,
-        script: str | None = None,
-        input_file: str | None = None,
+        executable: typing.Optional[str]= None,
+        script: typing.Optional[str]= None,
+        input_file: typing.Optional[str]= None,
         **cmd_kwargs
     ) -> None:
         """Add a process to be executed to the executor.
