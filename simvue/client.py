@@ -5,7 +5,7 @@ import pickle
 import requests
 
 from .serialization import Deserializer
-from .utilities import get_auth, get_server_version
+from .utilities import get_auth, get_server_version, check_extra
 from .converters import to_dataframe, metrics_to_dataframe
 
 CONCURRENT_DOWNLOADS = 10
@@ -415,7 +415,8 @@ class Client(object):
             return data
 
         raise Exception(response.text)
-        
+    
+    @check_extra("plot")
     def plot_metrics(self, runs, names, xaxis, max_points=0):
         """
         Plot time series metrics from multiple runs and/or metrics
