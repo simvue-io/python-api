@@ -17,7 +17,7 @@ psutil = "^5.9.8"
 pydantic = "1.10.7"
 pandas = {version = "^2.2.0", extras=["dataset"]}
 plotly = {version = "^5.18.0", extras=["plot"]}
-torch = {version = "^2.1.2", extras = ["torch"]}
+torch = {version = "^2.1.2", extras = ["torch"], python = "<3.12"}
 numpy = {version = "^1.26.3", extras=["dataset"]}
 matplotlib = {version = "^3.8.2", extras=["plot"]}
 
