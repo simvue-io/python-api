@@ -5,7 +5,7 @@ import os
 import time
 import uuid
 
-from .utilities import get_offline_directory, create_file, prepare_for_api
+from .utilities import get_offline_directory, create_file, prepare_for_api, skip_if_failed
 
 logger = logging.getLogger(__name__)
 
@@ -17,6 +17,7 @@ class Offline(object):
         self._id = id
         self._name = name
         self._uuid = uuid
+        self._aborted: bool = False
         self._directory = os.path.join(get_offline_directory(), self._uuid)
         self._suppress_errors = suppress_errors
 
@@ -28,6 +29,8 @@ class Offline(object):
             raise RuntimeError(message)
         else:
             logger.error(message)
+        
+        self._aborted = True
 
     def _write_json(self, filename, data):
         """
@@ -39,6 +42,7 @@ class Offline(object):
         except Exception as err:
             self._error(f"Unable to write file {filename} due to {str(err)}")
 
+    @skip_if_failed("_aborted", "_suppress_errors", False)
     def create_run(self, data):
         """
         Create a run
@@ -60,6 +64,7 @@ class Offline(object):
 
         return True
 
+    @skip_if_failed("_aborted", "_suppress_errors", False)
     def update(self, data):
         """
         Update metadata, tags or status
@@ -80,6 +85,7 @@ class Offline(object):
 
         return True
 
+    @skip_if_failed("_aborted", "_suppress_errors", False)
     def set_folder_details(self, data):
         """
         Set folder details
@@ -89,6 +95,7 @@ class Offline(object):
         self._write_json(filename, data)
         return True
 
+    @skip_if_failed("_aborted", "_suppress_errors", False)
     def save_file(self, data):
         """
         Save file
@@ -103,6 +110,7 @@ class Offline(object):
         self._write_json(filename, prepare_for_api(data, False))
         return True
 
+    @skip_if_failed("_aborted", "_suppress_errors", False)
     def add_alert(self, data):
         """
         Add an alert

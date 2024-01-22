@@ -2,7 +2,7 @@ import logging
 import time
 
 from .api import post, put, get
-from .utilities import get_auth, get_expiry, prepare_for_api, get_server_version
+from .utilities import get_auth, get_expiry, prepare_for_api, get_server_version, skip_if_failed
 from .version import __version__
 
 logger = logging.getLogger(__name__)
@@ -19,6 +19,7 @@ class Remote(object):
         self._name = name
         self._uuid = uuid
         self._suppress_errors = suppress_errors
+        self._aborted: bool = False
         self._url, self._token = get_auth()
         self._headers = {"Authorization": f"Bearer {self._token}",
                          "User-Agent": f"Simvue Python client {__version__}"}
@@ -35,6 +36,9 @@ class Remote(object):
         else:
             logger.error(message)
 
+        self._aborted = True
+
+    @skip_if_failed("_aborted", "_suppress_errors", (None, False))
     def create_run(self, data):
         """
         Create a run
@@ -63,6 +67,7 @@ class Remote(object):
 
         return self._name, self._id
 
+    @skip_if_failed("_aborted", "_suppress_errors", False)
     def update(self, data, run=None):
         """
         Update metadata, tags or status
@@ -91,6 +96,7 @@ class Remote(object):
         self._error(f"Got status code {response.status_code} when updating run")
         return False
 
+    @skip_if_failed("_aborted", "_suppress_errors", False)
     def set_folder_details(self, data, run=None):
         """
         Set folder details
@@ -130,6 +136,7 @@ class Remote(object):
         self._error(f"Got status code {response.status_code} when updating folder details")
         return False
 
+    @skip_if_failed("_aborted", "_suppress_errors", False)
     def save_file(self, data, run=None):
         """
         Save file
@@ -211,6 +218,7 @@ class Remote(object):
 
         return True
 
+    @skip_if_failed("_aborted", "_suppress_errors", False)
     def add_alert(self, data, run=None):
         """
         Add an alert
@@ -234,6 +242,7 @@ class Remote(object):
         self._error(f"Got status code {response.status_code} when creating alert")
         return False
 
+    @skip_if_failed("_aborted", "_suppress_errors", False)
     def set_alert_state(self, alert_id, status):
         """
         Set alert state
@@ -250,6 +259,7 @@ class Remote(object):
 
         return {}
 
+    @skip_if_failed("_aborted", "_suppress_errors", False)
     def list_alerts(self):
         """
         List alerts
@@ -265,6 +275,7 @@ class Remote(object):
 
         return {}
 
+    @skip_if_failed("_aborted", "_suppress_errors", False)
     def send_metrics(self, data):
         """
         Send metrics
@@ -285,6 +296,7 @@ class Remote(object):
         self._error(f"Got status code {response.status_code} when sending metrics")
         return False
 
+    @skip_if_failed("_aborted", "_suppress_errors", False)
     def send_event(self, data):
         """
         Send events
@@ -305,6 +317,7 @@ class Remote(object):
         self._error(f"Got status code {response.status_code} when sending events")
         return False
 
+    @skip_if_failed("_aborted", "_suppress_errors", False)
     def send_heartbeat(self):
         """
         Send heartbeat

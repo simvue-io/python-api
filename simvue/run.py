@@ -283,6 +283,8 @@ class Run(object):
         else:
             logger.error(message)
 
+        self._aborted = True
+
     @skip_if_failed("_aborted", "_suppress_errors", None)
     def init(self, name=None, metadata={}, tags=[], description=None, folder='/', running=True, ttl=-1):
         """
