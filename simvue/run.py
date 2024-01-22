@@ -10,6 +10,8 @@ import subprocess
 import sys
 import time as tm
 import platform
+import GPUtil
+import cpuinfo
 import uuid
 import typing
 
@@ -55,52 +57,26 @@ def walk_through_files(path):
         for filename in filenames:
             yield os.path.join(dirpath, filename)
 
-def get_cpu_info():
+def get_cpu_info() -> tuple[str, str]:
     """
     Get CPU info
     """
-    model_name = ''
-    arch = ''
-
-    try:
-        info = subprocess.check_output('lscpu').decode().strip()
-        for line in info.split('\n'):
-            if 'Model name' in line:
-                model_name = line.split(':')[1].strip()
-            if 'Architecture' in line:
-                arch = line.split(':')[1].strip()
-    except:
-        # TODO: Try /proc/cpuinfo
-        pass
-
-    if arch == '':
-        arch = platform.machine()
-
-    if model_name == '':
-        try:
-            info = subprocess.check_output(['sysctl', 'machdep.cpu.brand_string']).decode().strip()
-            if 'machdep.cpu.brand_string:' in info:
-                 model_name = info.split('machdep.cpu.brand_string: ')[1]
-        except:
-            pass
+    cpu_info: dict[str, typing.Any] = cpuinfo.get_cpu_info()
+    return cpu_info["brand_raw"], cpu_info["arch_string_raw"]
         
     return model_name, arch
 
 
-def get_gpu_info():
+def get_gpu_info() -> dict[str, str]:
     """
     Get GPU info
     """
-    try:
-        output = subprocess.check_output(["nvidia-smi",
-                                          "--query-gpu=name,driver_version",
-                                          "--format=csv"])
-        lines = output.split(b'\n')
-        tokens = lines[1].split(b', ')
-    except:
-        return {'name': '', 'driver_version': ''}
+    gpus: list[GPUtil.GPU] = GPUtil.getGPUs()
 
-    return {'name': tokens[0].decode(), 'driver_version': tokens[1].decode()}
+    if not gpus:
+        return {"name": "", "driver_version": ""}
+
+    return {"name": gpus[0].name, "driver_version": gpus[0].driver}
 
 
 def get_system():
