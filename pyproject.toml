@@ -26,6 +26,9 @@ dataset = ["pandas", "numpy"]
 torch = ["torch"]
 plot = ["matplotlib", "plotly"]
 
+[tool.poetry.scripts]
+simvue_sender = "simvue.bin.simvue_sender:run"
+
 [build-system]
 requires = ["poetry-core"]
 build-backend = "poetry.core.masonry.api"
