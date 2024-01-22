@@ -14,7 +14,7 @@ import uuid
 import typing
 
 from .worker import Worker
-from .simvue import Simvue
+from .factory import Simvue
 from .serialization import Serializer
 from .models import RunInput
 from .utilities import get_auth, get_expiry
