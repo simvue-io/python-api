@@ -49,11 +49,13 @@ class Client(object):
 
         if response.status_code == 200:
             if 'data' in response.json():
+                if len(response.json()['data']) == 0:
+                    raise RuntimeError("Could not collect ID - no run found with this name.")
                 if len(response.json()['data']) > 1:
-                    raise Exception("Could not collect ID - more than one run exists with this name.")
+                    raise RuntimeError("Could not collect ID - more than one run exists with this name.")
                 else:
-                        return response.json()['data'][0]['id']
-        raise Exception(response.text)
+                    return response.json()['data'][0]['id']
+        raise RuntimeError(response.text)
 
     def get_run(self, run, system=False, tags=False, metadata=False):
         """
