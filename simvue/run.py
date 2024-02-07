@@ -350,15 +350,15 @@ class Run(object):
         if self._status == 'running':
             self._start()
         return True
-    
-    def add_process(self,
+
+ def add_process(self,
         identifier: str,
         *cmd_args,
-        executable: str | None = None,
-        script: str | None = None,
-        input_file: str | None = None,
+        executable: typing.Optional[str]= None,
+        script: typing.Optional[str]= None,
+        input_file: typing.Optional[str]= None,
         print_stdout: bool = False,
-        completion_callback: typing.Callable | None=None,
+        completion_callback: typing.Optional[typing.Callable]=None,
         env: typing.Optional[typing.Dict[str, str]]=None,
         **cmd_kwargs
     ) -> None:
