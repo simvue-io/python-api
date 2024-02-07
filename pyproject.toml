@@ -20,6 +20,7 @@ plotly = {version = "^5.18.0", extras=["plot"], optional = true}
 torch = {version = "^2.1.2", extras = ["torch"], python = "<3.12", optional = true}
 numpy = {version = "^1.26.3", extras=["dataset"], optional = true}
 matplotlib = {version = "^3.8.2", extras=["plot"], optional = true}
+toml = "^0.10.2"
 
 [tool.poetry.extras]
 dataset = ["pandas", "numpy"]
