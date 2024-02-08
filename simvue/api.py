@@ -19,7 +19,7 @@ def set_json_header(headers):
     return headers
 
 @retry(wait=wait_exponential(multiplier=RETRY_MULTIPLIER, min=RETRY_MIN, max=RETRY_MAX),
-                             stop=stop_after_attempt(RETRY_STOP))
+                             stop=stop_after_attempt(RETRY_STOP), reraise=True)
 def post(url, headers, data, is_json=True):
     """
     HTTP POST with retries
@@ -30,10 +30,10 @@ def post(url, headers, data, is_json=True):
     response = requests.post(url, headers=headers, data=data, timeout=DEFAULT_API_TIMEOUT)
     
     if response.status_code in (401, 403):
-        raise Exception('Authorization error')
+        raise Exception(f'Authorization error [{response.status_code}]: {response.text}')
         
     if response.status_code not in (200, 201, 409):
-        raise Exception('HTTP error')
+        raise Exception(f'HTTP error [{response.status_code}]: {response.text}')
 
     return response
 
