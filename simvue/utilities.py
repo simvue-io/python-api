@@ -21,7 +21,7 @@ def check_extra(extra_name: str) -> typing.Callable:
                     import torch
                 except ImportError:
                     raise RuntimeError(f"PyTorch features require the '{extra_name}' extension to Simvue")
-            elif extra_name == "pandas":
+            elif extra_name == "dataset":
                 try:
                     import pandas
                     import numpy
