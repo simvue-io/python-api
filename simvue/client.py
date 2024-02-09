@@ -429,7 +429,7 @@ class Client(object):
                         data.append([item[xaxis], item['min'], item['average'], item['max'], name])
 
             if format == 'dataframe':
-                return metrics_to_dataframe(response.json(), xaxis)
+                return metrics_to_dataframe(data, xaxis)
             return data
 
         raise Exception(response.text)
