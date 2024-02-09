@@ -197,7 +197,7 @@ class Client(object):
             if 'detail' in response.json():
                 if response.json()['detail'] == 'No such run':
                     raise Exception('Run does not exist')
-                elif response.json()['detail'] == 'artifact does not exist':
+                elif response.json()['detail'] == 'No such artifact':
                     raise Exception('Artifact does not exist')
 
         if response.status_code != 200:
