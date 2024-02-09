@@ -5,7 +5,7 @@ import pickle
 import requests
 
 from .serialization import Deserializer
-from .utilities import get_auth, get_server_version, check_extra
+from .utilities import get_auth, check_extra
 from .converters import to_dataframe, metrics_to_dataframe
 
 CONCURRENT_DOWNLOADS = 10
@@ -37,7 +37,6 @@ class Client(object):
     def __init__(self):
         self._url, self._token = get_auth()
         self._headers = {"Authorization": f"Bearer {self._token}"}
-        self._version = get_server_version()
 
     def get_run_id_from_name(self, name):
         """

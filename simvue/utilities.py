@@ -56,21 +56,6 @@ def get_auth():
 
     return url, token
 
-def get_server_version():
-    """
-    Get the server version
-    """
-    url, _ = get_auth()
-
-    try:
-        response = requests.get(f"{url}/api/version")
-    except:
-        pass
-    else:
-        if response.status_code == 200:
-            return 1
-    return 0
-
 def get_offline_directory():
     """
     Get directory for offline cache
