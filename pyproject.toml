@@ -15,11 +15,11 @@ tenacity = "^8.2.3"
 PyJWT = "^2.8.0"
 psutil = "^5.9.8"
 pydantic = "^2.5.3"
-pandas = {version = "^2.2.0", extras=["dataset"], optional = true}
-plotly = {version = "^5.18.0", extras=["plot"], optional = true}
-torch = {version = "^2.1.2", extras = ["torch"], python = "<3.12", optional = true}
-numpy = {version = "^1.26.3", extras=["dataset"], optional = true}
-matplotlib = {version = "^3.8.2", extras=["plot"], optional = true}
+pandas = {version = "^2.2.0", optional = true}
+plotly = {version = "^5.18.0", optional = true}
+torch = {version = "^2.1.2", python = "<3.12", optional = true}
+numpy = {version = "^1.26.3", optional = true}
+matplotlib = {version = "^3.8.2", optional = true}
 toml = "^0.10.2"
 
 [tool.poetry.extras]
