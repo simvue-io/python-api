@@ -1,0 +1,35 @@
+[tool.poetry]
+name = "simvue"
+version = "1.0.0.dev2"
+description = "Simulation tracking and monitoring"
+authors = ["Simvue Development Team <info@simvue.io>"]
+license = "Apache v2"
+readme = "README.md"
+
+[tool.poetry.dependencies]
+python = "^3.9"
+dill = "^0.3.7"
+requests = "^2.31.0"
+msgpack = "^1.0.7"
+tenacity = "^8.2.3"
+PyJWT = "^2.8.0"
+psutil = "^5.9.8"
+pydantic = "^2.5.3"
+pandas = {version = "^2.2.0", extras=["dataset"], optional = true}
+plotly = {version = "^5.18.0", extras=["plot"], optional = true}
+torch = {version = "^2.1.2", extras = ["torch"], python = "<3.12", optional = true}
+numpy = {version = "^1.26.3", extras=["dataset"], optional = true}
+matplotlib = {version = "^3.8.2", extras=["plot"], optional = true}
+toml = "^0.10.2"
+
+[tool.poetry.extras]
+dataset = ["pandas", "numpy"]
+torch = ["torch"]
+plot = ["matplotlib", "plotly"]
+
+[tool.poetry.scripts]
+simvue_sender = "simvue.bin.simvue_sender:run"
+
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"

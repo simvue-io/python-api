@@ -175,7 +175,7 @@ class Run(object):
         self._name = None
         self._executor = Executor(self)
         self._id = None
-        self._suppress_errors = True
+        self._suppress_errors = False
         self._queue_blocking = False
         self._status = None
         self._upload_time_log = None
@@ -350,10 +350,7 @@ class Run(object):
     def add_process(self,
         identifier: str,
         *cmd_args,
-        executable: str | None = None,
-        script: str | None = None,
-        input_file: str | None = None,
-        completion_callback: typing.Callable | None=None,
+        completion_callback: typing.Optional[typing.Callable[[int, int, str], None]]=None,
         **cmd_kwargs
     ) -> None:
         """Add a process to be executed to the executor.
@@ -504,7 +501,7 @@ class Run(object):
         self._pid = pid
 
     def config(self,
-               suppress_errors=True,
+               suppress_errors=False,
                queue_blocking=False,
                queue_size=QUEUE_SIZE,
                disable_resources_metrics=False,
