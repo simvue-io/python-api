@@ -129,7 +129,7 @@ class Executor:
             exit_status_dict: typing.Dict[str, int],
             std_err: typing.Dict[str, str],
             std_out: typing.Dict[str, str],
-            run_on_exit: typing.Callable=completion_callback
+            run_on_exit: typing.Optional[typing.Callable[[int, int, str], None]]=completion_callback
         ) -> None:
             with open(f"{runner.name}_{proc_id}.err", "w") as err:
                 with open(f"{runner.name}_{proc_id}.out", "w") as out:
@@ -143,11 +143,12 @@ class Executor:
 
             exit_status_dict[proc_id] = _result.returncode
 
-            run_on_exit(
-                status_code=exit_status_dict[proc_id],
-                std_out=std_out[proc_id],
-                std_err=std_err[proc_id]
-            )
+            if run_on_exit:
+                run_on_exit(
+                    status_code=exit_status_dict[proc_id],
+                    std_out=std_out[proc_id],
+                    std_err=std_err[proc_id]
+                )
 
         _command: typing.List[str] = []
 
