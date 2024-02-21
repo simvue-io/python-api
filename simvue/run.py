@@ -350,6 +350,9 @@ class Run(object):
     def add_process(self,
         identifier: str,
         *cmd_args,
+        executable: typing.Optional[str]= None,
+        script: typing.Optional[str]= None,
+        input_file: typing.Optional[str]= None,
         completion_callback: typing.Optional[typing.Callable[[int, int, str], None]]=None,
         **cmd_kwargs
     ) -> None:

@@ -57,7 +57,11 @@ class Executor:
         executable: typing.Optional[str]= None,
         script: typing.Optional[str]= None,
         input_file: typing.Optional[str]= None,
+<<<<<<< HEAD
         completion_callback: typing.Optional[typing.Callable[[int, str, str], None]]=None,
+=======
+        completion_callback: typing.Optional[typing.Callable]=None,
+>>>>>>> 92c428fe0468cd971b99a9337bbb46247cafd92c
         **kwargs,
     ) -> None:
         """Add a process to be executed to the executor.
