@@ -1,3 +1,11 @@
+"""
+Simvue API Connection
+=====================
+
+Provides methods for interacting with a Simvue server which include retry
+policies. In cases where JSON is the expected form the data is firstly converted
+to a JSON string
+"""
 import copy
 import json
 import typing
@@ -96,7 +104,7 @@ def put(
     headers: dict[str, str],
     data: dict[str, typing.Any],
     is_json: bool=True,
-    timeout=DEFAULT_API_TIMEOUT
+    timeout: int=DEFAULT_API_TIMEOUT
 ) -> requests.Response:
     """HTTP POST with retries
 
@@ -135,9 +143,27 @@ def put(
 
     return response
 
-def get(url, headers, timeout=DEFAULT_API_TIMEOUT):
-    """
-    HTTP GET
+
+def get(
+    url: str,
+    headers: dict[str, str],
+    timeout: int=DEFAULT_API_TIMEOUT
+):
+    """HTTP GET
+
+    Parameters
+    ----------
+    url : str
+        URL to put to
+    headers : dict[str, str]
+        headers for the post request
+    timeout : _type_, optional
+        timeout of request, by default DEFAULT_API_TIMEOUT
+
+    Returns
+    -------
+    requests.Response
+        response from executing GET
     """
     response = requests.get(url, headers=headers, timeout=timeout)
     response.raise_for_status()
