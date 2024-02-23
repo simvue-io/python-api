@@ -60,7 +60,7 @@ class Executor:
         input_file: typing.Optional[str]= None,
         print_stdout: bool=False,
         env: typing.Optional[typing.Dict[str, str]] = None,
-        completion_callback: typing.Optional[typing.Callable]=None,
+        completion_callback: typing.Optional[typing.Callable[[int, str, str], None]]=None,
         **kwargs,
     ) -> None:
         """Add a process to be executed to the executor.
@@ -136,7 +136,7 @@ class Executor:
             exit_status_dict: typing.Dict[str, int],
             std_err: typing.Dict[str, str],
             std_out: typing.Dict[str, str],
-            run_on_exit: typing.Callable=completion_callback,
+            run_on_exit: typing.Optional[typing.Callable[[int, int, str], None]]=completion_callback,
             print_out: bool=print_stdout,
             environment: typing.Optional[typing.Dict[str, str]]=env
         ) -> None:
@@ -184,11 +184,12 @@ class Executor:
                 std_err=std_err[proc_id]
             )
 
-            run_on_exit(
-                status_code=exit_status_dict[proc_id],
-                std_out=std_out[proc_id],
-                std_err=std_err[proc_id]
-            )
+            if run_on_exit:
+                run_on_exit(
+                    status_code=exit_status_dict[proc_id],
+                    std_out=std_out[proc_id],
+                    std_err=std_err[proc_id]
+                )
 
         _command: typing.List[str] = []
 
