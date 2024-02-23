@@ -1,9 +1,9 @@
 from concurrent.futures import ProcessPoolExecutor
 import json
 import os
-import pickle
 import requests
 
+from .filter import RunsFilter
 from .serialization import Deserializer
 from .utilities import get_auth, check_extra
 from .converters import to_dataframe, metrics_to_dataframe
@@ -76,6 +76,9 @@ class Client(object):
         """
         Get runs
         """
+        if isinstance(filters, RunsFilter):
+            filters = filters.as_list()
+
         params = {'name': None,
                   'filters': json.dumps(filters),
                   'return_basic': True,
