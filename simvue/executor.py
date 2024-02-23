@@ -14,6 +14,7 @@ import typing
 import subprocess
 import multiprocessing
 import logging
+import sys
 import os
 
 if typing.TYPE_CHECKING:
@@ -57,6 +58,8 @@ class Executor:
         executable: typing.Optional[str]= None,
         script: typing.Optional[str]= None,
         input_file: typing.Optional[str]= None,
+        print_stdout: bool=False,
+        env: typing.Optional[typing.Dict[str, str]] = None,
         completion_callback: typing.Optional[typing.Callable[[int, str, str], None]]=None,
         **kwargs,
     ) -> None:
@@ -91,6 +94,8 @@ class Executor:
         ----------
         identifier : str
             A unique identifier for this process
+        print_stdout : bool, optional
+            print output of command to stdout
         executable : str | None, optional
             the main executable for the command, if not specified this is taken to be the first
             positional argument, by default None
@@ -100,6 +105,8 @@ class Executor:
         input_file : str | None, optional
             the input file to run, note this only work if the input file is not an option, if this is the case
             you should provide it as such and perform the upload manually, by default None
+        env : typing.Dict[str, str], optional
+            environment variables for process
         completion_callback : typing.Callable | None, optional
             callback to run when process terminates
         """
@@ -129,11 +136,39 @@ class Executor:
             exit_status_dict: typing.Dict[str, int],
             std_err: typing.Dict[str, str],
             std_out: typing.Dict[str, str],
-            run_on_exit: typing.Optional[typing.Callable[[int, int, str], None]]=completion_callback
+            run_on_exit: typing.Optional[typing.Callable[[int, int, str], None]]=completion_callback,
+            print_out: bool=print_stdout,
+            environment: typing.Optional[typing.Dict[str, str]]=env
         ) -> None:
+            _logger = logging.getLogger(proc_id)
             with open(f"{runner.name}_{proc_id}.err", "w") as err:
                 with open(f"{runner.name}_{proc_id}.out", "w") as out:
-                    _result = subprocess.run(command, stdout=out, stderr=err, text=True)
+                    _result = subprocess.Popen(
+                        command,
+                        stdout=subprocess.PIPE,
+                        stderr=subprocess.PIPE,
+                        universal_newlines=True,
+                        env=environment
+                    )
+                    
+                    while True:
+                        _std_out_line = _result.stdout.readline()
+                        _std_err_line = _result.stderr.readline()
+
+                        if _std_out_line:
+                            out.write(_std_out_line)
+                            if print_out:
+                                _logger.info(_std_out_line)
+
+                        if _std_err_line:
+                            err.write(_std_err_line)
+                            if print_out:
+                                _logger.error(_std_err_line)
+                        
+                        if not _std_err_line and not _std_out_line:
+                            break
+
+            _status_code = _result.wait()
 
             with open(f"{runner.name}_{proc_id}.err") as err:
                 std_err[proc_id] = err.read()
@@ -141,7 +176,13 @@ class Executor:
             with open(f"{runner.name}_{proc_id}.out") as out:
                 std_out[proc_id] = out.read()
 
-            exit_status_dict[proc_id] = _result.returncode
+            exit_status_dict[proc_id] = _status_code
+
+            run_on_exit(
+                status_code=exit_status_dict[proc_id],
+                std_out=std_out[proc_id],
+                std_err=std_err[proc_id]
+            )
 
             if run_on_exit:
                 run_on_exit(
@@ -200,6 +241,16 @@ class Executor:
     def success(self) -> int:
         """Return whether all attached processes completed successfully"""
         return all(i == 0 for i in self._exit_codes.values())
+    
+    @property
+    def exit_status(self) -> int:
+        """Returns the first non-zero exit status if applicable"""
+        _non_zero = [i for i in self._exit_codes.values() if i != 0]
+
+        if _non_zero:
+            return _non_zero[0]
+        
+        return 0
     
     def get_command(self, process_id: str) -> str:
         """Returns the command executed within the given process.

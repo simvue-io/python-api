@@ -217,6 +217,10 @@ class Run(object):
                     if traceback and self._active:
                         self.log_event(f"Traceback: {traceback}")
                         self.set_status('failed')
+        
+        if (_non_zero := self.executor.exit_status):
+            logger.error(f"Simvue process executor terminated with non-zero exit status {_non_zero}")
+            sys.exit(_non_zero)
 
     def _check_token(self):
         """
@@ -346,14 +350,16 @@ class Run(object):
         if self._status == 'running':
             self._start()
         return True
-    
+
     def add_process(self,
         identifier: str,
         *cmd_args,
         executable: typing.Optional[str]= None,
         script: typing.Optional[str]= None,
         input_file: typing.Optional[str]= None,
+        print_stdout: bool = False,
         completion_callback: typing.Optional[typing.Callable[[int, int, str], None]]=None,
+        env: typing.Optional[typing.Dict[str, str]]=None,
         **cmd_kwargs
     ) -> None:
         """Add a process to be executed to the executor.
@@ -398,8 +404,12 @@ class Run(object):
         input_file : str | None, optional
             the input file to run, note this only work if the input file is not an option, if this is the case
             you should provide it as such and perform the upload manually, by default None
+        print_stdout : bool, optional
+            print output of command to the terminal, default is False
         completion_callback : typing.Callable | None, optional
             callback to run when process terminates
+        env : typing.Dict[str, str], optional
+            environment variables for process
         **kwargs
             all other keyword arguments are interpreted as options to the command
         """
@@ -439,7 +449,9 @@ class Run(object):
             executable=executable,
             script=script,
             input_file=input_file,
+            print_stdout=print_stdout,
             completion_callback=completion_callback,
+            env=env,
             **cmd_kwargs
         )
     
