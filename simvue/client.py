@@ -1,21 +1,37 @@
 from concurrent.futures import ProcessPoolExecutor
 import json
 import os
-import pickle
+import typing
 import requests
+import logging
 
 from .serialization import Deserializer
 from .utilities import get_auth, check_extra
 from .converters import to_dataframe, metrics_to_dataframe
 
+if typing.TYPE_CHECKING:
+    from pandas import DataFrame
+
 CONCURRENT_DOWNLOADS = 10
 DOWNLOAD_CHUNK_SIZE = 8192
 DOWNLOAD_TIMEOUT = 30
 
-def downloader(job):
+logger = logging.getLogger(__file__)
+
+
+def downloader(job: dict[str, str]) -> None:
     """
     Download the specified file to the specified directory
     """
+    # Check to make sure all requirements have been retrieved first
+    for key in ('url', 'path', 'filename'):
+        if key not in job:
+            logger.error(
+                "Failed to retrieve required information during job download"
+            )
+            logger.debug(f"Expected key '{key}' during job object retrieval")
+            return
+
     try:
         response = requests.get(job['url'], stream=True, timeout=DOWNLOAD_TIMEOUT)
     except requests.exceptions.RequestException:
@@ -30,70 +46,134 @@ def downloader(job):
             for data in response.iter_content(chunk_size=DOWNLOAD_CHUNK_SIZE):
                 fh.write(data)
 
-class Client(object):
+
+class Client:
     """
     Class for querying Simvue
     """
-    def __init__(self):
-        self._url, self._token = get_auth()
-        self._headers = {"Authorization": f"Bearer {self._token}"}
+    def __init__(self) -> None:
+        self._url: typing.Optional[str]
+        self._token: typing.Optional[str]
 
-    def get_run_id_from_name(self, name):
+        self._url, self._token = get_auth()
+
+        for label, value in zip(("URL", "API token"), (self._url, self._token)):
+            if not value:
+                logger.warning(f"No {label} specified")
+
+        self._headers: dict[str, str] = {"Authorization": f"Bearer {self._token}"}
+
+    def get_run_id_from_name(self, name: str) -> str:
         """
         Get run id for the specified run name
         """
-        params = {'filters': json.dumps([f"name == {name}"])}
+        params: dict[str, str] = {'filters': json.dumps([f"name == {name}"])}
 
-        response = requests.get(f"{self._url}/api/runs", headers=self._headers, params=params)
+        response: requests.Response = requests.get(
+            f"{self._url}/api/runs",
+            headers=self._headers,
+            params=params
+        )
 
-        if response.status_code == 200:
-            if 'data' in response.json():
-                if len(response.json()['data']) == 0:
-                    raise RuntimeError("Could not collect ID - no run found with this name.")
-                if len(response.json()['data']) > 1:
-                    raise RuntimeError("Could not collect ID - more than one run exists with this name.")
-                else:
-                    return response.json()['data'][0]['id']
+        if (
+            response.status_code == 200 and
+            (response_data := response.json().get("data"))
+        ):
+
+            if len(response_data) == 0:
+                raise RuntimeError(
+                    "Could not collect ID - no run found with this name."
+                )
+            if len(response_data) > 1:
+                raise RuntimeError(
+                    "Could not collect ID - more than one run exists with this name."
+                )
+            if not (first_id := response_data[0].get("id")):
+                raise RuntimeError("Failed to retrieve identifier for run.")
+            return first_id
+
         raise RuntimeError(response.text)
 
-    def get_run(self, run, system=False, tags=False, metadata=False):
+    def get_run(
+        self,
+        run: str,
+        metadata: bool=False,
+        metrics: bool=False,
+        alerts: bool=False
+    ) -> dict[str, typing.Any]:
         """
         Get a single run
         """
-        response = requests.get(f"{self._url}/api/runs/{run}", headers=self._headers)
+        parameters: dict[str, bool] = {
+            "return_metadata": metadata,
+            "return_metrics": metrics,
+            "return_alerts": alerts
+        }
 
-        if response.status_code == 404:
-            if 'detail' in response.json():
-                if response.json()['detail'] == 'run does not exist':
-                    raise Exception('Run does not exist')
+        response: requests.Response = requests.get(
+            f"{self._url}/api/runs/{run}",
+            headers=self._headers,
+            params=parameters
+        )
+
+        if (
+            response.status_code == 404 and
+            (res_detail := response.json().get("detail"))
+        ):
+            raise RuntimeError(f"Failed to retrieve run: {res_detail}")
 
         if response.status_code == 200:
             return response.json()
 
-        raise Exception(response.text)
+        raise RuntimeError(f"Failed to retrieve run: {response.text}")
 
-    def get_runs(self, filters, system=False, tags=False, metadata=False, format='dict'):
+    def get_runs(
+        self,
+        filters: typing.Optional[list[str]],
+        system: bool=False,
+        metrics: bool=False,
+        alerts: bool=False,
+        metadata: bool=False,
+        format: typing.Union[
+            typing.Literal['dict'],
+            typing.Literal['dataframe']
+        ]='dict'
+    ) -> typing.Union[
+            "DataFrame",
+            dict[str, typing.Union[int, str, float, None]],
+            None
+        ]:
         """
         Get runs
         """
         params = {'name': None,
                   'filters': json.dumps(filters),
                   'return_basic': True,
+                  'return_metrics': metrics,
+                  'return_alerts': alerts,
                   'return_system': system,
                   'return_metadata': metadata}
 
-        response = requests.get(f"{self._url}/api/runs", headers=self._headers, params=params)
+        response = requests.get(
+            f"{self._url}/api/runs",
+            headers=self._headers,
+            params=params
+        )
         response.raise_for_status()
 
-        if response.status_code == 200:
-            if format == 'dict':
-                return response.json()['data']
-            elif format == 'dataframe':
-                return to_dataframe(response.json())
-            else:
-                raise Exception('invalid format specified')
+        if format not in ('dict', 'dataframe'):
+            raise ValueError("Invalid format specified")
+        
+        if response.status_code != 200:
+            return None
 
-        return None
+        if response_data := response.json().get("data"):
+            return response_data
+        elif format == 'dataframe':
+            return to_dataframe(response.json())
+        else:
+            raise RuntimeError("Failed to retrieve runs data")
+
 
     def delete_run(self, run):
         """
