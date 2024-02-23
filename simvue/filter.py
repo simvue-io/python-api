@@ -1,6 +1,7 @@
 import abc
 import enum
 import sys
+import typing
 
 if sys.version_info < (3, 11):
     from typing_extensions import Self
@@ -166,7 +167,7 @@ class RunsFilter(RestAPIFilter):
     def has_failed(self) -> "RunsFilter":
         return self.has_status(Status.Failed)
     
-    def has_alert(self, alert_name: str, is_critical: bool | None=None) -> "RunsFilter":
+    def has_alert(self, alert_name: str, is_critical: typing.Optional[bool]=None) -> "RunsFilter":
         self._filters.append(f"alert.name == {alert_name}")
         if is_critical is True:
             self._filters.append("alert.status == critical")
@@ -195,31 +196,31 @@ class RunsFilter(RestAPIFilter):
         self._filters.append(f"metadata.{attribute} not exists")
         return self
     
-    def _value_eq(self, category: str, attribute: str, value: str | int | float) -> "RunsFilter":
+    def _value_eq(self, category: str, attribute: str, value: typing.Union[str, int, float]) -> "RunsFilter":
         self._filters.append(f"{category}.{attribute} == {value}")
         return self
     
-    def _value_neq(self, category: str, attribute: str, value: str | int | float) -> "RunsFilter":
+    def _value_neq(self, category: str, attribute: str, value: typing.Union[str, int, float]) -> "RunsFilter":
         self._filters.append(f"{category}.{attribute} != {value}")
         return self
     
-    def _value_contains(self, category: str, attribute: str, value: str | int | float) -> "RunsFilter":
+    def _value_contains(self, category: str, attribute: str, value: typing.Union[str, int, float]) -> "RunsFilter":
         self._filters.append(f"{category}.{attribute} contains {value}")
         return self
     
-    def _value_leq(self, category: str, attribute: str, value: int | float) -> "RunsFilter":
+    def _value_leq(self, category: str, attribute: str, value: typing.Union[int, float]) -> "RunsFilter":
         self._filters.append(f"{category}.{attribute} <= {value}")
         return self
     
-    def _value_geq(self, category: str, attribute: str, value: int | float) -> "RunsFilter":
+    def _value_geq(self, category: str, attribute: str, value: typing.Union[int, float]) -> "RunsFilter":
         self._filters.append(f"{category}.{attribute} >= {value}")
         return self
     
-    def _value_lt(self, category: str, attribute: str, value: int | float) -> "RunsFilter":
+    def _value_lt(self, category: str, attribute: str, value: typing.Union[int, float]) -> "RunsFilter":
         self._filters.append(f"{category}.{attribute} < {value}")
         return self
     
-    def _value_gt(self, category: str, attribute: str, value: int | float) -> "RunsFilter":
+    def _value_gt(self, category: str, attribute: str, value: typing.Union[int, float]) -> "RunsFilter":
         self._filters.append(f"{category}.{attribute} > {value}")
         return self
     
