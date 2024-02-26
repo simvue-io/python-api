@@ -19,6 +19,7 @@ from .converters import to_dataframe, metrics_to_dataframe
 from .types import DeserializedContent
 
 if typing.TYPE_CHECKING:
+    from matplotlib.figure import Figure
     from pandas import DataFrame
 
 CONCURRENT_DOWNLOADS = 10
@@ -164,14 +165,20 @@ class Client:
         )
 
         if response.status_code == 404 and (
-            res_detail := response.json().get("detail")
+            detail := response.json().get("detail")
         ):
-            raise RuntimeError(f"Failed to retrieve run: {res_detail}")
+            raise RuntimeError(
+                f"Retrieval of run '{run_id}' failed with status "
+                f"{response.status_code}: {detail}"
+            )
 
         if response.status_code == 200:
             return response.json()
 
-        raise RuntimeError(f"Failed to retrieve run: {response.text}")
+        raise RuntimeError(
+            f"Retrieval of run '{run_id}' failed with status "
+            f"{response.status_code}: {response.text}"
+        )
 
     def get_runs(
         self,
@@ -180,7 +187,7 @@ class Client:
         metrics: bool = False,
         alerts: bool = False,
         metadata: bool = False,
-        format: typing.Literal["dict", "dataframe"]= "dict",
+        format: typing.Literal["dict", "dataframe"] = "dict",
     ) -> typing.Union[
         "DataFrame", dict[str, typing.Union[int, str, float, None]], None
     ]:
@@ -414,7 +421,10 @@ class Client:
         )
 
         if response.status_code == 404 and (detail := response.json().get("detail")):
-            raise RuntimeError(f"Failed to retrieve artifacts: {detail}")
+            raise RuntimeError(
+                f"Retrieval of artifacts for run '{run_id}' failed with "
+                f"status {response.status_code}: {detail}"
+            )
 
         if response.status_code == 200:
             return response.json()
@@ -458,7 +468,10 @@ class Client:
         )
 
         if response.status_code == 404 and (detail := response.json().get("detail")):
-            raise RuntimeError(f"Failed to retrieve artifacts: {detail}")
+            raise RuntimeError(
+                f"Retrieval of artifact '{name}' for run '{run_id}' failed with "
+                f"status {response.status_code}: {detail}"
+            )
 
         if response.status_code != 200:
             return None
@@ -744,8 +757,8 @@ class Client:
         run_id: str,
         metric_name: str,
         xaxis: typing.Literal["step", "time", "timestamp"],
-        max_points: int=0,
-        format: typing.Literal["list", "dataframe"]="list"
+        max_points: int = 0,
+        format: typing.Literal["list", "dataframe"] = "list",
     ) -> typing.Union["DataFrame", list[list]]:
         """Get time series metrics for the given metric name and run
 
@@ -773,8 +786,7 @@ class Client:
             if there was a failure retrieving data from the server
         """
         response: requests.Response = requests.get(
-            f"{self._url}/api/runs/{run_id}",
-            headers=self._headers
+            f"{self._url}/api/runs/{run_id}", headers=self._headers
         )
 
         if response.status_code == 404 and (detail := response.json().get("detail")):
@@ -784,9 +796,15 @@ class Client:
                 f"status {response.status_code}: {detail}"
             )
 
-        run_name = None
-        if response.status_code == 200:
-            run_name = response.json()["name"]
+        run_name: typing.Optional[str] = None
+
+        if response.status_code == 200 and not (
+            run_name := response.json().get("name")
+        ):
+            raise RuntimeError(
+                "Expected key 'name' in response for metric retrieval "
+                f"from run '{run_id}'"
+            )
 
         params: dict[str, typing.Union[str, int]] = {
             "runs": json.dumps([run_id]),
@@ -815,13 +833,12 @@ class Client:
                 f"run '{run_id}' failed with status code {response.status_code}: "
                 f"{response.text}"
             )
-        
+
         run_data: typing.Optional[dict[str, typing.Any]]
         metric_data: typing.Optional[list[dict[str, typing.Any]]]
 
-        if (
-            not (run_data := response.json().get(run_id)) or
-            not (metric_data := run_data.get(metric_name))
+        if not (run_data := response.json().get(run_id)) or not (
+            metric_data := run_data.get(metric_name)
         ):
             raise RuntimeError(
                 f"Expected entry for '{run_id}/{metric_name}' in server "
@@ -829,8 +846,7 @@ class Client:
             )
 
         data: list[list] = [
-            [item[xaxis], item["value"], run_name, metric_name]
-            for item in metric_data
+            [item[xaxis], item["value"], run_name, metric_name] for item in metric_data
         ]
 
         if format == "dataframe":
@@ -839,12 +855,45 @@ class Client:
         return data
 
     def get_metrics_multiple(
-        self, runs, names, xaxis, max_points=0, aggregate=False, format="list"
+        self,
+        runs: list[str],
+        names: list[str],
+        xaxis: typing.Literal["step", "time", "timestamp"],
+        max_points: int = -1,
+        aggregate: bool = False,
+        format: typing.Literal["list", "dataframe"] = "list",
     ):
+        """Get time series data for multiple runs/metrics
+
+        Parameters
+        ----------
+        runs : list[str]
+            unique identifiers of runs to retrieve
+        names : list[str]
+            labels for metrics to retrieve
+        xaxis : str ('step' | 'time' | 'timestampe')
+            the x axis form
+        max_points : int, optional
+            maximum number of points to display, by default -1 (no limit)
+        aggregate : bool, optional
+            whether to aggregate the results, by default False
+        format : str ('list' | 'dataframe'), optional
+            the form in which to return results, by default "list"
+
+        Returns
+        -------
+        list | pandas.DataFrame
+            either a list or a dataframe containing metric values for the
+            runs specified
+
+        Raises
+        ------
+        ValueError
+            if an invalid argument is provided
+        RuntimError
+            if there was a failure retrieving data from the server
         """
-        Get time series metrics from multiple runs and/or metrics
-        """
-        params = {
+        params: dict[str, typing.Union[int, str]] = {
             "runs": json.dumps(runs),
             "metrics": json.dumps(names),
             "aggregate": aggregate,
@@ -853,12 +902,12 @@ class Client:
         }
 
         if xaxis not in ("step", "time"):
-            raise Exception(
+            raise ValueError(
                 'Invalid xaxis specified, should be either "step" or "time"'
             )
 
         if format not in ("list", "dataframe"):
-            raise Exception(
+            raise ValueError(
                 'Invalid format specified, should be either "list" or "dataframe"'
             )
 
@@ -866,46 +915,67 @@ class Client:
             f"{self._url}/api/metrics", headers=self._headers, params=params
         )
 
-        if response.status_code == 200:
-            data = []
-            if not aggregate:
-                for run in response.json():
-                    for name in response.json()[run]:
-                        for item in response.json()[run][name]:
-                            data.append([item[xaxis], item["value"], run, name])
-            else:
-                for name in response.json():
-                    for item in response.json()[name]:
-                        data.append(
-                            [
-                                item[xaxis],
-                                item["min"],
-                                item["average"],
-                                item["max"],
-                                name,
-                            ]
-                        )
+        if response.status_code != 200:
+            raise RuntimeError(
+                f"Retrieval of metrics '{names}' failed for runs '{runs}' "
+                f"with status code {response.status_code}: {response.text}"
+            )
 
-            if format == "dataframe":
-                return metrics_to_dataframe(data, xaxis)
-            return data
+        data: list[list[typing.Union[str, int, float]]] = []
 
-        raise Exception(response.text)
+        if not aggregate:
+            non_agg_data: dict[
+                str, dict[str, list[dict[str, typing.Union[int, float]]]]
+            ] = response.json()
+
+            for run_id, run in non_agg_data.items():
+                for name, metric_entry in run.items():
+                    for item in metric_entry:
+                        data.append([item[xaxis], item["value"], run_id, name])
+        else:
+            agg_data: dict[str, list[dict[str, typing.Union[int, float]]]] = (
+                response.json()
+            )
+
+            for name, entries in agg_data.items():
+                for item in entries:
+
+                    data.append(
+                        [
+                            item[xaxis],
+                            item["min"],
+                            item["average"],
+                            item["max"],
+                            name,
+                        ]
+                    )
+
+        if format == "dataframe":
+            return metrics_to_dataframe(data, xaxis)
+
+        return data
 
     @check_extra("plot")
-    def plot_metrics(self, runs, names, xaxis, max_points=0):
+    def plot_metrics(
+        self,
+        runs: list[str],
+        names: list[str],
+        xaxis: typing.Literal["step", "time", "timestep"],
+        max_points: int = -1,
+    ) -> "Figure":
         """
         Plot time series metrics from multiple runs and/or metrics
         """
         if not isinstance(runs, list):
-            raise Exception("Invalid runs specified, must be a list of run names.")
+            raise ValueError("Invalid runs specified, must be a list of run names.")
 
         if not isinstance(names, list):
-            raise Exception("Invalid names specified, must be a list of metric names.")
+            raise ValueError("Invalid names specified, must be a list of metric names.")
 
-        data = self.get_metrics_multiple(
+        data: "DataFrame" = self.get_metrics_multiple(
             runs, names, xaxis, max_points, format="dataframe"
         )
+
         import matplotlib.pyplot as plt
 
         for run in runs:
@@ -930,13 +1000,51 @@ class Client:
         if len(names) == 1:
             plt.ylabel(names[0])
 
-        return plt
+        return plt.figure()
 
-    def get_events(self, run, filter=None, start=0, num=0):
+    def get_events(
+        self,
+        run_id: str,
+        message_contains: typing.Optional[str] = None,
+        start_index: typing.Optional[int] = None,
+        count_limit: typing.Optional[int] = None,
+    ) -> list[dict[str, str]]:
+        """Return events for a specified run
+
+        Parameters
+        ----------
+        run_id : str
+            the unique identifier of the run to query
+        message_contains : typing.Optional[str], optional
+            filter to events with message containing this expression, by default None
+        start_index : typing.Optional[int], optional
+            slice results returning only those above this index, by default None
+        count_limit : typing.Optional[int], optional
+            limit number of returned results, by default None
+
+        Returns
+        -------
+        list[dict[str, str]]
+            list of matching events containing entries with message and timestamp data
+
+        Raises
+        ------
+        RuntimeError
+            if there was a failure retrieving information from the server
         """
-        Return events from the specified run
-        """
-        params = {"run": run, "filter": filter, "start": start, "num": num}
+
+        msg_filter: str = (
+            json.dumps([f"event.message contains {message_contains}"])
+            if message_contains
+            else ""
+        )
+
+        params: dict[str, typing.Union[str, int]] = {
+            "run": run_id,
+            "filters": msg_filter,
+            "start": start_index or 0,
+            "count": count_limit or 0,
+        }
 
         response = requests.get(
             f"{self._url}/api/events", headers=self._headers, params=params
@@ -945,10 +1053,15 @@ class Client:
         if response.status_code == 200:
             return response.json()["data"]
 
-        raise Exception(response.text)
+        raise RuntimeError(
+            f"Retrieval of events for run '{run_id}' failed with "
+            f"status code {response.status_code}: {response.text}"
+        )
 
-    def get_alerts(self, run, triggered_only=True, names_only=True):
-        """_summary_
+    def get_alerts(
+        self, run_id: str, triggered_only: bool = True, names_only: bool = True
+    ) -> list[dict[str, typing.Any]]:
+        """Retrieve alerts for a given run
 
         Parameters
         ----------
@@ -958,34 +1071,53 @@ class Client:
             Whether to only return details about alerts which are currently critical, by default True
         names_only: bool, optional
             Whether to only return the names of the alerts (otherwise return the full details of the alerts), by default True
+
+        Returns
+        -------
+        list[dict[str, Any]]
+            a list of all alerts for this run which match the constrains specified
+        
+        Raises
+        ------
+        RuntimeError
+            if there was a failure retrieving data from the server
         """
-        response = requests.get(f"{self._url}/api/runs/{run}", headers=self._headers)
+        response = requests.get(f"{self._url}/api/runs/{run_id}", headers=self._headers)
 
-        if response.status_code == 404:
-            if "detail" in response.json():
-                if response.json()["detail"] == "run does not exist":
-                    raise Exception("Run does not exist")
+        if response.status_code == 404 and (detail := response.json().get("detail")):
+            raise RuntimeError(
+                f"Retrieval of alerts for run '{run_id}' failed with "
+                f"status {response.status_code}: {detail}"
+            )
+        
+        if response.status_code != 200:
+            raise RuntimeError(
+                f"Retrieval of alerts for run '{run_id}' failed with "
+                f"status {response.status_code}: {response.text}"
+            )
 
-        elif response.status_code == 200:
-            if triggered_only:
-                if names_only:
-                    return [
-                        alert["alert"]["name"]
-                        for alert in response.json()["alerts"]
-                        if alert["status"]["current"] == "critical"
-                    ]
-                else:
-                    return [
-                        alert
-                        for alert in response.json()["alerts"]
-                        if alert["status"]["current"] == "critical"
-                    ]
+        if not (alerts := response.json().get("alerts")):
+            raise RuntimeError(
+                "Expected key 'alerts' in response when retrieving "
+                f"alerts for run '{run_id}'"
+            ) 
+
+        if triggered_only:
+            if names_only:
+                return [
+                    alert["alert"].get("name")
+                    for alert in alerts
+                    if alert["status"].get("current") == "critical"
+                ]
             else:
-                if names_only:
-                    return [
-                        alert["alert"]["name"] for alert in response.json()["alerts"]
-                    ]
-                else:
-                    return response.json()["alerts"]
+                return [
+                    alert
+                    for alert in alerts
+                    if alert["status"].get("current") == "critical"
+                ]
+        elif names_only:
+            return [
+                alert["alert"].get("name") for alert in alerts
+            ]
 
-        raise Exception(response.text)
+        return alerts
