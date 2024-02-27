@@ -203,6 +203,7 @@ class Run(object):
         identifier = self._id
         logger.debug('Automatically closing run %s in status %s', identifier, self._status)
 
+
         if (self._id or self._mode == 'offline') and self._status == 'running':
             if self._shutdown_event is not None:
                 self._shutdown_event.set()
@@ -217,6 +218,8 @@ class Run(object):
                     if traceback and self._active:
                         self.log_event(f"Traceback: {traceback}")
                         self.set_status('failed')
+        if self._worker:
+            self._worker.join()
         
         if (_non_zero := self.executor.exit_status):
             logger.error(f"Simvue process executor terminated with non-zero exit status {_non_zero}")

@@ -92,6 +92,7 @@ class Worker(threading.Thread):
         last_heartbeat = 0
         last_metrics = 0
         collected = False
+        final_recovery_flush = False
         while True:
             # Collect metrics if necessary
             if time.time() - last_metrics > self._resources_metrics_interval and self._processes:
@@ -167,10 +168,17 @@ class Worker(threading.Thread):
                     logger.error(str(err))
                 buffer = []
 
-            if self._shutdown_event.is_set() or not self._parent_thread.is_alive():
-                if self._metrics_queue.empty() and self._events_queue.empty():
-                    logger.debug('Ending worker thread')
-                    sys.exit(0)
+            if not self._parent_thread.is_alive():
+                if final_recovery_flush or (self._metrics_queue.empty() and self._events_queue.empty()):
+                    raise RuntimeError("Aborting worker due to parent thread termination")
+                else:
+                    logger.warning('Parent thread dead. Attempting final flush of buffers')
+                    final_recovery_flush = True
+                    continue
+
+            if self._shutdown_event.is_set():
+                logger.debug('Ending worker thread')
+                return
             else:
                 counter = 0
                 while counter < POLLING_INTERVAL and not self._shutdown_event.is_set() and self._parent_thread.is_alive() and not self._events_queue.full() and not self._metrics_queue.full():

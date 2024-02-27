@@ -29,7 +29,7 @@ DOWNLOAD_TIMEOUT = 30
 logger = logging.getLogger(__file__)
 
 
-def downloader(job: dict[str, str]) -> None:
+def downloader(job: dict[str, str]) -> bool:
     """Download a job output to the location specified within the definition
 
     Parameters
@@ -37,27 +37,42 @@ def downloader(job: dict[str, str]) -> None:
     job : dict[str, str]
         a dictionary containing information on URL and path for a given job
         this information is then used to perform the download
+
+    Returns
+    -------
+    bool
+        whether the file was created successfully
     """
     # Check to make sure all requirements have been retrieved first
     for key in ("url", "path", "filename"):
         if key not in job:
-            logger.error("Failed to retrieve required information during job download")
-            logger.debug(f"Expected key '{key}' during job object retrieval")
-            return
+            logger.warning(f"Expected key '{key}' during job object retrieval")
+            raise RuntimeError("Failed to retrieve required information during job download")
 
     try:
         response = requests.get(job["url"], stream=True, timeout=DOWNLOAD_TIMEOUT)
     except requests.exceptions.RequestException:
-        return
+        return False
 
     total_length = response.headers.get("content-length")
 
-    with open(os.path.join(job["path"], job["filename"]), "wb") as fh:
+    save_location: str = os.path.join(job["path"], job["filename"])
+
+    if not os.path.isdir(job["path"]):
+        raise ValueError(
+            f"Cannot write to '{job['path']}', not a directory."
+        )
+
+    logger.debug(f"Writing file '{save_location}'")
+
+    with open(save_location, "wb") as fh:
         if total_length is None:
             fh.write(response.content)
         else:
             for data in response.iter_content(chunk_size=DOWNLOAD_CHUNK_SIZE):
                 fh.write(data)
+
+    return os.path.exists(save_location)
 
 
 class Client:
@@ -332,8 +347,7 @@ class Client:
         folder_id = self._get_folder_id_from_path(folder_name)
 
         if not folder_id:
-            logger.error(f"Could not find a folder matching '{folder_name}'")
-            return
+            raise ValueError(f"Could not find a folder matching '{folder_name}'")
 
         params: dict[str, bool] = {"runs_only": True, "runs": True}
 
@@ -558,16 +572,19 @@ class Client:
         downloads: list[dict[str, str]] = []
 
         for item in request_response.json():
+            for key in ("url", "name"):
+                if key not in item:
+                    raise RuntimeError(
+                        f"Expected key '{key}' in request "
+                        "response during file retrieval"
+                    )
+
             if startswith and not item["name"].startswith(startswith):
                 continue
             if contains and contains not in item["name"]:
                 continue
             if endswith and not item["name"].endswith(endswith):
                 continue
-
-            for key in ("url", "path", "name"):
-                if key not in item:
-                    raise RuntimeError(f"Expected key '{key}")
 
             file_name: str = os.path.basename(item["name"])
             file_dir: str = os.path.join(out_path, os.path.dirname(item["name"]))
@@ -578,7 +595,8 @@ class Client:
                 "path": file_dir,
             }
 
-            if os.path.isfile(os.path.join(file_dir, file_name)):
+            if os.path.isfile(file_path := os.path.join(file_dir, file_name)):
+                logger.warning(f"File '{file_path}' exists, skipping")
                 continue
 
             os.makedirs(job["path"], exist_ok=True)
@@ -644,7 +662,7 @@ class Client:
         with ProcessPoolExecutor(CONCURRENT_DOWNLOADS) as executor:
             for item in downloads:
                 executor.submit(downloader, item)
-
+ 
     def get_folder(self, folder_id: str) -> dict[str, typing.Any]:
         """Retrieve a folder by identifier
 
@@ -841,7 +859,7 @@ class Client:
             metric_data := run_data.get(metric_name)
         ):
             raise RuntimeError(
-                f"Expected entry for '{run_id}/{metric_name}' in server "
+                f"Expected entry for '{metric_name}' for run '{run_id}' in server "
                 "response, but none found"
             )
 
@@ -1096,10 +1114,10 @@ class Client:
                 f"status {response.status_code}: {response.text}"
             )
 
-        if not (alerts := response.json().get("alerts")):
+        if (alerts := response.json().get("alerts")) is None:
             raise RuntimeError(
                 "Expected key 'alerts' in response when retrieving "
-                f"alerts for run '{run_id}'"
+                f"alerts for run '{run_id}': {response.json()}"
             ) 
 
         if triggered_only:

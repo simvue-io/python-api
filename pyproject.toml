@@ -32,6 +32,8 @@ simvue_sender = "simvue.bin.simvue_sender:run"
 
 [tool.poetry.group.dev.dependencies]
 pytest = "^8.0.0"
+pytest-dependency = "^0.6.0"
+pytest-cov = "^4.1.0"
 
 [build-system]
 requires = ["poetry-core"]
