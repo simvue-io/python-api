@@ -1,3 +1,4 @@
+from colorama import Fore, Style, init
 import configparser
 import jwt
 import logging
@@ -116,3 +117,11 @@ def prepare_for_api(data_in, all=True):
     if 'pickledFile' in data and all:
         del data['pickledFile']
     return data
+
+def print_nice(message):
+    """
+    Log message
+    """
+    init(autoreset=True)
+    print(Fore.GREEN + Style.BRIGHT + f"[simvue] {message}")
+    return
