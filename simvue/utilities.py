@@ -120,7 +120,7 @@ def prepare_for_api(data_in, all=True):
 
 def print_nice(message):
     """
-    Log message
+    Log message in a way which hopefully can be distiguished from the user's application
     """
     init(autoreset=True)
     print(Fore.GREEN + Style.BRIGHT + f"[simvue] {message}")
