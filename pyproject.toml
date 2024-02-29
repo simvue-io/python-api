@@ -21,6 +21,7 @@ torch = {version = "^2.1.2", python = "<3.12", optional = true}
 numpy = {version = "^1.26.3", optional = true}
 matplotlib = {version = "^3.8.2", optional = true}
 toml = "^0.10.2"
+colorama = "^0.4.6"
 
 [tool.poetry.extras]
 dataset = ["pandas", "numpy"]
