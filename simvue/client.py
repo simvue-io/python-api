@@ -6,7 +6,7 @@ Contains a Simvue client class for interacting with existing objects on the
 server including deletion and retrieval.
 """
 
-from concurrent.futures import ProcessPoolExecutor
+from concurrent.futures import ThreadPoolExecutor, as_completed
 import json
 import os
 import typing
@@ -121,23 +121,31 @@ class Client:
             f"{self._url}/api/runs", headers=self._headers, params=params
         )
 
-        if response.status_code == 200 and (
+        if response.status_code != 200:
+            
+            raise RuntimeError(
+                "Retrieval of run ID from name failed with "
+                f"status {response.status_code}: {response.text}"
+            )
+            
+        if not (
             response_data := response.json().get("data")
         ):
+            raise RuntimeError(
+                f"No ID found for run '{name}'"
+            )
 
-            if len(response_data) == 0:
-                raise RuntimeError(
-                    "Could not collect ID - no run found with this name."
-                )
-            if len(response_data) > 1:
-                raise RuntimeError(
-                    "Could not collect ID - more than one run exists with this name."
-                )
-            if not (first_id := response_data[0].get("id")):
-                raise RuntimeError("Failed to retrieve identifier for run.")
-            return first_id
-
-        raise RuntimeError(response.text)
+        if len(response_data) == 0:
+            raise RuntimeError(
+                "Could not collect ID - no run found with this name."
+            )
+        if len(response_data) > 1:
+            raise RuntimeError(
+                "Could not collect ID - more than one run exists with this name."
+            )
+        if not (first_id := response_data[0].get("id")):
+            raise RuntimeError("Failed to retrieve identifier for run.")
+        return first_id
 
     def get_run(
         self,
@@ -659,10 +667,17 @@ class Client:
             out_path=path or os.getcwd(),
         )
 
-        with ProcessPoolExecutor(CONCURRENT_DOWNLOADS) as executor:
-            for item in downloads:
-                executor.submit(downloader, item)
- 
+        with ThreadPoolExecutor(CONCURRENT_DOWNLOADS) as executor:
+            futures = [executor.submit(downloader, item) for item in downloads]
+            for future, download in zip(as_completed(futures), downloads):
+                try:
+                    future.result()
+                except Exception as e:
+                    raise RuntimeError(
+                        f"Download of file {download['url']} "
+                        f"failed with exception: {e}"
+                    )
+        
     def get_folder(self, folder_id: str) -> dict[str, typing.Any]:
         """Retrieve a folder by identifier
 
@@ -876,7 +891,7 @@ class Client:
         self,
         runs: list[str],
         names: list[str],
-        xaxis: typing.Literal["step", "time", "timestamp"],
+        xaxis: typing.Literal["step", "time"],
         max_points: int = -1,
         aggregate: bool = False,
         format: typing.Literal["list", "dataframe"] = "list",
@@ -990,7 +1005,7 @@ class Client:
         if not isinstance(names, list):
             raise ValueError("Invalid names specified, must be a list of metric names.")
 
-        data: "DataFrame" = self.get_metrics_multiple(
+        data: "DataFrame" = self.get_metrics_multiple( # type: ignore
             runs, names, xaxis, max_points, format="dataframe"
         )
 

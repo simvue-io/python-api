@@ -29,10 +29,11 @@ def create_test_run() -> typing.Generator[dict, None, None]:
             run.add_alert(name=f"alert_{i}", source="events", frequency=1, pattern=TEST_DATA['event_contains'])
     
         for i in range(5):
-            run.log_metrics({"metric_counter": i})
+            run.log_metrics({"metric_counter": i, "metric_val": i*i - 1})
 
         run.update_metadata(TEST_DATA["metadata"])
 
+        TEST_DATA["metrics"] = ("metric_counter", "metric_val")
         TEST_DATA["run_id"] = run._id
         TEST_DATA["run_name"] = run._name
         json.dump(TEST_DATA, open("test_attrs.json", "w"), indent=2)
@@ -41,8 +42,10 @@ def create_test_run() -> typing.Generator[dict, None, None]:
             with open(temp_f.name, "w") as out_f:
                 out_f.write("This is a test file")
             run.save(temp_f.name, category="input", name="test_file")
+            TEST_DATA["file_1"] = "test_file"
 
         run.save("test_attrs.json", category="output", name="test_attributes")
+        TEST_DATA["file_2"] = "test_attributes"
 
         time.sleep(1.)
         yield TEST_DATA
