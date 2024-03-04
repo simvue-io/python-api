@@ -7,7 +7,6 @@ from simvue.utilities import (
     get_auth,
     get_expiry,
     prepare_for_api,
-    get_server_version,
     skip_if_failed,
 )
 from simvue.factory.base import SimvueBaseClass
@@ -34,7 +33,6 @@ class Remote(SimvueBaseClass):
         self._headers_mp: dict[str, str] = self._headers | {
             "Content-Type": "application/msgpack"
         }
-        self._version: typing.Optional[int] = get_server_version()
         super().__init__(name, uniq_id, suppress_errors)
 
     @skip_if_failed("_aborted", "_suppress_errors", (None, None))
