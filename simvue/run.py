@@ -17,7 +17,7 @@ from .worker import Worker
 from .simvue import Simvue
 from .serialization import Serializer
 from .models import RunInput
-from .utilities import get_auth, get_expiry
+from .utilities import get_auth, get_expiry, print_nice
 from .executor import Executor
 from pydantic import ValidationError
 
@@ -352,6 +352,11 @@ class Run(object):
 
         if self._status == 'running':
             self._start()
+
+        if self._mode == 'online':
+            print_nice(f'Run {self._name} created')
+            print_nice(f'Monitor in the UI at {self._url}/dashboard/runs/run/{self._id}')
+
         return True
 
     def add_process(self,
