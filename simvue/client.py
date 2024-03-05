@@ -47,7 +47,9 @@ def downloader(job: dict[str, str]) -> bool:
     for key in ("url", "path", "filename"):
         if key not in job:
             logger.warning(f"Expected key '{key}' during job object retrieval")
-            raise RuntimeError("Failed to retrieve required information during job download")
+            raise RuntimeError(
+                "Failed to retrieve required information during job download"
+            )
 
     try:
         response = requests.get(job["url"], stream=True, timeout=DOWNLOAD_TIMEOUT)
@@ -59,9 +61,7 @@ def downloader(job: dict[str, str]) -> bool:
     save_location: str = os.path.join(job["path"], job["filename"])
 
     if not os.path.isdir(job["path"]):
-        raise ValueError(
-            f"Cannot write to '{job['path']}', not a directory."
-        )
+        raise ValueError(f"Cannot write to '{job['path']}', not a directory.")
 
     logger.debug(f"Writing file '{save_location}'")
 
@@ -122,23 +122,17 @@ class Client:
         )
 
         if response.status_code != 200:
-            
+            detail = response.json().get("detail", response.text)
             raise RuntimeError(
                 "Retrieval of run ID from name failed with "
-                f"status {response.status_code}: {response.text}"
-            )
-            
-        if not (
-            response_data := response.json().get("data")
-        ):
-            raise RuntimeError(
-                f"No ID found for run '{name}'"
+                f"status {response.status_code}: {detail}"
             )
 
+        if not (response_data := response.json().get("data")):
+            raise RuntimeError(f"No ID found for run '{name}'")
+
         if len(response_data) == 0:
-            raise RuntimeError(
-                "Could not collect ID - no run found with this name."
-            )
+            raise RuntimeError("Could not collect ID - no run found with this name.")
         if len(response_data) > 1:
             raise RuntimeError(
                 "Could not collect ID - more than one run exists with this name."
@@ -187,9 +181,7 @@ class Client:
             f"{self._url}/api/runs/{run_id}", headers=self._headers, params=parameters
         )
 
-        if response.status_code == 404 and (
-            detail := response.json().get("detail")
-        ):
+        if response.status_code == 404 and (detail := response.json().get("detail")):
             raise RuntimeError(
                 f"Retrieval of run '{run_id}' failed with status "
                 f"{response.status_code}: {detail}"
@@ -198,9 +190,11 @@ class Client:
         if response.status_code == 200:
             return response.json()
 
+        detail = response.json().get("detail", response.text)
+
         raise RuntimeError(
             f"Retrieval of run '{run_id}' failed with status "
-            f"{response.status_code}: {response.text}"
+            f"{response.status_code}: {detail}"
         )
 
     def get_runs(
@@ -260,9 +254,9 @@ class Client:
             raise ValueError("Invalid format specified")
 
         if response.status_code != 200:
+            detail = response.json().get("detail", response.text)
             raise RuntimeError(
-                f"Run retrieval failed with code {response.status_code}: "
-                f"{response.text}"
+                f"Run retrieval failed with code {response.status_code}: " f"{detail}"
             )
 
         if response_data := response.json().get("data"):
@@ -299,7 +293,7 @@ class Client:
             logger.debug(f"Run '{run_identifier}' deleted successfully")
             return response.json()
 
-        error_detail = response.json().get("detail") or response.text
+        error_detail = response.json().get("detail", response.text)
 
         raise RuntimeError(
             f"Deletion of run '{run_identifier}' failed with code"
@@ -409,13 +403,14 @@ class Client:
         )
 
         if response.status_code == 200:
-            if "runs" in response.json():
-                return response.json()["runs"]
-            return []
+            runs: list[dict] = response.json().get("runs", [])
+            return runs
+
+        detail = response.json().get("detail", response.text)
 
         raise RuntimeError(
             f"Deletion of folder '{folder_name}' failed with"
-            f" code {response.status_code}: {response.text}"
+            f" code {response.status_code}: {detail}"
         )
 
     def list_artifacts(self, run_id: str) -> list[dict[str, typing.Any]]:
@@ -442,19 +437,14 @@ class Client:
             f"{self._url}/api/artifacts", headers=self._headers, params=params
         )
 
-        if response.status_code == 404 and (detail := response.json().get("detail")):
+        if response.status_code != 200:
+            detail = response.json().get("detail", response.text)
             raise RuntimeError(
                 f"Retrieval of artifacts for run '{run_id}' failed with "
                 f"status {response.status_code}: {detail}"
             )
 
-        if response.status_code == 200:
-            return response.json()
-
-        raise RuntimeError(
-            f"Retrieval of artifacts for run '{run_id}' failed with "
-            f"status {response.status_code}: {response.text}"
-        )
+        return response.json()
 
     def get_artifact(
         self, run_id: str, name: str, allow_pickle: bool = False
@@ -541,31 +531,32 @@ class Client:
             params=params,
         )
 
-        if response.status_code == 404 and (detail := response.json().get("detail")):
+        if response.status_code != 200:
+            detail = response.json().get("detail", response.text)
             raise RuntimeError(
                 f"Download of artifacts for run '{run_id}' failed with "
                 f"status {response.status_code}: {detail}"
             )
 
-        if response.status_code == 200 and response.json():
-            if not (url := response.json()[0].get("url")):
-                raise RuntimeError(
-                    "Failed to download artifacts, "
-                    "expected URL for retrieval but server "
-                    "did not return result"
-                )
-            downloader(
-                {
-                    "url": url,
-                    "filename": os.path.basename(name),
-                    "path": path or os.getcwd(),
-                }
+        if not (results := response.json()):
+            raise RuntimeError(
+                "Failed to download artifact '{name}' from run '{run_id}',"
+                " no results found."
             )
-            return
 
-        raise RuntimeError(
-            f"Retrieval of artifact '{name}' from run '{run_id}' failed "
-            f"with status code {response.status_code}: {response.text}"
+        if not (url := results[0].get("url")):
+            raise RuntimeError(
+                "Failed to download artifacts, "
+                "expected URL for retrieval but server "
+                "did not return result"
+            )
+
+        downloader(
+            {
+                "url": url,
+                "filename": os.path.basename(name),
+                "path": path or os.getcwd(),
+            }
         )
 
     def _assemble_artifact_downloads(
@@ -647,16 +638,11 @@ class Client:
             f"{self._url}/api/runs/{run_id}/artifacts", headers=self._headers
         )
 
-        if response.status_code == 404 and (detail := response.json().get("detail")):
+        if response.status_code != 200:
+            detail = response.json().get("detail", response.text)
             raise RuntimeError(
                 f"Download of artifacts for run '{run_id}' failed with "
                 f"status {response.status_code}: {detail}"
-            )
-
-        if (status_code := response.status_code) != 200:
-            raise RuntimeError(
-                f"Retrieval of artifacts from run '{run_id}' failed with "
-                f"status code {status_code}: {response.text}"
             )
 
         downloads: list[dict[str, str]] = self._assemble_artifact_downloads(
@@ -677,7 +663,7 @@ class Client:
                         f"Download of file {download['url']} "
                         f"failed with exception: {e}"
                     )
-        
+
     def get_folder(self, folder_id: str) -> dict[str, typing.Any]:
         """Retrieve a folder by identifier
 
@@ -702,7 +688,8 @@ class Client:
             f"{self._url}/api/folders", headers=self._headers, params=params
         )
 
-        if response.status_code == 404 and (detail := response.json().get("detail")):
+        if response.status_code != 200:
+            detail = response.json().get("detail", response.text)
             raise RuntimeError(
                 f"Retrieval of folder '{folder_id}' failed with "
                 f"status {response.status_code}: {detail}"
@@ -712,12 +699,7 @@ class Client:
             if len(data := response.json().get("data")) == 0:
                 raise RuntimeError(f"Folder '{folder_id}' does not exist")
 
-            return data[0]
-
-        raise RuntimeError(
-            f"Retrieval of folder '{folder_id}' failed with status code "
-            f"{response.status_code}: {response.text}"
-        )
+        return data[0]
 
     def get_folders(
         self, filters: typing.Optional[list[str]] = None
@@ -748,9 +730,11 @@ class Client:
         if response.status_code == 200:
             return response.json().get("data", [])
 
+        detail = response.json().get("detail", response.text)
+
         raise RuntimeError(
             "Retrieval of folders failed with status code "
-            f"{response.status_code}: {response.text}"
+            f"{response.status_code}: {detail}"
         )
 
     def get_metrics_names(self, run_id: str) -> dict[str, typing.Any]:
@@ -780,9 +764,11 @@ class Client:
         if response.status_code == 200:
             return response.json()
 
+        detail = response.json().get("detail", response.text)
+
         raise RuntimeError(
             f"Request for metric names for run '{run_id}' failed with "
-            f"status code {response.status_code}: {response.text}"
+            f"status code {response.status_code}: {detail}"
         )
 
     def get_metrics(
@@ -861,10 +847,11 @@ class Client:
         )
 
         if response.status_code != 200:
+            detail = response.json().get("detail", response.text)
             raise RuntimeError(
                 f"Retrieval of metric listing for '{metric_name}' in "
                 f"run '{run_id}' failed with status code {response.status_code}: "
-                f"{response.text}"
+                f"{detail}"
             )
 
         run_data: typing.Optional[dict[str, typing.Any]]
@@ -889,8 +876,8 @@ class Client:
 
     def get_metrics_multiple(
         self,
-        runs: list[str],
-        names: list[str],
+        run_ids: list[str],
+        metric_names: list[str],
         xaxis: typing.Literal["step", "time"],
         max_points: int = -1,
         aggregate: bool = False,
@@ -900,9 +887,9 @@ class Client:
 
         Parameters
         ----------
-        runs : list[str]
+        run_ids : list[str]
             unique identifiers of runs to retrieve
-        names : list[str]
+        metric_names : list[str]
             labels for metrics to retrieve
         xaxis : str ('step' | 'time' | 'timestampe')
             the x axis form
@@ -927,8 +914,8 @@ class Client:
             if there was a failure retrieving data from the server
         """
         params: dict[str, typing.Union[int, str]] = {
-            "runs": json.dumps(runs),
-            "metrics": json.dumps(names),
+            "runs": json.dumps(run_ids),
+            "metrics": json.dumps(metric_names),
             "aggregate": aggregate,
             "max_points": max_points,
             "xaxis": xaxis,
@@ -949,9 +936,10 @@ class Client:
         )
 
         if response.status_code != 200:
+            detail = response.json().get("detail", response.text)
             raise RuntimeError(
-                f"Retrieval of metrics '{names}' failed for runs '{runs}' "
-                f"with status code {response.status_code}: {response.text}"
+                f"Retrieval of metrics '{metric_names}' failed for runs '{run_ids}' "
+                f"with status code {response.status_code}: {detail}"
             )
 
         data: list[list[typing.Union[str, int, float]]] = []
@@ -991,34 +979,34 @@ class Client:
     @check_extra("plot")
     def plot_metrics(
         self,
-        runs: list[str],
+        run_ids: list[str],
         names: list[str],
         xaxis: typing.Literal["step", "time", "timestep"],
         max_points: int = -1,
     ) -> "Figure":
         """
-        Plot time series metrics from multiple runs and/or metrics
+        Plot time series metric_ids_ids from multiple runs and/or metrics
         """
-        if not isinstance(runs, list):
+        if not isinstance(run_ids, list):
             raise ValueError("Invalid runs specified, must be a list of run names.")
 
         if not isinstance(names, list):
             raise ValueError("Invalid names specified, must be a list of metric names.")
 
-        data: "DataFrame" = self.get_metrics_multiple( # type: ignore
-            runs, names, xaxis, max_points, format="dataframe"
+        data: "DataFrame" = self.get_metrics_multiple(  # type: ignore
+            run_ids, names, xaxis, max_points, format="dataframe"
         )
 
         import matplotlib.pyplot as plt
 
-        for run in runs:
+        for run in run_ids:
             for name in names:
                 label = None
-                if len(runs) > 1 and len(names) > 1:
+                if len(run_ids) > 1 and len(names) > 1:
                     label = f"{run}: {name}"
-                elif len(runs) > 1 and len(names) == 1:
+                elif len(run_ids) > 1 and len(names) == 1:
                     label = run
-                elif len(runs) == 1 and len(names) > 1:
+                elif len(run_ids) == 1 and len(names) > 1:
                     label = name
 
                 plt.plot(
@@ -1084,11 +1072,13 @@ class Client:
         )
 
         if response.status_code == 200:
-            return response.json()["data"]
+            return response.json().get("data", [])
+
+        detail = response.json().get("detail", response.text)
 
         raise RuntimeError(
             f"Retrieval of events for run '{run_id}' failed with "
-            f"status code {response.status_code}: {response.text}"
+            f"status code {response.status_code}: {detail}"
         )
 
     def get_alerts(
@@ -1109,7 +1099,7 @@ class Client:
         -------
         list[dict[str, Any]]
             a list of all alerts for this run which match the constrains specified
-        
+
         Raises
         ------
         RuntimeError
@@ -1117,23 +1107,18 @@ class Client:
         """
         response = requests.get(f"{self._url}/api/runs/{run_id}", headers=self._headers)
 
-        if response.status_code == 404 and (detail := response.json().get("detail")):
+        if response.status_code != 200:
+            detail = response.json().get("detail", response.text)
             raise RuntimeError(
                 f"Retrieval of alerts for run '{run_id}' failed with "
                 f"status {response.status_code}: {detail}"
-            )
-        
-        if response.status_code != 200:
-            raise RuntimeError(
-                f"Retrieval of alerts for run '{run_id}' failed with "
-                f"status {response.status_code}: {response.text}"
             )
 
         if (alerts := response.json().get("alerts")) is None:
             raise RuntimeError(
                 "Expected key 'alerts' in response when retrieving "
                 f"alerts for run '{run_id}': {response.json()}"
-            ) 
+            )
 
         if triggered_only:
             if names_only:
@@ -1149,8 +1134,6 @@ class Client:
                     if alert["status"].get("current") == "critical"
                 ]
         elif names_only:
-            return [
-                alert["alert"].get("name") for alert in alerts
-            ]
+            return [alert["alert"].get("name") for alert in alerts]
 
         return alerts
