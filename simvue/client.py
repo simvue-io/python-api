@@ -370,7 +370,9 @@ class Client:
         )
 
     def delete_folder(
-        self, folder_name: str, runs: bool = False
+        self, folder_name: str,
+        recursive: bool = False,
+        remove_runs: bool = False
     ) -> typing.Optional[list]:
         """Delete a folder by name
 
@@ -378,7 +380,10 @@ class Client:
         ----------
         folder_name : str
             name of the folder to delete
-        runs : bool, optional
+        recursive : bool, optional
+            if folder contains additional folders remove these, else return an
+            error. Default False.
+        remove_runs : bool, optional
             whether to delete runs associated with this folder, by default False
 
         Returns
@@ -396,7 +401,8 @@ class Client:
         if not folder_id:
             return None
 
-        params: dict[str, bool] = {"runs": True} if runs else {}
+        params: dict[str, bool] = {"runs": True} if remove_runs else {}
+        params |= {"recursive": recursive}
 
         response = requests.delete(
             f"{self._url}/api/folders/{folder_id}", headers=self._headers, params=params
@@ -980,33 +986,53 @@ class Client:
     def plot_metrics(
         self,
         run_ids: list[str],
-        names: list[str],
+        metric_names: list[str],
         xaxis: typing.Literal["step", "time", "timestep"],
         max_points: int = -1,
     ) -> "Figure":
-        """
-        Plot time series metric_ids_ids from multiple runs and/or metrics
+        """Plt the time series values for multiple metrics/runs 
+
+        Parameters
+        ----------
+        run_ids : list[str]
+            unique identifiers for runs to plot
+        metric_names : list[str]
+            names of metrics to plot
+        xaxis : str, ('step' | 'time' | 'timestep')
+            the x axis to plot against
+        max_points : int, optional
+            maximum number of data points, by default -1 (all)
+
+        Returns
+        -------
+        Figure
+            plot figure object
+
+        Raises
+        ------
+        ValueError
+            if invalid arguments are provided
         """
         if not isinstance(run_ids, list):
             raise ValueError("Invalid runs specified, must be a list of run names.")
 
-        if not isinstance(names, list):
+        if not isinstance(metric_names, list):
             raise ValueError("Invalid names specified, must be a list of metric names.")
 
         data: "DataFrame" = self.get_metrics_multiple(  # type: ignore
-            run_ids, names, xaxis, max_points, format="dataframe"
+            run_ids, metric_names, xaxis, max_points, format="dataframe"
         )
 
         import matplotlib.pyplot as plt
 
         for run in run_ids:
-            for name in names:
+            for name in metric_names:
                 label = None
-                if len(run_ids) > 1 and len(names) > 1:
+                if len(run_ids) > 1 and len(metric_names) > 1:
                     label = f"{run}: {name}"
-                elif len(run_ids) > 1 and len(names) == 1:
+                elif len(run_ids) > 1 and len(metric_names) == 1:
                     label = run
-                elif len(run_ids) == 1 and len(names) > 1:
+                elif len(run_ids) == 1 and len(metric_names) > 1:
                     label = name
 
                 plt.plot(
@@ -1018,8 +1044,8 @@ class Client:
         elif xaxis == "time":
             plt.xlabel("relative time")
 
-        if len(names) == 1:
-            plt.ylabel(names[0])
+        if len(metric_names) == 1:
+            plt.ylabel(metric_names[0])
 
         return plt.figure()
 

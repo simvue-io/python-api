@@ -54,8 +54,8 @@ def test_get_metrics(create_test_run: dict) -> None:
 def test_multiple_metric_retrieval(create_test_run: dict, aggregate: bool) -> None:
     client = svc.Client()
     client.get_metrics_multiple(
-        runs=[create_test_run["run_id"]],
-        names=list(create_test_run["metrics"]),
+        run_ids=[create_test_run["run_id"]],
+        metric_names=list(create_test_run["metrics"]),
         xaxis="time",
         aggregate=aggregate
     )
@@ -71,8 +71,8 @@ def test_plot_metrics(create_test_run: dict) -> None:
     
     client = svc.Client()
     client.plot_metrics(
-        runs=[create_test_run["run_id"]],
-        names=list(create_test_run["metrics"]),
+        run_ids=[create_test_run["run_id"]],
+        metric_names=list(create_test_run["metrics"]),
         xaxis="time"
     )
 
@@ -163,4 +163,4 @@ def test_folder_deletion() -> None:
     test_data = json.load(open("test_attrs.json"))
     client = svc.Client()
     # Runs should already have been removed so expect zero length list
-    assert not len(client.delete_folder(test_data["folder"], runs=True))
+    assert not len(client.delete_folder(test_data["folder"], remove_runs=True))
