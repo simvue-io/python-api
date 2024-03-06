@@ -244,7 +244,6 @@ class Run(object):
         self._check_token()
 
         data = {'status': self._status}
-        data['id'] = self._id
 
         if reconnect:
             data['system'] = get_system()
@@ -511,7 +510,7 @@ class Run(object):
         self._uuid = uid
 
         self._id = run_id
-        self._simvue = Simvue(self._name, self._uuid, self._id, self._mode, self._suppress_errors)
+        self._simvue = Simvue(self._name, self._id, self._mode, self._suppress_errors)
         self._start(reconnect=True)
 
     def set_pid(self, pid):
