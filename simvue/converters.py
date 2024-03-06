@@ -1,101 +1,88 @@
-def to_dataframe(data):
-    """
-    Convert runs to dataframe
+"""
+Converter Functions
+===================
+
+Contains functions for converting objects retrieved from the server between
+data types including creation of DataFrames for metrics
+"""
+
+import typing
+import flatdict
+
+if typing.TYPE_CHECKING:
+    from pandas import DataFrame
+
+
+def to_dataframe(data: list[dict[str, typing.Any]]) -> "DataFrame":
+    """Convert runs to a Pandas DataFrame
+
+    Requires Pandas to be installed
+
+    Parameters
+    ----------
+    data : list[dict[str, typing.Any]]
+        data retrieved from a Simvue run for conversion
+
+    Returns
+    -------
+    DataFrame
+        A Pandas data frame
     """
     import pandas as pd
 
-    metadata = []
-    for run in data:
-        if 'metadata' in run:
-            for item in run['metadata']:
-                if item not in metadata:
-                    metadata.append(item) 
+    columns: dict[str, list[typing.Union[int, float, str, None]]] = {}
 
-    columns = {}
-    for run in data:
-        for item in ('name', 'status', 'folder', 'created', 'started', 'ended'):
-            if item not in columns:
-                columns[item] = []
-            if item in run:
-                columns[item].append(run[item])
-            else:
-                columns[item].append(None)
- 
-        if 'system' in run:
-            for section in run['system']:
-                if section in ('cpu', 'gpu', 'platform'):
-                    for item in run['system'][section]:
-                        if 'system.%s.%s' % (section, item) not in columns:
-                            columns['system.%s.%s' % (section, item)] = []
-                        columns['system.%s.%s' % (section, item)].append(run['system'][section][item])
-                else:
-                    if 'system.%s' % section not in columns:
-                        columns['system.%s' % section] = []
-                    columns['system.%s' % section].append(run['system'][section])
+    for i, run in enumerate(data):
+        for column, value in flatdict.FlatDict(run, delimiter=".").items():
+            # If the column does not exist create a new one as a list of None
+            # these will be filled if present for a run else left as None
+            if not columns.get(column):
+                columns[column] = [None] * len(data)
 
-        if 'metadata' in run:
-            for item in metadata:
-                if 'metadata.%s' % item not in columns:
-                    columns['metadata.%s' % item] = []
-                if item in run['metadata']:
-                    columns['metadata.%s' % item].append(run['metadata'][item])
-                else:
-                    columns['metadata.%s' % item].append(None)
+            columns[column][i] = value
 
-    df = pd.DataFrame(data=columns)
-    return df
+    return pd.DataFrame(data=columns)
 
-def metrics_to_dataframe(data, xaxis, name=None):
+
+def metric_to_dataframe(
+    data: list[list[typing.Union[int, float]]],
+    step_axis_label: str,
+    name: str
+) -> "DataFrame":
+    """
+    Convert single to dataframe
+    """
+    import pandas as pd
+
+    columns: dict[str, list[typing.Union[int, float, str]]] = {
+        step_axis_label: [i[0] for i in data],
+        name: [i[1] for i in data],
+    }
+    return pd.DataFrame(data=columns)
+
+
+def metric_set_dataframe(
+    data: dict[str, dict[str, list[dict[str, typing.Union[int, float]]]]],
+    step_axis_label: str,
+) -> "DataFrame":
     """
     Convert metrics to dataframe
     """
     import pandas as pd
 
-    if name:
-        columns = {xaxis: [], name: []}
-        for item in data:
-            columns[xaxis].append(item[0])
-            columns[name].append(item[1])
+    _df_dict: dict[str, list[typing.Union[int, float, str]]] = {
+        "run": [],
+        step_axis_label: []
+    }
 
-        df = pd.DataFrame(data=columns)
-    else:
-        runs = []
-        metrics = []
-        for item in data:
-            if item[2] not in runs:
-                runs.append(item[2])
-            if item[3] not in metrics:
-                metrics.append(item[3])
+    for name, run in data.items():
+        for label, metric_steps in run.items():
+            if label not in _df_dict:
+                _df_dict[label] = []
+            _df_dict["run"] = [name] * len(metric_steps)
+            _df_dict[step_axis_label] = [i["step"] for i in metric_steps]
+            _df_dict[label] += [i["value"] for i in metric_steps]
 
-        headers = pd.MultiIndex.from_product([runs, metrics, [xaxis, 'value']], names=["run", "metric", "column"])
-
-        newdata = {}
-        for row in data:
-            if row[2] not in newdata:
-                newdata[row[2]] = {}
-            if row[3] not in newdata[row[2]]:
-                newdata[row[2]][row[3]] = []
-
-            newdata[row[2]][row[3]].append([row[0], row[1]])
-
-        max_rows = 0
-        for run in newdata:
-            for metric in newdata[run]:
-                if len(newdata[run][metric]) > max_rows:
-                    max_rows = len(newdata[run][metric])
-
-        results = []
-        for count in range (0, max_rows):
-            line = []
-            for run in newdata:
-                for metric in newdata[run]:
-                    if count < len(newdata[run][metric]):
-                        line.append(newdata[run][metric][count][0])
-                        line.append(newdata[run][metric][count][1])
-                    else:
-                        line.append(None)
-                        line.append(None)
-            results.append(line)
-
-        df = pd.DataFrame(data=results, columns=headers)
-    return df
+    _df = pd.DataFrame(_df_dict)
+    _df.set_index(["run", "step"], inplace=True)
+    return _df

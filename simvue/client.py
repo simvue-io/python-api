@@ -6,7 +6,7 @@ import requests
 
 from .serialization import Deserializer
 from .utilities import get_auth, check_extra
-from .converters import to_dataframe, metrics_to_dataframe
+from .converters import to_dataframe, metric_set_dataframe, metric_to_dataframe
 
 CONCURRENT_DOWNLOADS = 10
 DOWNLOAD_CHUNK_SIZE = 8192
@@ -392,7 +392,7 @@ class Client(object):
                 data.append([item[xaxis], item['value'], run_name, name])
 
             if format == 'dataframe':
-                return metrics_to_dataframe(data, xaxis, name=name)
+                return metric_to_dataframe(data, xaxis, name=name)
             return data
 
         raise Exception(response.text)
@@ -428,7 +428,7 @@ class Client(object):
                         data.append([item[xaxis], item['min'], item['average'], item['max'], name])
 
             if format == 'dataframe':
-                return metrics_to_dataframe(data, xaxis)
+                return metric_set_dataframe(response.json(), xaxis)
             return data
 
         raise Exception(response.text)
