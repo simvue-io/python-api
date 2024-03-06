@@ -1,12 +1,18 @@
+import typing
+
 from .remote import Remote
 from .offline import Offline
 from .base import SimvueBaseClass
+
+if typing.TYPE_CHECKING:
+    from simvue.config import SimvueConfiguration
 
 
 def Simvue(
     name: str,
     uniq_id: str,
     mode: str,
+    config: SimvueConfiguration,
     suppress_errors: bool = True
 ) -> SimvueBaseClass:
     if mode == "offline":

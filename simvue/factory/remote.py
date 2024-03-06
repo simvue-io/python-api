@@ -2,6 +2,9 @@ import logging
 import time
 import typing
 
+if typing.TYPE_CHECKING:
+    from simvue.config import SimvueConfiguration
+
 from simvue.api import post, put, get
 from simvue.utilities import (
     get_auth,
@@ -24,10 +27,10 @@ class Remote(SimvueBaseClass):
     Class which interacts with Simvue REST API
     """
 
-    def __init__(self, name: str, uniq_id: str, suppress_errors: bool = True) -> None:
-        self._url, self._token = get_auth()
+    def __init__(self, name: str, uniq_id: str, config: SimvueConfiguration, suppress_errors: bool = True) -> None:
+        self._config = config
         self._headers: dict[str, str] = {
-            "Authorization": f"Bearer {self._token}",
+            "Authorization": f"Bearer {self._config.server.token}",
             "User-Agent": f"Simvue Python client {__version__}",
         }
         self._headers_mp: dict[str, str] = self._headers | {
@@ -43,7 +46,7 @@ class Remote(SimvueBaseClass):
         logger.debug('Creating run with data: "%s"', data)
 
         try:
-            response = post(f"{self._url}/api/runs", self._headers, data)
+            response = post(f"{self._config.server.url}/api/runs", self._headers, data)
         except Exception as err:
             self._error(f"Exception creating run: {str(err)}")
             return (None, None)
@@ -84,7 +87,7 @@ class Remote(SimvueBaseClass):
         logger.debug('Updating run with data: "%s"', data)
 
         try:
-            response = put(f"{self._url}/api/runs", self._headers, data)
+            response = put(f"{self._config.server.url}/api/runs", self._headers, data)
         except Exception as err:
             self._error(f"Exception updating run: {err}")
             return None
@@ -106,11 +109,11 @@ class Remote(SimvueBaseClass):
         """
         Set folder details
         """
-        if run is not None and not self._version:
+        if run is not None and not __version__:
             data["name"] = run
 
         try:
-            response = post(f"{self._url}/api/folders", self._headers, data)
+            response = post(f"{self._config.server.url}/api/folders", self._headers, data)
         except Exception as err:
             self._error(f"Exception creatig folder: {err}")
             return None
@@ -127,7 +130,7 @@ class Remote(SimvueBaseClass):
         logger.debug('Setting folder details with data: "%s"', data)
 
         try:
-            response = put(f"{self._url}/api/folders", self._headers, data)
+            response = put(f"{self._config.server.url}/api/folders", self._headers, data)
         except Exception as err:
             self._error(f"Exception setting folder details: {err}")
             return None
@@ -156,7 +159,7 @@ class Remote(SimvueBaseClass):
         # Get presigned URL
         try:
             response = post(
-                f"{self._url}/api/artifacts", self._headers, prepare_for_api(data)
+                f"{self._config.server.url}/api/artifacts", self._headers, prepare_for_api(data)
             )
         except Exception as err:
             self._error(
@@ -238,7 +241,7 @@ class Remote(SimvueBaseClass):
                     return None
 
         if storage_id:
-            path = f"{self._url}/api/runs/{self._id}/artifacts"
+            path = f"{self._config.server.url}/api/runs/{self._id}/artifacts"
             data["storage"] = storage_id
 
             try:
@@ -268,7 +271,7 @@ class Remote(SimvueBaseClass):
         logger.debug('Adding alert with data: "%s"', data)
 
         try:
-            response = post(f"{self._url}/api/alerts", self._headers, data)
+            response = post(f"{self._config.server.url}/api/alerts", self._headers, data)
         except Exception as err:
             self._error(f"Got exception when creating an alert: {str(err)}")
             return False
@@ -292,7 +295,7 @@ class Remote(SimvueBaseClass):
         """
         data = {"run": self._id, "alert": alert_id, "status": status}
         try:
-            response = put(f"{self._url}/api/alerts/status", self._headers, data)
+            response = put(f"{self._config.server.url}/api/alerts/status", self._headers, data)
         except Exception as err:
             self._error(f"Got exception when setting alert state: {err}")
             return {}
@@ -308,7 +311,7 @@ class Remote(SimvueBaseClass):
         List alerts
         """
         try:
-            response = get(f"{self._url}/api/alerts", self._headers)
+            response = get(f"{self._config.server.url}/api/alerts", self._headers)
         except Exception as err:
             self._error(f"Got exception when listing alerts: {str(err)}")
             return []
@@ -328,7 +331,7 @@ class Remote(SimvueBaseClass):
 
         try:
             response = post(
-                f"{self._url}/api/metrics", self._headers_mp, data, is_json=False
+                f"{self._config.server.url}/api/metrics", self._headers_mp, data, is_json=False
             )
         except Exception as err:
             self._error(f"Exception sending metrics: {str(err)}")
@@ -351,7 +354,7 @@ class Remote(SimvueBaseClass):
 
         try:
             response = post(
-                f"{self._url}/api/events", self._headers_mp, data, is_json=False
+                f"{self._config.server.url}/api/events", self._headers_mp, data, is_json=False
             )
         except Exception as err:
             self._error(f"Exception sending event: {str(err)}")
@@ -374,7 +377,7 @@ class Remote(SimvueBaseClass):
 
         try:
             response = put(
-                f"{self._url}/api/runs/heartbeat", self._headers, {"id": self._id}
+                f"{self._config.server.url}/api/runs/heartbeat", self._headers, {"id": self._id}
             )
         except Exception as err:
             self._error(f"Exception creating run: {str(err)}")
@@ -393,7 +396,7 @@ class Remote(SimvueBaseClass):
         """
         Check token
         """
-        if time.time() - get_expiry(self._token) > 0:
+        if time.time() - get_expiry(self._config.server.token) > 0:
             self._error("Token has expired")
             return False
         return True

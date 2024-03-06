@@ -17,6 +17,7 @@ from .worker import Worker
 from .factory import Simvue
 from .serialization import Serializer
 from .models import RunInput
+from .config import SimvueConfiguration
 from .utilities import get_auth, get_expiry, print_nice
 from .executor import Executor
 from pydantic import ValidationError
@@ -165,11 +166,11 @@ def validate_timestamp(timestamp):
     return True
 
 
-class Run(object):
+class Run:
     """
     Track simulation details based on token and URL
     """
-    def __init__(self, mode='online'):
+    def __init__(self, mode='online', server_token=None, server_url=None, debug=False):
         self._uuid = str(uuid.uuid4())
         self._mode = mode
         self._name = None
@@ -187,8 +188,19 @@ class Run(object):
         self._metrics_queue = None
         self._events_queue = None
         self._active = False
-        self._url, self._token = get_auth()
-        self._headers = {"Authorization": f"Bearer {self._token}"}
+        self._config = SimvueConfiguration.fetch(
+            server_token=server_token,
+            server_url=server_url
+        )
+
+        logging.getLogger(self.__class__.__module__).setLevel(
+            logging.DEBUG
+            if (debug is not None and debug)
+            or (debug is None and self._config.client.debug)
+            else logging.INFO
+        )
+
+        self._headers = {"Authorization": f"Bearer {self._config.server.token}"}
         self._simvue = None
         self._pid = 0
         self._resources_metrics_interval = 30
@@ -226,7 +238,7 @@ class Run(object):
         """
         Check if token is valid
         """
-        if self._mode == 'online' and tm.time() - get_expiry(self._token) > 0:
+        if self._mode == 'online' and tm.time() - get_expiry(self._config.server.token) > 0:
             self._error('token has expired or is invalid')
 
     def _start(self, reconnect=False):
@@ -266,7 +278,7 @@ class Run(object):
                               self._uuid,
                               self._name,
                               self._id,
-                              self._url,
+                              self._config.server.url,
                               self._headers,
                               self._mode,
                               self._pid,
@@ -290,13 +302,17 @@ class Run(object):
         """
         Initialise a run
         """
+        description = description or self._config.run.description
+        tags = tags or self._config.run.tags
+        folder = folder or self._config.run.folder
+
         if self._mode not in ('online', 'offline', 'disabled'):
             self._error('invalid mode specified, must be online, offline or disabled')
 
         if self._mode == 'disabled':
             return True
 
-        if not self._token or not self._url:
+        if not self._config.server.token or not self._config.run.description:
             self._error('Unable to get URL and token from environment variables or config file')
 
         if name:
@@ -339,7 +355,7 @@ class Run(object):
         except ValidationError as err:
             self._error(err)
 
-        self._simvue = Simvue(self._name, self._uuid, self._mode, self._suppress_errors)
+        self._simvue = Simvue(self._name, self._uuid, self._mode, self._config, self._suppress_errors)
         name, self._id = self._simvue.create_run(data)
 
         if not name:
@@ -511,7 +527,7 @@ class Run(object):
         self._uuid = uid
 
         self._id = run_id
-        self._simvue = Simvue(self._name, self._uuid, self._id, self._mode, self._suppress_errors)
+        self._simvue = Simvue(self._name, self._uuid, self._id, self._mode, self._config, self._suppress_errors)
         self._start(reconnect=True)
 
     def set_pid(self, pid):
