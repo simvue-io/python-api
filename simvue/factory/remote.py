@@ -79,8 +79,6 @@ class Remote(SimvueBaseClass):
         if self._id:
             data["id"] = self._id
         
-        data.pop("name", None)
-
         logger.debug('Updating run with data: "%s"', data)
 
         try:
