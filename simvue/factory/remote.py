@@ -106,7 +106,7 @@ class Remote(SimvueBaseClass):
         """
         Set folder details
         """
-        if run is not None and not self._version:
+        if run is not None and not __version__:
             data["name"] = run
 
         try:
