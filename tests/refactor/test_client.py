@@ -51,13 +51,22 @@ def test_get_metrics(create_test_run: dict) -> None:
     "aggregate", (True, False),
     ids=("aggregated", "normal")
 )
-def test_multiple_metric_retrieval(create_test_run: dict, aggregate: bool) -> None:
+@pytest.mark.parametrize(
+    "format", ("dict", "dataframe")
+)
+def test_multiple_metric_retrieval(create_test_run: dict, aggregate: bool, format: str) -> None:
     client = svc.Client()
+    if format == "dataframe":
+        try:
+            import pandas 
+        except ImportError:
+            pytest.skip(reason="Pandas not available")
     client.get_metrics_multiple(
         run_ids=[create_test_run["run_id"]],
         metric_names=list(create_test_run["metrics"]),
         xaxis="time",
-        aggregate=aggregate
+        aggregate=aggregate,
+        format=format
     )
 
 
@@ -87,11 +96,15 @@ def test_get_artifacts(create_test_run: dict) -> None:
 
 @pytest.mark.dependency
 @pytest.mark.client
-def test_get_artifact_as_file(create_test_run: dict) -> None:
+@pytest.mark.parametrize(
+    "file_id", (1, 2, 3),
+    ids=lambda x: f"file_{x}"
+)
+def test_get_artifact_as_file(create_test_run: dict, file_id: int) -> None:
     with tempfile.TemporaryDirectory() as tempd:
         client = svc.Client()
-        client.get_artifact_as_file(create_test_run["run_id"], name="test_attributes", path=tempd)
-        assert "test_attributes" in [os.path.basename(i) for i in glob.glob(os.path.join(tempd, "*"))]
+        client.get_artifact_as_file(create_test_run["run_id"], name=create_test_run[f"file_{file_id}"], path=tempd)
+        assert f"file_{file_id}" in [os.path.basename(i) for i in glob.glob(os.path.join(tempd, "*"))]
 
 
 @pytest.mark.dependency
@@ -114,6 +127,13 @@ def test_get_runs(create_test_run: dict) -> None:
 
 @pytest.mark.dependency
 @pytest.mark.client
+def test_get_run(create_test_run: dict) -> None:
+    client = svc.Client()
+    assert client.get_run(run_id=create_test_run["run_id"])
+
+
+@pytest.mark.dependency
+@pytest.mark.client
 def test_get_folder(create_test_run: dict) -> None:
     client = svc.Client()
     assert (folders := client.get_folders())
@@ -125,12 +145,14 @@ def test_get_folder(create_test_run: dict) -> None:
 @pytest.mark.client
 def test_get_metrics_names(create_test_run: dict) -> None:
     client = svc.Client()
+    time.sleep(1)
     assert client.get_metrics_names(create_test_run["run_id"])
 
 
 PRE_DELETION_TESTS: list[str] = [
     "test_get_metrics",
     "test_get_runs",
+    "test_get_run",
     "test_get_artifact_as_file",
     "test_get_artifacts_as_files",
     "test_get_folders",

@@ -4,6 +4,7 @@ import uuid
 import time
 import tempfile
 import json
+import pathlib
 import simvue.run as sv_run
 
 @pytest.fixture
@@ -46,6 +47,11 @@ def create_test_run() -> typing.Generator[dict, None, None]:
 
         run.save("test_attrs.json", category="output", name="test_attributes")
         TEST_DATA["file_2"] = "test_attributes"
+
+        with tempfile.NamedTemporaryFile(suffix=".py") as temp_f:
+            pathlib.Path(temp_f.name).touch()
+            run.save(temp_f.name, category="code", name="test_script")
+            TEST_DATA["file_3"] = "test_script"
 
         time.sleep(1.)
         yield TEST_DATA

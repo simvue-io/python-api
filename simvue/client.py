@@ -372,7 +372,8 @@ class Client:
     def delete_folder(
         self, folder_name: str,
         recursive: bool = False,
-        remove_runs: bool = False
+        remove_runs: bool = False,
+        allow_missing: bool = False
     ) -> typing.Optional[list]:
         """Delete a folder by name
 
@@ -385,6 +386,9 @@ class Client:
             error. Default False.
         remove_runs : bool, optional
             whether to delete runs associated with this folder, by default False
+        allow_missing : bool, optional
+            allows deletion of folders which do not exist, else raise exception,
+            default is exception raise
 
         Returns
         -------
@@ -399,7 +403,13 @@ class Client:
         folder_id = self._get_folder_id_from_path(folder_name)
 
         if not folder_id:
-            return None
+            if allow_missing:
+                return None
+            else:
+                raise RuntimeError(
+                    f"Deletion of folder '{folder_name}' failed, "
+                    "folder does not exist."
+                )
 
         params: dict[str, bool] = {"runs": True} if remove_runs else {}
         params |= {"recursive": recursive}
@@ -546,7 +556,7 @@ class Client:
 
         if not (results := response.json()):
             raise RuntimeError(
-                "Failed to download artifact '{name}' from run '{run_id}',"
+                f"Failed to download artifact '{name}' from run '{run_id}',"
                 " no results found."
             )
 
@@ -810,24 +820,24 @@ class Client:
         RuntimeError
             if there was a failure retrieving data from the server
         """
-        response: requests.Response = requests.get(
+        run_response: requests.Response = requests.get(
             f"{self._url}/api/runs/{run_id}", headers=self._headers
         )
 
-        if response.status_code == 404 and (detail := response.json().get("detail")):
+        if run_response.status_code == 404 and (detail := run_response.json().get("detail")):
             raise RuntimeError(
                 f"Retrieval of metric listings for '{metric_name}' in"
                 f"run '{run_id}' failed with "
-                f"status {response.status_code}: {detail}"
+                f"status {run_response.status_code}: {detail}"
             )
 
         run_name: typing.Optional[str] = None
 
-        if response.status_code == 200 and not (
-            run_name := response.json().get("name")
+        if run_response.status_code == 200 and not (
+            run_name := run_response.json().get("name")
         ):
             raise RuntimeError(
-                "Expected key 'name' in response for metric retrieval "
+                "Expected key 'name' in run_response for metric retrieval "
                 f"from run '{run_id}'"
             )
 
@@ -848,22 +858,22 @@ class Client:
                 'Invalid format specified, should be either "list" or "dataframe"'
             )
 
-        response: requests.Response = requests.get(
+        metrics_response: requests.Response = requests.get(
             f"{self._url}/api/metrics", headers=self._headers, params=params
         )
 
-        if response.status_code != 200:
-            detail = response.json().get("detail", response.text)
+        if metrics_response.status_code != 200:
+            detail = metrics_response.json().get("detail", metrics_response.text)
             raise RuntimeError(
                 f"Retrieval of metric listing for '{metric_name}' in "
-                f"run '{run_id}' failed with status code {response.status_code}: "
+                f"run '{run_id}' failed with status code {metrics_response.status_code}: "
                 f"{detail}"
             )
 
         run_data: typing.Optional[dict[str, typing.Any]]
         metric_data: typing.Optional[list[dict[str, typing.Any]]]
 
-        if not (run_data := response.json().get(run_id)) or not (
+        if not (run_data := metrics_response.json().get(run_id)) or not (
             metric_data := run_data.get(metric_name)
         ):
             raise RuntimeError(
@@ -897,12 +907,12 @@ class Client:
             unique identifiers of runs to retrieve
         metric_names : list[str]
             labels for metrics to retrieve
-        xaxis : str ('step' | 'time' | 'timestampe')
+        xaxis : str ('step' | 'time')
             the x axis form
         max_points : int, optional
             maximum number of points to display, by default -1 (no limit)
         aggregate : bool, optional
-            whether to aggregate the results, by default False
+             to aggregate the results, by default False
         format : str ('list' | 'dataframe'), optional
             the form in which to return results, by default "list"
 
@@ -987,7 +997,7 @@ class Client:
         self,
         run_ids: list[str],
         metric_names: list[str],
-        xaxis: typing.Literal["step", "time", "timestep"],
+        xaxis: typing.Literal["step", "time"],
         max_points: int = -1,
     ) -> "Figure":
         """Plt the time series values for multiple metrics/runs 
@@ -1108,7 +1118,7 @@ class Client:
         )
 
     def get_alerts(
-        self, run_id: str, triggered_only: bool = True, names_only: bool = True
+        self, run_id: str, critical_only: bool = True, names_only: bool = True
     ) -> list[dict[str, typing.Any]]:
         """Retrieve alerts for a given run
 
@@ -1146,7 +1156,7 @@ class Client:
                 f"alerts for run '{run_id}': {response.json()}"
             )
 
-        if triggered_only:
+        if critical_only:
             if names_only:
                 return [
                     alert["alert"].get("name")
