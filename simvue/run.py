@@ -570,7 +570,7 @@ class Run(object):
             self._error('metadata must be a dict')
             return False
 
-        data = {'name': self._name, 'metadata': metadata}
+        data = {'metadata': metadata}
 
         if self._simvue.update(data):
             return True
@@ -589,7 +589,6 @@ class Run(object):
             return False
 
         data = {'tags': tags}
-        data['id'] = self._id
 
         if self._simvue.update(data):
             return True
