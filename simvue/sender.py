@@ -7,7 +7,7 @@ import time
 
 import msgpack
 
-from .remote import Remote
+from .factory.remote import Remote
 from .utilities import get_offline_directory, create_file, remove_file
 
 logger = logging.getLogger(__name__)
@@ -50,24 +50,23 @@ def read_json(filename):
     with open(filename, 'r') as fh:
         return json.load(fh)
 
-def get_json(filename, name=None, artifact=False):
+def get_json(filename, run_id=None, artifact=False):
     """
     Get JSON from a file
     """
     with open(filename, 'r') as fh:
         data = json.load(fh)
-    if name:
+    if run_id:
         if artifact:
             for item in data:
                 if item == 'run':
-                    data[item] = name
+                    data[item] = run_id
             return data
 
-        if 'name' in data:
-            del data['name']
-            data['id'] = name
-        elif 'run' in data:
-            data['run'] = name
+        if 'run' in data:
+            data['run'] = run_id
+        else:
+            data['id'] = run_id
 
     return data
 
@@ -144,7 +143,7 @@ def sender():
         created_file = f"{current}/init"
         name = None
         if not os.path.isfile(created_file):
-            remote = Remote(run_init['name'], id, "offline", suppress_errors=False)
+            remote = Remote(run_init['name'], id, suppress_errors=False)
 
             # Check token
             remote.check_token()
@@ -160,7 +159,7 @@ def sender():
         else:
             name, run_id = get_details(created_file)
             run_init['name'] = name
-            remote = Remote(run_init['name'], id, run_id, suppress_errors=False)
+            remote = Remote(run_init['name'], run_id, suppress_errors=False)
 
             # Check token
             remote.check_token()
