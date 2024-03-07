@@ -18,7 +18,7 @@ def test_get_events(create_test_run: dict) -> None:
 @pytest.mark.client
 def test_get_alerts(create_test_run: dict) -> None:
     client = svc.Client()
-    assert len(client.get_alerts(create_test_run["run_id"], triggered_only=False)) == 5
+    assert len(client.get_alerts(create_test_run["run_id"], critical_only=False)) == 5
 
 
 @pytest.mark.dependency
@@ -52,7 +52,7 @@ def test_get_metrics(create_test_run: dict) -> None:
     ids=("aggregated", "normal")
 )
 @pytest.mark.parametrize(
-    "format", ("dict", "dataframe")
+    "format", ("list", "dataframe")
 )
 def test_multiple_metric_retrieval(create_test_run: dict, aggregate: bool, format: str) -> None:
     client = svc.Client()
@@ -104,7 +104,7 @@ def test_get_artifact_as_file(create_test_run: dict, file_id: int) -> None:
     with tempfile.TemporaryDirectory() as tempd:
         client = svc.Client()
         client.get_artifact_as_file(create_test_run["run_id"], name=create_test_run[f"file_{file_id}"], path=tempd)
-        assert f"file_{file_id}" in [os.path.basename(i) for i in glob.glob(os.path.join(tempd, "*"))]
+        assert create_test_run[f"file_{file_id}"] in [os.path.basename(i) for i in glob.glob(os.path.join(tempd, "*"))]
 
 
 @pytest.mark.dependency
