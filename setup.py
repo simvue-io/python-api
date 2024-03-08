@@ -16,7 +16,7 @@ setuptools.setup(
     long_description_content_type="text/markdown",
     url="https://simvue.io",
     platforms=["any"],
-    install_requires=["dill", "requests", "msgpack", "tenacity", "pandas", "pyjwt", "psutil", "pydantic==1.10.7", "plotly"],
+    install_requires=["dill", "requests", "msgpack", "tenacity", "pandas", "pyjwt", "psutil", "pydantic==2.6.3", "plotly"],
     package_dir={'': '.'},
     packages=["simvue"],
     package_data={"": ["README.md"]},
