@@ -6,17 +6,18 @@ Contains a Simvue client class for interacting with existing objects on the
 server including deletion and retrieval.
 """
 
-from concurrent.futures import ThreadPoolExecutor, as_completed
 import json
+import logging
 import os
 import typing
-import requests
-import logging
+from concurrent.futures import ThreadPoolExecutor, as_completed
 
+import requests
+
+from .converters import metrics_to_dataframe, to_dataframe
 from .serialization import Deserializer
-from .utilities import get_auth, check_extra
-from .converters import to_dataframe, metrics_to_dataframe
 from .types import DeserializedContent
+from .utilities import check_extra, get_auth
 
 if typing.TYPE_CHECKING:
     from matplotlib.figure import Figure
@@ -370,10 +371,11 @@ class Client:
         )
 
     def delete_folder(
-        self, folder_name: str,
+        self,
+        folder_name: str,
         recursive: bool = False,
         remove_runs: bool = False,
-        allow_missing: bool = False
+        allow_missing: bool = False,
     ) -> typing.Optional[list]:
         """Delete a folder by name
 
@@ -824,7 +826,9 @@ class Client:
             f"{self._url}/api/runs/{run_id}", headers=self._headers
         )
 
-        if run_response.status_code == 404 and (detail := run_response.json().get("detail")):
+        if run_response.status_code == 404 and (
+            detail := run_response.json().get("detail")
+        ):
             raise RuntimeError(
                 f"Retrieval of metric listings for '{metric_name}' in"
                 f"run '{run_id}' failed with "
@@ -1000,7 +1004,7 @@ class Client:
         xaxis: typing.Literal["step", "time"],
         max_points: int = -1,
     ) -> "Figure":
-        """Plt the time series values for multiple metrics/runs 
+        """Plt the time series values for multiple metrics/runs
 
         Parameters
         ----------

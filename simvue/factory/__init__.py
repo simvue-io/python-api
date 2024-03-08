@@ -1,13 +1,10 @@
-from .remote import Remote
-from .offline import Offline
 from .base import SimvueBaseClass
+from .offline import Offline
+from .remote import Remote
 
 
 def Simvue(
-    name: str,
-    uniq_id: str,
-    mode: str,
-    suppress_errors: bool = True
+    name: str, uniq_id: str, mode: str, suppress_errors: bool = True
 ) -> SimvueBaseClass:
     if mode == "offline":
         return Offline(name, uniq_id, suppress_errors)

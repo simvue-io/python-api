@@ -1,15 +1,17 @@
 import logging
 
+
 class Handler(logging.Handler):
     """
     Class for handling logging to Simvue
     """
+
     def __init__(self, client):
         logging.Handler.__init__(self)
         self._client = client
 
     def emit(self, record):
-        if 'simvue.' in record.name:
+        if "simvue." in record.name:
             return
 
         msg = self.format(record)
