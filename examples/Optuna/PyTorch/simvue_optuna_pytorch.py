@@ -3,17 +3,15 @@ The main code is based on https://github.com/optuna/optuna-examples/blob/63fe36d
 """
 
 import os
+
 import optuna
+import randomname
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
 import torch.optim as optim
 import torch.utils.data
-from torchvision import datasets
-from torchvision import transforms
-import simvue
-import randomname
-
+from torchvision import datasets, transforms
 
 DEVICE = torch.device("cpu")
 BATCHSIZE = 128
@@ -113,8 +111,9 @@ def objective(trial):
     config = dict(trial.params)
     config["trial.number"] = trial.number
     from simvue import Run
+
     run = Run()
-    run.init(folder='/optuna/tests/%s' % FOLDER_NAME, metadata=config)
+    run.init(folder="/optuna/tests/%s" % FOLDER_NAME, metadata=config)
 
     # Training of the model.
     for epoch in range(EPOCHS):
