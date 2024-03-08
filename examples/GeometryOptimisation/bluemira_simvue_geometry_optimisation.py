@@ -22,18 +22,14 @@
 A quick tutorial on the optimisation of geometry in bluemira
 """
 
-# We're going to set up some geometry optimisation problems and solve them with different
-# optimisastion algorithms.
-import numpy as np
-
-from bluemira.geometry.optimisation import GeometryOptimisationProblem, minimise_length
-from bluemira.geometry.parameterisations import PrincetonD
-from bluemira.utilities.opt_problems import OptimisationConstraint, OptimisationObjective
-from bluemira.utilities.optimiser import Optimiser, approx_derivative
-from bluemira.utilities.tools import set_random_seed
-
-from simvue import Run,Handler
 import logging
+
+from bluemira.geometry.optimisation import GeometryOptimisationProblem
+from bluemira.geometry.parameterisations import PrincetonD
+from bluemira.utilities.opt_problems import OptimisationObjective
+from bluemira.utilities.optimiser import Optimiser, approx_derivative
+
+from simvue import Handler, Run
 
 # Let's set up a simple GeometryOptimisationProblem, where we minimise the length of
 # parameterised geometry.
@@ -58,19 +54,21 @@ logger.setLevel(logging.DEBUG)
 sth = Handler(run)
 logger.addHandler(sth)
 
-run.init(metadata={'dataset.x1_lower': x1_lower,
-                    'dataset.x1_upper': x1_upper,
-                    'dataset.x1_value': x1_value,                    
-                    'dataset.x2_lower': x2_lower,
-                    'dataset.x2_upper': x2_upper,
-                    'dataset.x2_value': x2_value, 
-                    'dataset.dz_lower': dz_lower,
-                    'dataset.dz_upper': dz_upper,
-                    'optimiser.max_eval': max_eval,
-                    'optimiser.ftol_abs': ftol_abs,
-                    'optimiser.ftol_rel': ftol_rel,
-                    },
-            description="A simple GeometryOptimisationProblem, where we minimise the length of parameterised geometry using gradient-based optimisation algorithm."
+run.init(
+    metadata={
+        "dataset.x1_lower": x1_lower,
+        "dataset.x1_upper": x1_upper,
+        "dataset.x1_value": x1_value,
+        "dataset.x2_lower": x2_lower,
+        "dataset.x2_upper": x2_upper,
+        "dataset.x2_value": x2_value,
+        "dataset.dz_lower": dz_lower,
+        "dataset.dz_upper": dz_upper,
+        "optimiser.max_eval": max_eval,
+        "optimiser.ftol_abs": ftol_abs,
+        "optimiser.ftol_rel": ftol_rel,
+    },
+    description="A simple GeometryOptimisationProblem, where we minimise the length of parameterised geometry using gradient-based optimisation algorithm.",
 )
 
 logger.info("Initialised run")
@@ -91,20 +89,33 @@ parameterisation_1.fix_variable("dz", value=0)
 logger.info("Define Optimiser")
 
 slsqp_optimiser = Optimiser(
-    "SLSQP", opt_conditions={"max_eval": max_eval, "ftol_abs": ftol_abs, "ftol_rel": ftol_rel}
+    "SLSQP",
+    opt_conditions={"max_eval": max_eval, "ftol_abs": ftol_abs, "ftol_rel": ftol_rel},
 )
 
 
-#Define the call back function
+# Define the call back function
 def calculate_length(vector, parameterisation):
     """
     Calculate the length of the parameterised shape for a given state vector.
     """
 
     parameterisation.variables.set_values_from_norm(vector)
-    print('logging metrics', float(parameterisation.variables['x1'].value))
-    run.log_metrics({'x1_value': float(parameterisation.variables['x1'].value), 'x1_lower': float(parameterisation.variables['x1'].lower_bound), 'x1_upper': float(parameterisation.variables['x1'].upper_bound)})
-    run.log_metrics({'x2_value': float(parameterisation.variables['x2'].value), 'x2_lower': float(parameterisation.variables['x2'].lower_bound), 'x2_upper': float(parameterisation.variables['x2'].upper_bound)})
+    print("logging metrics", float(parameterisation.variables["x1"].value))
+    run.log_metrics(
+        {
+            "x1_value": float(parameterisation.variables["x1"].value),
+            "x1_lower": float(parameterisation.variables["x1"].lower_bound),
+            "x1_upper": float(parameterisation.variables["x1"].upper_bound),
+        }
+    )
+    run.log_metrics(
+        {
+            "x2_value": float(parameterisation.variables["x2"].value),
+            "x2_lower": float(parameterisation.variables["x2"].lower_bound),
+            "x2_upper": float(parameterisation.variables["x2"].upper_bound),
+        }
+    )
 
     return parameterisation.create_shape().length
 
@@ -134,9 +145,14 @@ def my_minimise_length(vector, grad, parameterisation, ad_args=None):
         grad[:] = approx_derivative(
             calculate_length, vector, f0=length, args=(parameterisation,), **ad_args
         )
-    run.update_metadata({'x1_value': float(parameterisation.variables['x1'].value), 'x2_value': float(parameterisation.variables['x2'].value) })
+    run.update_metadata(
+        {
+            "x1_value": float(parameterisation.variables["x1"].value),
+            "x2_value": float(parameterisation.variables["x2"].value),
+        }
+    )
     return length
-    
+
 
 # Next, we make our objective function, using in this case one of the ready-made ones.
 # NOTE: This `minimise_length` function includes automatic numerical calculation of the
@@ -155,5 +171,5 @@ my_problem.optimise()
 
 # Here we're minimising the length, within the bounds of our PrincetonD parameterisation,
 # so we'd expect that x1 goes to its upper bound, and x2 goes to its lower bound.
-run.save('bluemira_simvue_geometry_optimisation.py', 'code')
+run.save("bluemira_simvue_geometry_optimisation.py", "code")
 run.close()
