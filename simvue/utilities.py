@@ -4,7 +4,6 @@ import os
 import typing
 
 import jwt
-import requests
 from colorama import Fore, Style, init
 
 logger = logging.getLogger(__name__)

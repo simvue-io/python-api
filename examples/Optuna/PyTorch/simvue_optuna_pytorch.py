@@ -13,8 +13,6 @@ import torch.optim as optim
 import torch.utils.data
 from torchvision import datasets, transforms
 
-import simvue
-
 DEVICE = torch.device("cpu")
 BATCHSIZE = 128
 CLASSES = 10

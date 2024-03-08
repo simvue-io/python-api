@@ -54,9 +54,11 @@ def downloader(job: dict[str, str]) -> bool:
 
     try:
         response = requests.get(job["url"], stream=True, timeout=DOWNLOAD_TIMEOUT)
+        response = requests.get(job["url"], stream=True, timeout=DOWNLOAD_TIMEOUT)
     except requests.exceptions.RequestException:
         return False
 
+    total_length = response.headers.get("content-length")
     total_length = response.headers.get("content-length")
 
     save_location: str = os.path.join(job["path"], job["filename"])
@@ -419,6 +421,9 @@ class Client:
         response = requests.delete(
             f"{self._url}/api/folders/{folder_id}", headers=self._headers, params=params
         )
+        response = requests.delete(
+            f"{self._url}/api/folders/{folder_id}", headers=self._headers, params=params
+        )
 
         if response.status_code == 200:
             runs: list[dict] = response.json().get("runs", [])
@@ -506,6 +511,8 @@ class Client:
         if response.status_code != 200:
             return None
 
+        url = response.json()[0]["url"]
+        mimetype = response.json()[0]["type"]
         url = response.json()[0]["url"]
         mimetype = response.json()[0]["type"]
 
@@ -954,6 +961,9 @@ class Client:
         response = requests.get(
             f"{self._url}/api/metrics", headers=self._headers, params=params
         )
+        response = requests.get(
+            f"{self._url}/api/metrics", headers=self._headers, params=params
+        )
 
         if response.status_code != 200:
             detail = response.json().get("detail", response.text)
@@ -1052,7 +1062,14 @@ class Client:
                 plt.plot(
                     data[(run, name, xaxis)], data[(run, name, "value")], label=label
                 )
+                plt.plot(
+                    data[(run, name, xaxis)], data[(run, name, "value")], label=label
+                )
 
+        if xaxis == "step":
+            plt.xlabel("steps")
+        elif xaxis == "time":
+            plt.xlabel("relative time")
         if xaxis == "step":
             plt.xlabel("steps")
         elif xaxis == "time":
@@ -1107,6 +1124,9 @@ class Client:
             "count": count_limit or 0,
         }
 
+        response = requests.get(
+            f"{self._url}/api/events", headers=self._headers, params=params
+        )
         response = requests.get(
             f"{self._url}/api/events", headers=self._headers, params=params
         )

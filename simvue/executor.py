@@ -14,7 +14,6 @@ import logging
 import multiprocessing
 import os
 import subprocess
-import sys
 import typing
 
 if typing.TYPE_CHECKING:
