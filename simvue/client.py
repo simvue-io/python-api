@@ -1,6 +1,5 @@
 import json
 import os
-import pickle
 from concurrent.futures import ProcessPoolExecutor
 
 import requests

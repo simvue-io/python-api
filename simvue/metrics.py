@@ -1,7 +1,4 @@
 import logging
-import time
-
-import psutil
 
 from .pynvml import *
 

@@ -24,17 +24,10 @@ A quick tutorial on the optimisation of geometry in bluemira
 
 import logging
 
-# We're going to set up some geometry optimisation problems and solve them with different
-# optimisastion algorithms.
-import numpy as np
-from bluemira.geometry.optimisation import GeometryOptimisationProblem, minimise_length
+from bluemira.geometry.optimisation import GeometryOptimisationProblem
 from bluemira.geometry.parameterisations import PrincetonD
-from bluemira.utilities.opt_problems import (
-    OptimisationConstraint,
-    OptimisationObjective,
-)
+from bluemira.utilities.opt_problems import OptimisationObjective
 from bluemira.utilities.optimiser import Optimiser, approx_derivative
-from bluemira.utilities.tools import set_random_seed
 
 from simvue import Handler, Run
 
