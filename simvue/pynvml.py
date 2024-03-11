@@ -38,8 +38,31 @@ import threading
 ##
 # Python bindings for the NVML library
 ##
-from ctypes import *
-from ctypes.util import find_library
+from ctypes import (
+    CDLL,
+    POINTER,
+    Structure,
+    Union,
+    __name__,
+    byref,
+    c_char,
+    c_char_p,
+    c_double,
+    c_int,
+    c_int32,
+    c_int64,
+    c_longlong,
+    c_uint,
+    c_uint8,
+    c_uint16,
+    c_uint32,
+    c_uint64,
+    c_ulong,
+    c_ulonglong,
+    create_string_buffer,
+    pointer,
+    sizeof,
+)
 from functools import wraps
 
 ## C Type mappings ##

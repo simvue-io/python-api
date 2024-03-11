@@ -1,48 +1,37 @@
 import logging
 import time
+import typing
 
-from .api import get, post, put
-from .utilities import get_auth, get_expiry, prepare_for_api, skip_if_failed
-from .version import __version__
+from simvue.api import get, post, put
+from simvue.factory.base import SimvueBaseClass
+from simvue.utilities import get_auth, get_expiry, prepare_for_api, skip_if_failed
+from simvue.version import __version__
 
 logger = logging.getLogger(__name__)
 
-UPLOAD_TIMEOUT = 30
-DEFAULT_API_TIMEOUT = 10
+UPLOAD_TIMEOUT: int = 30
+DEFAULT_API_TIMEOUT: int = 10
 
 
-class Remote(object):
+class Remote(SimvueBaseClass):
     """
     Class which interacts with Simvue REST API
     """
 
-    def __init__(self, name, uuid, id, suppress_errors=False):
-        self._id = id
-        self._name = name
-        self._uuid = uuid
-        self._suppress_errors = suppress_errors
-        self._aborted: bool = False
+    def __init__(self, name: str, uniq_id: str, suppress_errors: bool = True) -> None:
         self._url, self._token = get_auth()
-        self._headers = {
+        self._headers: dict[str, str] = {
             "Authorization": f"Bearer {self._token}",
             "User-Agent": f"Simvue Python client {__version__}",
         }
-        self._headers_mp = self._headers.copy()
-        self._headers_mp["Content-Type"] = "application/msgpack"
+        self._headers_mp: dict[str, str] = self._headers | {
+            "Content-Type": "application/msgpack"
+        }
+        super().__init__(name, uniq_id, suppress_errors)
+        self._id = uniq_id
 
-    def _error(self, message):
-        """
-        Raise an exception if necessary and log error
-        """
-        if not self._suppress_errors:
-            raise RuntimeError(message)
-        else:
-            logger.error(message)
-
-        self._aborted = True
-
-    @skip_if_failed("_aborted", "_suppress_errors", (None, False))
-    def create_run(self, data):
+    @skip_if_failed("_aborted", "_suppress_errors", (None, None))
+    def create_run(self, data) -> tuple[typing.Optional[str], typing.Optional[int]]:
         """
         Create a run
         """
@@ -52,7 +41,7 @@ class Remote(object):
             response = post(f"{self._url}/api/runs", self._headers, data)
         except Exception as err:
             self._error(f"Exception creating run: {str(err)}")
-            return None, False
+            return (None, None)
 
         logger.debug(
             'Got status code %d when creating run, with response: "%s"',
@@ -62,9 +51,10 @@ class Remote(object):
 
         if response.status_code == 409:
             self._error(f"Duplicate run, name {data['name']} already exists")
+            return (None, None)
         elif response.status_code != 200:
             self._error(f"Got status code {response.status_code} when creating run")
-            return None, False
+            return (None, None)
 
         if "name" in response.json():
             self._name = response.json()["name"]
@@ -74,20 +64,23 @@ class Remote(object):
 
         return self._name, self._id
 
-    @skip_if_failed("_aborted", "_suppress_errors", False)
-    def update(self, data, run=None):
+    @skip_if_failed("_aborted", "_suppress_errors", None)
+    def update(
+        self, data: dict[str, typing.Any], _=None
+    ) -> typing.Optional[dict[str, typing.Any]]:
         """
         Update metadata, tags or status
         """
-        data["id"] = self._id
+        if self._id:
+            data["id"] = self._id
 
         logger.debug('Updating run with data: "%s"', data)
 
         try:
             response = put(f"{self._url}/api/runs", self._headers, data)
         except Exception as err:
-            self._error(f"Exception creating updating run: {str(err)}")
-            return False
+            self._error(f"Exception updating run: {err}")
+            return None
 
         logger.debug(
             'Got status code %d when updating run, with response: "%s"',
@@ -96,21 +89,26 @@ class Remote(object):
         )
 
         if response.status_code == 200:
-            return True
+            return data
 
         self._error(f"Got status code {response.status_code} when updating run")
-        return False
+        return None
 
-    @skip_if_failed("_aborted", "_suppress_errors", False)
-    def set_folder_details(self, data, run=None):
+    @skip_if_failed("_aborted", "_suppress_errors", None)
+    def set_folder_details(
+        self, data, run=None
+    ) -> typing.Optional[dict[str, typing.Any]]:
         """
         Set folder details
         """
+        if run is not None and not __version__:
+            data["name"] = run
+
         try:
             response = post(f"{self._url}/api/folders", self._headers, data)
         except Exception as err:
             self._error(f"Exception creatig folder: {err}")
-            return False
+            return None
 
         if response.status_code == 200 or response.status_code == 409:
             folder_id = response.json()["id"]
@@ -127,7 +125,7 @@ class Remote(object):
             response = put(f"{self._url}/api/folders", self._headers, data)
         except Exception as err:
             self._error(f"Exception setting folder details: {err}")
-            return False
+            return None
 
         logger.debug(
             'Got status code %d when setting folder details, with response: "%s"',
@@ -136,15 +134,17 @@ class Remote(object):
         )
 
         if response.status_code == 200:
-            return True
+            return response.json()
 
         self._error(
             f"Got status code {response.status_code} when updating folder details"
         )
-        return False
+        return None
 
     @skip_if_failed("_aborted", "_suppress_errors", False)
-    def save_file(self, data, run=None):
+    def save_file(
+        self, data: dict[str, typing.Any]
+    ) -> typing.Optional[dict[str, typing.Any]]:
         """
         Save file
         """
@@ -159,7 +159,7 @@ class Remote(object):
             self._error(
                 f"Got exception when preparing to upload file {data['name']} to object storage: {str(err)}"
             )
-            return False
+            return None
 
         logger.debug(
             'Got status code %d when getting presigned URL, with response: "%s"',
@@ -168,13 +168,13 @@ class Remote(object):
         )
 
         if response.status_code == 409:
-            return True
+            return data
 
         if response.status_code != 200:
             self._error(
                 f"Got status code {response.status_code} when registering file {data['name']}"
             )
-            return False
+            return None
 
         storage_id = None
         if "storage_id" in response.json():
@@ -235,7 +235,6 @@ class Remote(object):
                     return None
 
         if storage_id:
-            # Confirm successful upload
             path = f"{self._url}/api/runs/{self._id}/artifacts"
             data["storage"] = storage_id
 
@@ -245,15 +244,15 @@ class Remote(object):
                 self._error(
                     f"Got exception when confirming upload of file {data['name']}: {str(err)}"
                 )
-                return False
+                return None
 
             if response.status_code != 200:
                 self._error(
                     f"Got status code {response.status_code} when confirming upload of file {data['name']}: {response.text}"
                 )
-                return False
+                return None
 
-        return True
+        return data
 
     @skip_if_failed("_aborted", "_suppress_errors", False)
     def add_alert(self, data, run=None):
@@ -283,8 +282,10 @@ class Remote(object):
         self._error(f"Got status code {response.status_code} when creating alert")
         return False
 
-    @skip_if_failed("_aborted", "_suppress_errors", False)
-    def set_alert_state(self, alert_id, status):
+    @skip_if_failed("_aborted", "_suppress_errors", {})
+    def set_alert_state(
+        self, alert_id, status
+    ) -> typing.Optional[dict[str, typing.Any]]:
         """
         Set alert state
         """
@@ -292,16 +293,16 @@ class Remote(object):
         try:
             response = put(f"{self._url}/api/alerts/status", self._headers, data)
         except Exception as err:
-            self._error(f"Got exception when setting alert state: {str(err)}")
-            return False
+            self._error(f"Got exception when setting alert state: {err}")
+            return {}
 
         if response.status_code == 200:
             return response.json()
 
         return {}
 
-    @skip_if_failed("_aborted", "_suppress_errors", False)
-    def list_alerts(self):
+    @skip_if_failed("_aborted", "_suppress_errors", [])
+    def list_alerts(self) -> list[dict[str, typing.Any]]:
         """
         List alerts
         """
@@ -309,15 +310,17 @@ class Remote(object):
             response = get(f"{self._url}/api/alerts", self._headers)
         except Exception as err:
             self._error(f"Got exception when listing alerts: {str(err)}")
-            return False
+            return []
 
         if response.status_code == 200:
             return response.json()
 
-        return {}
+        return []
 
-    @skip_if_failed("_aborted", "_suppress_errors", False)
-    def send_metrics(self, data):
+    @skip_if_failed("_aborted", "_suppress_errors", None)
+    def send_metrics(
+        self, data: dict[str, typing.Any]
+    ) -> typing.Optional[dict[str, typing.Any]]:
         """
         Send metrics
         """
@@ -329,18 +332,20 @@ class Remote(object):
             )
         except Exception as err:
             self._error(f"Exception sending metrics: {str(err)}")
-            return False
+            return None
 
         logger.debug("Got status code %d when sending metrics", response.status_code)
 
         if response.status_code == 200:
-            return True
+            return response.json()
 
         self._error(f"Got status code {response.status_code} when sending metrics")
-        return False
+        return None
 
-    @skip_if_failed("_aborted", "_suppress_errors", False)
-    def send_event(self, data):
+    @skip_if_failed("_aborted", "_suppress_errors", None)
+    def send_event(
+        self, data: dict[str, typing.Any]
+    ) -> typing.Optional[dict[str, typing.Any]]:
         """
         Send events
         """
@@ -352,18 +357,18 @@ class Remote(object):
             )
         except Exception as err:
             self._error(f"Exception sending event: {str(err)}")
-            return False
+            return None
 
         logger.debug("Got status code %d when sending events", response.status_code)
 
         if response.status_code == 200:
-            return True
+            return response.json()
 
         self._error(f"Got status code {response.status_code} when sending events")
-        return False
+        return None
 
-    @skip_if_failed("_aborted", "_suppress_errors", False)
-    def send_heartbeat(self):
+    @skip_if_failed("_aborted", "_suppress_errors", None)
+    def send_heartbeat(self) -> typing.Optional[dict[str, typing.Any]]:
         """
         Send heartbeat
         """
@@ -371,23 +376,26 @@ class Remote(object):
 
         try:
             response = put(
-                f"{self._url}/api/runs/heartbeat", self._headers, {"name": self._name}
+                f"{self._url}/api/runs/heartbeat", self._headers, {"id": self._id}
             )
         except Exception as err:
             self._error(f"Exception creating run: {str(err)}")
-            return False
+            return None
 
         logger.debug("Got status code %d when sending heartbeat", response.status_code)
 
         if response.status_code == 200:
-            return True
+            return response.json()
 
         self._error(f"Got status code {response.status_code} when sending heartbeat")
-        return False
+        return None
 
-    def check_token(self):
+    @skip_if_failed("_aborted", "_suppress_errors", False)
+    def check_token(self) -> bool:
         """
         Check token
         """
         if time.time() - get_expiry(self._token) > 0:
             self._error("Token has expired")
+            return False
+        return True

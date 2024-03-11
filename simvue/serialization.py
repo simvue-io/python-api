@@ -51,7 +51,16 @@ def get_serializer(data, allow_pickle):
         return _serialize_dataframe
     elif _is_torch_tensor(data):
         return _serialize_torch_tensor
-    elif allow_pickle:
+    elif module_name == "builtins" and class_name == "module" and not allow_pickle:
+        try:
+            import matplotlib
+
+            if data == matplotlib.pyplot:
+                return _serialize_matplotlib
+        except ImportError:
+            pass
+
+    if allow_pickle:
         return _serialize_pickle
     return None
 
@@ -64,6 +73,17 @@ def _serialize_plotly_figure(data):
         return
     mimetype = "application/vnd.plotly.v1+json"
     data = plotly.io.to_json(data, "json")
+    return data, mimetype
+
+
+@check_extra("plot")
+def _serialize_matplotlib(data):
+    try:
+        import plotly
+    except ImportError:
+        return None
+    mimetype = "application/vnd.plotly.v1+json"
+    data = plotly.io.to_json(plotly.tools.mpl_to_plotly(data.gcf()), "json")
     return data, mimetype
 
 

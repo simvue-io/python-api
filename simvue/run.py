@@ -16,10 +16,10 @@ import uuid
 from pydantic import ValidationError
 
 from .executor import Executor
+from .factory import Simvue
 from .models import RunInput
 from .serialization import Serializer
-from .simvue import Simvue
-from .utilities import get_auth, get_expiry, skip_if_failed
+from .utilities import get_auth, get_expiry, print_nice, skip_if_failed
 from .worker import Worker
 
 INIT_MISSING = "initialize a run using init() first"
@@ -259,7 +259,6 @@ class Run(object):
         self._check_token()
 
         data = {"status": self._status}
-        data["id"] = self._id
 
         if reconnect:
             data["system"] = get_system()
@@ -380,6 +379,13 @@ class Run(object):
 
         if self._status == "running":
             self._start()
+
+        if self._mode == "online":
+            print_nice(f"Run {self._name} created")
+            print_nice(
+                f"Monitor in the UI at {self._url}/dashboard/runs/run/{self._id}"
+            )
+
         return True
 
     @skip_if_failed("_aborted", "_suppress_errors", None)
@@ -542,9 +548,7 @@ class Run(object):
         self._uuid = uid
 
         self._id = run_id
-        self._simvue = Simvue(
-            self._name, self._uuid, self._id, self._mode, self._suppress_errors
-        )
+        self._simvue = Simvue(self._name, self._id, self._mode, self._suppress_errors)
         self._start(reconnect=True)
 
     @skip_if_failed("_aborted", "_suppress_errors", None)
@@ -608,7 +612,7 @@ class Run(object):
             self._error("metadata must be a dict")
             return False
 
-        data = {"name": self._name, "metadata": metadata}
+        data = {"metadata": metadata}
 
         if self._simvue.update(data):
             return True
@@ -628,7 +632,6 @@ class Run(object):
             return False
 
         data = {"tags": tags}
-        data["id"] = self._id
 
         if self._simvue.update(data):
             return True

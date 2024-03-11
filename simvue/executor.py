@@ -14,7 +14,6 @@ import logging
 import multiprocessing
 import os
 import subprocess
-import sys
 import typing
 
 if typing.TYPE_CHECKING:
@@ -181,12 +180,6 @@ class Executor:
                 std_out[proc_id] = out.read()
 
             exit_status_dict[proc_id] = _status_code
-
-            run_on_exit(
-                status_code=exit_status_dict[proc_id],
-                std_out=std_out[proc_id],
-                std_err=std_err[proc_id],
-            )
 
             if run_on_exit:
                 run_on_exit(
