@@ -10,12 +10,12 @@ Stdout and Stderr are sent to Simvue as artifacts.
 __author__ = "Kristian Zarebski"
 __date__ = "2023-11-15"
 
-import typing
-import subprocess
-import multiprocessing
 import logging
-import sys
+import multiprocessing
 import os
+import subprocess
+import sys
+import typing
 
 if typing.TYPE_CHECKING:
     import simvue
@@ -25,13 +25,14 @@ logger = logging.getLogger(__name__)
 
 class Executor:
     """Command Line command executor
-    
+
     Adds execution of command line commands as part of a Simvue run, the status of these commands is monitored
     and if non-zero cause the Simvue run to be stated as 'failed'. The executor accepts commands either as a
     set of positional arguments or more specifically as components, two of these 'input_file' and 'script' then
     being used to set the relevant metadata within the Simvue run itself.
     """
-    def __init__(self, simvue_runner: "simvue.Run", keep_logs: bool=False) -> None:
+
+    def __init__(self, simvue_runner: "simvue.Run", keep_logs: bool = False) -> None:
         """Initialise an instance of the Simvue executor attaching it to a Run.
 
         Parameters
@@ -50,17 +51,18 @@ class Executor:
         self._command_str: typing.Dict[str, str] = {}
         self._processes: typing.Dict[str, multiprocessing.Process] = {}
 
-
     def add_process(
         self,
         identifier: str,
         *args,
-        executable: typing.Optional[str]= None,
-        script: typing.Optional[str]= None,
-        input_file: typing.Optional[str]= None,
-        print_stdout: bool=False,
+        executable: typing.Optional[str] = None,
+        script: typing.Optional[str] = None,
+        input_file: typing.Optional[str] = None,
+        print_stdout: bool = False,
         env: typing.Optional[typing.Dict[str, str]] = None,
-        completion_callback: typing.Optional[typing.Callable[[int, str, str], None]]=None,
+        completion_callback: typing.Optional[
+            typing.Callable[[int, str, str], None]
+        ] = None,
         **kwargs,
     ) -> None:
         """Add a process to be executed to the executor.
@@ -136,9 +138,11 @@ class Executor:
             exit_status_dict: typing.Dict[str, int],
             std_err: typing.Dict[str, str],
             std_out: typing.Dict[str, str],
-            run_on_exit: typing.Optional[typing.Callable[[int, int, str], None]]=completion_callback,
-            print_out: bool=print_stdout,
-            environment: typing.Optional[typing.Dict[str, str]]=env
+            run_on_exit: typing.Optional[
+                typing.Callable[[int, int, str], None]
+            ] = completion_callback,
+            print_out: bool = print_stdout,
+            environment: typing.Optional[typing.Dict[str, str]] = env,
         ) -> None:
             _logger = logging.getLogger(proc_id)
             with open(f"{runner.name}_{proc_id}.err", "w") as err:
@@ -148,9 +152,9 @@ class Executor:
                         stdout=subprocess.PIPE,
                         stderr=subprocess.PIPE,
                         universal_newlines=True,
-                        env=environment
+                        env=environment,
                     )
-                    
+
                     while True:
                         _std_out_line = _result.stdout.readline()
                         _std_err_line = _result.stderr.readline()
@@ -164,7 +168,7 @@ class Executor:
                             err.write(_std_err_line)
                             if print_out:
                                 _logger.error(_std_err_line)
-                        
+
                         if not _std_err_line and not _std_out_line:
                             break
 
@@ -182,7 +186,7 @@ class Executor:
                 run_on_exit(
                     status_code=exit_status_dict[proc_id],
                     std_out=std_out[proc_id],
-                    std_err=std_err[proc_id]
+                    std_err=std_err[proc_id],
                 )
 
         _command: typing.List[str] = []
@@ -212,7 +216,7 @@ class Executor:
                     _command += [f"--{arg}"]
                 else:
                     _command += [f"--{arg}", f"{value}"]
-        
+
         _command += _pos_args
 
         self._command_str[identifier] = " ".join(_command)
@@ -225,7 +229,7 @@ class Executor:
                 self._runner,
                 self._exit_codes,
                 self._std_err,
-                self._std_out
+                self._std_out,
             ),
         )
         logger.debug(f"Executing process: {' '.join(_command)}")
@@ -235,7 +239,7 @@ class Executor:
     def success(self) -> int:
         """Return whether all attached processes completed successfully"""
         return all(i == 0 for i in self._exit_codes.values())
-    
+
     @property
     def exit_status(self) -> int:
         """Returns the first non-zero exit status if applicable"""
@@ -243,9 +247,9 @@ class Executor:
 
         if _non_zero:
             return _non_zero[0]
-        
+
         return 0
-    
+
     def get_command(self, process_id: str) -> str:
         """Returns the command executed within the given process.
 
@@ -278,14 +282,20 @@ class Executor:
         for proc_id in self._exit_codes.keys():
             # Only save the file if the contents are not empty
             if self._std_err[proc_id]:
-                self._runner.save(f"{self._runner.name}_{proc_id}.err", category="output")
+                self._runner.save(
+                    f"{self._runner.name}_{proc_id}.err", category="output"
+                )
             if self._std_out[proc_id]:
-                self._runner.save(f"{self._runner.name}_{proc_id}.out", category="output")
-            
+                self._runner.save(
+                    f"{self._runner.name}_{proc_id}.out", category="output"
+                )
+
     def kill_process(self, process_id: str) -> None:
         """Kill a running process by ID"""
         if not (_process := self._processes.get(process_id)):
-            logger.error(f"Failed to terminate process '{process_id}', no such identifier.")
+            logger.error(
+                f"Failed to terminate process '{process_id}', no such identifier."
+            )
             return
         _process.kill()
 
@@ -293,7 +303,7 @@ class Executor:
         """Kill all running processes"""
         for process in self._processes.values():
             process.kill()
-    
+
     def _clear_cache_files(self) -> None:
         """Clear local log files if required"""
         if not self._keep_logs:

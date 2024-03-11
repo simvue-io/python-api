@@ -2,15 +2,9 @@ import logging
 import time
 import typing
 
-from simvue.api import post, put, get
-from simvue.utilities import (
-    get_auth,
-    get_expiry,
-    prepare_for_api,
-    skip_if_failed,
-)
+from simvue.api import get, post, put
 from simvue.factory.base import SimvueBaseClass
-
+from simvue.utilities import get_auth, get_expiry, prepare_for_api, skip_if_failed
 from simvue.version import __version__
 
 logger = logging.getLogger(__name__)
@@ -78,7 +72,7 @@ class Remote(SimvueBaseClass):
         """
         if self._id:
             data["id"] = self._id
-        
+
         data.pop("name", None)
 
         logger.debug('Updating run with data: "%s"', data)
@@ -102,7 +96,9 @@ class Remote(SimvueBaseClass):
         return None
 
     @skip_if_failed("_aborted", "_suppress_errors", None)
-    def set_folder_details(self, data, run=None) -> typing.Optional[dict[str, typing.Any]]:
+    def set_folder_details(
+        self, data, run=None
+    ) -> typing.Optional[dict[str, typing.Any]]:
         """
         Set folder details
         """
@@ -147,7 +143,9 @@ class Remote(SimvueBaseClass):
         return None
 
     @skip_if_failed("_aborted", "_suppress_errors", False)
-    def save_file(self, data: dict[str, typing.Any]) -> typing.Optional[dict[str, typing.Any]]:
+    def save_file(
+        self, data: dict[str, typing.Any]
+    ) -> typing.Optional[dict[str, typing.Any]]:
         """
         Save file
         """
@@ -286,7 +284,9 @@ class Remote(SimvueBaseClass):
         return False
 
     @skip_if_failed("_aborted", "_suppress_errors", {})
-    def set_alert_state(self, alert_id, status) -> typing.Optional[dict[str, typing.Any]]:
+    def set_alert_state(
+        self, alert_id, status
+    ) -> typing.Optional[dict[str, typing.Any]]:
         """
         Set alert state
         """
@@ -319,12 +319,13 @@ class Remote(SimvueBaseClass):
         return []
 
     @skip_if_failed("_aborted", "_suppress_errors", None)
-    def send_metrics(self, data: dict[str, typing.Any]) -> typing.Optional[dict[str, typing.Any]]:
+    def send_metrics(
+        self, data: dict[str, typing.Any]
+    ) -> typing.Optional[dict[str, typing.Any]]:
         """
         Send metrics
         """
         logger.debug("Sending metrics")
-
 
         try:
             response = post(
@@ -343,7 +344,9 @@ class Remote(SimvueBaseClass):
         return None
 
     @skip_if_failed("_aborted", "_suppress_errors", None)
-    def send_event(self, data: dict[str, typing.Any]) -> typing.Optional[dict[str, typing.Any]]:
+    def send_event(
+        self, data: dict[str, typing.Any]
+    ) -> typing.Optional[dict[str, typing.Any]]:
         """
         Send events
         """

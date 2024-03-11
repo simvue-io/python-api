@@ -5,14 +5,16 @@ import os
 import time
 import uuid
 
-from .utilities import get_offline_directory, create_file, prepare_for_api
+from .utilities import create_file, get_offline_directory, prepare_for_api
 
 logger = logging.getLogger(__name__)
+
 
 class Offline(object):
     """
     Class for offline runs
     """
+
     def __init__(self, name, uuid, id, suppress_errors=False):
         self._id = id
         self._name = name
@@ -34,7 +36,7 @@ class Offline(object):
         Write JSON to file
         """
         try:
-            with open(filename, 'w') as fh:
+            with open(filename, "w") as fh:
                 json.dump(data, fh)
         except Exception as err:
             self._error(f"Unable to write file {filename} due to {str(err)}")
@@ -46,15 +48,17 @@ class Offline(object):
         try:
             os.makedirs(self._directory, exist_ok=True)
         except Exception as err:
-            logger.error('Unable to create directory %s due to: %s', self._directory, str(err))
-        
+            logger.error(
+                "Unable to create directory %s due to: %s", self._directory, str(err)
+            )
+
         filename = f"{self._directory}/run.json"
-        if 'name' not in data:
-            data['name'] = None
+        if "name" not in data:
+            data["name"] = None
 
         self._write_json(filename, data)
 
-        status = data['status']
+        status = data["status"]
         filename = f"{self._directory}/{status}"
         create_file(filename)
 
@@ -68,12 +72,12 @@ class Offline(object):
         filename = f"{self._directory}/update-{unique_id}.json"
         self._write_json(filename, data)
 
-        if 'status' in data:
-            status = data['status']
+        if "status" in data:
+            status = data["status"]
             filename = f"{self._directory}/{status}"
             create_file(filename)
 
-            if status == 'completed':
+            if status == "completed":
                 status_running = f"{self._directory}/running"
                 if os.path.isfile(status_running):
                     os.remove(status_running)
@@ -93,11 +97,11 @@ class Offline(object):
         """
         Save file
         """
-        if 'pickled' in data:
+        if "pickled" in data:
             temp_file = f"{self._directory}/temp-{str(uuid.uuid4())}.pickle"
-            with open(temp_file, 'wb') as fh:
-                fh.write(data['pickled'])
-            data['pickledFile'] = temp_file
+            with open(temp_file, "wb") as fh:
+                fh.write(data["pickled"])
+            data["pickledFile"] = temp_file
         unique_id = time.time()
         filename = f"{self._directory}/file-{unique_id}.json"
         self._write_json(filename, prepare_for_api(data, False))

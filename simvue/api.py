@@ -6,11 +6,13 @@ Provides methods for interacting with a Simvue server which include retry
 policies. In cases where JSON is the expected form the data is firstly converted
 to a JSON string
 """
+
 import copy
 import json
 import typing
+
 import requests
-from tenacity import retry, wait_exponential, stop_after_attempt
+from tenacity import retry, stop_after_attempt, wait_exponential
 
 DEFAULT_API_TIMEOUT = 10
 RETRY_MULTIPLIER = 1
@@ -19,32 +21,23 @@ RETRY_MAX = 10
 RETRY_STOP = 5
 
 
-def set_json_header(
-    headers: dict[str, str]
-) -> dict[str, str]: 
+def set_json_header(headers: dict[str, str]) -> dict[str, str]:
     """
     Return a copy of the headers with Content-Type set to
     application/json
     """
     headers = copy.deepcopy(headers)
-    headers['Content-Type'] = 'application/json'
+    headers["Content-Type"] = "application/json"
     return headers
 
 
 @retry(
-    wait=wait_exponential(
-        multiplier=RETRY_MULTIPLIER,
-        min=RETRY_MIN,
-        max=RETRY_MAX
-    ),
+    wait=wait_exponential(multiplier=RETRY_MULTIPLIER, min=RETRY_MIN, max=RETRY_MAX),
     stop=stop_after_attempt(RETRY_STOP),
-    reraise=True
+    reraise=True,
 )
 def post(
-    url: str,
-    headers: dict[str, str],
-    data: dict[str, typing.Any],
-    is_json: bool=True
+    url: str, headers: dict[str, str], data: dict[str, typing.Any], is_json: bool = True
 ) -> requests.Response:
     """HTTP POST with retries
 
@@ -70,41 +63,32 @@ def post(
         headers = set_json_header(headers)
     else:
         data_sent = data
-    
+
     response = requests.post(
-        url,
-        headers=headers,
-        data=data_sent,
-        timeout=DEFAULT_API_TIMEOUT
+        url, headers=headers, data=data_sent, timeout=DEFAULT_API_TIMEOUT
     )
-    
+
     if response.status_code in (401, 403):
         raise RuntimeError(
-            f'Authorization error [{response.status_code}]: {response.text}'
+            f"Authorization error [{response.status_code}]: {response.text}"
         )
-        
+
     if response.status_code not in (200, 201, 409):
-        raise RuntimeError(
-            f'HTTP error [{response.status_code}]: {response.text}'
-        )
+        raise RuntimeError(f"HTTP error [{response.status_code}]: {response.text}")
 
     return response
 
 
 @retry(
-    wait=wait_exponential(
-        multiplier=RETRY_MULTIPLIER,
-        min=RETRY_MIN,
-        max=RETRY_MAX
-    ),
-    stop=stop_after_attempt(RETRY_STOP)
+    wait=wait_exponential(multiplier=RETRY_MULTIPLIER, min=RETRY_MIN, max=RETRY_MAX),
+    stop=stop_after_attempt(RETRY_STOP),
 )
 def put(
     url: str,
     headers: dict[str, str],
     data: dict[str, typing.Any],
-    is_json: bool=True,
-    timeout: int=DEFAULT_API_TIMEOUT
+    is_json: bool = True,
+    timeout: int = DEFAULT_API_TIMEOUT,
 ) -> requests.Response:
     """HTTP POST with retries
 
@@ -131,24 +115,15 @@ def put(
         headers = set_json_header(headers)
     else:
         data_sent = data
-    
-    response = requests.put(
-        url,
-        headers=headers,
-        data=data_sent,
-        timeout=timeout
-    )
+
+    response = requests.put(url, headers=headers, data=data_sent, timeout=timeout)
 
     response.raise_for_status()
 
     return response
 
 
-def get(
-    url: str,
-    headers: dict[str, str],
-    timeout: int=DEFAULT_API_TIMEOUT
-):
+def get(url: str, headers: dict[str, str], timeout: int = DEFAULT_API_TIMEOUT):
     """HTTP GET
 
     Parameters

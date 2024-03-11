@@ -1,7 +1,8 @@
 import abc
-import uuid
-import typing
 import logging
+import typing
+import uuid
+
 
 class SimvueBaseClass(abc.ABC):
     @abc.abstractmethod
@@ -24,11 +25,15 @@ class SimvueBaseClass(abc.ABC):
             self._aborted = True
 
     @abc.abstractmethod
-    def create_run(self, data: dict[str, typing.Any]) -> typing.Optional[dict[str, typing.Any]]:
+    def create_run(
+        self, data: dict[str, typing.Any]
+    ) -> typing.Optional[dict[str, typing.Any]]:
         pass
 
     @abc.abstractmethod
-    def update(self, data: dict[str, typing.Any]) -> typing.Optional[dict[str, typing.Any]]:
+    def update(
+        self, data: dict[str, typing.Any]
+    ) -> typing.Optional[dict[str, typing.Any]]:
         pass
 
     @abc.abstractmethod
@@ -36,15 +41,21 @@ class SimvueBaseClass(abc.ABC):
         pass
 
     @abc.abstractmethod
-    def save_file(self, data: dict[str, typing.Any]) -> typing.Optional[dict[str, typing.Any]]:
+    def save_file(
+        self, data: dict[str, typing.Any]
+    ) -> typing.Optional[dict[str, typing.Any]]:
         pass
 
     @abc.abstractmethod
-    def add_alert(self, data: dict[str, typing.Any]) -> typing.Optional[dict[str, typing.Any]]:
+    def add_alert(
+        self, data: dict[str, typing.Any]
+    ) -> typing.Optional[dict[str, typing.Any]]:
         pass
 
     @abc.abstractmethod
-    def set_alert_state(self, alert_id: str, status: str) -> typing.Optional[dict[str, typing.Any]]:
+    def set_alert_state(
+        self, alert_id: str, status: str
+    ) -> typing.Optional[dict[str, typing.Any]]:
         pass
 
     @abc.abstractmethod
@@ -52,11 +63,15 @@ class SimvueBaseClass(abc.ABC):
         pass
 
     @abc.abstractmethod
-    def send_metrics(self, data: dict[str, typing.Any]) -> typing.Optional[dict[str, typing.Any]]:
+    def send_metrics(
+        self, data: dict[str, typing.Any]
+    ) -> typing.Optional[dict[str, typing.Any]]:
         pass
 
     @abc.abstractmethod
-    def send_event(self, data: dict[str, typing.Any]) -> typing.Optional[dict[str, typing.Any]]:
+    def send_event(
+        self, data: dict[str, typing.Any]
+    ) -> typing.Optional[dict[str, typing.Any]]:
         pass
 
     @abc.abstractmethod
