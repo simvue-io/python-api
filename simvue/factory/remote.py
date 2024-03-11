@@ -35,6 +35,29 @@ class Remote(SimvueBaseClass):
         """
         Create a run
         """
+        if data.get("folder"):
+            if data.get("folder") != "/":
+                logger.debug("Creating folder %s if necessary", data.get("folder"))
+                try:
+                    response = post(
+                        f"{self._url}/api/folders",
+                        self._headers,
+                        {"path": data.get("folder")},
+                    )
+                except Exception as err:
+                    self._error(f"Exception creating folder: {str(err)}")
+                    return (None, None)
+
+                logger.debug(
+                    'Got status code %d when creating folder, with response: "%s"',
+                    response.status_code,
+                    response.text,
+                )
+
+                if response.status_code not in (200, 409):
+                    self._error(f"Unable to create folder {data.get('folder')}")
+                    return (None, None)
+
         logger.debug('Creating run with data: "%s"', data)
 
         try:
