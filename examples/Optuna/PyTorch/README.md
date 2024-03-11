@@ -15,7 +15,7 @@ source ./venv/bin/activate
 ```
 Install the required dependencies:
 ```
-pip install -r requirements.txt 
+pip install -r requirements.txt
 ```
 Run the code:
 ```

@@ -1,8 +1,8 @@
-from io import BytesIO
 import pickle
-
+from io import BytesIO
 
 from .utilities import check_extra
+
 
 class Serializer:
     def serialize(self, data, allow_pickle=False):
@@ -11,6 +11,7 @@ class Serializer:
             return serializer(data)
         return None, None
 
+
 def _is_torch_tensor(data):
     """
     Check if a dictionary is a PyTorch tensor or state dict
@@ -18,19 +19,20 @@ def _is_torch_tensor(data):
     module_name = data.__class__.__module__
     class_name = data.__class__.__name__
 
-    if module_name == 'collections' and class_name == 'OrderedDict':
+    if module_name == "collections" and class_name == "OrderedDict":
         valid = True
         for item in data:
             module_name = data[item].__class__.__module__
             class_name = data[item].__class__.__name__
-            if module_name != 'torch' or class_name != 'Tensor':
+            if module_name != "torch" or class_name != "Tensor":
                 valid = False
         if valid:
             return True
-    elif module_name == 'torch' and class_name == 'Tensor':
+    elif module_name == "torch" and class_name == "Tensor":
         return True
 
     return False
+
 
 def get_serializer(data, allow_pickle):
     """
@@ -39,13 +41,13 @@ def get_serializer(data, allow_pickle):
     module_name = data.__class__.__module__
     class_name = data.__class__.__name__
 
-    if module_name == 'plotly.graph_objs._figure' and class_name == 'Figure':
+    if module_name == "plotly.graph_objs._figure" and class_name == "Figure":
         return _serialize_plotly_figure
-    elif module_name == 'matplotlib.figure' and class_name == 'Figure':
+    elif module_name == "matplotlib.figure" and class_name == "Figure":
         return _serialize_matplotlib_figure
-    elif module_name == 'numpy' and class_name == 'ndarray':
+    elif module_name == "numpy" and class_name == "ndarray":
         return _serialize_numpy_array
-    elif module_name == 'pandas.core.frame' and class_name == 'DataFrame':
+    elif module_name == "pandas.core.frame" and class_name == "DataFrame":
         return _serialize_dataframe
     elif _is_torch_tensor(data):
         return _serialize_torch_tensor
@@ -53,15 +55,17 @@ def get_serializer(data, allow_pickle):
         return _serialize_pickle
     return None
 
+
 @check_extra("plot")
 def _serialize_plotly_figure(data):
     try:
         import plotly
     except ImportError:
         return
-    mimetype = 'application/vnd.plotly.v1+json'
-    data = plotly.io.to_json(data, 'json')
+    mimetype = "application/vnd.plotly.v1+json"
+    data = plotly.io.to_json(data, "json")
     return data, mimetype
+
 
 @check_extra("plot")
 def _serialize_matplotlib_figure(data):
@@ -69,9 +73,10 @@ def _serialize_matplotlib_figure(data):
         import plotly
     except ImportError:
         return None
-    mimetype = 'application/vnd.plotly.v1+json'
-    data = plotly.io.to_json(plotly.tools.mpl_to_plotly(data), 'json')
+    mimetype = "application/vnd.plotly.v1+json"
+    data = plotly.io.to_json(plotly.tools.mpl_to_plotly(data), "json")
     return data, mimetype
+
 
 @check_extra("dataset")
 def _serialize_numpy_array(data):
@@ -81,21 +86,23 @@ def _serialize_numpy_array(data):
         np = None
         return None
 
-    mimetype = 'application/vnd.simvue.numpy.v1'
+    mimetype = "application/vnd.simvue.numpy.v1"
     mfile = BytesIO()
     np.save(mfile, data, allow_pickle=False)
     mfile.seek(0)
     data = mfile.read()
     return data, mimetype
 
+
 @check_extra("dataset")
 def _serialize_dataframe(data):
-    mimetype = 'application/vnd.simvue.df.v1'
+    mimetype = "application/vnd.simvue.df.v1"
     mfile = BytesIO()
     data.to_csv(mfile)
     mfile.seek(0)
     data = mfile.read()
     return data, mimetype
+
 
 @check_extra("torch")
 def _serialize_torch_tensor(data):
@@ -105,17 +112,19 @@ def _serialize_torch_tensor(data):
         torch = None
         return None
 
-    mimetype = 'application/vnd.simvue.torch.v1'
+    mimetype = "application/vnd.simvue.torch.v1"
     mfile = BytesIO()
     torch.save(data, mfile)
     mfile.seek(0)
     data = mfile.read()
     return data, mimetype
 
+
 def _serialize_pickle(data):
-    mimetype = 'application/octet-stream'
+    mimetype = "application/octet-stream"
     data = pickle.dumps(data)
     return data, mimetype
+
 
 class Deserializer:
     def deserialize(self, data, mimetype, allow_pickle=False):
@@ -124,23 +133,25 @@ class Deserializer:
             return deserializer(data)
         return None
 
+
 def get_deserializer(mimetype, allow_pickle):
     """
     Determine which deserializer to use
     """
-    if mimetype == 'application/vnd.plotly.v1+json':
+    if mimetype == "application/vnd.plotly.v1+json":
         return _deserialize_plotly_figure
-    elif mimetype == 'application/vnd.plotly.v1+json':
+    elif mimetype == "application/vnd.plotly.v1+json":
         return _deserialize_matplotlib_figure
-    elif mimetype == 'application/vnd.simvue.numpy.v1':
+    elif mimetype == "application/vnd.simvue.numpy.v1":
         return _deserialize_numpy_array
-    elif mimetype == 'application/vnd.simvue.df.v1':
+    elif mimetype == "application/vnd.simvue.df.v1":
         return _deserialize_dataframe
-    elif mimetype == 'application/vnd.simvue.torch.v1':
+    elif mimetype == "application/vnd.simvue.torch.v1":
         return _deserialize_torch_tensor
-    elif mimetype == 'application/octet-stream' and allow_pickle:
+    elif mimetype == "application/octet-stream" and allow_pickle:
         return _deserialize_pickle
     return None
+
 
 @check_extra("plot")
 def _deserialize_plotly_figure(data):
@@ -151,6 +162,7 @@ def _deserialize_plotly_figure(data):
     data = plotly.io.from_json(data)
     return data
 
+
 @check_extra("plot")
 def _deserialize_matplotlib_figure(data):
     try:
@@ -159,6 +171,7 @@ def _deserialize_matplotlib_figure(data):
         return None
     data = plotly.io.from_json(data)
     return data
+
 
 @check_extra("dataset")
 def _deserialize_numpy_array(data):
@@ -173,6 +186,7 @@ def _deserialize_numpy_array(data):
     data = np.load(mfile, allow_pickle=False)
     return data
 
+
 @check_extra("dataset")
 def _deserialize_dataframe(data):
     try:
@@ -186,6 +200,7 @@ def _deserialize_dataframe(data):
     data = pd.read_csv(mfile, index_col=0)
     return data
 
+
 @check_extra("torch")
 def _deserialize_torch_tensor(data):
     try:
@@ -198,6 +213,7 @@ def _deserialize_torch_tensor(data):
     mfile.seek(0)
     data = torch.load(mfile)
     return data
+
 
 def _deserialize_pickle(data):
     data = pickle.loads(data)

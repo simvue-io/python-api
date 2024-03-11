@@ -1,9 +1,9 @@
 import configparser
-import jwt
 import logging
-import typing
 import os
 import typing
+
+import jwt
 
 logger = logging.getLogger(__name__)
 
@@ -11,7 +11,7 @@ logger = logging.getLogger(__name__)
 def skip_if_failed(
     failure_attr: str,
     ignore_exc_attr: str,
-    on_failure_return: typing.Optional[typing.Any] = None
+    on_failure_return: typing.Optional[typing.Any] = None,
 ) -> typing.Callable:
     """Decorator for ensuring if Simvue throws an exception any other code continues.
 
@@ -35,13 +35,15 @@ def skip_if_failed(
     typing.Callable
         wrapped class method
     """
+
     def decorator(class_func: typing.Callable) -> typing.Callable:
         def wrapper(self, *args, **kwargs) -> typing.Any:
-            if (
-                getattr(self, failure_attr, None) and 
-                getattr(self, ignore_exc_attr, None)
+            if getattr(self, failure_attr, None) and getattr(
+                self, ignore_exc_attr, None
             ):
-                logger.debug(f"Skipping call to '{class_func.__name__}', client in fail state (see logs).")
+                logger.debug(
+                    f"Skipping call to '{class_func.__name__}', client in fail state (see logs)."
+                )
                 return on_failure_return
             return class_func(self, *args, **kwargs)
 
@@ -58,23 +60,32 @@ def check_extra(extra_name: str) -> typing.Callable:
                     import matplotlib
                     import plotly
                 except ImportError:
-                    raise RuntimeError(f"Plotting features require the '{extra_name}' extension to Simvue")
+                    raise RuntimeError(
+                        f"Plotting features require the '{extra_name}' extension to Simvue"
+                    )
             elif extra_name == "torch":
                 try:
                     import torch
                 except ImportError:
-                    raise RuntimeError(f"PyTorch features require the '{extra_name}' extension to Simvue")
+                    raise RuntimeError(
+                        f"PyTorch features require the '{extra_name}' extension to Simvue"
+                    )
             elif extra_name == "dataset":
                 try:
-                    import pandas
                     import numpy
+                    import pandas
                 except ImportError:
-                    raise RuntimeError(f"Dataset features require the '{extra_name}' extension to Simvue")
+                    raise RuntimeError(
+                        f"Dataset features require the '{extra_name}' extension to Simvue"
+                    )
             else:
                 raise RuntimeError(f"Unrecognised extra '{extra_name}'")
             return class_func(self, *args, **kwargs)
+
         return wrapper
+
     return decorator
+
 
 def get_auth():
     """
@@ -84,20 +95,24 @@ def get_auth():
     token = None
 
     # Try reading from config file
-    for filename in (os.path.join(os.path.expanduser("~"), '.simvue.ini'), 'simvue.ini'):
+    for filename in (
+        os.path.join(os.path.expanduser("~"), ".simvue.ini"),
+        "simvue.ini",
+    ):
         try:
             config = configparser.ConfigParser()
             config.read(filename)
-            token = config.get('server', 'token')
-            url = config.get('server', 'url')
+            token = config.get("server", "token")
+            url = config.get("server", "url")
         except:
             pass
 
     # Try environment variables
-    token = os.getenv('SIMVUE_TOKEN', token)
-    url = os.getenv('SIMVUE_URL', url)
+    token = os.getenv("SIMVUE_TOKEN", token)
+    url = os.getenv("SIMVUE_URL", url)
 
     return url, token
+
 
 def get_offline_directory():
     """
@@ -105,11 +120,14 @@ def get_offline_directory():
     """
     directory = None
 
-    for filename in (os.path.join(os.path.expanduser("~"), '.simvue.ini'), 'simvue.ini'):
+    for filename in (
+        os.path.join(os.path.expanduser("~"), ".simvue.ini"),
+        "simvue.ini",
+    ):
         try:
             config = configparser.ConfigParser()
             config.read(filename)
-            directory = config.get('offline', 'cache')
+            directory = config.get("offline", "cache")
         except:
             pass
 
@@ -118,15 +136,17 @@ def get_offline_directory():
 
     return directory
 
+
 def create_file(filename):
     """
     Create an empty file
     """
     try:
-        with open(filename, 'w') as fh:
-            fh.write('')
+        with open(filename, "w") as fh:
+            fh.write("")
     except Exception as err:
-        logger.error('Unable to write file %s due to: %s', filename, str(err))
+        logger.error("Unable to write file %s due to: %s", filename, str(err))
+
 
 def remove_file(filename):
     """
@@ -136,7 +156,8 @@ def remove_file(filename):
         try:
             os.remove(filename)
         except Exception as err:
-            logger.error('Unable to remove file %s due to: %s', filename, str(err))
+            logger.error("Unable to remove file %s due to: %s", filename, str(err))
+
 
 def get_expiry(token):
     """
@@ -144,18 +165,19 @@ def get_expiry(token):
     """
     expiry = 0
     try:
-        expiry = jwt.decode(token, options={"verify_signature": False})['exp']
+        expiry = jwt.decode(token, options={"verify_signature": False})["exp"]
     except:
         pass
     return expiry
+
 
 def prepare_for_api(data_in, all=True):
     """
     Remove references to pickling
     """
     data = data_in.copy()
-    if 'pickled' in data:
-        del data['pickled']
-    if 'pickledFile' in data and all:
-        del data['pickledFile']
+    if "pickled" in data:
+        del data["pickled"]
+    if "pickledFile" in data and all:
+        del data["pickledFile"]
     return data
