@@ -1,5 +1,6 @@
 import unittest
 import uuid
+import shutil
 from simvue import Run, Client
 from simvue.sender import sender
 
