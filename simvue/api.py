@@ -123,7 +123,9 @@ def put(
     return response
 
 
-def get(url: str, headers: dict[str, str], timeout: int = DEFAULT_API_TIMEOUT):
+def get(
+    url: str, headers: dict[str, str], timeout: int = DEFAULT_API_TIMEOUT
+) -> requests.Response:
     """HTTP GET
 
     Parameters
