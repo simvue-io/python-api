@@ -1,6 +1,15 @@
 import logging
 
-from .pynvml import *
+from .pynvml import (
+    nvmlDeviceGetComputeRunningProcesses,
+    nvmlDeviceGetCount,
+    nvmlDeviceGetGraphicsRunningProcesses,
+    nvmlDeviceGetHandleByIndex,
+    nvmlDeviceGetMemoryInfo,
+    nvmlDeviceGetUtilizationRates,
+    nvmlInit,
+    nvmlShutdown,
+)
 
 logger = logging.getLogger(__name__)
 
