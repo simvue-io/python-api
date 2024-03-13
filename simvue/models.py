@@ -6,7 +6,7 @@ FOLDER_REGEX: str = r"^/.*"
 NAME_REGEX: str = r"^[a-zA-Z0-9\-\_\s\/\.:]+$"
 
 MetadataKeyString = Annotated[str, StringConstraints(pattern=r"^[\w\-\s\.]+$")]
-TagString = Annotated[str, StringConstraints(pattern="^[\w\-\s\.]+$")]
+TagString = Annotated[str, StringConstraints(pattern=r"^[\w\-\s\.]+$")]
 
 
 # Pydantic class to validate run.init()
