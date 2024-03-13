@@ -584,7 +584,9 @@ class Run(object):
         self._queue_size = queue_size
 
         if not isinstance(disable_resources_metrics, bool):
-            self._error("disable_resources_metrics must be boolean")
+            self._error(
+                f"disable_resources_metrics must be boolean, but got '{disable_resources_metrics}'"
+            )
 
         if disable_resources_metrics:
             self._pid = None
