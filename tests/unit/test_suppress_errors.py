@@ -36,6 +36,7 @@ def test_suppress_errors_default(caplog):
     run = Run()
 
     run.config(
+        suppress_errors=True,
         disable_resources_metrics=123,
         )
     
