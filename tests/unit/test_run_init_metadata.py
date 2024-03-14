@@ -19,4 +19,4 @@ def test_run_init_metadata():
                 description="A test to validate inputs passed into metadata dictionary"
         )
 
-    assert exc_info.match(r"value is not a valid integer")
+    assert "Input should be a valid integer" in str(exc_info.value)

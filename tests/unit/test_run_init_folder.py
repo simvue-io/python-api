@@ -18,5 +18,4 @@ def test_run_init_folder():
         run.init(metadata={'dataset.x1_lower': x1_lower, 'dataset.x1_upper': x1_upper}, tags=[1,2,3], folder='test_folder',
                 description="A test to validate folder input passed into run.init"
         )
-
-    assert exc_info.match(r"string does not match regex")
+    assert "String should match pattern" in str(exc_info.value)
