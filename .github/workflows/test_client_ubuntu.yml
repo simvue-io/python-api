@@ -36,7 +36,7 @@ jobs:
     - name: Test with pytest
       run: |
         poetry install --all-extras
-        poetry run pytest --cov --cov-report=xml tests/unit/
+        poetry run pytest --cov --cov-report=xml tests/unit/ tests/refactor/
     - name: Upload coverage reports to Codecov
       run: |
         curl -Os https://uploader.codecov.io/latest/linux/codecov
