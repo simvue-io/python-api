@@ -10,29 +10,31 @@ MAX_BUFFER_SIZE: int = 16000
 class Dispatcher(threading.Thread):
     def __init__(
         self,
-        callback: typing.Callable[[list[typing.Any], str], None],
+        callback: typing.Callable[[list[typing.Any], str, dict[str, typing.Any]], None],
         queue_categories: list[str],
         termination_trigger: threading.Event,
         queue_blocking: bool = False,
         max_buffer_size: int = MAX_BUFFER_SIZE,
         max_read_rate: int = MAX_REQUESTS_PER_SECOND,
+        attributes: dict[str, typing.Any] | None = None,
     ) -> None:
         super().__init__()
+
+        self._termination_trigger = termination_trigger
+        self._attributes: dict[str, typing.Any] = attributes or {}
         self._callback = callback
         self._queues = {
             label: multiprocessing.Manager().Queue() for label in queue_categories
         }
         self._max_read_rate = max_read_rate
         self._max_buffer_size = max_buffer_size
-        self._lock = threading.Lock()
         self._send_timer = 0
         self._queue_blocking = queue_blocking
-        self._termination_trigger = termination_trigger
 
-    def add_item(self, item: typing.Any, queue_label: str) -> None:
+    def add_item(self, item: typing.Any, queue_label: str, blocking: bool) -> None:
         if not queue_label in self._queues:
             raise KeyError(f"No queue '{queue_label}' found")
-        self._queues[queue_label].put(item)
+        self._queues[queue_label].put(item, block=blocking)
 
     @property
     def empty(self) -> bool:
@@ -40,11 +42,10 @@ class Dispatcher(threading.Thread):
 
     @property
     def can_send(self) -> bool:
-        with self._lock:
-            if time.time() - self._send_timer >= 1 / self._max_read_rate:
-                self._send_timer = time.time()
-                return True
-            return False
+        if time.time() - self._send_timer >= 1 / self._max_read_rate:
+            self._send_timer = time.time()
+            return True
+        return False
 
     def _create_buffer(self, queue_label: str) -> list[typing.Any]:
         _buffer: list[typing.Any] = []
@@ -67,4 +68,4 @@ class Dispatcher(threading.Thread):
 
             for queue_label in self._queues:
                 _buffer = self._create_buffer(queue_label)
-                self._callback(_buffer, queue_label)
+                self._callback(_buffer, queue_label, self._attributes)
