@@ -229,6 +229,8 @@ class Run(object):
                     if traceback and self._active:
                         self.log_event(f"Traceback: {traceback}")
                         self.set_status("failed")
+        if self._worker:
+            self._worker.join()
 
         if _non_zero := self.executor.exit_status:
             logger.error(
