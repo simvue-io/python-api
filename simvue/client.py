@@ -125,7 +125,10 @@ class Client:
         )
 
         if response.status_code != 200:
-            detail = response.json().get("detail", response.text)
+            try:
+                detail = response.json().get("detail", response.text)
+            except requests.exceptions.JSONDecodeError:
+                detail = response.text
             raise RuntimeError(
                 "Retrieval of run ID from name failed with "
                 f"status {response.status_code}: {detail}"
@@ -176,7 +179,10 @@ class Client:
         if response.status_code == 200:
             return response.json()
 
-        detail = response.json().get("detail", response.text)
+        try:
+            detail = response.json().get("detail", response.text)
+        except requests.exceptions.JSONDecodeError:
+            detail = response.text
 
         raise RuntimeError(
             f"Retrieval of run '{run_id}' failed with status "
@@ -246,7 +252,10 @@ class Client:
             raise ValueError("Invalid format specified")
 
         if response.status_code != 200:
-            detail = response.json().get("detail", response.text)
+            try:
+                detail = response.json().get("detail", response.text)
+            except requests.exceptions.JSONDecodeError:
+                detail = response.text
             raise RuntimeError(
                 f"Run retrieval failed with code {response.status_code}: " f"{detail}"
             )
@@ -285,7 +294,10 @@ class Client:
             logger.debug(f"Run '{run_identifier}' deleted successfully")
             return response.json()
 
-        error_detail = response.json().get("detail", response.text)
+        try:
+            error_detail = response.json().get("detail", response.text)
+        except requests.exceptions.JSONDecodeError:
+            error_detail = response.text
 
         raise RuntimeError(
             f"Deletion of run '{run_identifier}' failed with code"
@@ -418,7 +430,10 @@ class Client:
             runs: list[dict] = response.json().get("runs", [])
             return runs
 
-        detail = response.json().get("detail", response.text)
+        try:
+            detail = response.json().get("detail", response.text)
+        except requests.exceptions.JSONDecodeError:
+            detail = response.text
 
         raise RuntimeError(
             f"Deletion of folder '{folder_name}' failed with"
@@ -450,7 +465,10 @@ class Client:
         )
 
         if response.status_code != 200:
-            detail = response.json().get("detail", response.text)
+            try:
+                detail = response.json().get("detail", response.text)
+            except requests.exceptions.JSONDecodeError:
+                detail = response.text
             raise RuntimeError(
                 f"Retrieval of artifacts for run '{run_id}' failed with "
                 f"status {response.status_code}: {detail}"
@@ -546,7 +564,10 @@ class Client:
         )
 
         if response.status_code != 200:
-            detail = response.json().get("detail", response.text)
+            try:
+                detail = response.json().get("detail", response.text)
+            except requests.exceptions.JSONDecodeError:
+                detail = response.text
             raise RuntimeError(
                 f"Download of artifacts for run '{run_id}' failed with "
                 f"status {response.status_code}: {detail}"
@@ -653,7 +674,10 @@ class Client:
         )
 
         if response.status_code != 200:
-            detail = response.json().get("detail", response.text)
+            try:
+                detail = response.json().get("detail", response.text)
+            except requests.exceptions.JSONDecodeError:
+                detail = response.text
             raise RuntimeError(
                 f"Download of artifacts for run '{run_id}' failed with "
                 f"status {response.status_code}: {detail}"
@@ -703,7 +727,10 @@ class Client:
         )
 
         if response.status_code != 200:
-            detail = response.json().get("detail", response.text)
+            try:
+                detail = response.json().get("detail", response.text)
+            except requests.exceptions.JSONDecodeError:
+                detail = response.text
             raise RuntimeError(
                 f"Retrieval of folder '{folder_id}' failed with "
                 f"status {response.status_code}: {detail}"
@@ -744,7 +771,10 @@ class Client:
         if response.status_code == 200:
             return response.json().get("data", [])
 
-        detail = response.json().get("detail", response.text)
+        try:
+            detail = response.json().get("detail", response.text)
+        except requests.exceptions.JSONDecodeError:
+            detail = response.text
 
         raise RuntimeError(
             "Retrieval of folders failed with status code "
@@ -778,7 +808,10 @@ class Client:
         if response.status_code == 200:
             return response.json()
 
-        detail = response.json().get("detail", response.text)
+        try:
+            detail = response.json().get("detail", response.text)
+        except requests.exceptions.JSONDecodeError:
+            detail = response.text
 
         raise RuntimeError(
             f"Request for metric names for run '{run_id}' failed with "
@@ -955,7 +988,10 @@ class Client:
         )
 
         if response.status_code != 200:
-            detail = response.json().get("detail", response.text)
+            try:
+                detail = response.json().get("detail", response.text)
+            except requests.exceptions.JSONDecodeError:
+                detail = response.text
             raise RuntimeError(
                 f"Retrieval of metrics '{metric_names}' failed for runs '{run_ids}' "
                 f"with status code {response.status_code}: {detail}"
@@ -1123,7 +1159,10 @@ class Client:
         if response.status_code == 200:
             return response.json().get("data", [])
 
-        detail = response.json().get("detail", response.text)
+        try:
+            detail = response.json().get("detail", response.text)
+        except requests.exceptions.JSONDecodeError:
+            detail = response.text
 
         raise RuntimeError(
             f"Retrieval of events for run '{run_id}' failed with "
@@ -1157,7 +1196,10 @@ class Client:
         response = requests.get(f"{self._url}/api/runs/{run_id}", headers=self._headers)
 
         if response.status_code != 200:
-            detail = response.json().get("detail", response.text)
+            try:
+                detail = response.json().get("detail", response.text)
+            except requests.exceptions.JSONDecodeError:
+                detail = response.text
             raise RuntimeError(
                 f"Retrieval of alerts for run '{run_id}' failed with "
                 f"status {response.status_code}: {detail}"
