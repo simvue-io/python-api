@@ -20,8 +20,7 @@ import typing
 import uuid
 from datetime import timezone
 
-import msgpack
-import psutil
+import click
 from pydantic import ValidationError
 
 import simvue.api as sv_api
@@ -40,7 +39,6 @@ from .utilities import (
     get_auth,
     get_expiry,
     get_offline_directory,
-    print_nice,
     validate_timestamp,
 )
 
@@ -381,9 +379,11 @@ class Run(object):
             self._start()
 
         if self._mode == "online":
-            print_nice(f"Run {self._name} created")
-            print_nice(
-                f"Monitor in the UI at {self._url}/dashboard/runs/run/{self._id}"
+            click.secho(f"[simvue] Run {self._name} created", bold=True, fg="green")
+            click.secho(
+                f"[simvue] Monitor in the UI at {self._url}/dashboard/runs/run/{self._id}",
+                bold=True,
+                fg="green",
             )
 
         return True
@@ -763,7 +763,11 @@ class Run(object):
             data["checksum"] = calculate_sha256(filename, is_file)
 
             if data["size"] == 0:
-                print("WARNING: saving zero-sized files not currently supported")
+                click.secho(
+                    "WARNING: saving zero-sized files not currently supported",
+                    bold=True,
+                    fg="yellow",
+                )
                 return True
 
         # Determine mimetype

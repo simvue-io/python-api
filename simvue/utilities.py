@@ -6,7 +6,6 @@ import os
 import typing
 
 import jwt
-from colorama import Fore, Style, init
 
 CHECKSUM_BLOCK_SIZE = 4096
 
@@ -186,15 +185,6 @@ def prepare_for_api(data_in, all=True):
     if "pickledFile" in data and all:
         del data["pickledFile"]
     return data
-
-
-def print_nice(message):
-    """
-    Log message in a way which hopefully can be distiguished from the user's application
-    """
-    init(autoreset=True)
-    print(Fore.GREEN + Style.BRIGHT + f"[simvue] {message}")
-    return
 
 
 def calculate_sha256(filename: str, is_file: bool) -> typing.Optional[str]:
