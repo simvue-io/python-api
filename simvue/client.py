@@ -144,25 +144,13 @@ class Client:
             raise RuntimeError("Failed to retrieve identifier for run.")
         return first_id
 
-    def get_run(
-        self,
-        run_id: str,
-        metadata: bool = False,
-        metrics: bool = False,
-        alerts: bool = False,
-    ) -> dict[str, typing.Any]:
+    def get_run(self, run_id: str) -> dict[str, typing.Any]:
         """Retrieve a single run
 
         Parameters
         ----------
         run_id : str
             the unique identifier for this run
-        metadata : bool, optional
-            whether to include metadata for the run in the response, by default False
-        metrics : bool, optional
-            whether to include metrics for the run in the response, by default False
-        alerts : bool, optional
-            whether to include alerts for the run in the response, by default False
 
         Returns
         -------
@@ -174,14 +162,9 @@ class Client:
         RuntimeError
             if retrieval of information from the server on this run failed
         """
-        parameters: dict[str, bool] = {
-            "return_metadata": metadata,
-            "return_metrics": metrics,
-            "return_alerts": alerts,
-        }
 
         response: requests.Response = requests.get(
-            f"{self._url}/api/runs/{run_id}", headers=self._headers, params=parameters
+            f"{self._url}/api/runs/{run_id}", headers=self._headers
         )
 
         if response.status_code == 404 and (detail := response.json().get("detail")):
@@ -215,11 +198,17 @@ class Client:
 
         Parameters
         ----------
+        filters: list[str] | None
+            set of filters to apply to query results. If None is specified
+            return all results without filtering.
+        metadata : bool, optional
+            whether to include metadata information in the response.
+            Default False.
+        metrics : bool, optional
+            whether to include metrics information in the response.
+            Default False.
         alerts : bool, optional
             whether to include alert information in the response.
-            Default False.
-        metadata : bool, optional
-            whether to include metdata information in the response.
             Default False.
         format : str ('dict' | 'dataframe'), optional
             the structure of the response, either a dictionary or a dataframe.
