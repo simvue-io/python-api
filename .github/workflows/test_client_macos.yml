@@ -23,4 +23,4 @@ jobs:
     - name: Test with pytest
       run: |
         poetry install --all-extras
-        poetry run pytest tests/unit/
+        poetry run pytest tests/unit/ tests/refactor/
