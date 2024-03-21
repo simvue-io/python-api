@@ -89,6 +89,7 @@ class Run:
         self._resources_metrics_interval = 30
         self._shutdown_event = None
         self._storage_id = None
+        self._testing = False
 
     def __enter__(self):
         return self
@@ -199,7 +200,7 @@ class Run:
             buffer: list[typing.Any],
             category: str,
             attributes: dict[str, typing.Any],
-            heartbeat_callback=_heartbeat,
+            heartbeat_callback=lambda *_: None if self._testing else _heartbeat,
         ) -> None:
             if not os.path.exists((_directory := get_offline_directory())):
                 logger.error(
@@ -221,6 +222,7 @@ class Run:
                 else:
                     raise err
 
+            # In case interval has been mocked to zero (switched off) during testing
             if time.time() - attributes["last_heartbeat"] > HEARTBEAT_INTERVAL:
                 attributes["last_heartbeat"] = time.time()
                 heartbeat_callback()
@@ -232,7 +234,7 @@ class Run:
             url=self._url,
             run_id=self._id,
             headers=self._headers,
-            heartbeat_callback=_heartbeat,
+            heartbeat_callback=lambda *_: None if self._testing else _heartbeat,
         ) -> None:
             if not buffer:
                 return

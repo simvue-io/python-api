@@ -8,11 +8,37 @@ import json
 import pathlib
 import simvue.run as sv_run
 import simvue.utilities
+import logging
+
+MAX_BUFFER_SIZE: int = 10
+
+class CountingLogHandler(logging.Handler):
+    def __init__(self, level=logging.DEBUG):
+        super().__init__(level)
+        self.count = 0
+        self.capture=None
+    
+    def emit(self, record):
+        if (self.capture or "") in record.msg:
+            self.count += 1
+
+@pytest.fixture(autouse=True)
+def setup_logging():
+    logging.basicConfig(level=logging.DEBUG)
+    handler = CountingLogHandler()
+    logging.getLogger().addHandler(handler)
+    return handler
+
+
+@pytest.fixture
+def log_messages(caplog):
+    yield caplog.messages
 
 
 @pytest.fixture
 def create_test_run() -> typing.Generator[typing.Tuple[sv_run.Run, dict], None, None]:
     with sv_run.Run() as run:
+        run._testing = True
         yield run, setup_test_run(run, True)
 
 
@@ -21,12 +47,14 @@ def create_test_run_offline(mocker: pytest_mock.MockerFixture) -> typing.Generat
     with tempfile.TemporaryDirectory() as temp_d:
         mocker.patch.object(simvue.utilities, "get_offline_directory", lambda *_: temp_d)
         with sv_run.Run("offline") as run:
+            run._testing = True
             yield run, setup_test_run(run, True)
 
 
 @pytest.fixture
 def create_plain_run() -> typing.Generator[typing.Tuple[sv_run.Run, dict], None, None]:
     with sv_run.Run() as run:
+        run._testing = True
         yield run, setup_test_run(run, False)
 
 
@@ -35,6 +63,7 @@ def create_plain_run_offline(mocker: pytest_mock.MockerFixture) -> typing.Genera
     with tempfile.TemporaryDirectory() as temp_d:
         mocker.patch.object(simvue.utilities, "get_offline_directory", lambda *_: temp_d)
         with sv_run.Run("offline") as run:
+            run._testing = True
             yield run, setup_test_run(run, False)
 
 
@@ -53,6 +82,7 @@ def setup_test_run(run: sv_run.Run, create_objects: bool):
         tags=["simvue_client_unit_tests"],
         folder=TEST_DATA["folder"]
     )
+    run._dispatcher._max_buffer_size = MAX_BUFFER_SIZE
 
     if create_objects:
         for i in range(5):

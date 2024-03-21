@@ -8,6 +8,7 @@ MAX_REQUESTS_PER_SECOND: float = 1.0
 MAX_BUFFER_SIZE: int = 16000
 
 logger = logging.getLogger(__name__)
+logger.setLevel(logging.DEBUG)
 
 
 class Dispatcher(threading.Thread):
@@ -70,5 +71,7 @@ class Dispatcher(threading.Thread):
                 continue
 
             for queue_label in self._queues:
-                _buffer = self._create_buffer(queue_label)
+                if not (_buffer := self._create_buffer(queue_label)):
+                    continue
+                logger.debug(f"Executing '{queue_label}' callback on buffer {_buffer}")
                 self._callback(_buffer, queue_label, self._attributes)
