@@ -21,6 +21,8 @@ import uuid
 from datetime import timezone
 
 import click
+import msgpack
+import psutil
 from pydantic import ValidationError
 
 import simvue.api as sv_api
@@ -56,7 +58,7 @@ def walk_through_files(path):
             yield os.path.join(dirpath, filename)
 
 
-class Run(object):
+class Run:
     """
     Track simulation details based on token and URL
     """
@@ -112,8 +114,8 @@ class Run(object):
                     if traceback and self._active:
                         self.log_event(f"Traceback: {traceback}")
                         self.set_status("failed")
-        if self._worker:
-            self._worker.join()
+        if self._dispatcher:
+            self._dispatcher.join()
 
         if _non_zero := self.executor.exit_status:
             logger.error(
@@ -174,14 +176,19 @@ class Run(object):
     def _create_online_callback(
         self,
     ) -> typing.Callable[[list[typing.Any], str, dict[str, typing.Any]], None]:
+
         def _heartbeat(
             url: str = self._url,
             headers: dict[str, str] = self._headers,
             run_id: str = self._id,
             online: bool = self._mode == "online",
-            triggered=self._collect_sysinfo,
+            sys_metric_record_callback=self._collect_sysinfo,
         ) -> None:
-            triggered()
+
+            # System metrics are appended to the queue at an interval
+            # equivalent to the heartbeat interval
+            sys_metric_record_callback()
+
             if online:
                 _data = {"id": run_id}
                 sv_api.put(f"{url}/api/runs/heartbeat", headers=headers, data=_data)

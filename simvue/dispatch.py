@@ -1,10 +1,13 @@
+import logging
 import multiprocessing
 import threading
 import time
 import typing
 
-MAX_REQUESTS_PER_SECOND: int = 1
+MAX_REQUESTS_PER_SECOND: float = 1.0
 MAX_BUFFER_SIZE: int = 16000
+
+logger = logging.getLogger(__name__)
 
 
 class Dispatcher(threading.Thread):
@@ -15,7 +18,7 @@ class Dispatcher(threading.Thread):
         termination_trigger: threading.Event,
         queue_blocking: bool = False,
         max_buffer_size: int = MAX_BUFFER_SIZE,
-        max_read_rate: int = MAX_REQUESTS_PER_SECOND,
+        max_read_rate: float = MAX_REQUESTS_PER_SECOND,
         attributes: dict[str, typing.Any] | None = None,
     ) -> None:
         super().__init__()
@@ -32,7 +35,7 @@ class Dispatcher(threading.Thread):
         self._queue_blocking = queue_blocking
 
     def add_item(self, item: typing.Any, queue_label: str, blocking: bool) -> None:
-        if not queue_label in self._queues:
+        if queue_label not in self._queues:
             raise KeyError(f"No queue '{queue_label}' found")
         self._queues[queue_label].put(item, block=blocking)
 
