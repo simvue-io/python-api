@@ -1,6 +1,9 @@
 import pytest
 import time
+import typing
 import contextlib
+import concurrent.futures
+import random
 
 import simvue.run as sv_run
 import simvue.client as sv_cl
@@ -79,3 +82,110 @@ def test_update_metadata_offline(
     run, _ = create_test_run_offline
     run.update_tags(["simvue_client_unit_tests", "test_update_metadata"])
     run.update_metadata(METADATA)
+
+
+@pytest.mark.run
+@pytest.mark.parametrize("multi_threaded", (True, False), ids=("multi", "single"))
+def test_runs_multiple_parallel(multi_threaded: bool) -> None:
+    N_RUNS: int = 2
+    if multi_threaded:
+        def thread_func(index: int) -> tuple[list[dict[str, typing.Any]], str]:
+            with sv_run.Run() as run:
+                run.config(suppress_errors=False)
+                run.init(
+                    name=f"test_runs_multiple_{index + 1}",
+                    tags=["simvue_client_unit_tests", "test_multi_run_threaded"],
+                    folder="/simvue_unit_testing"
+                )
+                metrics = []
+                for _ in range(10):
+                    time.sleep(1)
+                    metric = {f"var_{index + 1}": random.random()}
+                    metrics.append(metric)
+                    run.log_metrics(metric)
+            return metrics, run._id
+        with concurrent.futures.ThreadPoolExecutor(max_workers=N_RUNS) as executor:
+            futures = [executor.submit(thread_func, i) for i in range(N_RUNS)]
+
+            time.sleep(1)
+
+            client = sv_cl.Client()
+                
+            for i, future in enumerate(concurrent.futures.as_completed(futures)):
+                metrics, run_id = future.result()
+                assert metrics
+                assert client.get_metrics(run_id, f"var_{i + 1}", "step")
+                with contextlib.suppress(RuntimeError):
+                    client.delete_run(run_id)
+    else:
+        with sv_run.Run() as run_1:
+            with sv_run.Run() as run_2:
+                run_1.config(suppress_errors=False)
+                run_1.init(
+                    name="test_runs_multiple_unthreaded_1",
+                    tags=["simvue_client_unit_tests", "test_multi_run_unthreaded"],
+                    folder="/simvue_unit_testing"
+                )
+                run_2.config(suppress_errors=False)
+                run_2.init(
+                    name="test_runs_multiple_unthreaded_2",
+                    tags=["simvue_client_unit_tests", "test_multi_run_unthreaded"],
+                    folder="/simvue_unit_testing"
+                )
+                metrics_1 = []
+                metrics_2 = []
+                for _ in range(10):
+                    time.sleep(1)
+                    for index, (metrics, run) in enumerate(zip((metrics_1, metrics_2), (run_1, run_2))):
+                        metric = {f"var_{index}": random.random()}
+                        metrics.append(metric)
+                        run.log_metrics(metric)
+
+                time.sleep(1)
+
+                client = sv_cl.Client()
+
+                for i, run_id in enumerate((run_1._id, run_2._id)):
+                    assert metrics
+                    assert client.get_metrics(run_id, f"var_{i}", "step")
+
+        with contextlib.suppress(RuntimeError):
+            client.delete_run(run_1._id)
+            client.delete_run(run_2._id)
+
+
+@pytest.mark.run
+def test_runs_multiple_series() -> None:
+    N_RUNS: int = 2
+
+    metrics = []
+    run_ids = []
+
+    for index in range(N_RUNS):
+        with sv_run.Run() as run:
+            run_metrics = []
+            run.config(suppress_errors=False)
+            run.init(
+                name=f"test_runs_multiple_series_{index}",
+                tags=["simvue_client_unit_tests", "test_multi_run_series"],
+                folder="/simvue_unit_testing"
+            )
+            run_ids.append(run._id)
+            for _ in range(10):
+                time.sleep(1)
+                metric = {f"var_{index}": random.random()}
+                run_metrics.append(metric)
+                run.log_metrics(metric)
+        metrics.append(run_metrics)
+
+    time.sleep(1)
+
+    client = sv_cl.Client()
+
+    for i, run_id in enumerate(run_ids):
+        assert metrics[i]
+        assert client.get_metrics(run_id, f"var_{i}", "step")
+
+    with contextlib.suppress(RuntimeError):
+        for run_id in run_ids:
+            client.delete_run(run_id)

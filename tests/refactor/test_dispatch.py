@@ -2,15 +2,18 @@ import pytest
 import string
 import typing
 import time
+import multiprocessing
 from threading import Event
 
 from simvue.dispatch import Dispatcher
 
 @pytest.mark.dispatch
 @pytest.mark.parametrize(
-    "overload_buffer", (True, False)
+    "overload_buffer", (True, False),
+    ids=("overload", "normal")
 )
-def test_dispatcher(overload_buffer: bool) -> None:
+@pytest.mark.parametrize("multiple", (True, False), ids=("multiple", "single"))
+def test_dispatcher(overload_buffer: bool, multiple: bool) -> None:
     buffer_size: int = 10
     n_elements: int = buffer_size - 1 if not overload_buffer else 2 * buffer_size
     max_read_rate: float = 0.2
@@ -18,22 +21,37 @@ def test_dispatcher(overload_buffer: bool) -> None:
 
     start_time = time.time()
 
-    check_dict = {"counter": 0}
+    check_dict = {}
 
-    def callback(___: list[typing.Any], _: str, __: dict[str, typing.Any], args=check_dict) -> None:
-        check_dict["counter"] += 1
+    variables = ["lemons"]
+
+    if multiple:
+        variables.append("limes")
 
     event = Event()
-    dispatcher = Dispatcher(callback, ["lemons"], event, max_buffer_size=buffer_size, max_read_rate=max_read_rate)
+    dispatchers: list[Dispatcher] = []
+
+    for variable in variables:
+        check_dict[variable] = {"counter": 0}
+        def callback(___: list[typing.Any], _: str, __: dict[str, typing.Any], args=check_dict, var=variable) -> None:
+            args[var]["counter"] += 1
+        dispatchers.append(
+            Dispatcher(callback, [variable], event, max_buffer_size=buffer_size, max_read_rate=max_read_rate)
+        )
 
     for i in range(n_elements):
-        dispatcher.add_item({string.ascii_uppercase[i % 26]: i}, "lemons", False)
+        for variable, dispatcher in zip(variables, dispatchers):  
+            dispatcher.add_item({string.ascii_uppercase[i % 26]: i}, variable, False)
 
-    dispatcher.start()
+    for dispatcher in dispatchers:
+        dispatcher.start()
 
     while not dispatcher.empty:
         time.sleep(0.1)
 
     event.set()
-    assert check_dict["counter"] > 0
+
+    for variable in variables:
+        assert check_dict[variable]["counter"] > 0, f"Check of counter for dispatcher '{variable}' failed with {check_dict[variable]['counter']} = {0}"
     assert time.time() - start_time < time_threshold
+
