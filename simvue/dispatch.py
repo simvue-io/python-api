@@ -1,5 +1,5 @@
 import logging
-import multiprocessing
+import queue
 import threading
 import time
 import typing
@@ -27,9 +27,7 @@ class Dispatcher(threading.Thread):
         self._termination_trigger = termination_trigger
         self._attributes: dict[str, typing.Any] = attributes or {}
         self._callback = callback
-        self._queues = {
-            label: multiprocessing.Manager().Queue() for label in queue_categories
-        }
+        self._queues = {label: queue.Queue() for label in queue_categories}
         self._max_read_rate = max_read_rate
         self._max_buffer_size = max_buffer_size
         self._send_timer = 0
