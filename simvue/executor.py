@@ -31,7 +31,7 @@ class Executor:
     being used to set the relevant metadata within the Simvue run itself.
     """
 
-    def __init__(self, simvue_runner: "simvue.Run", keep_logs: bool = False) -> None:
+    def __init__(self, simvue_runner: "simvue.Run", keep_logs: bool = True) -> None:
         """Initialise an instance of the Simvue executor attaching it to a Run.
 
         Parameters
