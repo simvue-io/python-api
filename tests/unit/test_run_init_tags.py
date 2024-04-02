@@ -19,4 +19,4 @@ def test_run_init_tags():
                 description="A test to validate tag inputs passed into run.init"
         )
 
-    assert exc_info.match(r"value is not a valid list")
+    assert "Input should be a valid list" in str(exc_info.value)

@@ -1,9 +1,18 @@
 import logging
-import time
-import psutil
-from .pynvml import *
+
+from .pynvml import (
+    nvmlDeviceGetComputeRunningProcesses,
+    nvmlDeviceGetCount,
+    nvmlDeviceGetGraphicsRunningProcesses,
+    nvmlDeviceGetHandleByIndex,
+    nvmlDeviceGetMemoryInfo,
+    nvmlDeviceGetUtilizationRates,
+    nvmlInit,
+    nvmlShutdown,
+)
 
 logger = logging.getLogger(__name__)
+
 
 def get_process_memory(processes):
     """
@@ -12,12 +21,13 @@ def get_process_memory(processes):
     rss = 0
     for process in processes:
         try:
-            rss += process.memory_info().rss/1024/1024
+            rss += process.memory_info().rss / 1024 / 1024
         except:
             pass
 
     return rss
-    
+
+
 def get_process_cpu(processes):
     """
     Get the CPU usage
@@ -31,10 +41,11 @@ def get_process_cpu(processes):
 
     return cpu_percent
 
+
 def is_gpu_used(handle, processes):
     """
     Check if the GPU is being used by the list of processes
-    """ 
+    """
     pids = [process.pid for process in processes]
 
     gpu_pids = []
@@ -43,8 +54,9 @@ def is_gpu_used(handle, processes):
 
     for process in nvmlDeviceGetGraphicsRunningProcesses(handle):
         gpu_pids.append(process.pid)
-        
+
     return len(list(set(gpu_pids) & set(pids))) > 0
+
 
 def get_gpu_metrics(processes):
     """
@@ -60,8 +72,10 @@ def get_gpu_metrics(processes):
             if is_gpu_used(handle, processes):
                 utilisation_percent = nvmlDeviceGetUtilizationRates(handle).gpu
                 memory = nvmlDeviceGetMemoryInfo(handle)
-                memory_percent = 100*memory.free/memory.total
-                gpu_metrics[f"resources/gpu.utilisation.percent.{i}"] = utilisation_percent
+                memory_percent = 100 * memory.free / memory.total
+                gpu_metrics[f"resources/gpu.utilisation.percent.{i}"] = (
+                    utilisation_percent
+                )
                 gpu_metrics[f"resources/gpu.memory.percent.{i}"] = memory_percent
 
         nvmlShutdown()

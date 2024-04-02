@@ -2,37 +2,39 @@ import datetime
 import hashlib
 import logging
 import mimetypes
-import os
-import re
 import multiprocessing
+import os
+import platform
+import re
 import socket
 import subprocess
 import sys
 import time as tm
-import platform
-import uuid
 import typing
+import uuid
 
-from .worker import Worker
-from .factory import Simvue
-from .serialization import Serializer
-from .models import RunInput
-from .config import SimvueConfiguration
-from .utilities import get_auth, get_expiry, print_nice
-from .executor import Executor
+import click
 from pydantic import ValidationError
 
-INIT_MISSING = 'initialize a run using init() first'
+from .config import SimvueConfiguration
+from .executor import Executor
+from .factory import Simvue
+from .models import RunInput
+from .serialization import Serializer
+from .utilities import get_auth, get_expiry
+from .worker import Worker
+
+INIT_MISSING = "initialize a run using init() first"
 QUEUE_SIZE = 10000
 CHECKSUM_BLOCK_SIZE = 4096
 UPLOAD_TIMEOUT = 30
 
 logger = logging.getLogger(__name__)
 
+
 def compare_alerts(first, second):
-    """
-    """
-    for key in ('name', 'description', 'source', 'frequency', 'notification'):
+    """ """
+    for key in ("name", "description", "source", "frequency", "notification"):
         if key in first and key in second:
             if not first[key]:
                 continue
@@ -40,51 +42,57 @@ def compare_alerts(first, second):
             if first[key] != second[key]:
                 return False
 
-    if 'alerts' in first and 'alerts' in second:
-        for key in ('rule', 'window', 'metric', 'threshold', 'range_low', 'range_high'):
-            if key in first['alerts'] and key in second['alerts']:
+    if "alerts" in first and "alerts" in second:
+        for key in ("rule", "window", "metric", "threshold", "range_low", "range_high"):
+            if key in first["alerts"] and key in second["alerts"]:
                 if not first[key]:
                     continue
 
-                if first['alerts'][key] != second['alerts']['key']:
+                if first["alerts"][key] != second["alerts"]["key"]:
                     return False
 
     return True
 
+
 def walk_through_files(path):
-    for (dirpath, _, filenames) in os.walk(path):
+    for dirpath, _, filenames in os.walk(path):
         for filename in filenames:
             yield os.path.join(dirpath, filename)
+
 
 def get_cpu_info():
     """
     Get CPU info
     """
-    model_name = ''
-    arch = ''
+    model_name = ""
+    arch = ""
 
     try:
-        info = subprocess.check_output('lscpu').decode().strip()
-        for line in info.split('\n'):
-            if 'Model name' in line:
-                model_name = line.split(':')[1].strip()
-            if 'Architecture' in line:
-                arch = line.split(':')[1].strip()
+        info = subprocess.check_output("lscpu").decode().strip()
+        for line in info.split("\n"):
+            if "Model name" in line:
+                model_name = line.split(":")[1].strip()
+            if "Architecture" in line:
+                arch = line.split(":")[1].strip()
     except:
         # TODO: Try /proc/cpuinfo
         pass
 
-    if arch == '':
+    if arch == "":
         arch = platform.machine()
 
-    if model_name == '':
+    if model_name == "":
         try:
-            info = subprocess.check_output(['sysctl', 'machdep.cpu.brand_string']).decode().strip()
-            if 'machdep.cpu.brand_string:' in info:
-                 model_name = info.split('machdep.cpu.brand_string: ')[1]
+            info = (
+                subprocess.check_output(["sysctl", "machdep.cpu.brand_string"])
+                .decode()
+                .strip()
+            )
+            if "machdep.cpu.brand_string:" in info:
+                model_name = info.split("machdep.cpu.brand_string: ")[1]
         except:
             pass
-        
+
     return model_name, arch
 
 
@@ -93,15 +101,15 @@ def get_gpu_info():
     Get GPU info
     """
     try:
-        output = subprocess.check_output(["nvidia-smi",
-                                          "--query-gpu=name,driver_version",
-                                          "--format=csv"])
-        lines = output.split(b'\n')
-        tokens = lines[1].split(b', ')
+        output = subprocess.check_output(
+            ["nvidia-smi", "--query-gpu=name,driver_version", "--format=csv"]
+        )
+        lines = output.split(b"\n")
+        tokens = lines[1].split(b", ")
     except:
-        return {'name': '', 'driver_version': ''}
+        return {"name": "", "driver_version": ""}
 
-    return {'name': tokens[0].decode(), 'driver_version': tokens[1].decode()}
+    return {"name": tokens[0].decode(), "driver_version": tokens[1].decode()}
 
 
 def get_system():
@@ -112,21 +120,23 @@ def get_system():
     gpu = get_gpu_info()
 
     system = {}
-    system['cwd'] = os.getcwd()
-    system['hostname'] = socket.gethostname()
-    system['pythonversion'] = (f"{sys.version_info.major}."
-                               f"{sys.version_info.minor}."
-                               f"{sys.version_info.micro}")
-    system['platform'] = {}
-    system['platform']['system'] = platform.system()
-    system['platform']['release'] = platform.release()
-    system['platform']['version'] = platform.version()
-    system['cpu'] = {}
-    system['cpu']['arch'] = cpu[1]
-    system['cpu']['processor'] = cpu[0]
-    system['gpu'] = {}
-    system['gpu']['name'] = gpu['name']
-    system['gpu']['driver'] = gpu['driver_version']
+    system["cwd"] = os.getcwd()
+    system["hostname"] = socket.gethostname()
+    system["pythonversion"] = (
+        f"{sys.version_info.major}."
+        f"{sys.version_info.minor}."
+        f"{sys.version_info.micro}"
+    )
+    system["platform"] = {}
+    system["platform"]["system"] = platform.system()
+    system["platform"]["release"] = platform.release()
+    system["platform"]["version"] = platform.version()
+    system["cpu"] = {}
+    system["cpu"]["arch"] = cpu[1]
+    system["cpu"]["processor"] = cpu[0]
+    system["gpu"] = {}
+    system["gpu"]["name"] = gpu["name"]
+    system["gpu"]["driver"] = gpu["driver_version"]
 
     return system
 
@@ -146,7 +156,7 @@ def calculate_sha256(filename, is_file):
             pass
     else:
         if isinstance(filename, str):
-            sha256_hash.update(bytes(filename, 'utf-8'))
+            sha256_hash.update(bytes(filename, "utf-8"))
         else:
             sha256_hash.update(bytes(filename))
         return sha256_hash.hexdigest()
@@ -159,7 +169,7 @@ def validate_timestamp(timestamp):
     Validate a user-provided timestamp
     """
     try:
-        datetime.datetime.strptime(timestamp, '%Y-%m-%d %H:%M:%S.%f')
+        datetime.datetime.strptime(timestamp, "%Y-%m-%d %H:%M:%S.%f")
     except ValueError:
         return False
 
@@ -170,10 +180,12 @@ class Run:
     """
     Track simulation details based on token and URL
     """
-    def __init__(self, mode='online', server_token=None, server_url=None, debug=False):
+
+    def __init__(self, mode="online", server_token=None, server_url=None, debug=False):
         self._uuid = str(uuid.uuid4())
         self._mode = mode
         self._name = None
+        self._worker = None
         self._executor = Executor(self)
         self._id = None
         self._suppress_errors = False
@@ -189,8 +201,7 @@ class Run:
         self._events_queue = None
         self._active = False
         self._config = SimvueConfiguration.fetch(
-            server_token=server_token,
-            server_url=server_url
+            server_token=server_token, server_url=server_url
         )
 
         logging.getLogger(self.__class__.__module__).setLevel(
@@ -213,53 +224,61 @@ class Run:
     def __exit__(self, type, value, traceback):
         self._executor.wait_for_completion()
         identifier = self._id
-        logger.debug('Automatically closing run %s in status %s', identifier, self._status)
+        logger.debug(
+            "Automatically closing run %s in status %s", identifier, self._status
+        )
 
-        if (self._id or self._mode == 'offline') and self._status == 'running':
+        if (self._id or self._mode == "offline") and self._status == "running":
             if self._shutdown_event is not None:
                 self._shutdown_event.set()
             if not type:
-                self.set_status('completed')
+                self.set_status("completed")
             else:
                 if self._active:
                     self.log_event(f"{type.__name__}: {value}")
-                if type.__name__ in ('KeyboardInterrupt') and self._active:
-                    self.set_status('terminated')
+                if type.__name__ in ("KeyboardInterrupt") and self._active:
+                    self.set_status("terminated")
                 else:
                     if traceback and self._active:
                         self.log_event(f"Traceback: {traceback}")
-                        self.set_status('failed')
-        
-        if (_non_zero := self.executor.exit_status):
-            logger.error(f"Simvue process executor terminated with non-zero exit status {_non_zero}")
+                        self.set_status("failed")
+        if self._worker:
+            self._worker.join()
+
+        if _non_zero := self.executor.exit_status:
+            logger.error(
+                f"Simvue process executor terminated with non-zero exit status {_non_zero}"
+            )
             sys.exit(_non_zero)
 
     def _check_token(self):
         """
         Check if token is valid
         """
-        if self._mode == 'online' and tm.time() - get_expiry(self._config.server.token) > 0:
-            self._error('token has expired or is invalid')
+        if (
+            self._mode == "online"
+            and tm.time() - get_expiry(self._config.server.token) > 0
+        ):
+            self._error("token has expired or is invalid")
 
     def _start(self, reconnect=False):
         """
         Start a run
         """
-        if self._mode == 'disabled':
+        if self._mode == "disabled":
             return True
-        
-        if self._mode != 'offline':
-            self._uuid = 'notused'
-            
-        logger.debug('Starting run')
+
+        if self._mode != "offline":
+            self._uuid = "notused"
+
+        logger.debug("Starting run")
 
         self._check_token()
 
-        data = {'status': self._status}
-        data['id'] = self._id
+        data = {"status": self._status}
 
         if reconnect:
-            data['system'] = get_system()
+            data["system"] = get_system()
 
             if not self._simvue.update(data):
                 return False
@@ -272,17 +291,19 @@ class Run:
         self._metrics_queue = multiprocessing.Manager().Queue(maxsize=self._queue_size)
         self._events_queue = multiprocessing.Manager().Queue(maxsize=self._queue_size)
         self._shutdown_event = multiprocessing.Manager().Event()
-        self._worker = Worker(self._metrics_queue,
-                              self._events_queue,
-                              self._shutdown_event,
-                              self._uuid,
-                              self._name,
-                              self._id,
-                              self._config.server.url,
-                              self._headers,
-                              self._mode,
-                              self._pid,
-                              self._resources_metrics_interval)
+        self._worker = Worker(
+            self._metrics_queue,
+            self._events_queue,
+            self._shutdown_event,
+            self._uuid,
+            self._name,
+            self._id,
+            self._config.server.url,
+            self._headers,
+            self._mode,
+            self._pid,
+            self._resources_metrics_interval,
+        )
 
         if multiprocessing.current_process()._parent_pid is None:
             self._worker.start()
@@ -298,7 +319,16 @@ class Run:
         else:
             logger.error(message)
 
-    def init(self, name=None, metadata={}, tags=[], description=None, folder='/', running=True, ttl=-1):
+    def init(
+        self,
+        name=None,
+        metadata={},
+        tags=[],
+        description=None,
+        folder="/",
+        running=True,
+        ttl=-1,
+    ):
         """
         Initialise a run
         """
@@ -306,46 +336,48 @@ class Run:
         tags = tags or self._config.run.tags
         folder = folder or self._config.run.folder
 
-        if self._mode not in ('online', 'offline', 'disabled'):
-            self._error('invalid mode specified, must be online, offline or disabled')
+        if self._mode not in ("online", "offline", "disabled"):
+            self._error("invalid mode specified, must be online, offline or disabled")
 
-        if self._mode == 'disabled':
+        if self._mode == "disabled":
             return True
 
-        if not self._config.server.token or not self._config.run.description:
-            self._error('Unable to get URL and token from environment variables or config file')
+        if not self._config.server.token or not self._config.server.url:
+            self._error(
+                "Unable to get URL and token from environment variables or config file"
+            )
 
         if name:
-            if not re.match(r'^[a-zA-Z0-9\-\_\s\/\.:]+$', name):
-                self._error('specified name is invalid')
+            if not re.match(r"^[a-zA-Z0-9\-\_\s\/\.:]+$", name):
+                self._error("specified name is invalid")
 
         self._name = name
 
         if running:
-            self._status = 'running'
+            self._status = "running"
         else:
-            self._status = 'created'
+            self._status = "created"
 
-        data = {'metadata': metadata,
-                'tags': tags,
-                'system': {'cpu': {},
-                           'gpu': {},
-                           'platform': {}},
-                'status': self._status,
-                'ttl': ttl}
+        data = {
+            "metadata": metadata,
+            "tags": tags,
+            "system": {"cpu": {}, "gpu": {}, "platform": {}},
+            "status": self._status,
+            "ttl": ttl,
+        }
 
         if name:
-            data['name'] = name
+            data["name"] = name
 
         if description:
-            data['description'] = description
+            data["description"] = description
 
-        data['folder'] = folder
+        data["folder"] = folder
 
-        if self._status == 'running':
-            data['system'] = get_system()
-        elif self._status == 'created':
-            del data['system']
+        if self._status == "running":
+            data["system"] = get_system()
+        elif self._status == "created":
+            del data["system"]
 
         self._check_token()
 
@@ -355,7 +387,9 @@ class Run:
         except ValidationError as err:
             self._error(err)
 
-        self._simvue = Simvue(self._name, self._uuid, self._mode, self._config, self._suppress_errors)
+        self._simvue = Simvue(
+            self._name, self._uuid, self._mode, self._config, self._suppress_errors
+        )
         name, self._id = self._simvue.create_run(data)
 
         if not name:
@@ -363,25 +397,33 @@ class Run:
         elif name is not True:
             self._name = name
 
-        if self._status == 'running':
+        if self._status == "running":
             self._start()
 
-        if self._mode == 'online':
-            print_nice(f'Run {self._name} created')
-            print_nice(f'Monitor in the UI at {self._url}/dashboard/runs/run/{self._id}')
+        if self._mode == "online":
+            click.secho(f"[simvue] Run {self._name} created", bold=True, fg="green")
+            click.secho(
+                "[simvue] Monitor in the UI at "
+                f"{self._config.server.url}/dashboard/runs/run/{self._id}",
+                bold=True,
+                fg="green",
+            )
 
         return True
 
-    def add_process(self,
+    def add_process(
+        self,
         identifier: str,
         *cmd_args,
-        executable: typing.Optional[str]= None,
-        script: typing.Optional[str]= None,
-        input_file: typing.Optional[str]= None,
+        executable: typing.Optional[str] = None,
+        script: typing.Optional[str] = None,
+        input_file: typing.Optional[str] = None,
         print_stdout: bool = False,
-        completion_callback: typing.Optional[typing.Callable[[int, int, str], None]]=None,
-        env: typing.Optional[typing.Dict[str, str]]=None,
-        **cmd_kwargs
+        completion_callback: typing.Optional[
+            typing.Callable[[int, int, str], None]
+        ] = None,
+        env: typing.Optional[typing.Dict[str, str]] = None,
+        **cmd_kwargs,
     ) -> None:
         """Add a process to be executed to the executor.
 
@@ -473,9 +515,9 @@ class Run:
             print_stdout=print_stdout,
             completion_callback=completion_callback,
             env=env,
-            **cmd_kwargs
+            **cmd_kwargs,
         )
-    
+
     def kill_process(self, process_id: str) -> None:
         """Kill a running process by ID
 
@@ -520,14 +562,16 @@ class Run:
         """
         Reconnect to a run in the created state
         """
-        if self._mode == 'disabled':
+        if self._mode == "disabled":
             return True
 
-        self._status = 'running'
+        self._status = "running"
         self._uuid = uid
 
         self._id = run_id
-        self._simvue = Simvue(self._name, self._uuid, self._id, self._mode, self._config, self._suppress_errors)
+        self._simvue = Simvue(
+            self._name, self._id, self._mode, self._config, self._suppress_errors
+        )
         self._start(reconnect=True)
 
     def set_pid(self, pid):
@@ -536,36 +580,40 @@ class Run:
         """
         self._pid = pid
 
-    def config(self,
-               suppress_errors=False,
-               queue_blocking=False,
-               queue_size=QUEUE_SIZE,
-               disable_resources_metrics=False,
-               resources_metrics_interval=30,
-               storage_id=None):
+    def config(
+        self,
+        suppress_errors=False,
+        queue_blocking=False,
+        queue_size=QUEUE_SIZE,
+        disable_resources_metrics=False,
+        resources_metrics_interval=30,
+        storage_id=None,
+    ):
         """
         Optional configuration
         """
         if not isinstance(suppress_errors, bool):
-            self._error('suppress_errors must be boolean')
+            self._error("suppress_errors must be boolean")
         self._suppress_errors = suppress_errors
 
         if not isinstance(queue_blocking, bool):
-            self._error('queue_blocking must be boolean')
+            self._error("queue_blocking must be boolean")
         self._queue_blocking = queue_blocking
 
         if not isinstance(queue_size, int):
-            self._error('queue_size must be an integer')
+            self._error("queue_size must be an integer")
         self._queue_size = queue_size
 
         if not isinstance(disable_resources_metrics, bool):
-            self._error('disable_resources_metrics must be boolean')
+            self._error(
+                f"disable_resources_metrics must be boolean, but got '{disable_resources_metrics}'"
+            )
 
         if disable_resources_metrics:
             self._pid = None
 
         if not isinstance(resources_metrics_interval, int):
-            self._error('resources_metrics_interval must be an integer')
+            self._error("resources_metrics_interval must be an integer")
         self._resources_metrics_interval = resources_metrics_interval
 
         if storage_id:
@@ -575,7 +623,7 @@ class Run:
         """
         Add/update metadata
         """
-        if self._mode == 'disabled':
+        if self._mode == "disabled":
             return True
 
         if not self._uuid and not self._name:
@@ -583,10 +631,10 @@ class Run:
             return False
 
         if not isinstance(metadata, dict):
-            self._error('metadata must be a dict')
+            self._error("metadata must be a dict")
             return False
 
-        data = {'name': self._name, 'metadata': metadata}
+        data = {"metadata": metadata}
 
         if self._simvue.update(data):
             return True
@@ -597,15 +645,14 @@ class Run:
         """
         Add/update tags
         """
-        if self._mode == 'disabled':
+        if self._mode == "disabled":
             return True
 
         if not self._uuid and not self._name:
             self._error(INIT_MISSING)
             return False
 
-        data = {'tags': tags}
-        data['id'] = self._id
+        data = {"tags": tags}
 
         if self._simvue.update(data):
             return True
@@ -616,7 +663,7 @@ class Run:
         """
         Write event
         """
-        if self._mode == 'disabled':
+        if self._mode == "disabled":
             return True
 
         if not self._uuid and not self._name:
@@ -624,21 +671,21 @@ class Run:
             return False
 
         if not self._active:
-            self._error('Run is not active')
+            self._error("Run is not active")
             return False
 
-        if self._status != 'running':
-            self._error('Cannot log events when not in the running state')
+        if self._status != "running":
+            self._error("Cannot log events when not in the running state")
             return False
 
         data = {}
-        data['message'] = message
-        data['timestamp'] = datetime.datetime.utcnow().strftime('%Y-%m-%d %H:%M:%S.%f')
+        data["message"] = message
+        data["timestamp"] = datetime.datetime.utcnow().strftime("%Y-%m-%d %H:%M:%S.%f")
         if timestamp is not None:
             if validate_timestamp(timestamp):
-                data['timestamp'] = timestamp
+                data["timestamp"] = timestamp
             else:
-                self._error('Invalid timestamp format')
+                self._error("Invalid timestamp format")
                 return False
 
         try:
@@ -652,7 +699,7 @@ class Run:
         """
         Write metrics
         """
-        if self._mode == 'disabled':
+        if self._mode == "disabled":
             return True
 
         if not self._uuid and not self._name:
@@ -660,34 +707,34 @@ class Run:
             return False
 
         if not self._active:
-            self._error('Run is not active')
+            self._error("Run is not active")
             return False
 
-        if self._status != 'running':
-            self._error('Cannot log metrics when not in the running state')
+        if self._status != "running":
+            self._error("Cannot log metrics when not in the running state")
             return False
 
         if not isinstance(metrics, dict) and not self._suppress_errors:
-            self._error('Metrics must be a dict')
+            self._error("Metrics must be a dict")
             return False
 
         data = {}
-        data['values'] = metrics
-        data['time'] = tm.time() - self._start_time
+        data["values"] = metrics
+        data["time"] = tm.time() - self._start_time
         if time is not None:
-            data['time'] = time
-        data['timestamp'] = datetime.datetime.utcnow().strftime('%Y-%m-%d %H:%M:%S.%f')
+            data["time"] = time
+        data["timestamp"] = datetime.datetime.utcnow().strftime("%Y-%m-%d %H:%M:%S.%f")
         if timestamp is not None:
             if validate_timestamp(timestamp):
-                data['timestamp'] = timestamp
+                data["timestamp"] = timestamp
             else:
-                self._error('Invalid timestamp format')
+                self._error("Invalid timestamp format")
                 return False
 
         if step is None:
-            data['step'] = self._step
+            data["step"] = self._step
         else:
-            data['step'] = step
+            data["step"] = step
 
         self._step += 1
 
@@ -698,18 +745,26 @@ class Run:
 
         return True
 
-    def save(self, filename, category, filetype=None, preserve_path=False, name=None, allow_pickle=False):
+    def save(
+        self,
+        filename,
+        category,
+        filetype=None,
+        preserve_path=False,
+        name=None,
+        allow_pickle=False,
+    ):
         """
         Upload file or object
         """
-        if self._mode == 'disabled':
+        if self._mode == "disabled":
             return True
 
         if not self._uuid and not self._name:
             self._error(INIT_MISSING)
             return False
 
-        if self._status == 'created' and category == 'output':
+        if self._status == "created" and category == "output":
             self._error("Cannot upload output files for runs in the created state")
             return False
 
@@ -722,36 +777,42 @@ class Run:
                 is_file = True
 
         if filetype:
-            mimetypes_valid = ['application/vnd.plotly.v1+json']
+            mimetypes_valid = ["application/vnd.plotly.v1+json"]
             mimetypes.init()
             for _, value in mimetypes.types_map.items():
                 mimetypes_valid.append(value)
 
             if filetype not in mimetypes_valid:
-                self._error('Invalid MIME type specified')
+                self._error("Invalid MIME type specified")
                 return False
 
         data = {}
         if preserve_path:
-            data['name'] = filename
-            if data['name'].startswith('./'):
-                data['name'] = data['name'][2:]
+            data["name"] = filename
+            if data["name"].startswith("./"):
+                data["name"] = data["name"][2:]
         elif is_file:
-            data['name'] = os.path.basename(filename)
+            data["name"] = os.path.basename(filename)
 
         if name:
-            data['name'] = name
+            data["name"] = name
 
-        data['run'] = self._name
-        data['category'] = category
+        data["run"] = self._name
+        data["category"] = category
 
         if is_file:
-            data['size'] = os.path.getsize(filename)
-            data['originalPath'] = os.path.abspath(os.path.expanduser(os.path.expandvars(filename)))
-            data['checksum'] = calculate_sha256(filename, is_file)
+            data["size"] = os.path.getsize(filename)
+            data["originalPath"] = os.path.abspath(
+                os.path.expanduser(os.path.expandvars(filename))
+            )
+            data["checksum"] = calculate_sha256(filename, is_file)
 
-            if data['size'] == 0:
-                print('WARNING: saving zero-sized files not currently supported')
+            if data["size"] == 0:
+                click.secho(
+                    "WARNING: saving zero-sized files not currently supported",
+                    bold=True,
+                    fg="yellow",
+                )
                 return True
 
         # Determine mimetype
@@ -760,23 +821,25 @@ class Run:
             mimetypes.init()
             mimetype = mimetypes.guess_type(filename)[0]
             if not mimetype:
-                mimetype = 'application/octet-stream'
+                mimetype = "application/octet-stream"
         elif is_file:
             mimetype = filetype
 
         if mimetype:
-            data['type'] = mimetype
+            data["type"] = mimetype
 
         if not is_file:
-            data['pickled'], data['type'] = Serializer().serialize(filename, allow_pickle)
-            if not data['type'] and not allow_pickle:
-                self._error('Unable to save Python object, set allow_pickle to True')
-            data['checksum'] = calculate_sha256(data['pickled'], False)
-            data['originalPath'] = ''
-            data['size'] = sys.getsizeof(data['pickled'])
+            data["pickled"], data["type"] = Serializer().serialize(
+                filename, allow_pickle
+            )
+            if not data["type"] and not allow_pickle:
+                self._error("Unable to save Python object, set allow_pickle to True")
+            data["checksum"] = calculate_sha256(data["pickled"], False)
+            data["originalPath"] = ""
+            data["size"] = sys.getsizeof(data["pickled"])
 
         if self._storage_id:
-            data['storage'] = self._storage_id
+            data["storage"] = self._storage_id
 
         # Register file
         if not self._simvue.save_file(data):
@@ -788,7 +851,7 @@ class Run:
         """
         Upload a whole directory
         """
-        if self._mode == 'disabled':
+        if self._mode == "disabled":
             return True
 
         if not self._uuid and not self._name:
@@ -806,7 +869,7 @@ class Run:
                 mimetypes_valid.append(value)
 
             if filetype not in mimetypes_valid:
-                self._error('Invalid MIME type specified')
+                self._error("Invalid MIME type specified")
                 return False
 
         for filename in walk_through_files(directory):
@@ -819,7 +882,7 @@ class Run:
         """
         Save the list of files and/or directories
         """
-        if self._mode == 'disabled':
+        if self._mode == "disabled":
             return True
 
         for item in items:
@@ -834,7 +897,7 @@ class Run:
         """
         Set run status
         """
-        if self._mode == 'disabled':
+        if self._mode == "disabled":
             return True
 
         if not self._uuid and not self._name:
@@ -842,13 +905,13 @@ class Run:
             return False
 
         if not self._active:
-            self._error('Run is not active')
+            self._error("Run is not active")
             return False
 
-        if status not in ('completed', 'failed', 'terminated'):
-            self._error('invalid status')
+        if status not in ("completed", "failed", "terminated"):
+            self._error("invalid status")
 
-        data = {'name': self._name, 'status': status}
+        data = {"name": self._name, "status": status}
         self._status = status
 
         if self._simvue.update(data):
@@ -860,7 +923,7 @@ class Run:
         """f
         Close the run
         """
-        if self._mode == 'disabled':
+        if self._mode == "disabled":
             return True
 
         if not self._uuid and not self._name:
@@ -868,11 +931,11 @@ class Run:
             return False
 
         if not self._active:
-            self._error('Run is not active')
+            self._error("Run is not active")
             return False
-   
-        if self._status != 'failed':
-            self.set_status('completed')
+
+        if self._status != "failed":
+            self.set_status("completed")
 
         self._shutdown_event.set()
 
@@ -880,7 +943,7 @@ class Run:
         """
         Add metadata to the specified folder
         """
-        if self._mode == 'disabled':
+        if self._mode == "disabled":
             return True
 
         if not self._uuid and not self._name:
@@ -888,36 +951,34 @@ class Run:
             return False
 
         if not self._active:
-            self._error('Run is not active')
+            self._error("Run is not active")
             return False
 
         if not isinstance(metadata, dict):
-            self._error('metadata must be a dict')
+            self._error("metadata must be a dict")
             return False
 
         if not isinstance(tags, list):
-            self._error('tags must be a list')
+            self._error("tags must be a list")
             return False
 
-        data = {'path': path}
+        data = {"path": path}
 
         if metadata:
-            data['metadata'] = metadata
+            data["metadata"] = metadata
 
         if tags:
-            data['tags'] = tags
+            data["tags"] = tags
 
         if description:
-            data['description'] = description
+            data["description"] = description
 
         if self._simvue.set_folder_details(data):
             return True
 
         return False
 
-    def add_alerts(self,
-                   ids=None,
-                   names=None):
+    def add_alerts(self, ids=None, names=None):
         """
         Add one or more existing alerts by name or id
         """
@@ -928,38 +989,40 @@ class Run:
             alerts = self._simvue.list_alerts()
             if alerts:
                 for alert in alerts:
-                    if alert['name'] in names:
-                        ids.append(alert['id'])
+                    if alert["name"] in names:
+                        ids.append(alert["id"])
             else:
-                self._error('No existing alerts')
+                self._error("No existing alerts")
                 return False
         elif not names and not ids:
-            self._error('Need to provide alert ids or alert names')
+            self._error("Need to provide alert ids or alert names")
             return False
 
-        data = {'id': self._id, 'alerts': ids}
+        data = {"id": self._id, "alerts": ids}
         if self._simvue.update(data):
             return True
 
         return False
 
-    def add_alert(self,
-                  name,
-                  source='metrics',
-                  frequency=None,
-                  window=5,
-                  rule=None,
-                  metric=None,
-                  threshold=None,
-                  range_low=None,
-                  range_high=None,
-                  notification='none',
-                  pattern=None):
+    def add_alert(
+        self,
+        name,
+        source="metrics",
+        frequency=None,
+        window=5,
+        rule=None,
+        metric=None,
+        threshold=None,
+        range_low=None,
+        range_high=None,
+        notification="none",
+        pattern=None,
+    ):
         """
         Creates an alert with the specified name (if it doesn't exist)
         and applies it to the current run
         """
-        if self._mode == 'disabled':
+        if self._mode == "disabled":
             return True
 
         if not self._uuid and not self._name:
@@ -967,70 +1030,81 @@ class Run:
             return False
 
         if rule:
-            if rule not in ('is below', 'is above', 'is outside range', 'is inside range'):
-                self._error('alert rule invalid')
+            if rule not in (
+                "is below",
+                "is above",
+                "is outside range",
+                "is inside range",
+            ):
+                self._error("alert rule invalid")
                 return False
 
-        if rule in ('is below', 'is above') and threshold is None:
-            self._error('threshold must be defined for the specified alert type')
+        if rule in ("is below", "is above") and threshold is None:
+            self._error("threshold must be defined for the specified alert type")
             return False
 
-        if rule in ('is outside range', 'is inside range') and (range_low is None or range_high is None):
-            self._error('range_low and range_high must be defined for the specified alert type')
+        if rule in ("is outside range", "is inside range") and (
+            range_low is None or range_high is None
+        ):
+            self._error(
+                "range_low and range_high must be defined for the specified alert type"
+            )
             return False
 
-        if notification not in ('none', 'email'):
-            self._error('notification must be either none or email')
+        if notification not in ("none", "email"):
+            self._error("notification must be either none or email")
             return False
 
-        if source not in ('metrics', 'events', 'user'):
-            self._error('source must be either metrics, events or user')
+        if source not in ("metrics", "events", "user"):
+            self._error("source must be either metrics, events or user")
             return False
 
         alert_definition = {}
 
-        if source == 'metrics':
-            alert_definition['metric'] = metric
-            alert_definition['window'] = window
-            alert_definition['rule'] = rule
+        if source == "metrics":
+            alert_definition["metric"] = metric
+            alert_definition["window"] = window
+            alert_definition["rule"] = rule
             if threshold is not None:
-                alert_definition['threshold'] = threshold
+                alert_definition["threshold"] = threshold
             elif range_low is not None and range_high is not None:
-                alert_definition['range_low'] = range_low
-                alert_definition['range_high'] = range_high
-        elif source == 'events':
-            alert_definition['pattern'] = pattern
+                alert_definition["range_low"] = range_low
+                alert_definition["range_high"] = range_high
+        elif source == "events":
+            alert_definition["pattern"] = pattern
         else:
             alert_definition = None
 
-        alert = {'name': name,
-                 'frequency': frequency,
-                 'notification': notification,
-                 'source': source,
-                 'alert': alert_definition}
+        alert = {
+            "name": name,
+            "frequency": frequency,
+            "notification": notification,
+            "source": source,
+            "alert": alert_definition,
+        }
 
         # Check if the alert already exists
         alert_id = None
         alerts = self._simvue.list_alerts()
         if alerts:
             for existing_alert in alerts:
-                if existing_alert['name'] == alert['name']:
+                if existing_alert["name"] == alert["name"]:
                     if compare_alerts(existing_alert, alert):
-                        alert_id = existing_alert['id']
-                        logger.info('Existing alert found with id: %s', alert_id)
+                        alert_id = existing_alert["id"]
+                        logger.info("Existing alert found with id: %s", alert_id)
 
         if not alert_id:
             response = self._simvue.add_alert(alert)
             if response:
-                if 'id' in response:
-                    alert_id = response['id']
+                if "id" in response:
+                    alert_id = response["id"]
             else:
-                self._error('unable to create alert')
+                self._error("unable to create alert")
                 return False
 
         if alert_id:
             # TODO: What if we keep existing alerts/add a new one later?
-            data = {'id': self._id, 'alerts': [alert_id]}
+            data = {"id": self._id, "alerts": [alert_id]}
             if self._simvue.update(data):
                 return True
 
@@ -1040,7 +1114,7 @@ class Run:
         """
         Set the state of an alert
         """
-        if state not in ('ok', 'critical'):
+        if state not in ("ok", "critical"):
             self._error('state must be either "ok" or "critical"')
             return False
 

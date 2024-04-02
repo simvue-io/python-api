@@ -1,10 +1,10 @@
-from colorama import Fore, Style, init
 import configparser
-import jwt
 import logging
 import os
 import pathlib
 import typing
+
+import jwt
 
 logger = logging.getLogger(__name__)
 
@@ -65,8 +65,8 @@ def check_extra(extra_name: str) -> typing.Callable:
                     )
             elif extra_name == "dataset":
                 try:
-                    import pandas
                     import numpy
+                    import pandas
                 except ImportError:
                     raise RuntimeError(
                         f"Dataset features require the '{extra_name}' extension to Simvue"
@@ -218,12 +218,3 @@ def prepare_for_api(data_in, all=True):
     if "pickledFile" in data and all:
         del data["pickledFile"]
     return data
-
-
-def print_nice(message):
-    """
-    Log message in a way which hopefully can be distiguished from the user's application
-    """
-    init(autoreset=True)
-    print(Fore.GREEN + Style.BRIGHT + f"[simvue] {message}")
-    return

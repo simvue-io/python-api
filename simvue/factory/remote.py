@@ -5,15 +5,9 @@ import typing
 if typing.TYPE_CHECKING:
     from simvue.config import SimvueConfiguration
 
-from simvue.api import post, put, get
-from simvue.utilities import (
-    get_auth,
-    get_expiry,
-    prepare_for_api,
-    skip_if_failed,
-)
+from simvue.api import get, post, put
 from simvue.factory.base import SimvueBaseClass
-
+from simvue.utilities import get_expiry, prepare_for_api, skip_if_failed
 from simvue.version import __version__
 
 logger = logging.getLogger(__name__)
@@ -27,7 +21,13 @@ class Remote(SimvueBaseClass):
     Class which interacts with Simvue REST API
     """
 
-    def __init__(self, name: str, uniq_id: str, config: SimvueConfiguration, suppress_errors: bool = True) -> None:
+    def __init__(
+        self,
+        name: str,
+        uniq_id: str,
+        config: "SimvueConfiguration",
+        suppress_errors: bool = True,
+    ) -> None:
         self._config = config
         self._headers: dict[str, str] = {
             "Authorization": f"Bearer {self._config.server.token}",
@@ -37,12 +37,35 @@ class Remote(SimvueBaseClass):
             "Content-Type": "application/msgpack"
         }
         super().__init__(name, uniq_id, suppress_errors)
+        self._id = uniq_id
 
     @skip_if_failed("_aborted", "_suppress_errors", (None, None))
     def create_run(self, data) -> tuple[typing.Optional[str], typing.Optional[int]]:
         """
         Create a run
         """
+        if data.get("folder") != "/":
+            logger.debug("Creating folder %s if necessary", data.get("folder"))
+            try:
+                response = post(
+                    f"{self._config.server.url}/api/folders",
+                    self._headers,
+                    {"path": data.get("folder")},
+                )
+            except Exception as err:
+                self._error(f"Exception creating folder: {str(err)}")
+                return (None, None)
+
+            logger.debug(
+                'Got status code %d when creating folder, with response: "%s"',
+                response.status_code,
+                response.text,
+            )
+
+            if response.status_code not in (200, 409):
+                self._error(f"Unable to create folder {data.get('folder')}")
+                return (None, None)
+
         logger.debug('Creating run with data: "%s"', data)
 
         try:
@@ -81,8 +104,6 @@ class Remote(SimvueBaseClass):
         """
         if self._id:
             data["id"] = self._id
-        
-        data.pop("name", None)
 
         logger.debug('Updating run with data: "%s"', data)
 
@@ -105,7 +126,9 @@ class Remote(SimvueBaseClass):
         return None
 
     @skip_if_failed("_aborted", "_suppress_errors", None)
-    def set_folder_details(self, data, run=None) -> typing.Optional[dict[str, typing.Any]]:
+    def set_folder_details(
+        self, data, run=None
+    ) -> typing.Optional[dict[str, typing.Any]]:
         """
         Set folder details
         """
@@ -113,7 +136,9 @@ class Remote(SimvueBaseClass):
             data["name"] = run
 
         try:
-            response = post(f"{self._config.server.url}/api/folders", self._headers, data)
+            response = post(
+                f"{self._config.server.url}/api/folders", self._headers, data
+            )
         except Exception as err:
             self._error(f"Exception creatig folder: {err}")
             return None
@@ -130,7 +155,9 @@ class Remote(SimvueBaseClass):
         logger.debug('Setting folder details with data: "%s"', data)
 
         try:
-            response = put(f"{self._config.server.url}/api/folders", self._headers, data)
+            response = put(
+                f"{self._config.server.url}/api/folders", self._headers, data
+            )
         except Exception as err:
             self._error(f"Exception setting folder details: {err}")
             return None
@@ -150,7 +177,9 @@ class Remote(SimvueBaseClass):
         return None
 
     @skip_if_failed("_aborted", "_suppress_errors", False)
-    def save_file(self, data: dict[str, typing.Any]) -> typing.Optional[dict[str, typing.Any]]:
+    def save_file(
+        self, data: dict[str, typing.Any]
+    ) -> typing.Optional[dict[str, typing.Any]]:
         """
         Save file
         """
@@ -159,7 +188,9 @@ class Remote(SimvueBaseClass):
         # Get presigned URL
         try:
             response = post(
-                f"{self._config.server.url}/api/artifacts", self._headers, prepare_for_api(data)
+                f"{self._config.server.url}/api/artifacts",
+                self._headers,
+                prepare_for_api(data),
             )
         except Exception as err:
             self._error(
@@ -271,7 +302,9 @@ class Remote(SimvueBaseClass):
         logger.debug('Adding alert with data: "%s"', data)
 
         try:
-            response = post(f"{self._config.server.url}/api/alerts", self._headers, data)
+            response = post(
+                f"{self._config.server.url}/api/alerts", self._headers, data
+            )
         except Exception as err:
             self._error(f"Got exception when creating an alert: {str(err)}")
             return False
@@ -289,13 +322,17 @@ class Remote(SimvueBaseClass):
         return False
 
     @skip_if_failed("_aborted", "_suppress_errors", {})
-    def set_alert_state(self, alert_id, status) -> typing.Optional[dict[str, typing.Any]]:
+    def set_alert_state(
+        self, alert_id, status
+    ) -> typing.Optional[dict[str, typing.Any]]:
         """
         Set alert state
         """
         data = {"run": self._id, "alert": alert_id, "status": status}
         try:
-            response = put(f"{self._config.server.url}/api/alerts/status", self._headers, data)
+            response = put(
+                f"{self._config.server.url}/api/alerts/status", self._headers, data
+            )
         except Exception as err:
             self._error(f"Got exception when setting alert state: {err}")
             return {}
@@ -322,16 +359,20 @@ class Remote(SimvueBaseClass):
         return []
 
     @skip_if_failed("_aborted", "_suppress_errors", None)
-    def send_metrics(self, data: dict[str, typing.Any]) -> typing.Optional[dict[str, typing.Any]]:
+    def send_metrics(
+        self, data: dict[str, typing.Any]
+    ) -> typing.Optional[dict[str, typing.Any]]:
         """
         Send metrics
         """
         logger.debug("Sending metrics")
 
-
         try:
             response = post(
-                f"{self._config.server.url}/api/metrics", self._headers_mp, data, is_json=False
+                f"{self._config.server.url}/api/metrics",
+                self._headers_mp,
+                data,
+                is_json=False,
             )
         except Exception as err:
             self._error(f"Exception sending metrics: {str(err)}")
@@ -346,7 +387,9 @@ class Remote(SimvueBaseClass):
         return None
 
     @skip_if_failed("_aborted", "_suppress_errors", None)
-    def send_event(self, data: dict[str, typing.Any]) -> typing.Optional[dict[str, typing.Any]]:
+    def send_event(
+        self, data: dict[str, typing.Any]
+    ) -> typing.Optional[dict[str, typing.Any]]:
         """
         Send events
         """
@@ -354,7 +397,10 @@ class Remote(SimvueBaseClass):
 
         try:
             response = post(
-                f"{self._config.server.url}/api/events", self._headers_mp, data, is_json=False
+                f"{self._config.server.url}/api/events",
+                self._headers_mp,
+                data,
+                is_json=False,
             )
         except Exception as err:
             self._error(f"Exception sending event: {str(err)}")
@@ -377,7 +423,9 @@ class Remote(SimvueBaseClass):
 
         try:
             response = put(
-                f"{self._config.server.url}/api/runs/heartbeat", self._headers, {"id": self._id}
+                f"{self._config.server.url}/api/runs/heartbeat",
+                self._headers,
+                {"id": self._id},
             )
         except Exception as err:
             self._error(f"Exception creating run: {str(err)}")
