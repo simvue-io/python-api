@@ -174,9 +174,14 @@ class Run:
 
             self.log_metrics(data)
 
-    def _create_online_callback(
+    def _create_callback(
         self,
     ) -> typing.Callable[[list[typing.Any], str, dict[str, typing.Any]], None]:
+        """Generates the relevant callback for posting of metrics and events
+
+        The generated callback is assigned to the dispatcher instance and is
+        executed on metrics and events objects held in a buffer.
+        """
 
         def _heartbeat(
             url: str = self._url,
