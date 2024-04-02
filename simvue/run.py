@@ -190,7 +190,6 @@ class Run:
             online: bool = self._mode == "online",
             sys_metric_record_callback=self._collect_sysinfo,
         ) -> None:
-
             # System metrics are appended to the queue at an interval
             # equivalent to the heartbeat interval
             sys_metric_record_callback()
@@ -298,7 +297,7 @@ class Run:
             termination_trigger=self._shutdown_event,
             queue_blocking=self._queue_blocking,
             queue_categories=["events", "metrics"],
-            callback=self._create_online_callback(),
+            callback=self._create_callback(),
             attributes={"last_heartbeat": 0},
         )
 
