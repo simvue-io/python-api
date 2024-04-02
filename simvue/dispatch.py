@@ -28,6 +28,7 @@ class Dispatcher(threading.Thread):
     of each being executed in series. Items are added to a buffer which is handed
     to the callback.
     """
+
     def __init__(
         self,
         callback: typing.Callable[[list[typing.Any], str, dict[str, typing.Any]], None],
@@ -69,10 +70,15 @@ class Dispatcher(threading.Thread):
         self._max_read_rate = max_read_rate
         self._max_buffer_size = max_buffer_size
         self._send_timer = 0
-        self._queue_blocking = queue_blocking
+        self._queue_blocking = queue_blocking  # Does nothing
 
     def add_item(self, item: typing.Any, queue_label: str, blocking: bool) -> None:
         """Add an item to the specified queue with/without blocking"""
+        if self._termination_trigger.is_set():
+            raise RuntimeError(
+                f"Cannot append item '{item}' to queue '{queue_label}', "
+                "termination called."
+            )
         if queue_label not in self._queues:
             raise KeyError(f"No queue '{queue_label}' found")
         self._queues[queue_label].put(item, block=blocking)
@@ -83,16 +89,13 @@ class Dispatcher(threading.Thread):
         return all(queue.empty() for queue in self._queues.values())
 
     @property
-    def can_send(self) -> bool:
+    def _can_send(self) -> bool:
         """Returns if time constraints are satisfied, hence the callback can be executed"""
-        if time.time() - self._send_timer >= 1 / self._max_read_rate:
-            self._send_timer = time.time()
-            return True
-        return False
+        return time.time() - self._send_timer >= 1 / self._max_read_rate
 
     def _create_buffer(self, queue_label: str) -> list[typing.Any]:
         """Assemble queue items into a list as an argument to the callback
-        
+
         The length of the buffer is constrained.
         """
         _buffer: list[typing.Any] = []
@@ -109,7 +112,7 @@ class Dispatcher(threading.Thread):
 
     def run(self) -> None:
         """Execute the dispatcher action
-        
+
         The action consists of a loop in which each queue is processed to
         create a buffer with number of entries equal or less than the maximum
         size. These are then passed into the assigned callback.
@@ -118,13 +121,15 @@ class Dispatcher(threading.Thread):
         the loop will continue after termination until all queues are empty,
         or abort immediately.
         """
-        while not self._termination_trigger.is_set():
+        while not self._termination_trigger.is_set() or not self.empty:
             time.sleep(0.1)
-            if not self.can_send:
+            if not self._can_send:
                 continue
 
             for queue_label in self._queues:
-                if not (_buffer := self._create_buffer(queue_label)):
-                    continue
-                logger.debug(f"Executing '{queue_label}' callback on buffer {_buffer}")
-                self._callback(_buffer, queue_label, self._attributes)
+                if _buffer := self._create_buffer(queue_label):
+                    logger.debug(
+                        f"Executing '{queue_label}' callback on buffer {_buffer}"
+                    )
+                    self._callback(_buffer, queue_label, self._attributes)
+            self._send_timer = time.time()

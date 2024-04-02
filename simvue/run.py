@@ -287,8 +287,6 @@ class Run:
 
         self._parent_process = psutil.Process(self._pid) if self._pid else None
 
-        self._metrics_queue = multiprocessing.Manager().Queue(maxsize=self._queue_size)
-        self._events_queue = multiprocessing.Manager().Queue(maxsize=self._queue_size)
         self._shutdown_event = multiprocessing.Manager().Event()
 
         self._dispatcher = Dispatcher(

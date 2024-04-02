@@ -3,6 +3,8 @@ import string
 import typing
 import time
 from threading import Event, Thread
+from queue import Queue
+
 
 from simvue.dispatch import Dispatcher
 
@@ -62,8 +64,10 @@ def test_dispatcher(overload_buffer: bool, multiple: bool, append_during_dispatc
 
     event.set()
 
+    dispatcher.join()
+
     for variable in variables:
-        assert check_dict[variable]["counter"] >= 2 if overload_buffer else 1, f"Check of counter for dispatcher '{variable}' failed with {check_dict[variable]['counter']} = {0}"
+        assert check_dict[variable]["counter"] >= 2 if overload_buffer else 1, f"Check of counter for dispatcher '{variable}' failed with count = {check_dict[variable]['counter']}"
     assert time.time() - start_time < time_threshold
 
 
@@ -76,41 +80,89 @@ def test_nested_dispatch(multi_queue: bool) -> None:
     max_read_rate: float = 0.2
     variable: str | list[str] = "demo" if not multi_queue else ["events", "metrics"]
 
+    result_queue = Queue()
+
     event = Event()
     def callback(___: list[typing.Any], _: str, attributes: dict[str, typing.Any], check_dict=check_dict) -> None:
         check_dict[attributes["index"]]["counter"] += 1
-    def _main(index, dispatch_callback=callback, term_event=event, variable=variable) -> None:
+    def _main(res_queue, index, dispatch_callback=callback, term_event=event, variable=variable) -> bool:
+
+        term_event = Event()
         dispatcher = Dispatcher(
             dispatch_callback,
             [variable] if isinstance(variable, str) else variable,
             term_event,
             max_buffer_size=buffer_size,
             max_read_rate=max_read_rate,
-            attributes={"index": index}
+            attributes={"index": index},
         )
 
         dispatcher.start()
 
-        for i in range(n_elements):
-            if isinstance(variable, str):
-                dispatcher.add_item({string.ascii_uppercase[i % 26]: i}, variable, False)
-            else:
-                for var in variable:
-                    dispatcher.add_item({string.ascii_uppercase[i % 26]: i}, var, False)
+        try:
+            for i in range(n_elements):
+                if isinstance(variable, str):
+                    dispatcher.add_item({string.ascii_uppercase[i % 26]: i}, variable, False)
+                else:
+                    for var in variable:
+                        dispatcher.add_item({string.ascii_uppercase[i % 26]: i}, var, False)
+        except(RuntimeError):
+            res_queue.put("AARGHGHGHGHAHSHGHSDHFSEDHSE")
+        
+        time.sleep(0.1)
 
         while not dispatcher.empty:
             time.sleep(0.1)
 
         term_event.set()
 
+        print("awaiting dispatcher join")
+
+        dispatcher.join()
+
+        print("thread DONE")
+
+        return True
+
     threads = []
 
-    for i in range(10):
-        _thread = Thread(target=_main, args=(i,))
+    for i in range(3):
+        _thread = Thread(target=_main, args=(result_queue, i,))
         _thread.start()
         threads.append(_thread)
     
-    for thread in threads:
-        thread.join()
+    for i in range(3):
+        threads[i].join()
 
-        assert check_dict[i]["counter"] >= 2, f"Check of counter for dispatcher '{variable}' failed with {check_dict[i]['counter']} = {0}"
+        print(f"finishec {i}")
+
+    if not result_queue.empty():
+        assert False
+
+    for i in range(3):
+        assert check_dict[i]["counter"] >= 2, f"Check of counter for dispatcher '{variable}' failed with count = {check_dict[i]['counter']}"
+
+def test_error_adding_item_after_termination() -> None:
+    trigger = Event()
+
+    dispatcher = Dispatcher(lambda *_: None, ["q"], trigger, False, 5, 2)
+    dispatcher.start()
+
+    trigger.set()
+
+    with pytest.raises(RuntimeError):
+        dispatcher.add_item("blah", "q", False)
+
+def test_error_attempting_to_use_non_existent_queue() -> None:
+    trigger = Event()
+    dispatcher = Dispatcher(lambda *_: None, ["q"], trigger, False, 5, 2)
+    dispatcher.start()
+
+    with pytest.raises(KeyError):
+        dispatcher.add_item("blah", "z", False)
+
+    trigger.set()
+
+    
+
+
