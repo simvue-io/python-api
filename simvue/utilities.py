@@ -1,9 +1,13 @@
 import configparser
+import datetime
+import hashlib
 import logging
 import os
 import typing
 
 import jwt
+
+CHECKSUM_BLOCK_SIZE = 4096
 
 logger = logging.getLogger(__name__)
 
@@ -181,3 +185,58 @@ def prepare_for_api(data_in, all=True):
     if "pickledFile" in data and all:
         del data["pickledFile"]
     return data
+
+
+def calculate_sha256(filename: str, is_file: bool) -> typing.Optional[str]:
+    """
+    Calculate sha256 checksum of the specified file
+    """
+    sha256_hash = hashlib.sha256()
+    if is_file:
+        try:
+            with open(filename, "rb") as fd:
+                for byte_block in iter(lambda: fd.read(CHECKSUM_BLOCK_SIZE), b""):
+                    sha256_hash.update(byte_block)
+                return sha256_hash.hexdigest()
+        except Exception:
+            return None
+
+    if isinstance(filename, str):
+        sha256_hash.update(bytes(filename, "utf-8"))
+    else:
+        sha256_hash.update(bytes(filename))
+    return sha256_hash.hexdigest()
+
+
+def validate_timestamp(timestamp):
+    """
+    Validate a user-provided timestamp
+    """
+    try:
+        datetime.datetime.strptime(timestamp, "%Y-%m-%d %H:%M:%S.%f")
+    except ValueError:
+        return False
+
+    return True
+
+
+def compare_alerts(first, second):
+    """ """
+    for key in ("name", "description", "source", "frequency", "notification"):
+        if key in first and key in second:
+            if not first[key]:
+                continue
+
+            if first[key] != second[key]:
+                return False
+
+    if "alerts" in first and "alerts" in second:
+        for key in ("rule", "window", "metric", "threshold", "range_low", "range_high"):
+            if key in first["alerts"] and key in second["alerts"]:
+                if not first[key]:
+                    continue
+
+                if first["alerts"][key] != second["alerts"]["key"]:
+                    return False
+
+    return True
