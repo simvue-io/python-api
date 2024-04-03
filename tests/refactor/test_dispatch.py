@@ -8,6 +8,8 @@ from queue import Queue
 
 from simvue.factory.dispatch.queued import QueuedDispatcher
 
+from simvue.factory.dispatch.prompt import PromptDispatcher
+
 # FIXME: Update the layout of these tests
 
 @pytest.mark.dispatch
@@ -157,6 +159,56 @@ def test_queued_dispatch_error_attempting_to_use_non_existent_queue() -> None:
 
     trigger.set()
 
-    
+
+@pytest.mark.dispatch
+@pytest.mark.parametrize(
+    "append_during_dispatch", (True, False),
+    ids=("pre_append", "append")
+)
+@pytest.mark.parametrize("multiple", (True, False), ids=("multiple", "single"))
+def test_prompt_dispatcher(multiple: bool, append_during_dispatch: bool) -> None:
+    n_elements: int = 10
+    time_threshold: float = 1
+
+    start_time = time.time()
+
+    check_dict = {}
+
+    variables = ["lemons"]
+
+    if multiple:
+        variables.append("limes")
+
+    event = Event()
+    dispatchers: list[PromptDispatcher] = []
+
+    for variable in variables:
+        check_dict[variable] = {"counter": 0}
+        def callback(___: list[typing.Any], _: str, __: dict[str, typing.Any], args=check_dict, var=variable) -> None:
+            args[var]["counter"] += 1
+        dispatchers.append(
+            PromptDispatcher(callback, [variable], event)
+        )
+
+    if not append_during_dispatch:
+        for i in range(n_elements):
+            for variable, dispatcher in zip(variables, dispatchers):  
+                dispatcher.add_item({string.ascii_uppercase[i % 26]: i}, variable)
+
+    for dispatcher in dispatchers:
+        dispatcher.start()
+
+    if append_during_dispatch:
+        for i in range(n_elements):
+            for variable, dispatcher in zip(variables, dispatchers):  
+                dispatcher.add_item({string.ascii_uppercase[i % 26]: i}, variable)
+
+    event.set()
+
+    dispatcher.join()
+
+    for variable in variables:
+        assert check_dict[variable]["counter"] >= 1, f"Check of counter for dispatcher '{variable}' failed with count = {check_dict[variable]['counter']}"
+    assert time.time() - start_time < time_threshold
 
 
