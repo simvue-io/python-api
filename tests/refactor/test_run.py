@@ -12,7 +12,7 @@ import simvue.client as sv_cl
 
 
 @pytest.mark.run
-@pytest.mark.parametrize("overload_buffer", (True, False))
+@pytest.mark.parametrize("overload_buffer", (True, False), ids=("overload", "normal"))
 def test_log_metrics(
     create_plain_run: tuple[sv_run.Run, dict], overload_buffer: bool, setup_logging, mocker
 ) -> None:
@@ -20,12 +20,16 @@ def test_log_metrics(
     METRICS = {"a": 10, "b": 1.2}
     run, run_data = create_plain_run
     run.update_tags(["simvue_client_unit_tests", "test_log_metrics"])
+
+    # Speed up the read rate for this test
+    run._dispatcher._max_read_rate *= 10
+
     if overload_buffer:
         for i in range(run._dispatcher._max_buffer_size * 3):
             run.log_metrics({key: i for key in METRICS.keys()})
     else:
         run.log_metrics(METRICS)
-    time.sleep(2.0 if not overload_buffer else 3.0)
+    time.sleep(1.0 if not overload_buffer else 2.0)
     run.close()
     client = sv_cl.Client()
     _data = client.get_metrics_multiple(
