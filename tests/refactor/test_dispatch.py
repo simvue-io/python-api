@@ -116,11 +116,7 @@ def test_nested_dispatch(multi_queue: bool) -> None:
 
         term_event.set()
 
-        print("awaiting dispatcher join")
-
         dispatcher.join()
-
-        print("thread DONE")
 
         return True
 
@@ -133,8 +129,6 @@ def test_nested_dispatch(multi_queue: bool) -> None:
     
     for i in range(3):
         threads[i].join()
-
-        print(f"finishec {i}")
 
     if not result_queue.empty():
         assert False
