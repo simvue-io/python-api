@@ -3,7 +3,7 @@ import time
 import typing
 
 from simvue.api import get, post, put
-from simvue.factory.base import SimvueBaseClass
+from simvue.factory.proxy.base import SimvueBaseClass
 from simvue.utilities import get_auth, get_expiry, prepare_for_api, skip_if_failed
 from simvue.version import __version__
 

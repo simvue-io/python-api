@@ -27,9 +27,9 @@ from pydantic import ValidationError
 
 import simvue.api as sv_api
 
-from .dispatch import Dispatcher
+from .factory.dispatch import Dispatcher
 from .executor import Executor
-from .factory import Simvue
+from .factory.proxy import Simvue
 from .metrics import get_gpu_metrics, get_process_cpu, get_process_memory
 from .models import RunInput
 from .serialization import Serializer
@@ -66,6 +66,7 @@ class Run:
     def __init__(self, mode="online"):
         self._uuid = str(uuid.uuid4())
         self._mode = mode
+        self._dispatch_mode = "queued"
         self._name = None
         self._executor = Executor(self)
         self._dispatcher = None
@@ -302,9 +303,10 @@ class Run:
         self._shutdown_event = multiprocessing.Manager().Event()
 
         self._dispatcher = Dispatcher(
+            mode=self._dispatch_mode,
+            object_types=["metrics", "events"],
             termination_trigger=self._shutdown_event,
             queue_blocking=self._queue_blocking,
-            queue_categories=["events", "metrics"],
             callback=self._create_callback(),
             attributes={"last_heartbeat": 0},
         )

@@ -6,7 +6,7 @@ from threading import Event, Thread
 from queue import Queue
 
 
-from simvue.dispatch import Dispatcher
+from simvue.factory.dispatch.queued import QueuedDispatcher
 
 # FIXME: Update the layout of these tests
 
@@ -20,7 +20,7 @@ from simvue.dispatch import Dispatcher
     ids=("pre_append", "append")
 )
 @pytest.mark.parametrize("multiple", (True, False), ids=("multiple", "single"))
-def test_dispatcher(overload_buffer: bool, multiple: bool, append_during_dispatch: bool) -> None:
+def test_queued_dispatcher(overload_buffer: bool, multiple: bool, append_during_dispatch: bool) -> None:
     buffer_size: int = 10
     n_elements: int = buffer_size - 1 if not overload_buffer else 2 * buffer_size
     max_read_rate: float = 0.2
@@ -36,14 +36,14 @@ def test_dispatcher(overload_buffer: bool, multiple: bool, append_during_dispatc
         variables.append("limes")
 
     event = Event()
-    dispatchers: list[Dispatcher] = []
+    dispatchers: list[QueuedDispatcher] = []
 
     for variable in variables:
         check_dict[variable] = {"counter": 0}
         def callback(___: list[typing.Any], _: str, __: dict[str, typing.Any], args=check_dict, var=variable) -> None:
             args[var]["counter"] += 1
         dispatchers.append(
-            Dispatcher(callback, [variable], event, max_buffer_size=buffer_size, max_read_rate=max_read_rate)
+            QueuedDispatcher(callback, [variable], event, max_buffer_size=buffer_size, max_read_rate=max_read_rate)
         )
 
     if not append_during_dispatch:
@@ -73,7 +73,7 @@ def test_dispatcher(overload_buffer: bool, multiple: bool, append_during_dispatc
 
 @pytest.mark.dispatch
 @pytest.mark.parametrize("multi_queue", (True, False))
-def test_nested_dispatch(multi_queue: bool) -> None:
+def test_nested_queued_dispatch(multi_queue: bool) -> None:
     check_dict = [{"counter": 0} for _ in range(10)]
     buffer_size: int = 10
     n_elements: int = 2 * buffer_size
@@ -88,7 +88,7 @@ def test_nested_dispatch(multi_queue: bool) -> None:
     def _main(res_queue, index, dispatch_callback=callback, term_event=event, variable=variable) -> bool:
 
         term_event = Event()
-        dispatcher = Dispatcher(
+        dispatcher = QueuedDispatcher(
             dispatch_callback,
             [variable] if isinstance(variable, str) else variable,
             term_event,
@@ -136,10 +136,10 @@ def test_nested_dispatch(multi_queue: bool) -> None:
     for i in range(3):
         assert check_dict[i]["counter"] >= 2, f"Check of counter for dispatcher '{variable}' failed with count = {check_dict[i]['counter']}"
 
-def test_error_adding_item_after_termination() -> None:
+def test_queued_dispatch_error_adding_item_after_termination() -> None:
     trigger = Event()
 
-    dispatcher = Dispatcher(lambda *_: None, ["q"], trigger, False, 5, 2)
+    dispatcher = QueuedDispatcher(lambda *_: None, ["q"], trigger, False, 5, 2)
     dispatcher.start()
 
     trigger.set()
@@ -147,9 +147,9 @@ def test_error_adding_item_after_termination() -> None:
     with pytest.raises(RuntimeError):
         dispatcher.add_item("blah", "q", False)
 
-def test_error_attempting_to_use_non_existent_queue() -> None:
+def test_queued_dispatch_error_attempting_to_use_non_existent_queue() -> None:
     trigger = Event()
-    dispatcher = Dispatcher(lambda *_: None, ["q"], trigger, False, 5, 2)
+    dispatcher = QueuedDispatcher(lambda *_: None, ["q"], trigger, False, 5, 2)
     dispatcher.start()
 
     with pytest.raises(KeyError):

@@ -1,8 +1,8 @@
 """
-Dispatcher
-==========
+Queue Dispatcher
+================
 
-The Dispatcher provides a queue based system for execution of a callback on
+The QueueDispatcher provides a queue based system for execution of a callback on
 a list of parameters. The purpose of the class is to apply constraints to how
 often the callback can be executed, and the number of items it is called on.
 """
@@ -13,6 +13,8 @@ import threading
 import time
 import typing
 
+from .base import DispatcherBaseClass
+
 MAX_REQUESTS_PER_SECOND: float = 1.0
 MAX_BUFFER_SIZE: int = 16000
 QUEUE_SIZE = 10000
@@ -21,9 +23,9 @@ logger = logging.getLogger(__name__)
 logger.setLevel(logging.DEBUG)
 
 
-class Dispatcher(threading.Thread):
+class QueuedDispatcher(DispatcherBaseClass):
     """
-    The Dispatcher class enforces a maximum rate of execution for a given function
+    The QueueDispatcher class enforces a maximum rate of execution for a given function
     on items within a queue. Multiple queues can be defined with the dispatch
     of each being executed in series. Items are added to a buffer which is handed
     to the callback.
@@ -32,7 +34,7 @@ class Dispatcher(threading.Thread):
     def __init__(
         self,
         callback: typing.Callable[[list[typing.Any], str, dict[str, typing.Any]], None],
-        queue_categories: list[str],
+        object_types: list[str],
         termination_trigger: threading.Event,
         queue_blocking: bool = False,
         max_buffer_size: int = MAX_BUFFER_SIZE,
@@ -40,13 +42,13 @@ class Dispatcher(threading.Thread):
         attributes: dict[str, typing.Any] | None = None,
     ) -> None:
         """
-        Initialise a new dispatcher
+        Initialise a new queue based dispatcher
 
         Parameters
         ----------
         callback : Callable[[list[Any], str, dict[str, Any]], None]
             function to execute on queued items
-        queue_categories : list[str]
+        object_types : list[str]
             labels for each queue
         queue_blocking : bool
             whether to block queues during object to queue assignment.
@@ -61,27 +63,29 @@ class Dispatcher(threading.Thread):
         attributes : dict[str, Any]
             additional arguments to the callback function on execution
         """
-        super().__init__()
+        super().__init__(
+            callback=callback,
+            object_types=object_types,
+            termination_trigger=termination_trigger,
+            attributes=attributes,
+        )
 
-        self._termination_trigger = termination_trigger
-        self._attributes: dict[str, typing.Any] = attributes or {}
-        self._callback = callback
-        self._queues = {label: queue.Queue() for label in queue_categories}
+        self._queues = {label: queue.Queue() for label in object_types}
         self._max_read_rate = max_read_rate
         self._max_buffer_size = max_buffer_size
         self._send_timer = 0
         self._queue_blocking = queue_blocking  # Does nothing
 
-    def add_item(self, item: typing.Any, queue_label: str, blocking: bool) -> None:
+    def add_item(self, item: typing.Any, object_type: str, blocking: bool) -> None:
         """Add an item to the specified queue with/without blocking"""
         if self._termination_trigger.is_set():
             raise RuntimeError(
-                f"Cannot append item '{item}' to queue '{queue_label}', "
+                f"Cannot append item '{item}' to queue '{object_type}', "
                 "termination called."
             )
-        if queue_label not in self._queues:
-            raise KeyError(f"No queue '{queue_label}' found")
-        self._queues[queue_label].put(item, block=blocking)
+        if object_type not in self._queues:
+            raise KeyError(f"No queue '{object_type}' found")
+        self._queues[object_type].put(item, block=blocking)
 
     @property
     def empty(self) -> bool:
