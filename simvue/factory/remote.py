@@ -111,6 +111,7 @@ class Remote(SimvueBaseClass):
         )
 
         if response.status_code == 200:
+            print(self._name, self._id, response.status_code, response.json())
             return data
 
         self._error(f"Got status code {response.status_code} when updating run")

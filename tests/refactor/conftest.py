@@ -118,9 +118,12 @@ def setup_test_run(run: sv_run.Run, create_objects: bool):
         TEST_DATA["file_2"] = "test_attributes"
 
         with tempfile.NamedTemporaryFile(suffix=".py") as temp_f:
-            pathlib.Path(temp_f.name).touch()
-            run.save(temp_f.name, category="code", name="test_script")
-            TEST_DATA["file_3"] = "test_script"
+            with open(temp_f.name, "w") as out_f:
+                out_f.write(
+                    "print('Hello World!')"
+                )
+            run.save(temp_f.name, category="code", name="test_empty_file")
+            TEST_DATA["file_3"] = "test_empty_file"
 
     time.sleep(1.)
     return TEST_DATA

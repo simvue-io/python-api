@@ -183,6 +183,9 @@ class Run:
         executed on metrics and events objects held in a buffer.
         """
 
+        if not self._uuid:
+            raise RuntimeError("Expected unique identifier for run")
+
         def _heartbeat(
             url: str = self._url,
             headers: dict[str, str] = self._headers,
@@ -204,18 +207,23 @@ class Run:
             buffer: list[typing.Any],
             category: str,
             attributes: dict[str, typing.Any],
+            run_id=self._id,
+            uuid: str = self._uuid,
             heartbeat_callback=lambda *_: None if self._testing else _heartbeat,
         ) -> None:
-            if not os.path.exists((_directory := get_offline_directory())):
+            if not os.path.exists((_offline_directory := get_offline_directory())):
                 logger.error(
-                    f"Cannot write to offline directory '{_directory}', directory not found."
+                    f"Cannot write to offline directory '{_offline_directory}', directory not found."
                 )
                 return
+            _directory = os.path.join(_offline_directory, uuid)
+
             unique_id = time.time()
             filename = f"{_directory}/{category}-{unique_id}"
+            _data = {category: buffer, "run": run_id}
             try:
                 with open(filename, "w") as fh:
-                    json.dump(buffer, fh)
+                    json.dump(_data, fh)
             except Exception as err:
                 if self._suppress_errors:
                     logger.error(

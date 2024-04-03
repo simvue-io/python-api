@@ -422,9 +422,6 @@ class Client:
         response = requests.delete(
             f"{self._url}/api/folders/{folder_id}", headers=self._headers, params=params
         )
-        response = requests.delete(
-            f"{self._url}/api/folders/{folder_id}", headers=self._headers, params=params
-        )
 
         if response.status_code == 200:
             runs: list[dict] = response.json().get("runs", [])
@@ -602,7 +599,6 @@ class Client:
         contains: typing.Optional[str],
         out_path: str,
     ) -> list[dict[str, str]]:
-
         downloads: list[dict[str, str]] = []
 
         for item in request_response.json():
@@ -1015,7 +1011,6 @@ class Client:
 
             for name, entries in agg_data.items():
                 for item in entries:
-
                     data.append(
                         [
                             item[xaxis],

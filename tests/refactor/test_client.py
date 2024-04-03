@@ -181,9 +181,11 @@ def test_runs_deletion() -> None:
 
 
 @pytest.mark.dependency
-@pytest.mark.client(depends=PRE_DELETION_TESTS)
+@pytest.mark.client(depends=PRE_DELETION_TESTS + ["test_runs_deletion"])
 def test_folder_deletion() -> None:
-    test_data = json.load(open("test_attrs.json"))
+    test_data = json.load(open(data_file := "test_attrs.json"))
     client = svc.Client()
-    # Runs should already have been removed so expect zero length list
-    assert not len(client.delete_folder(test_data["folder"], remove_runs=True))
+    # This test is called last, all runs should have been deleted by the above
+    # test so this should be empty
+    assert len(client.delete_folder(test_data["folder"], remove_runs=True)) == 0
+    os.remove(data_file)
