@@ -3,6 +3,7 @@ import platform
 import socket
 import subprocess
 import sys
+import contextlib
 import typing
 
 
@@ -13,22 +14,20 @@ def get_cpu_info():
     model_name = ""
     arch = ""
 
-    try:
+    with contextlib.suppress(subprocess.CalledProcessError):
         info = subprocess.check_output("lscpu").decode().strip()
         for line in info.split("\n"):
             if "Model name" in line:
                 model_name = line.split(":")[1].strip()
             if "Architecture" in line:
                 arch = line.split(":")[1].strip()
-    except:
-        # TODO: Try /proc/cpuinfo
-        pass
+    # TODO: Try /proc/cpuinfo if process fails
 
     if arch == "":
         arch = platform.machine()
 
     if model_name == "":
-        try:
+        with contextlib.suppress(subprocess.CalledProcessError):
             info = (
                 subprocess.check_output(["sysctl", "machdep.cpu.brand_string"])
                 .decode()
@@ -36,8 +35,6 @@ def get_cpu_info():
             )
             if "machdep.cpu.brand_string:" in info:
                 model_name = info.split("machdep.cpu.brand_string: ")[1]
-        except:
-            pass
 
     return model_name, arch
 
@@ -52,7 +49,7 @@ def get_gpu_info():
         )
         lines = output.split(b"\n")
         tokens = lines[1].split(b", ")
-    except:
+    except subprocess.CalledProcessError:
         return {"name": "", "driver_version": ""}
 
     return {"name": tokens[0].decode(), "driver_version": tokens[1].decode()}
