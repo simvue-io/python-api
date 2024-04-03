@@ -126,7 +126,7 @@ def sender():
             .replace("/created", "")
         )
 
-        if os.path.isfile("f{current}/sent"):
+        if os.path.isfile(f"{current}/sent"):
             if status == "running":
                 remove_file(f"{current}/running")
             elif status == "completed":
