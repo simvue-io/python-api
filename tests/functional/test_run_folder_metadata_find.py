@@ -22,7 +22,7 @@ class TestRunFolderMetadataFind(unittest.TestCase):
                 found = True
         self.assertTrue(found)
 
-        runs = client.delete_folder(folder, runs=True)
+        client.delete_folder(folder, remove_runs=True)
 
         client = Client()
         with self.assertRaises(Exception) as context:

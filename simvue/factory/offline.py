@@ -37,7 +37,7 @@ class Offline(SimvueBaseClass):
         """
         if not os.path.isdir(os.path.dirname(filename)):
             self._error(
-                "Cannot write file '{filename}', parent directory does not exist"
+                f"Cannot write file '{filename}', parent directory does not exist"
             )
 
         try:

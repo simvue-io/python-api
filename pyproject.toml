@@ -35,8 +35,9 @@ simvue_sender = "simvue.bin.sender:run"
 pytest = "^8.0.0"
 pytest-dependency = "^0.6.0"
 ruff = "^0.3.2"
-pytest-cov = "^4.1.0"
+pytest-cov = ">=4.1,<6.0"
 pytest-xdist = "^3.5.0"
+pytest-mock = "^3.14.0"
 
 [build-system]
 requires = ["poetry-core"]
