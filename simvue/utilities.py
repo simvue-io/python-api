@@ -10,6 +10,7 @@ import typing
 import jwt
 
 CHECKSUM_BLOCK_SIZE = 4096
+EXTRAS: tuple[str, ...] = ("plot", "torch", "dataset")
 
 logger = logging.getLogger(__name__)
 
@@ -39,7 +40,7 @@ def check_extra(extra_name: str) -> typing.Callable:
                 raise RuntimeError(
                     f"Dataset features require the '{extra_name}' extension to Simvue"
                 )
-            elif extra_name:
+            elif extra_name not in EXTRAS:
                 raise RuntimeError(f"Unrecognised extra '{extra_name}'")
             return class_func(self, *args, **kwargs)
 
