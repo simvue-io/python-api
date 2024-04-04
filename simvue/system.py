@@ -2,7 +2,9 @@ import os
 import platform
 import socket
 import subprocess
+import shutil
 import sys
+import contextlib
 import typing
 
 
@@ -13,22 +15,21 @@ def get_cpu_info():
     model_name = ""
     arch = ""
 
-    try:
-        info = subprocess.check_output("lscpu").decode().strip()
-        for line in info.split("\n"):
-            if "Model name" in line:
-                model_name = line.split(":")[1].strip()
-            if "Architecture" in line:
-                arch = line.split(":")[1].strip()
-    except:
-        # TODO: Try /proc/cpuinfo
-        pass
+    if shutil.which("lscpu"):
+        with contextlib.suppress(subprocess.CalledProcessError):
+            info = subprocess.check_output("lscpu").decode().strip()
+            for line in info.split("\n"):
+                if "Model name" in line:
+                    model_name = line.split(":")[1].strip()
+                if "Architecture" in line:
+                    arch = line.split(":")[1].strip()
 
-    if arch == "":
-        arch = platform.machine()
+    # TODO: Try /proc/cpuinfo if process fails
 
-    if model_name == "":
-        try:
+    arch = arch or platform.machine()
+
+    if not model_name and shutil.which("sysctl"):
+        with contextlib.suppress(subprocess.CalledProcessError):
             info = (
                 subprocess.check_output(["sysctl", "machdep.cpu.brand_string"])
                 .decode()
@@ -36,8 +37,6 @@ def get_cpu_info():
             )
             if "machdep.cpu.brand_string:" in info:
                 model_name = info.split("machdep.cpu.brand_string: ")[1]
-        except:
-            pass
 
     return model_name, arch
 
@@ -46,16 +45,19 @@ def get_gpu_info():
     """
     Get GPU info
     """
-    try:
-        output = subprocess.check_output(
-            ["nvidia-smi", "--query-gpu=name,driver_version", "--format=csv"]
-        )
-        lines = output.split(b"\n")
-        tokens = lines[1].split(b", ")
-    except:
-        return {"name": "", "driver_version": ""}
+    _gpu_info: dict[str, str] = {"name": "", "driver_version": ""}
 
-    return {"name": tokens[0].decode(), "driver_version": tokens[1].decode()}
+    if shutil.which("nvidia-smi"):
+        with contextlib.suppress(subprocess.CalledProcessError, IndexError):
+            output = subprocess.check_output(
+                ["nvidia-smi", "--query-gpu=name,driver_version", "--format=csv"]
+            )
+            lines = output.split(b"\n")
+            tokens = lines[1].split(b", ")
+            _gpu_info["name"] = tokens[0].decode()
+            _gpu_info["driver_version"] = tokens[1].decode()
+
+    return _gpu_info
 
 
 def get_system() -> dict[str, typing.Any]:
