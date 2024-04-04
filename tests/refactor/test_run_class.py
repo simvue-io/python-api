@@ -12,7 +12,7 @@ import simvue.client as sv_cl
 
 
 @pytest.mark.run
-@pytest.mark.parametrize("overload_buffer", (True, False))
+@pytest.mark.parametrize("overload_buffer", (True, False), ids=("overload", "normal"))
 def test_log_metrics(
     create_plain_run: tuple[sv_run.Run, dict], overload_buffer: bool, setup_logging, mocker
 ) -> None:
@@ -20,12 +20,16 @@ def test_log_metrics(
     METRICS = {"a": 10, "b": 1.2}
     run, run_data = create_plain_run
     run.update_tags(["simvue_client_unit_tests", "test_log_metrics"])
+
+    # Speed up the read rate for this test
+    run._dispatcher._max_read_rate *= 10
+
     if overload_buffer:
         for i in range(run._dispatcher._max_buffer_size * 3):
             run.log_metrics({key: i for key in METRICS.keys()})
     else:
         run.log_metrics(METRICS)
-    time.sleep(2.0 if not overload_buffer else 3.0)
+    time.sleep(1.0 if not overload_buffer else 2.0)
     run.close()
     client = sv_cl.Client()
     _data = client.get_metrics_multiple(
@@ -89,7 +93,7 @@ def test_update_metadata_offline(
 def test_runs_multiple_parallel(multi_threaded: bool) -> None:
     N_RUNS: int = 2
     if multi_threaded:
-        def thread_func(index: int) -> tuple[list[dict[str, typing.Any]], str]:
+        def thread_func(index: int) -> tuple[int, list[dict[str, typing.Any]], str]:
             with sv_run.Run() as run:
                 run.config(suppress_errors=False)
                 run.init(
@@ -103,7 +107,7 @@ def test_runs_multiple_parallel(multi_threaded: bool) -> None:
                     metric = {f"var_{index + 1}": random.random()}
                     metrics.append(metric)
                     run.log_metrics(metric)
-            return metrics, run._id
+            return index, metrics, run._id
         with concurrent.futures.ThreadPoolExecutor(max_workers=N_RUNS) as executor:
             futures = [executor.submit(thread_func, i) for i in range(N_RUNS)]
 
@@ -111,10 +115,10 @@ def test_runs_multiple_parallel(multi_threaded: bool) -> None:
 
             client = sv_cl.Client()
                 
-            for i, future in enumerate(concurrent.futures.as_completed(futures)):
-                metrics, run_id = future.result()
+            for future in concurrent.futures.as_completed(futures):
+                id, metrics, run_id = future.result()
                 assert metrics
-                assert client.get_metrics(run_id, f"var_{i + 1}", "step")
+                assert client.get_metrics(run_id, f"var_{id + 1}", "step")
                 with contextlib.suppress(RuntimeError):
                     client.delete_run(run_id)
     else:
