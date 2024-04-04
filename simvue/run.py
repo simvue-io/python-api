@@ -89,7 +89,6 @@ class Run:
         self._resources_metrics_interval = 30
         self._shutdown_event = None
         self._storage_id = None
-        self._testing = False
 
     def __enter__(self):
         return self
@@ -209,7 +208,7 @@ class Run:
             attributes: dict[str, typing.Any],
             run_id=self._id,
             uuid: str = self._uuid,
-            heartbeat_callback=lambda *_: None if self._testing else _heartbeat,
+            heartbeat_callback=_heartbeat,
         ) -> None:
             if not os.path.exists((_offline_directory := get_offline_directory())):
                 logger.error(
@@ -246,7 +245,7 @@ class Run:
             url=self._url,
             run_id=self._id,
             headers=self._headers,
-            heartbeat_callback=lambda *_: None if self._testing else _heartbeat,
+            heartbeat_callback=_heartbeat,
         ) -> None:
             if not buffer:
                 return
