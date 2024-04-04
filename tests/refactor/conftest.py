@@ -5,7 +5,6 @@ import uuid
 import time
 import tempfile
 import json
-import pathlib
 import simvue.run as sv_run
 import simvue.utilities
 import logging
@@ -15,15 +14,19 @@ MAX_BUFFER_SIZE: int = 10
 class CountingLogHandler(logging.Handler):
     def __init__(self, level=logging.DEBUG):
         super().__init__(level)
-        self.count = 0
-        self.capture=None
+        self.counts = []
+        self.captures = []
     
     def emit(self, record):
-        if (self.capture or "") in record.msg:
-            self.count += 1
+        if len(self.captures) != len(self.counts):
+            self.counts = [0] * len(self.captures)
+        
+        for i, capture in enumerate(self.captures):
+            if capture in record.msg:
+                self.counts[i] += 1
 
 @pytest.fixture(autouse=True)
-def setup_logging():
+def setup_logging() -> logging.Handler:
     logging.basicConfig(level=logging.DEBUG)
     handler = CountingLogHandler()
     logging.getLogger().addHandler(handler)
