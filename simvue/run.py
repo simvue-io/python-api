@@ -101,8 +101,6 @@ class Run:
         )
 
         if (self._id or self._mode == "offline") and self._status == "running":
-            if self._shutdown_event is not None:
-                self._shutdown_event.set()
             if not type:
                 self.set_status("completed")
             else:
@@ -114,6 +112,8 @@ class Run:
                     if traceback and self._active:
                         self.log_event(f"Traceback: {traceback}")
                         self.set_status("failed")
+        if self._shutdown_event is not None:
+            self._shutdown_event.set()
         if self._dispatcher:
             self._dispatcher.join()
 
