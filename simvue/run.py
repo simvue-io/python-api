@@ -172,7 +172,9 @@ class Run:
                 for item in gpu:
                     data[item] = gpu[item]
 
-            self._add_metrics_to_dispatch(data, step=0)
+            self._add_metrics_to_dispatch(
+                data, step=0
+            )  # Hard coded step to 0 for resource metrics so that user logged metrics dont appear to 'skip' steps
 
     def _create_callback(
         self,
