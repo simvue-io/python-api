@@ -705,9 +705,9 @@ class Run:
 
         _data: dict[str, typing.Any] = {
             "values": metrics,
-            "time": time or self.duration,
-            "timestamp": timestamp or self.time_stamp,
-            "step": step or self._step,
+            "time": time if time is not None else self.duration,
+            "timestamp": timestamp if timestamp is not None else self.time_stamp,
+            "step": step if step is not None else self._step,
         }
         self._dispatcher.add_item(_data, "metrics", self._queue_blocking)
         self._step += 1
