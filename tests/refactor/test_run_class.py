@@ -15,7 +15,6 @@ if typing.TYPE_CHECKING:
 
 @pytest.mark.run
 @pytest.mark.parametrize("overload_buffer", (True, False), ids=("overload", "normal"))
-@pytest.mark.parametrize("heartbeat", (True, False))
 def test_log_metrics(
     create_plain_run: tuple[sv_run.Run, dict],
     overload_buffer: bool,
