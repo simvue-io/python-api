@@ -172,7 +172,7 @@ class Run:
                 for item in gpu:
                     data[item] = gpu[item]
 
-            self._add_metrics_to_dispatch(data)
+            self._add_metrics_to_dispatch(data, step=0)
 
     def _create_callback(
         self,
