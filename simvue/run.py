@@ -48,6 +48,7 @@ INIT_MISSING = "initialize a run using init() first"
 QUEUE_SIZE = 10000
 UPLOAD_TIMEOUT = 30
 HEARTBEAT_INTERVAL: int = 60
+RESOURCES_METRIC_PREFIX: str = "resources"
 
 logger = logging.getLogger(__name__)
 
@@ -164,14 +165,16 @@ class Run:
             data = {}
 
             data = {
-                "resources/cpu.usage.percent": cpu,
-                "resources/memory.usage": memory,
+                f"{RESOURCES_METRIC_PREFIX}/cpu.usage.percent": cpu,
+                f"{RESOURCES_METRIC_PREFIX}/memory.usage": memory,
             }
             if gpu:
                 for item in gpu:
                     data[item] = gpu[item]
 
-            self.log_metrics(data)
+            self._add_metrics_to_dispatch(
+                data, step=0
+            )  # Hard coded step to 0 for resource metrics so that user logged metrics dont appear to 'skip' steps
 
     def _create_callback(
         self,
@@ -676,10 +679,7 @@ class Run:
 
         return True
 
-    def log_metrics(self, metrics, step=None, time=None, timestamp=None):
-        """
-        Write metrics
-        """
+    def _add_metrics_to_dispatch(self, metrics, step=None, time=None, timestamp=None):
         if self._mode == "disabled":
             return True
 
@@ -710,9 +710,17 @@ class Run:
             "step": step if step is not None else self._step,
         }
         self._dispatcher.add_item(_data, "metrics", self._queue_blocking)
-        self._step += 1
 
         return True
+
+    def log_metrics(self, metrics, step=None, time=None, timestamp=None):
+        """
+        Write metrics
+        """
+        self._add_metrics_to_dispatch(
+            metrics, step=step, time=time, timestamp=timestamp
+        )
+        self._step += 1
 
     def save(
         self,
