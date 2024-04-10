@@ -40,7 +40,7 @@ def test_dispatcher(overload_buffer: bool, multiple: bool, append_during_dispatc
 
     for variable in variables:
         check_dict[variable] = {"counter": 0}
-        def callback(___: list[typing.Any], _: str, __: dict[str, typing.Any], args=check_dict, var=variable) -> None:
+        def callback(___: list[typing.Any], _: str, args=check_dict, var=variable) -> None:
             args[var]["counter"] += 1
         dispatchers.append(
             Dispatcher(callback, [variable], event, max_buffer_size=buffer_size, max_read_rate=max_read_rate)
@@ -83,18 +83,19 @@ def test_nested_dispatch(multi_queue: bool) -> None:
     result_queue = Queue()
 
     event = Event()
-    def callback(___: list[typing.Any], _: str, attributes: dict[str, typing.Any], check_dict=check_dict) -> None:
-        check_dict[attributes["index"]]["counter"] += 1
-    def _main(res_queue, index, dispatch_callback=callback, term_event=event, variable=variable) -> bool:
+    def create_callback(index):
+        def callback(___: list[typing.Any], _: str, check_dict=check_dict[index]) -> None:
+            check_dict["counter"] += 1
+        return callback
+    def _main(res_queue, index, dispatch_callback=create_callback, term_event=event, variable=variable) -> bool:
 
         term_event = Event()
         dispatcher = Dispatcher(
-            dispatch_callback,
+            dispatch_callback(index),
             [variable] if isinstance(variable, str) else variable,
             term_event,
             max_buffer_size=buffer_size,
-            max_read_rate=max_read_rate,
-            attributes={"index": index},
+            max_read_rate=max_read_rate
         )
 
         dispatcher.start()

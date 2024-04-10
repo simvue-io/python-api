@@ -937,7 +937,7 @@ class Run:
             self._error("Run is not active")
             return False
 
-        if self._heartbeat_thread:
+        if self._heartbeat_thread and self._heartbeat_termination_trigger:
             self._heartbeat_termination_trigger.set()
             self._heartbeat_thread.join()
 
