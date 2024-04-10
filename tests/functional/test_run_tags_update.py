@@ -20,7 +20,7 @@ class TestRunOffline(unittest.TestCase):
         run.close()
 
         client = Client()
-        data = client.get_run(run.id, tags=True)
+        data = client.get_run(run.id)
         self.assertEqual(tags, data['tags'])
 
         runs = client.delete_runs(folder)

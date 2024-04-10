@@ -10,8 +10,8 @@ class TestGetAlerts(unittest.TestCase):
     def test_get_alerts(self):
         """
         Create a run & two alerts, make one alert be triggered
-        If triggered_only is True, check that only the triggered alert is returned
-        IF triggered_only is False, check both alerts are returned
+        If critical_only is True, check that only the triggered alert is returned
+        IF critical_only is False, check both alerts are returned
         If names_only is False, check that full dictionary of information is returned
         """
         run = Run()
@@ -51,7 +51,7 @@ class TestGetAlerts(unittest.TestCase):
         self.assertEqual(triggered_alerts_full[0]["alert"]["name"], "value_above_1")
         self.assertEqual(triggered_alerts_full[0]["status"]["current"], "critical")
 
-        all_alerts_names = client.get_alerts(run_id, triggered_only=False)
+        all_alerts_names = client.get_alerts(run_id, critical_only=False)
         self.assertListEqual(all_alerts_names, ['value_above_1', 'value_below_1'])
 
         run.close()
