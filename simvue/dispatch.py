@@ -12,6 +12,7 @@ import queue
 import threading
 import time
 import typing
+import contextlib
 
 MAX_REQUESTS_PER_SECOND: float = 1.0
 MAX_BUFFER_SIZE: int = 16000
@@ -88,6 +89,13 @@ class Dispatcher(threading.Thread):
     def empty(self) -> bool:
         """Returns if all queues are empty"""
         return all(queue.empty() for queue in self._queues.values())
+
+    def purge(self) -> None:
+        """Purge all queues"""
+        for q in self._queues.values():
+            with contextlib.suppress(queue.Empty):
+                q.get(block=False)
+            q.task_done()
 
     @property
     def _can_send(self) -> bool:

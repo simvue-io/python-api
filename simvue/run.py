@@ -118,6 +118,8 @@ class Run:
         if self._shutdown_event is not None:
             self._shutdown_event.set()
         if self._dispatcher:
+            if self._status != "running":
+                self._dispatcher.purge()
             self._dispatcher.join()
         if self._heartbeat_thread:
             self._heartbeat_thread.join()
@@ -932,8 +934,11 @@ class Run:
 
         if self._status != "failed":
             self.set_status("completed")
+        elif self._dispatcher:
+            self._dispatcher.purge()
 
-        self._shutdown_event.set()
+        if self._shutdown_event:
+            self._shutdown_event.set()
 
     def set_folder_details(self, path, metadata={}, tags=[], description=None):
         """
