@@ -31,13 +31,13 @@ class Dispatcher(threading.Thread):
 
     def __init__(
         self,
-        callback: typing.Callable[[list[typing.Any], str, dict[str, typing.Any]], None],
+        callback: typing.Callable[[list[typing.Any], str], None],
         queue_categories: list[str],
         termination_trigger: threading.Event,
+        notify_on_completion: typing.Optional[threading.Event] = None,
         queue_blocking: bool = False,
         max_buffer_size: int = MAX_BUFFER_SIZE,
         max_read_rate: float = MAX_REQUESTS_PER_SECOND,
-        attributes: dict[str, typing.Any] | None = None,
     ) -> None:
         """
         Initialise a new dispatcher
@@ -54,17 +54,18 @@ class Dispatcher(threading.Thread):
         termination_trigger : threading.Event
             a threading event which when set declares that the dispatcher
             should terminate
+        notify_on_completion : threading.Event
+            if provided, this event is set by the dispatcher when the shutdown
+            trigger has been set and the dispatcher has emptied all queues
         max_buffer_size : int
             maximum number of items allowed in created buffer.
         max_read_rate : float
             maximum rate at which the callback can be executed
-        attributes : dict[str, Any]
-            additional arguments to the callback function on execution
         """
         super().__init__()
 
         self._termination_trigger = termination_trigger
-        self._attributes: dict[str, typing.Any] = attributes or {}
+        self._dispatch_complete = notify_on_completion
         self._callback = callback
         self._queues = {label: queue.Queue() for label in queue_categories}
         self._max_read_rate = max_read_rate
@@ -131,5 +132,7 @@ class Dispatcher(threading.Thread):
                     logger.debug(
                         f"Executing '{queue_label}' callback on buffer {_buffer}"
                     )
-                    self._callback(_buffer, queue_label, self._attributes)
+                    self._callback(_buffer, queue_label)
             self._send_timer = time.time()
+        if self._dispatch_complete:
+            self._dispatch_complete.set()
