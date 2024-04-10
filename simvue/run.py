@@ -104,6 +104,7 @@ class Run:
         )
 
         if self._heartbeat_thread:
+            self._heartbeat_termination_trigger.set()
             self._heartbeat_thread.join()
 
         if (self._id or self._mode == "offline") and self._status == "running":
