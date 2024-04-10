@@ -190,7 +190,7 @@ class Run:
             headers: dict[str, str] = self._headers,
             run_id: str = self._id,
             online: bool = self._mode == "online",
-            heartbeat_trigger: threading.Event = self._dispatcher_exit_event,
+            heartbeat_trigger: threading.Event = self._shutdown_event,
         ) -> None:
             last_heartbeat = time.time()
 
