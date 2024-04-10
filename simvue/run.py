@@ -89,6 +89,7 @@ class Run:
         self._pid = 0
         self._resources_metrics_interval = 30
         self._shutdown_event = None
+        self._heartbeat_termination_trigger = None
         self._storage_id = None
         self._heartbeat_thread = None
 
@@ -190,7 +191,7 @@ class Run:
             headers: dict[str, str] = self._headers,
             run_id: str = self._id,
             online: bool = self._mode == "online",
-            heartbeat_trigger: threading.Event = self._shutdown_event,
+            heartbeat_trigger: threading.Event = self._heartbeat_termination_trigger,
         ) -> None:
             last_heartbeat = time.time()
 
@@ -317,7 +318,7 @@ class Run:
         self._parent_process = psutil.Process(self._pid) if self._pid else None
 
         self._shutdown_event = threading.Event()
-        self._dispatcher_exit_event = threading.Event()
+        self._heartbeat_termination_trigger = threading.Event()
 
         self._dispatcher = Dispatcher(
             termination_trigger=self._shutdown_event,
@@ -934,6 +935,10 @@ class Run:
         if not self._active:
             self._error("Run is not active")
             return False
+
+        if self._heartbeat_thread:
+            self._heartbeat_termination_trigger.set()
+            self._heartbeat_thread.join()
 
         if self._shutdown_event:
             self._shutdown_event.set()
