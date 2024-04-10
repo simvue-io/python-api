@@ -93,9 +93,10 @@ class Dispatcher(threading.Thread):
     def purge(self) -> None:
         """Purge all queues"""
         for q in self._queues.values():
-            with contextlib.suppress(queue.Empty):
-                q.get(block=False)
-            q.task_done()
+            while not q.empty():
+                with contextlib.suppress(queue.Empty):
+                    q.get(block=False)
+                q.task_done()
 
     @property
     def _can_send(self) -> bool:
