@@ -698,6 +698,10 @@ class Run:
         if self._mode == "disabled":
             return True
 
+        # If there are no metrics to log just ignore
+        if not metrics:
+            return True
+
         if not self._uuid and not self._name:
             self._error(INIT_MISSING)
             return False
