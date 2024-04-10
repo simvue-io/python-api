@@ -35,7 +35,6 @@ class Dispatcher(threading.Thread):
         callback: typing.Callable[[list[typing.Any], str], None],
         queue_categories: list[str],
         termination_trigger: threading.Event,
-        notify_on_completion: typing.Optional[threading.Event] = None,
         queue_blocking: bool = False,
         max_buffer_size: int = MAX_BUFFER_SIZE,
         max_read_rate: float = MAX_REQUESTS_PER_SECOND,
@@ -55,9 +54,6 @@ class Dispatcher(threading.Thread):
         termination_trigger : threading.Event
             a threading event which when set declares that the dispatcher
             should terminate
-        notify_on_completion : threading.Event
-            if provided, this event is set by the dispatcher when the shutdown
-            trigger has been set and the dispatcher has emptied all queues
         max_buffer_size : int
             maximum number of items allowed in created buffer.
         max_read_rate : float
@@ -66,7 +62,6 @@ class Dispatcher(threading.Thread):
         super().__init__()
 
         self._termination_trigger = termination_trigger
-        self._dispatch_complete = notify_on_completion
         self._callback = callback
         self._queues = {label: queue.Queue() for label in queue_categories}
         self._max_read_rate = max_read_rate
@@ -143,5 +138,3 @@ class Dispatcher(threading.Thread):
                     )
                     self._callback(_buffer, queue_label)
             self._send_timer = time.time()
-        if self._dispatch_complete:
-            self._dispatch_complete.set()

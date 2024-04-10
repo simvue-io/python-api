@@ -89,7 +89,6 @@ class Run:
         self._pid = 0
         self._resources_metrics_interval = 30
         self._shutdown_event = None
-        self._dispatcher_exit_event = None
         self._storage_id = None
         self._heartbeat_thread = None
 
@@ -103,8 +102,15 @@ class Run:
             "Automatically closing run %s in status %s", identifier, self._status
         )
 
+        if self._heartbeat_thread:
+            self._heartbeat_thread.join()
+
         if (self._id or self._mode == "offline") and self._status == "running":
             if not type:
+                if self._shutdown_event is not None:
+                    self._shutdown_event.set()
+                if self._dispatcher:
+                    self._dispatcher.join()
                 self.set_status("completed")
             else:
                 if self._active:
@@ -115,14 +121,12 @@ class Run:
                     if traceback and self._active:
                         self.log_event(f"Traceback: {traceback}")
                         self.set_status("failed")
-        if self._shutdown_event is not None:
-            self._shutdown_event.set()
-        if self._dispatcher:
-            if self._status != "running":
+        else:
+            if self._shutdown_event is not None:
+                self._shutdown_event.set()
+            if self._dispatcher:
                 self._dispatcher.purge()
-            self._dispatcher.join()
-        if self._heartbeat_thread:
-            self._heartbeat_thread.join()
+                self._dispatcher.join()
 
         if _non_zero := self.executor.exit_status:
             logger.error(
@@ -317,7 +321,6 @@ class Run:
 
         self._dispatcher = Dispatcher(
             termination_trigger=self._shutdown_event,
-            notify_on_completion=self._dispatcher_exit_event,
             queue_blocking=self._queue_blocking,
             queue_categories=["events", "metrics"],
             callback=self._create_dispatch_callback(),
@@ -932,13 +935,16 @@ class Run:
             self._error("Run is not active")
             return False
 
+        if self._shutdown_event:
+            self._shutdown_event.set()
+
         if self._status != "failed":
+            if self._dispatcher:
+                self._dispatcher.join()
             self.set_status("completed")
         elif self._dispatcher:
             self._dispatcher.purge()
-
-        if self._shutdown_event:
-            self._shutdown_event.set()
+            self._dispatcher.join()
 
     def set_folder_details(self, path, metadata={}, tags=[], description=None):
         """
