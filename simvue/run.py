@@ -103,7 +103,7 @@ class Run:
             "Automatically closing run %s in status %s", identifier, self._status
         )
 
-        if self._heartbeat_thread:
+        if self._heartbeat_thread and self._heartbeat_termination_trigger:
             self._heartbeat_termination_trigger.set()
             self._heartbeat_thread.join()
 
