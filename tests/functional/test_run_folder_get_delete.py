@@ -23,7 +23,7 @@ class TestRunFolderGetDelete(unittest.TestCase):
         with self.assertRaises(Exception) as context:
             client.get_folder(folder)
 
-        self.assertTrue('Folder does not exist' in str(context.exception))
+        self.assertTrue(f"Folder '{folder}' does not exist" in str(context.exception))
 
 if __name__ == '__main__':
     unittest.main()

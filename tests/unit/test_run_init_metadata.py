@@ -6,8 +6,6 @@ def test_run_init_metadata():
     """
     Check that run.init throws an exception if tuples are passed into metadata dictionary
     """
-    os.environ["SIMVUE_TOKEN"] = "test"
-    os.environ["SIMVUE_URL"] = "https://simvue.io"
 
     x1_lower = 2,
     x1_upper = 6,
