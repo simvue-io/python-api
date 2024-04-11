@@ -20,7 +20,6 @@ def Dispatcher(
     callback: typing.Callable[[list[typing.Any], str, dict[str, typing.Any]], None],
     object_types: list[str],
     termination_trigger: "Event",
-    attributes: dict[str, typing.Any] | None = None,
     **kwargs,
 ) -> "DispatcherBaseClass":
     """Returns instance of dispatcher based on configuration
@@ -39,8 +38,6 @@ def Dispatcher(
         categories, this is mainly used for creation of queues in a QueueDispatcher
     termination_trigger : Event
         event which triggers termination of the dispatcher
-    attributes : dict[str, typing.Any] | None, optional
-        any additional attributes to be provided to the callback, by default None
 
     Returns
     -------
@@ -52,7 +49,6 @@ def Dispatcher(
             callback=callback,
             object_types=object_types,
             termination_trigger=termination_trigger,
-            attributes=attributes,
             **kwargs,
         )
     else:
@@ -60,6 +56,5 @@ def Dispatcher(
             callback=callback,
             object_types=object_types,
             termination_trigger=termination_trigger,
-            attributes=attributes,
             **kwargs,
         )
