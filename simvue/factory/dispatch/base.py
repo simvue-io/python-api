@@ -6,7 +6,7 @@ import typing
 class DispatcherBaseClass(threading.Thread):
     def __init__(
         self,
-        callback: typing.Callable[[list[typing.Any], str, dict[str, typing.Any]], None],
+        callback: typing.Callable[[list[typing.Any], str], None],
         object_types: list[str],
         termination_trigger: threading.Event,
         **_,

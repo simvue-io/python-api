@@ -13,7 +13,7 @@ if typing.TYPE_CHECKING:
     from threading import Event
 
 from .queued import QueuedDispatcher
-from .prompt import DirectDispatcher
+from .direct import DirectDispatcher
 
 logger = logging.getLogger(__name__)
 

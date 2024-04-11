@@ -8,7 +8,7 @@ from queue import Queue
 
 from simvue.factory.dispatch.queued import QueuedDispatcher
 
-from simvue.factory.dispatch.prompt import DirectDispatcher
+from simvue.factory.dispatch.direct import DirectDispatcher
 
 # FIXME: Update the layout of these tests
 
