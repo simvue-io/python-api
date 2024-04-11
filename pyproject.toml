@@ -36,7 +36,10 @@ ruff = "^0.3.2"
 pytest-cov = ">=4.1,<6.0"
 pytest-xdist = "^3.5.0"
 pytest-mock = "^3.14.0"
-torch = {version = "^2.0.0+cpu", source = "pytorch-cpu"}
+torch = [
+    {markers = "sys_platform != 'darwin'", version = "^2.0.0+cpu", source = "pytorch-cpu"},
+    {platform = "darwin", version="^2.0.0"}
+]
 
 [build-system]
 requires = ["poetry-core"]
