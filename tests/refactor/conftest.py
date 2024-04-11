@@ -5,9 +5,9 @@ import uuid
 import time
 import tempfile
 import json
+import logging
 import simvue.run as sv_run
 import simvue.utilities
-import logging
 
 MAX_BUFFER_SIZE: int = 10
 
@@ -42,7 +42,7 @@ def log_messages(caplog):
 @pytest.fixture
 def create_test_run() -> typing.Generator[typing.Tuple[sv_run.Run, dict], None, None]:
     with sv_run.Run() as run:
-        run._testing = True
+        
         yield run, setup_test_run(run, True)
 
 
@@ -51,14 +51,12 @@ def create_test_run_offline(mocker: pytest_mock.MockerFixture) -> typing.Generat
     with tempfile.TemporaryDirectory() as temp_d:
         mocker.patch.object(simvue.utilities, "get_offline_directory", lambda *_: temp_d)
         with sv_run.Run("offline") as run:
-            run._testing = True
             yield run, setup_test_run(run, True)
 
 
 @pytest.fixture
 def create_plain_run() -> typing.Generator[typing.Tuple[sv_run.Run, dict], None, None]:
     with sv_run.Run() as run:
-        run._testing = True
         yield run, setup_test_run(run, False)
 
 
@@ -67,7 +65,7 @@ def create_plain_run_offline(mocker: pytest_mock.MockerFixture) -> typing.Genera
     with tempfile.TemporaryDirectory() as temp_d:
         mocker.patch.object(simvue.utilities, "get_offline_directory", lambda *_: temp_d)
         with sv_run.Run("offline") as run:
-            run._testing = True
+            
             yield run, setup_test_run(run, False)
 
 
