@@ -4,8 +4,8 @@ import typing
 from .base import DispatcherBaseClass
 
 
-class PromptDispatcher(DispatcherBaseClass):
-    """The PromptDispatcher executes the provided callback immediately"""
+class DirectDispatcher(DispatcherBaseClass):
+    """The DirectDispatcher executes the provided callback immediately"""
 
     def __init__(
         self,
@@ -15,7 +15,7 @@ class PromptDispatcher(DispatcherBaseClass):
         attributes: dict[str, typing.Any] | None = None,
         **_,
     ) -> None:
-        """Initialise a new PromptDispatcher instance
+        """Initialise a new DirectDispatcher instance
 
         Parameters
         ----------

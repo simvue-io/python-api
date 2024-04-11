@@ -8,7 +8,7 @@ from queue import Queue
 
 from simvue.factory.dispatch.queued import QueuedDispatcher
 
-from simvue.factory.dispatch.prompt import PromptDispatcher
+from simvue.factory.dispatch.prompt import DirectDispatcher
 
 # FIXME: Update the layout of these tests
 
@@ -180,14 +180,14 @@ def test_prompt_dispatcher(multiple: bool, append_during_dispatch: bool) -> None
         variables.append("limes")
 
     event = Event()
-    dispatchers: list[PromptDispatcher] = []
+    dispatchers: list[DirectDispatcher] = []
 
     for variable in variables:
         check_dict[variable] = {"counter": 0}
         def callback(___: list[typing.Any], _: str, __: dict[str, typing.Any], args=check_dict, var=variable) -> None:
             args[var]["counter"] += 1
         dispatchers.append(
-            PromptDispatcher(callback, [variable], event)
+            DirectDispatcher(callback, [variable], event)
         )
 
     if not append_during_dispatch:

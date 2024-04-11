@@ -12,7 +12,7 @@ if typing.TYPE_CHECKING:
     from threading import Event
 
 from .queued import QueuedDispatcher
-from .prompt import PromptDispatcher
+from .prompt import DirectDispatcher
 
 
 def Dispatcher(
@@ -45,10 +45,10 @@ def Dispatcher(
     Returns
     -------
     DispatcherBaseClass
-        either a PromptDispatcher or QueueDispatcher instance
+        either a DirectDispatcher or QueueDispatcher instance
     """
     if mode == "prompt":
-        return PromptDispatcher(
+        return DirectDispatcher(
             callback=callback,
             object_types=object_types,
             termination_trigger=termination_trigger,
