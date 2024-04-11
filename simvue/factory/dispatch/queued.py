@@ -12,6 +12,7 @@ import queue
 import threading
 import time
 import typing
+import contextlib
 
 from .base import DispatcherBaseClass
 
@@ -33,13 +34,12 @@ class QueuedDispatcher(DispatcherBaseClass):
 
     def __init__(
         self,
-        callback: typing.Callable[[list[typing.Any], str, dict[str, typing.Any]], None],
+        callback: typing.Callable[[list[typing.Any], str], None],
         object_types: list[str],
         termination_trigger: threading.Event,
         queue_blocking: bool = False,
         max_buffer_size: int = MAX_BUFFER_SIZE,
         max_read_rate: float = MAX_REQUESTS_PER_SECOND,
-        attributes: dict[str, typing.Any] | None = None,
     ) -> None:
         """
         Initialise a new queue based dispatcher
@@ -60,16 +60,15 @@ class QueuedDispatcher(DispatcherBaseClass):
             maximum number of items allowed in created buffer.
         max_read_rate : float
             maximum rate at which the callback can be executed
-        attributes : dict[str, Any]
-            additional arguments to the callback function on execution
         """
         super().__init__(
             callback=callback,
             object_types=object_types,
             termination_trigger=termination_trigger,
-            attributes=attributes,
         )
 
+        self._termination_trigger = termination_trigger
+        self._callback = callback
         self._queues = {label: queue.Queue() for label in object_types}
         self._max_read_rate = max_read_rate
         self._max_buffer_size = max_buffer_size
@@ -91,6 +90,14 @@ class QueuedDispatcher(DispatcherBaseClass):
     def empty(self) -> bool:
         """Returns if all queues are empty"""
         return all(queue.empty() for queue in self._queues.values())
+
+    def purge(self) -> None:
+        """Purge all queues"""
+        for q in self._queues.values():
+            while not q.empty():
+                with contextlib.suppress(queue.Empty):
+                    q.get(block=False)
+                q.task_done()
 
     @property
     def _can_send(self) -> bool:
@@ -135,5 +142,5 @@ class QueuedDispatcher(DispatcherBaseClass):
                     logger.debug(
                         f"Executing '{queue_label}' callback on buffer {_buffer}"
                     )
-                    self._callback(_buffer, queue_label, self._attributes)
+                    self._callback(_buffer, queue_label)
             self._send_timer = time.time()

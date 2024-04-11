@@ -2,7 +2,7 @@ import pytest
 import time
 import typing
 import contextlib
-import logging
+import uuid
 import concurrent.futures
 import random
 
@@ -16,19 +16,28 @@ if typing.TYPE_CHECKING:
 @pytest.mark.run
 @pytest.mark.parametrize("overload_buffer", (True, False), ids=("overload", "normal"))
 def test_log_metrics(
-    create_plain_run: tuple[sv_run.Run, dict],
     overload_buffer: bool,
     setup_logging: "CountingLogHandler",
     mocker,
 ) -> None:
     METRICS = {"a": 10, "b": 1.2}
-    setup_logging.captures = [str(METRICS), "resources/"]
 
-    run, run_data = create_plain_run
+    setup_logging.captures = ["'a'", "resources/"]
+
+    # Have to create the run outside of fixtures because the resources dispatch
+    # occurs immediately and is not captured by the handler when using the fixture
+    run = sv_run.Run()
+    run.config(suppress_errors=False)
+    run.init(
+        name=f"test_run_{str(uuid.uuid4()).split('-', 1)[0]}",
+        tags=["simvue_client_unit_tests"],
+        folder="/simvue_unit_testing"
+    )
 
     run.update_tags(["simvue_client_unit_tests", "test_log_metrics"])
 
     # Speed up the read rate for this test
+    run._dispatcher._max_buffer_size = 10
     run._dispatcher._max_read_rate *= 10
 
     if overload_buffer:
@@ -40,11 +49,11 @@ def test_log_metrics(
     run.close()
     client = sv_cl.Client()
     _data = client.get_metrics_multiple(
-        [run_data["run_id"]], list(METRICS.keys()), xaxis="step"
+        [run._id], list(METRICS.keys()), xaxis="step"
     )
 
     with contextlib.suppress(RuntimeError):
-        client.delete_run(run_data["run_id"])
+        client.delete_run(run._id)
 
     assert len(_data) == (
         len(METRICS)
@@ -210,3 +219,23 @@ def test_runs_multiple_series() -> None:
     with contextlib.suppress(RuntimeError):
         for run_id in run_ids:
             client.delete_run(run_id)
+
+
+@pytest.mark.run
+def test_suppressed_errors(setup_logging: "CountingLogHandler") -> None:
+    setup_logging.captures = ["Skipping call to"]
+
+    with sv_run.Run(mode="offline") as run:
+        suppressed_funcs = [
+            func for func in dir(run)
+            if hasattr(func, "__skip_if_failed")
+        ]
+
+        # Check that the wrapped function has the original name
+        assert run.init.__name__ == "init"
+        run.config(suppress_errors=True)
+        run._error("Oh dear this error happened :(")
+        for func in suppressed_funcs:
+            assert not getattr(run, func)()
+    assert setup_logging.counts[0] == len(suppressed_funcs)
+    

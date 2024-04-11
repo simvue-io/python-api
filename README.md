@@ -28,12 +28,12 @@ Collect metadata, metrics and artifacts from simulations, processing and AI/ML t
 
 ## Configuration
 The service URL and token can be defined as environment variables:
-```
+```sh
 export SIMVUE_URL=...
 export SIMVUE_TOKEN=...
 ```
 or a file `simvue.ini` can be created containing:
-```
+```ini
 [server]
 url = ...
 token = ...
@@ -41,7 +41,7 @@ token = ...
 The exact contents of both of the above options can be obtained directly by clicking the **Create new run** button on the web UI. Note that the environment variables have preference over the config file.
 
 ## Usage example
-```
+```python
 from simvue import Run
 
 ...

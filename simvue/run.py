@@ -11,7 +11,7 @@ import datetime
 import json
 import logging
 import mimetypes
-import multiprocessing
+import threading
 import os
 import re
 import sys
@@ -38,6 +38,7 @@ from .utilities import (
     calculate_sha256,
     compare_alerts,
     create_file,
+    skip_if_failed,
     get_auth,
     get_expiry,
     get_offline_directory,
@@ -84,13 +85,16 @@ class Run:
         self._metrics_queue = None
         self._events_queue = None
         self._active = False
+        self._aborted: bool = False
         self._url, self._token = get_auth()
         self._headers = {"Authorization": f"Bearer {self._token}"}
         self._simvue = None
         self._pid = 0
         self._resources_metrics_interval = 30
         self._shutdown_event = None
+        self._heartbeat_termination_trigger = None
         self._storage_id = None
+        self._heartbeat_thread = None
 
     def __enter__(self):
         return self
@@ -102,8 +106,16 @@ class Run:
             "Automatically closing run %s in status %s", identifier, self._status
         )
 
+        if self._heartbeat_thread and self._heartbeat_termination_trigger:
+            self._heartbeat_termination_trigger.set()
+            self._heartbeat_thread.join()
+
         if (self._id or self._mode == "offline") and self._status == "running":
             if not type:
+                if self._shutdown_event is not None:
+                    self._shutdown_event.set()
+                if self._dispatcher:
+                    self._dispatcher.join()
                 self.set_status("completed")
             else:
                 if self._active:
@@ -114,10 +126,12 @@ class Run:
                     if traceback and self._active:
                         self.log_event(f"Traceback: {traceback}")
                         self.set_status("failed")
-        if self._shutdown_event is not None:
-            self._shutdown_event.set()
-        if self._dispatcher:
-            self._dispatcher.join()
+        else:
+            if self._shutdown_event is not None:
+                self._shutdown_event.set()
+            if self._dispatcher:
+                self._dispatcher.purge()
+                self._dispatcher.join()
 
         if _non_zero := self.executor.exit_status:
             logger.error(
@@ -157,14 +171,13 @@ class Run:
 
         return list(set(_all_processes))
 
-    def _collect_sysinfo(self) -> float:
+    def _get_sysinfo(self) -> dict[str, typing.Any]:
         cpu = get_process_cpu(self.processes)
         memory = get_process_memory(self.processes)
         gpu = get_gpu_metrics(self.processes)
+        data = {}
 
         if memory is not None and cpu is not None:
-            data = {}
-
             data = {
                 f"{RESOURCES_METRIC_PREFIX}/cpu.usage.percent": cpu,
                 f"{RESOURCES_METRIC_PREFIX}/memory.usage": memory,
@@ -172,12 +185,48 @@ class Run:
             if gpu:
                 for item in gpu:
                     data[item] = gpu[item]
+        return data
 
-            self._add_metrics_to_dispatch(
-                data, step=0
-            )  # Hard coded step to 0 for resource metrics so that user logged metrics dont appear to 'skip' steps
+    def _create_heartbeat_callback(
+        self,
+    ) -> typing.Callable[[str, dict, str, bool], None]:
+        def _heartbeat(
+            url: str = self._url,
+            headers: dict[str, str] = self._headers,
+            run_id: str = self._id,
+            online: bool = self._mode == "online",
+            heartbeat_trigger: threading.Event = self._heartbeat_termination_trigger,
+        ) -> None:
+            last_heartbeat = time.time()
 
-    def _create_callback(
+            # Get the system metrics once before looping
+            self._add_metrics_to_dispatch(self._get_sysinfo())
+
+            # This loop is run in a daemon thread so termination occurs when
+            # parent closes
+            while not heartbeat_trigger.is_set():
+                time.sleep(0.1)
+
+                if time.time() - last_heartbeat < HEARTBEAT_INTERVAL:
+                    continue
+
+                last_heartbeat = time.time()
+
+                # System metrics are appended to the queue at an interval
+                # equivalent to the heartbeat interval
+                # Hard coded step to 0 for resource metrics so that user
+                # logged metrics dont appear to 'skip' steps
+                self._add_metrics_to_dispatch(self._get_sysinfo())
+
+                if online:
+                    _data = {"id": run_id}
+                    sv_api.put(f"{url}/api/runs/heartbeat", headers=headers, data=_data)
+                else:
+                    create_file(os.path.join(get_offline_directory(), "heartbeat"))
+
+        return _heartbeat
+
+    def _create_dispatch_callback(
         self,
     ) -> typing.Callable[[list[typing.Any], str, dict[str, typing.Any]], None]:
         """Generates the relevant callback for posting of metrics and events
@@ -189,30 +238,11 @@ class Run:
         if not self._uuid:
             raise RuntimeError("Expected unique identifier for run")
 
-        def _heartbeat(
-            url: str = self._url,
-            headers: dict[str, str] = self._headers,
-            run_id: str = self._id,
-            online: bool = self._mode == "online",
-            sys_metric_record_callback=self._collect_sysinfo,
-        ) -> None:
-            # System metrics are appended to the queue at an interval
-            # equivalent to the heartbeat interval
-            sys_metric_record_callback()
-
-            if online:
-                _data = {"id": run_id}
-                sv_api.put(f"{url}/api/runs/heartbeat", headers=headers, data=_data)
-            else:
-                create_file(os.path.join(get_offline_directory(), "heartbeat"))
-
         def _offline_dispatch_callback(
             buffer: list[typing.Any],
             category: str,
-            attributes: dict[str, typing.Any],
             run_id=self._id,
             uuid: str = self._uuid,
-            heartbeat_callback=_heartbeat,
         ) -> None:
             if not os.path.exists((_offline_directory := get_offline_directory())):
                 logger.error(
@@ -237,19 +267,12 @@ class Run:
                 else:
                     raise err
 
-            # In case interval has been mocked to zero (switched off) during testing
-            if time.time() - attributes["last_heartbeat"] > HEARTBEAT_INTERVAL:
-                attributes["last_heartbeat"] = time.time()
-                heartbeat_callback()
-
         def _online_dispatch_callback(
             buffer: list[typing.Any],
             category: str,
-            attributes: dict[str, typing.Any],
             url=self._url,
             run_id=self._id,
             headers=self._headers,
-            heartbeat_callback=_heartbeat,
         ) -> None:
             if not buffer:
                 return
@@ -258,10 +281,6 @@ class Run:
             _url: str = f"{url}/api/{category}"
 
             _msgpack_header = headers | {"Content-Type": "application/msgpack"}
-
-            if time.time() - attributes["last_heartbeat"] > HEARTBEAT_INTERVAL:
-                attributes["last_heartbeat"] = time.time()
-                heartbeat_callback()
 
             sv_api.post(
                 url=_url, headers=_msgpack_header, data=_data_bin, is_json=False
@@ -302,18 +321,23 @@ class Run:
 
         self._parent_process = psutil.Process(self._pid) if self._pid else None
 
-        self._shutdown_event = multiprocessing.Manager().Event()
+        self._shutdown_event = threading.Event()
+        self._heartbeat_termination_trigger = threading.Event()
 
         self._dispatcher = Dispatcher(
             mode=self._dispatch_mode,
-            object_types=["metrics", "events"],
             termination_trigger=self._shutdown_event,
             queue_blocking=self._queue_blocking,
-            callback=self._create_callback(),
-            attributes={"last_heartbeat": 0},
+            object_types=["events", "metrics"],
+            callback=self._create_dispatch_callback(),
+        )
+
+        self._heartbeat_thread = threading.Thread(
+            target=self._create_heartbeat_callback(), daemon=True
         )
 
         self._dispatcher.start()
+        self._heartbeat_thread.start()
 
         self._active = True
 
@@ -326,6 +350,9 @@ class Run:
         else:
             logger.error(message)
 
+        self._aborted = True
+
+    @skip_if_failed("_aborted", "_suppress_errors", None)
     def init(
         self,
         name=None,
@@ -411,6 +438,7 @@ class Run:
 
         return True
 
+    @skip_if_failed("_aborted", "_suppress_errors", None)
     def add_process(
         self,
         identifier: str,
@@ -554,6 +582,7 @@ class Run:
         """
         return self._id
 
+    @skip_if_failed("_aborted", "_suppress_errors", False)
     def reconnect(self, run_id, uid=None):
         """
         Reconnect to a run in the created state
@@ -568,12 +597,14 @@ class Run:
         self._simvue = Simvue(self._name, self._id, self._mode, self._suppress_errors)
         self._start(reconnect=True)
 
+    @skip_if_failed("_aborted", "_suppress_errors", None)
     def set_pid(self, pid):
         """
         Set pid of process to be monitored
         """
         self._pid = pid
 
+    @skip_if_failed("_aborted", "_suppress_errors", False)
     def config(
         self,
         suppress_errors=False,
@@ -613,6 +644,7 @@ class Run:
         if storage_id:
             self._storage_id = storage_id
 
+    @skip_if_failed("_aborted", "_suppress_errors", False)
     def update_metadata(self, metadata):
         """
         Add/update metadata
@@ -635,6 +667,7 @@ class Run:
 
         return False
 
+    @skip_if_failed("_aborted", "_suppress_errors", False)
     def update_tags(self, tags):
         """
         Add/update tags
@@ -653,6 +686,7 @@ class Run:
 
         return False
 
+    @skip_if_failed("_aborted", "_suppress_errors", False)
     def log_event(self, message, timestamp=None):
         """
         Write event
@@ -685,6 +719,10 @@ class Run:
         if self._mode == "disabled":
             return True
 
+        # If there are no metrics to log just ignore
+        if not metrics:
+            return True
+
         if not self._uuid and not self._name:
             self._error(INIT_MISSING)
             return False
@@ -715,6 +753,7 @@ class Run:
 
         return True
 
+    @skip_if_failed("_aborted", "_suppress_errors", False)
     def log_metrics(self, metrics, step=None, time=None, timestamp=None):
         """
         Write metrics
@@ -826,6 +865,7 @@ class Run:
 
         return True
 
+    @skip_if_failed("_aborted", "_suppress_errors", False)
     def save_directory(self, directory, category, filetype=None, preserve_path=False):
         """
         Upload a whole directory
@@ -857,6 +897,7 @@ class Run:
 
         return True
 
+    @skip_if_failed("_aborted", "_suppress_errors", False)
     def save_all(self, items, category, filetype=None, preserve_path=False):
         """
         Save the list of files and/or directories
@@ -872,6 +913,7 @@ class Run:
             else:
                 self._error(f"{item}: No such file or directory")
 
+    @skip_if_failed("_aborted", "_suppress_errors", False)
     def set_status(self, status):
         """
         Set run status
@@ -898,6 +940,7 @@ class Run:
 
         return False
 
+    @skip_if_failed("_aborted", "_suppress_errors", False)
     def close(self):
         """f
         Close the run
@@ -913,11 +956,22 @@ class Run:
             self._error("Run is not active")
             return False
 
+        if self._heartbeat_thread and self._heartbeat_termination_trigger:
+            self._heartbeat_termination_trigger.set()
+            self._heartbeat_thread.join()
+
+        if self._shutdown_event:
+            self._shutdown_event.set()
+
         if self._status != "failed":
+            if self._dispatcher:
+                self._dispatcher.join()
             self.set_status("completed")
+        elif self._dispatcher:
+            self._dispatcher.purge()
+            self._dispatcher.join()
 
-        self._shutdown_event.set()
-
+    @skip_if_failed("_aborted", "_suppress_errors", False)
     def set_folder_details(self, path, metadata={}, tags=[], description=None):
         """
         Add metadata to the specified folder
@@ -957,6 +1011,7 @@ class Run:
 
         return False
 
+    @skip_if_failed("_aborted", "_suppress_errors", False)
     def add_alerts(self, ids=None, names=None):
         """
         Add one or more existing alerts by name or id
@@ -983,6 +1038,7 @@ class Run:
 
         return False
 
+    @skip_if_failed("_aborted", "_suppress_errors", False)
     def add_alert(
         self,
         name,
@@ -1089,6 +1145,7 @@ class Run:
 
         return False
 
+    @skip_if_failed("_aborted", "_suppress_errors", False)
     def log_alert(self, name, state):
         """
         Set the state of an alert
