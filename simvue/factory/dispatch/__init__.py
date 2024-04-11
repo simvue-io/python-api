@@ -6,6 +6,7 @@ Contains factory method for selecting dispatcher type based on Simvue Configurat
 """
 
 import typing
+import logging
 
 if typing.TYPE_CHECKING:
     from .base import DispatcherBaseClass
@@ -13,6 +14,8 @@ if typing.TYPE_CHECKING:
 
 from .queued import QueuedDispatcher
 from .prompt import DirectDispatcher
+
+logger = logging.getLogger(__name__)
 
 
 def Dispatcher(
@@ -45,6 +48,7 @@ def Dispatcher(
         either a DirectDispatcher or QueueDispatcher instance
     """
     if mode == "direct":
+        logger.debug("Using direct dispatch for metric and queue sending")
         return DirectDispatcher(
             callback=callback,
             object_types=object_types,
@@ -52,6 +56,7 @@ def Dispatcher(
             **kwargs,
         )
     else:
+        logger.debug("Using queued dispatch for metric and queue sending")
         return QueuedDispatcher(
             callback=callback,
             object_types=object_types,
