@@ -14,14 +14,11 @@ from simvue import Run
 
 
 if __name__ == "__main__":
-
     # Dataset parameters.
     num_classes = 2  # linear sequence or not.
     seq_max_len = 20  # Maximum sequence length.
     seq_min_len = 5  # Minimum sequence length (before padding).
-    masking_val = (
-        -1
-    )  # -1 will represents the mask and be used to pad sequences to a common max length.
+    masking_val = -1  # -1 will represents the mask and be used to pad sequences to a common max length.
     max_value = 10000  # Maximum int value.
 
     # Training Parameters

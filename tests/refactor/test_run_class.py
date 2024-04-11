@@ -2,23 +2,30 @@ import pytest
 import time
 import typing
 import contextlib
+import logging
 import concurrent.futures
 import random
 
 import simvue.run as sv_run
 import simvue.client as sv_cl
 
-
+if typing.TYPE_CHECKING:
+    from .conftest import CountingLogHandler
 
 
 @pytest.mark.run
 @pytest.mark.parametrize("overload_buffer", (True, False), ids=("overload", "normal"))
 def test_log_metrics(
-    create_plain_run: tuple[sv_run.Run, dict], overload_buffer: bool, setup_logging, mocker
+    create_plain_run: tuple[sv_run.Run, dict],
+    overload_buffer: bool,
+    setup_logging: "CountingLogHandler",
+    mocker,
 ) -> None:
-    setup_logging.capture = "Executing 'metrics' callback on buffer"
     METRICS = {"a": 10, "b": 1.2}
+    setup_logging.captures = [str(METRICS), "resources/"]
+
     run, run_data = create_plain_run
+
     run.update_tags(["simvue_client_unit_tests", "test_log_metrics"])
 
     # Speed up the read rate for this test
@@ -40,10 +47,16 @@ def test_log_metrics(
         client.delete_run(run_data["run_id"])
 
     assert len(_data) == (
-        len(METRICS) if not overload_buffer else len(METRICS) * run._dispatcher._max_buffer_size * 3
+        len(METRICS)
+        if not overload_buffer
+        else len(METRICS) * run._dispatcher._max_buffer_size * 3
     )
 
-    assert setup_logging.count == (1 if not overload_buffer else 3)
+    # Check metrics have been set
+    assert setup_logging.counts[0] == 1 if not overload_buffer else 3
+
+    # Check heartbeat has been called at least once (so sysinfo sent)
+    assert setup_logging.counts[1] > 0
 
 
 @pytest.mark.run
@@ -93,13 +106,14 @@ def test_update_metadata_offline(
 def test_runs_multiple_parallel(multi_threaded: bool) -> None:
     N_RUNS: int = 2
     if multi_threaded:
+
         def thread_func(index: int) -> tuple[int, list[dict[str, typing.Any]], str]:
             with sv_run.Run() as run:
                 run.config(suppress_errors=False)
                 run.init(
                     name=f"test_runs_multiple_{index + 1}",
                     tags=["simvue_client_unit_tests", "test_multi_run_threaded"],
-                    folder="/simvue_unit_testing"
+                    folder="/simvue_unit_testing",
                 )
                 metrics = []
                 for _ in range(10):
@@ -108,13 +122,14 @@ def test_runs_multiple_parallel(multi_threaded: bool) -> None:
                     metrics.append(metric)
                     run.log_metrics(metric)
             return index, metrics, run._id
+
         with concurrent.futures.ThreadPoolExecutor(max_workers=N_RUNS) as executor:
             futures = [executor.submit(thread_func, i) for i in range(N_RUNS)]
 
             time.sleep(1)
 
             client = sv_cl.Client()
-                
+
             for future in concurrent.futures.as_completed(futures):
                 id, metrics, run_id = future.result()
                 assert metrics
@@ -128,19 +143,21 @@ def test_runs_multiple_parallel(multi_threaded: bool) -> None:
                 run_1.init(
                     name="test_runs_multiple_unthreaded_1",
                     tags=["simvue_client_unit_tests", "test_multi_run_unthreaded"],
-                    folder="/simvue_unit_testing"
+                    folder="/simvue_unit_testing",
                 )
                 run_2.config(suppress_errors=False)
                 run_2.init(
                     name="test_runs_multiple_unthreaded_2",
                     tags=["simvue_client_unit_tests", "test_multi_run_unthreaded"],
-                    folder="/simvue_unit_testing"
+                    folder="/simvue_unit_testing",
                 )
                 metrics_1 = []
                 metrics_2 = []
                 for _ in range(10):
                     time.sleep(1)
-                    for index, (metrics, run) in enumerate(zip((metrics_1, metrics_2), (run_1, run_2))):
+                    for index, (metrics, run) in enumerate(
+                        zip((metrics_1, metrics_2), (run_1, run_2))
+                    ):
                         metric = {f"var_{index}": random.random()}
                         metrics.append(metric)
                         run.log_metrics(metric)
@@ -172,7 +189,7 @@ def test_runs_multiple_series() -> None:
             run.init(
                 name=f"test_runs_multiple_series_{index}",
                 tags=["simvue_client_unit_tests", "test_multi_run_series"],
-                folder="/simvue_unit_testing"
+                folder="/simvue_unit_testing",
             )
             run_ids.append(run._id)
             for _ in range(10):
