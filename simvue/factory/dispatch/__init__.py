@@ -16,7 +16,7 @@ from .prompt import DirectDispatcher
 
 
 def Dispatcher(
-    mode: typing.Literal["prompt", "queued"],
+    mode: typing.Literal["direct", "queued"],
     callback: typing.Callable[[list[typing.Any], str, dict[str, typing.Any]], None],
     object_types: list[str],
     termination_trigger: "Event",
@@ -44,7 +44,7 @@ def Dispatcher(
     DispatcherBaseClass
         either a DirectDispatcher or QueueDispatcher instance
     """
-    if mode == "prompt":
+    if mode == "direct":
         return DirectDispatcher(
             callback=callback,
             object_types=object_types,

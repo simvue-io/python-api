@@ -167,7 +167,7 @@ def test_queued_dispatch_error_attempting_to_use_non_existent_queue() -> None:
     ids=("pre_append", "append")
 )
 @pytest.mark.parametrize("multiple", (True, False), ids=("multiple", "single"))
-def test_prompt_dispatcher(multiple: bool, append_during_dispatch: bool) -> None:
+def test_direct_dispatcher(multiple: bool, append_during_dispatch: bool) -> None:
     n_elements: int = 10
     time_threshold: float = 1
 
@@ -185,7 +185,7 @@ def test_prompt_dispatcher(multiple: bool, append_during_dispatch: bool) -> None
 
     for variable in variables:
         check_dict[variable] = {"counter": 0}
-        def callback(___: list[typing.Any], _: str, __: dict[str, typing.Any], args=check_dict, var=variable) -> None:
+        def callback(___: list[typing.Any], _: str, args=check_dict, var=variable) -> None:
             args[var]["counter"] += 1
         dispatchers.append(
             DirectDispatcher(callback, [variable], event)
