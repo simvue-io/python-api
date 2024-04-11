@@ -29,6 +29,7 @@ class CountingLogHandler(logging.Handler):
 def setup_logging() -> logging.Handler:
     logging.basicConfig(level=logging.DEBUG)
     handler = CountingLogHandler()
+    logging.getLogger().setLevel(logging.DEBUG)
     logging.getLogger().addHandler(handler)
     return handler
 
