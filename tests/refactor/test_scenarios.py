@@ -9,7 +9,6 @@ def test_time_multi_run_create_threshold() -> None:
     for i in range(20):
         with simvue.Run() as run:
             run.init(f"test run {i}", tags=["test_benchmarking"], folder="/simvue_benchmark_testing")
-            print(f"Run {i}")
     end = time.time()
     client = simvue.Client()
     with contextlib.suppress(RuntimeError):

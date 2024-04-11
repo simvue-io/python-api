@@ -35,7 +35,7 @@ class TestRunOffline(unittest.TestCase):
         self.assertEqual(len(data), 1)
         self.assertEqual(name, data[0]["name"])
 
-        runs = client.delete_folder(folder, runs=True)
+        client.delete_folder(folder, remove_runs=True)
 
 
 if __name__ == "__main__":

@@ -17,7 +17,6 @@ psutil = "^5.9.8"
 pydantic = "^2.5.3"
 pandas = {version = "^2.2.0", optional = true}
 plotly = {version = "^5.18.0", optional = true}
-torch = {version = "^2.1.2", python = "<3.12", optional = true}
 numpy = {version = "^1.26.3", optional = true}
 matplotlib = {version = "^3.8.2", optional = true}
 toml = "^0.10.2"
@@ -25,7 +24,6 @@ click = "^8.1.7"
 
 [tool.poetry.extras]
 dataset = ["pandas", "numpy"]
-torch = ["torch"]
 plot = ["matplotlib", "plotly"]
 
 [tool.poetry.scripts]
@@ -35,9 +33,21 @@ simvue_sender = "simvue.bin.sender:run"
 pytest = "^8.0.0"
 pytest-dependency = "^0.6.0"
 ruff = "^0.3.2"
-pytest-cov = "^4.1.0"
+pytest-cov = ">=4.1,<6.0"
 pytest-xdist = "^3.5.0"
+pytest-mock = "^3.14.0"
+torch = {version = "^2.0.0+cpu", source = "pytorch-cpu"}
 
 [build-system]
 requires = ["poetry-core"]
 build-backend = "poetry.core.masonry.api"
+
+[[tool.poetry.source]]
+name = "pytorch-cpu"
+url = "https://download.pytorch.org/whl/cpu"
+priority = "supplemental"
+
+
+[[tool.poetry.source]]
+name = "PyPI"
+priority = "primary"

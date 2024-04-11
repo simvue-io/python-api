@@ -93,7 +93,7 @@ def sender():
         if time.time() - os.path.getmtime(run) > 300:
             try:
                 shutil.rmtree(f"{directory}/{id}")
-            except Exception as err:
+            except Exception:
                 logger.error("Got exception trying to cleanup run in directory %s", id)
 
     # Deal with runs in the created, running or a terminal state
@@ -106,7 +106,6 @@ def sender():
     )
 
     for run in runs:
-        cleanup = False
         status = None
         if run.endswith("running"):
             status = "running"
@@ -127,7 +126,7 @@ def sender():
             .replace("/created", "")
         )
 
-        if os.path.isfile("f{current}/sent"):
+        if os.path.isfile(f"{current}/sent"):
             if status == "running":
                 remove_file(f"{current}/running")
             elif status == "completed":

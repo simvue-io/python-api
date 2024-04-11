@@ -6,8 +6,6 @@ def test_run_init_tags():
     """
     Check that run.init throws an exception if tags are not a list
     """
-    os.environ["SIMVUE_TOKEN"] = "test"
-    os.environ["SIMVUE_URL"] = "https://simvue.io"
 
     x1_lower = 2
     x1_upper = 6
