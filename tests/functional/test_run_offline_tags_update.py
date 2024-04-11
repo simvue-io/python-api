@@ -32,7 +32,7 @@ class TestRunOffline(unittest.TestCase):
         sender()
 
         client = Client()
-        data = client.get_runs([f"name == {name}"], metadata=True)
+        data = client.get_runs([f"name == {name}"])
         self.assertEqual(len(data), 1)
         self.assertEqual(name, data[0]["name"])
         self.assertEqual(tags, data[0]["tags"])

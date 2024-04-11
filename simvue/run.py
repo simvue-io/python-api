@@ -48,6 +48,7 @@ INIT_MISSING = "initialize a run using init() first"
 QUEUE_SIZE = 10000
 UPLOAD_TIMEOUT = 30
 HEARTBEAT_INTERVAL: int = 60
+RESOURCES_METRIC_PREFIX: str = "resources"
 
 logger = logging.getLogger(__name__)
 
@@ -89,7 +90,6 @@ class Run:
         self._resources_metrics_interval = 30
         self._shutdown_event = None
         self._storage_id = None
-        self._testing = False
 
     def __enter__(self):
         return self
@@ -102,8 +102,6 @@ class Run:
         )
 
         if (self._id or self._mode == "offline") and self._status == "running":
-            if self._shutdown_event is not None:
-                self._shutdown_event.set()
             if not type:
                 self.set_status("completed")
             else:
@@ -115,6 +113,8 @@ class Run:
                     if traceback and self._active:
                         self.log_event(f"Traceback: {traceback}")
                         self.set_status("failed")
+        if self._shutdown_event is not None:
+            self._shutdown_event.set()
         if self._dispatcher:
             self._dispatcher.join()
 
@@ -165,14 +165,16 @@ class Run:
             data = {}
 
             data = {
-                "resources/cpu.usage.percent": cpu,
-                "resources/memory.usage": memory,
+                f"{RESOURCES_METRIC_PREFIX}/cpu.usage.percent": cpu,
+                f"{RESOURCES_METRIC_PREFIX}/memory.usage": memory,
             }
             if gpu:
                 for item in gpu:
                     data[item] = gpu[item]
 
-            self.log_metrics(data)
+            self._add_metrics_to_dispatch(
+                data, step=0
+            )  # Hard coded step to 0 for resource metrics so that user logged metrics dont appear to 'skip' steps
 
     def _create_callback(
         self,
@@ -209,7 +211,7 @@ class Run:
             attributes: dict[str, typing.Any],
             run_id=self._id,
             uuid: str = self._uuid,
-            heartbeat_callback=lambda *_: None if self._testing else _heartbeat,
+            heartbeat_callback=_heartbeat,
         ) -> None:
             if not os.path.exists((_offline_directory := get_offline_directory())):
                 logger.error(
@@ -246,7 +248,7 @@ class Run:
             url=self._url,
             run_id=self._id,
             headers=self._headers,
-            heartbeat_callback=lambda *_: None if self._testing else _heartbeat,
+            heartbeat_callback=_heartbeat,
         ) -> None:
             if not buffer:
                 return
@@ -677,10 +679,7 @@ class Run:
 
         return True
 
-    def log_metrics(self, metrics, step=None, time=None, timestamp=None):
-        """
-        Write metrics
-        """
+    def _add_metrics_to_dispatch(self, metrics, step=None, time=None, timestamp=None):
         if self._mode == "disabled":
             return True
 
@@ -706,14 +705,22 @@ class Run:
 
         _data: dict[str, typing.Any] = {
             "values": metrics,
-            "time": time or self.duration,
-            "timestamp": timestamp or self.time_stamp,
-            "step": step or self._step,
+            "time": time if time is not None else self.duration,
+            "timestamp": timestamp if timestamp is not None else self.time_stamp,
+            "step": step if step is not None else self._step,
         }
         self._dispatcher.add_item(_data, "metrics", self._queue_blocking)
-        self._step += 1
 
         return True
+
+    def log_metrics(self, metrics, step=None, time=None, timestamp=None):
+        """
+        Write metrics
+        """
+        self._add_metrics_to_dispatch(
+            metrics, step=step, time=time, timestamp=timestamp
+        )
+        self._step += 1
 
     def save(
         self,
