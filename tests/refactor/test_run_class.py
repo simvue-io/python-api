@@ -210,3 +210,23 @@ def test_runs_multiple_series() -> None:
     with contextlib.suppress(RuntimeError):
         for run_id in run_ids:
             client.delete_run(run_id)
+
+
+@pytest.mark.run
+def test_suppressed_errors(setup_logging: "CountingLogHandler") -> None:
+    setup_logging.captures = ["Skipping call to"]
+
+    with sv_run.Run(mode="offline") as run:
+        suppressed_funcs = [
+            func for func in dir(run)
+            if hasattr(func, "__skip_if_failed")
+        ]
+
+        # Check that the wrapped function has the original name
+        assert run.init.__name__ == "init"
+        run.config(suppress_errors=True)
+        run._error("Oh dear this error happened :(")
+        for func in suppressed_funcs:
+            assert not getattr(run, func)()
+    assert setup_logging.counts[0] == len(suppressed_funcs)
+    
