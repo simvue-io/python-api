@@ -88,6 +88,12 @@ def skip_if_failed(
                 return on_failure_return
             return class_func(self, *args, **kwargs)
 
+        # Rename the wrapped function back to what it was called on
+        wrapper.__name__ = class_func.__name__
+
+        # To maintain a record of whether the function was wrapped
+        setattr(wrapper, "__skip_if_failed", True)
+
         return wrapper
 
     return decorator

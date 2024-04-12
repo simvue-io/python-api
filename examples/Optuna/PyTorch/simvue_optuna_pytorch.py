@@ -97,7 +97,6 @@ valid_loader = torch.utils.data.DataLoader(
 
 
 def objective(trial):
-
     # Generate the model.
     model = define_model(trial).to(DEVICE)
 
@@ -117,7 +116,6 @@ def objective(trial):
 
     # Training of the model.
     for epoch in range(EPOCHS):
-
         train(optimizer, model, train_loader)
         val_accuracy = validate(model, valid_loader)
         trial.report(val_accuracy, epoch)
