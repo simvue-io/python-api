@@ -979,9 +979,6 @@ class Client:
         response = requests.get(
             f"{self._url}/api/metrics", headers=self._headers, params=params
         )
-        response = requests.get(
-            f"{self._url}/api/metrics", headers=self._headers, params=params
-        )
 
         if response.status_code != 200:
             try:
