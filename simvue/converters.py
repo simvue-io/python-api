@@ -1,3 +1,81 @@
+"""
+Converters
+==========
+
+Functions for converting outputs from the Simvue server to other forms.
+"""
+
+import typing
+
+from .utilities import check_extra
+
+if typing.TYPE_CHECKING:
+    from pandas import DataFrame
+
+
+@check_extra("dataset")
+def aggregated_metrics_to_dataframe(
+    request_response_data: dict[str, list[dict[str, float]]], xaxis: str
+) -> "DataFrame":
+    """Create data frame for an aggregate of metrics
+
+    Returns a dataframe with columns being metrics and sub-columns being the
+    minimum, average etc.
+
+    Parameters
+    ----------
+    request_response_data : dict[str, list[dict[str, float]]]
+        the data retrieved from the Simvue server
+    xaxis : str
+        the x-axis label
+
+    Returns
+    -------
+    DataFrame
+        a Pandas dataframe of the metric set
+    """
+    import pandas
+
+    _all_steps: list[float] = sorted(
+        set(
+            (
+                d[xaxis]
+                for sublist in request_response_data.values()
+                for d in sublist
+                if xaxis in d
+            )
+        )
+    )
+
+    # Get the keys from the aggregate which are not the xaxis label
+    _first_metric_set = next(iter(request_response_data.values()))
+    _value_types = next(iter(_first_metric_set)).keys()
+    _value_types = list(_value_types)
+    _value_types.remove(xaxis)
+
+    result_dict = {step: {} for step in _all_steps}
+
+    for metric_name, metrics in request_response_data.items():
+        metrics_iterator = iter(metrics)
+        _metric_steps = (d[xaxis] for d in metrics)
+        for step in _all_steps:
+            if step not in _metric_steps:
+                for value_type in _value_types:
+                    result_dict[step][(metric_name, value_type)] = None
+            else:
+                next_item = next(metrics_iterator)
+                for value_type in _value_types:
+                    result_dict[step][(metric_name, value_type)] = next_item.get(
+                        value_type
+                    )
+
+    # Transpose so the interval axis becomes the index
+    _data_frame = pandas.DataFrame(result_dict).T
+    _data_frame.index.name = xaxis
+
+    return _data_frame
+
+
 def to_dataframe(data):
     """
     Convert runs to dataframe
