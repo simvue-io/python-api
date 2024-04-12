@@ -9,7 +9,7 @@ class DirectDispatcher(DispatcherBaseClass):
 
     def __init__(
         self,
-        callback: typing.Callable[[list[typing.Any], str, dict[str, typing.Any]], None],
+        callback: typing.Callable[[list[typing.Any], str], None],
         object_types: list[str],
         termination_trigger: threading.Event,
         **_,
@@ -18,7 +18,7 @@ class DirectDispatcher(DispatcherBaseClass):
 
         Parameters
         ----------
-        callback : typing.Callable[[list[typing.Any], str, dict[str, typing.Any]], None]
+        callback : typing.Callable[[list[typing.Any], str], None]
             callback to be executed on each item provided
         object_types : list[str]
             categories, this is mainly used for creation of queues in a QueueDispatcher
