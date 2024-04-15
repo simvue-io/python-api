@@ -1,13 +1,12 @@
 """
-Converters
-==========
+Converter Functions
+===================
 
-Functions for converting outputs from the Simvue server to other forms.
+Contains functions for converting objects retrieved from the server between
+data types including creation of DataFrames for metrics
 """
 
 import typing
-
-from .utilities import check_extra
 
 if typing.TYPE_CHECKING:
     from pandas import DataFrame
@@ -205,8 +204,7 @@ def to_dataframe(data):
                 else:
                     columns["metadata.%s" % item].append(None)
 
-    df = pd.DataFrame(data=columns)
-    return df
+    return pd.DataFrame(data=columns)
 
 
 def metric_time_series_to_dataframe(
