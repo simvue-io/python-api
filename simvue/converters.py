@@ -13,10 +13,13 @@ if typing.TYPE_CHECKING:
     from pandas import DataFrame
 
 
-@check_extra("dataset")
 def aggregated_metrics_to_dataframe(
-    request_response_data: dict[str, list[dict[str, float]]], xaxis: str
-) -> "DataFrame":
+    request_response_data: dict[str, list[dict[str, float]]],
+    xaxis: str,
+    parse_to: typing.Literal["dict", "dataframe"] = "dict",
+) -> typing.Union[
+    "DataFrame", dict[str, dict[tuple[float, str], typing.Optional[float]]]
+]:
     """Create data frame for an aggregate of metrics
 
     Returns a dataframe with columns being metrics and sub-columns being the
@@ -28,13 +31,15 @@ def aggregated_metrics_to_dataframe(
         the data retrieved from the Simvue server
     xaxis : str
         the x-axis label
+    parse_to : Literal["dict", "dataframe"], optional
+        form of output, dictionary or a Pandas Dataframe. Note pandas
+        must be installed via the 'dataset' for the latter to work.
 
     Returns
     -------
-    DataFrame
-        a Pandas dataframe of the metric set
+    DataFrame | dict
+        a Pandas dataframe of the metric set or the data as a dictionary
     """
-    import pandas
 
     _all_steps: list[float] = sorted(
         set(
@@ -53,7 +58,9 @@ def aggregated_metrics_to_dataframe(
     _value_types = list(_value_types)
     _value_types.remove(xaxis)
 
-    result_dict = {step: {} for step in _all_steps}
+    result_dict: dict[str, dict[tuple[float, str], typing.Optional[float]]] = {
+        metric_name: {} for metric_name in request_response_data.keys()
+    }
 
     for metric_name, metrics in request_response_data.items():
         metrics_iterator = iter(metrics)
@@ -61,19 +68,95 @@ def aggregated_metrics_to_dataframe(
         for step in _all_steps:
             if step not in _metric_steps:
                 for value_type in _value_types:
-                    result_dict[step][(metric_name, value_type)] = None
+                    result_dict[metric_name][step, value_type] = None
             else:
                 next_item = next(metrics_iterator)
                 for value_type in _value_types:
-                    result_dict[step][(metric_name, value_type)] = next_item.get(
+                    result_dict[metric_name][step, value_type] = next_item.get(
                         value_type
                     )
 
-    # Transpose so the interval axis becomes the index
-    _data_frame = pandas.DataFrame(result_dict).T
-    _data_frame.index.name = xaxis
+    if parse_to == "dataframe":
+        check_extra("dataset")
+        import pandas
 
-    return _data_frame
+        _data_frame = pandas.DataFrame(result_dict)
+        _data_frame.index.name = xaxis
+        return _data_frame
+    elif parse_to == "dict":
+        return result_dict
+    else:
+        raise ValueError(f"Unrecognised parse format '{parse_to}'")
+
+
+def parse_run_set_metrics(
+    request_response_data: dict[str, dict[str, list[dict[str, float]]]],
+    xaxis: str,
+    run_labels: list[str],
+    parse_to: typing.Literal["dict", "dataframe"] = "dict",
+) -> typing.Union[
+    dict[str, dict[tuple[float, str], typing.Optional[float]]], "DataFrame"
+]:
+    _all_steps: list[float] = sorted(
+        set(
+            (
+                d[xaxis]
+                for run_data in request_response_data.values()
+                for sublist in run_data.values()
+                for d in sublist
+                if xaxis in d
+            )
+        )
+    )
+
+    _all_metrics: list[str] = sorted(
+        set(
+            (
+                key
+                for run_data in request_response_data.values()
+                for key in run_data.keys()
+            )
+        )
+    )
+
+    # Get the keys from the aggregate which are not the xaxis label
+    _first_run = next(iter(request_response_data.values()))
+    _first_metric_set = next(iter(_first_run.values()))
+    _value_types = next(iter(_first_metric_set)).keys()
+    _value_types = list(_value_types)
+    _value_types.remove(xaxis)
+
+    result_dict: dict[str, dict[tuple[float, str], typing.Optional[float]]] = {
+        metric_name: {} for metric_name in _all_metrics
+    }
+
+    for run_label, run_data in zip(run_labels, request_response_data.values()):
+        for metric_name in _all_metrics:
+            if metric_name not in run_data:
+                for step in _all_steps:
+                    result_dict[metric_name][step, run_label] = None
+                continue
+            metrics = run_data[metric_name]
+            metrics_iterator = iter(metrics)
+            _metric_steps = (d[xaxis] for d in metrics)
+            for step in _all_steps:
+                if step not in _metric_steps:
+                    result_dict[metric_name][step, run_label] = None
+                else:
+                    next_item = next(metrics_iterator)
+                    result_dict[metric_name][step, run_label] = next_item.get("value")
+
+    if parse_to == "dataframe":
+        check_extra("dataset")
+        import pandas
+
+        _data_frame = pandas.DataFrame(result_dict)
+        _data_frame.index.name = xaxis
+        return _data_frame
+    elif parse_to == "dict":
+        return result_dict
+    else:
+        raise ValueError(f"Unrecognised parse format '{parse_to}'")
 
 
 def to_dataframe(data):
@@ -126,59 +209,32 @@ def to_dataframe(data):
     return df
 
 
-def metrics_to_dataframe(data, xaxis, name=None):
-    """
-    Convert metrics to dataframe
+def metric_time_series_to_dataframe(
+    data: list[dict[str, float]],
+    xaxis: typing.Literal["step", "time", "timestamp"],
+    name: typing.Optional[str] = None,
+) -> "DataFrame":
+    """Convert a single metric value set from a run into a dataframe
+
+    Parameters
+    ----------
+    data : list[dict[str, float]]
+        time series data from Simvue server for a single metric and run
+    xaxis : Literal["step", "time", "timestamp"]
+        the x-axis type
+    name : str | None, optional
+        if provided, an alternative name for the 'values' column, by default None
+
+    Returns
+    -------
+    DataFrame
+        a Pandas DataFrame containing values for the metric and run at each
     """
     import pandas as pd
 
-    if name:
-        columns = {xaxis: [], name: []}
-        for item in data:
-            columns[xaxis].append(item[0])
-            columns[name].append(item[1])
+    _df_dict: dict[str, list[float]] = {
+        xaxis: [v[xaxis] for v in data],
+        name or "value": [v["value"] for v in data],
+    }
 
-        df = pd.DataFrame(data=columns)
-    else:
-        runs = []
-        metrics = []
-        for item in data:
-            if item[2] not in runs:
-                runs.append(item[2])
-            if item[3] not in metrics:
-                metrics.append(item[3])
-
-        headers = pd.MultiIndex.from_product(
-            [runs, metrics, [xaxis, "value"]], names=["run", "metric", "column"]
-        )
-
-        newdata = {}
-        for row in data:
-            if row[2] not in newdata:
-                newdata[row[2]] = {}
-            if row[3] not in newdata[row[2]]:
-                newdata[row[2]][row[3]] = []
-
-            newdata[row[2]][row[3]].append([row[0], row[1]])
-
-        max_rows = 0
-        for run in newdata:
-            for metric in newdata[run]:
-                if len(newdata[run][metric]) > max_rows:
-                    max_rows = len(newdata[run][metric])
-
-        results = []
-        for count in range(0, max_rows):
-            line = []
-            for run in newdata:
-                for metric in newdata[run]:
-                    if count < len(newdata[run][metric]):
-                        line.append(newdata[run][metric][count][0])
-                        line.append(newdata[run][metric][count][1])
-                    else:
-                        line.append(None)
-                        line.append(None)
-            results.append(line)
-
-        df = pd.DataFrame(data=results, columns=headers)
-    return df
+    return pd.DataFrame(_df_dict)

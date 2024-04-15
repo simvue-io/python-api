@@ -48,7 +48,7 @@ def test_log_metrics(
     time.sleep(1.0 if not overload_buffer else 2.0)
     run.close()
     client = sv_cl.Client()
-    _data = client.get_metrics_multiple(
+    _data = client.get_multiple_metrics(
         [run._id], list(METRICS.keys()), xaxis="step"
     )
 
@@ -142,7 +142,7 @@ def test_runs_multiple_parallel(multi_threaded: bool) -> None:
             for future in concurrent.futures.as_completed(futures):
                 id, metrics, run_id = future.result()
                 assert metrics
-                assert client.get_metrics(run_id, f"var_{id + 1}", "step")
+                assert client.get_metric_values(run_id, f"var_{id + 1}", "step")
                 with contextlib.suppress(RuntimeError):
                     client.delete_run(run_id)
     else:
@@ -177,7 +177,7 @@ def test_runs_multiple_parallel(multi_threaded: bool) -> None:
 
                 for i, run_id in enumerate((run_1._id, run_2._id)):
                     assert metrics
-                    assert client.get_metrics(run_id, f"var_{i}", "step")
+                    assert client.get_metric_values(run_id, f"var_{i}", "step")
 
         with contextlib.suppress(RuntimeError):
             client.delete_run(run_1._id)
@@ -214,7 +214,7 @@ def test_runs_multiple_series() -> None:
 
     for i, run_id in enumerate(run_ids):
         assert metrics[i]
-        assert client.get_metrics(run_id, f"var_{i}", "step")
+        assert client.get_metric_values(run_id, f"var_{i}", "step")
 
     with contextlib.suppress(RuntimeError):
         for run_id in run_ids:

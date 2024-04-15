@@ -31,12 +31,12 @@ def test_get_run_id_from_name(create_test_run: tuple[sv_run.Run, dict]) -> None:
 
 @pytest.mark.dependency
 @pytest.mark.client
-def test_get_metrics(create_test_run: tuple[sv_run.Run, dict]) -> None:
+def test_get_metric_values(create_test_run: tuple[sv_run.Run, dict]) -> None:
     client = svc.Client()
     time.sleep(4)
     assert (
         len(
-            client.get_metrics(
+            client.get_metric_values(
                 run_id=create_test_run[1]["run_id"],
                 metric_name=create_test_run[1]["metrics"][0],
                 xaxis="step",
@@ -62,7 +62,7 @@ def test_multiple_metric_retrieval(create_test_run: tuple[sv_run.Run, dict], agg
             import pandas 
         except ImportError:
             pytest.skip(reason="Pandas not available")
-    client.get_metrics_multiple(
+    client.get_multiple_metrics(
         run_ids=[create_test_run[1]["run_id"]],
         metric_names=list(create_test_run[1]["metrics"]),
         xaxis="time",
