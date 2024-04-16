@@ -690,6 +690,7 @@ class Run:
         Write event
         """
         if self._mode == "disabled":
+            self._error("Cannot log events in 'disabled' state")
             return True
 
         if not self._uuid and not self._name:
@@ -710,6 +711,9 @@ class Run:
 
         _data = {"message": message, "timestamp": timestamp or self.time_stamp}
         self._dispatcher.add_item(_data, "events", self._queue_blocking)
+
+        # Need to stall the exit of Run so any executor events can be sent
+        time.sleep(1)
 
         return True
 
