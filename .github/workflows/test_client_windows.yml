@@ -20,7 +20,9 @@ jobs:
       with:
         python-version: "3.11"
     - name: Install dependencies
-      run: python -m pip install poetry
+      run: |
+        rm poetry.lock
+        python -m pip install poetry
     - name: Test with pytest
       shell: bash
       run: |
