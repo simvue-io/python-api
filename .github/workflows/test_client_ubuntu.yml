@@ -13,6 +13,7 @@ permissions:
   contents: read
 
 jobs:
+  timeout-minutes: 10
   build:
 
     runs-on: ubuntu-latest
