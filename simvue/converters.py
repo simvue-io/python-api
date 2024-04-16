@@ -98,6 +98,32 @@ def parse_run_set_metrics(
 ) -> typing.Union[
     dict[str, dict[tuple[float, str], typing.Optional[float]]], "DataFrame"
 ]:
+    """Parse JSON response metric data from the server into the specified form
+
+    Creates either a dictionary or a pandas dataframe of the data collected
+    from multiple runs and metrics
+
+    Parameters
+    ----------
+    request_response_data: dict[str, dict[str, list[dict[str, float]]]]
+        JSON response data
+    xaxis : str
+        The x-axis label/key
+    run_labels : list[str]
+        The labels to assign for the runs
+    parse_to : Literal["dict", "dataframe"], optional
+        Form in which to parse data, default is dict
+
+    Returns
+    -------
+    dict[str, dict[tuple[float, str], typing.Optional[float]]] | DataFrame
+        either a dictionary or Pandas DataFrame containing the results
+
+    Raises
+    ------
+    ValueError
+        if an unrecognised parse format is specified
+    """
     _all_steps: list[float] = sorted(
         set(
             (

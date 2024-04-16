@@ -48,18 +48,22 @@ def test_log_metrics(
     time.sleep(1.0 if not overload_buffer else 2.0)
     run.close()
     client = sv_cl.Client()
-    _data = client.get_multiple_metrics(
-        [run._id], list(METRICS.keys()), xaxis="step"
+    _data = client.get_metric_values(
+        run_ids=[run._id],
+        metric_names=list(METRICS.keys()),
+        xaxis="step",
+        aggregate=False
     )
 
     with contextlib.suppress(RuntimeError):
         client.delete_run(run._id)
 
-    assert len(_data) == (
-        len(METRICS)
-        if not overload_buffer
-        else len(METRICS) * run._dispatcher._max_buffer_size * 3
-    )
+    assert sorted(set(METRICS.keys())) == sorted(set(_data.keys()))
+    _steps = []
+    for entry in _data.values():
+        _steps += list(i[0] for i in entry.keys())
+    _steps = set(_steps)
+    assert len(_steps) == 1 if not overload_buffer else run._dispatcher._max_buffer_size * 3
 
     # Check metrics have been set
     assert setup_logging.counts[0] == 1 if not overload_buffer else 3
@@ -142,7 +146,13 @@ def test_runs_multiple_parallel(multi_threaded: bool) -> None:
             for future in concurrent.futures.as_completed(futures):
                 id, metrics, run_id = future.result()
                 assert metrics
-                assert client.get_metric_values(run_id, f"var_{id + 1}", "step")
+                assert client.get_metric_values(
+                    run_ids=[run_id],
+                    metric_names=[f"var_{id + 1}"],
+                    xaxis="step",
+                    format="dict",
+                    aggregate=False
+                )
                 with contextlib.suppress(RuntimeError):
                     client.delete_run(run_id)
     else:
@@ -177,7 +187,13 @@ def test_runs_multiple_parallel(multi_threaded: bool) -> None:
 
                 for i, run_id in enumerate((run_1._id, run_2._id)):
                     assert metrics
-                    assert client.get_metric_values(run_id, f"var_{i}", "step")
+                    assert client.get_metric_values(
+                        run_ids=[run_id],
+                        metric_names=[f"var_{i}"],
+                        xaxis="step",
+                        format="dict",
+                        aggregate=False
+                    )
 
         with contextlib.suppress(RuntimeError):
             client.delete_run(run_1._id)
@@ -214,7 +230,13 @@ def test_runs_multiple_series() -> None:
 
     for i, run_id in enumerate(run_ids):
         assert metrics[i]
-        assert client.get_metric_values(run_id, f"var_{i}", "step")
+        assert client.get_metric_values(
+            run_ids=[run_id],
+            metric_names=[f"var_{i}"],
+            xaxis="step",
+            format="dict",
+            aggregate=False
+        )
 
     with contextlib.suppress(RuntimeError):
         for run_id in run_ids:

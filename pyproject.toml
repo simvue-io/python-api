@@ -37,6 +37,7 @@ pytest-cov = ">=4.1,<6.0"
 pytest-xdist = "^3.5.0"
 pytest-mock = "^3.14.0"
 torch = {version = "^2.0.0+cpu", source = "pytorch-cpu"}
+pytest-sugar = "^1.0.0"
 
 [build-system]
 requires = ["poetry-core"]
