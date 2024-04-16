@@ -880,6 +880,7 @@ class Client:
         run_filters: typing.Optional[list[str]] = None,
         use_run_names: bool = False,
         aggregate: bool = True,
+        max_points: int = -1,
     ) -> typing.Union[dict, "DataFrame", None]:
         """Retrieve the values for a given metric across multiple runs
 
@@ -898,6 +899,8 @@ class Client:
             return results as averages, default is False however if this is
             not explicitly set to False and the number of runs exceeds 100
             it will default to True
+        max_points : int, optional
+            maximum number of data points, by default -1 (all)
 
         Returns
         -------
@@ -942,7 +945,11 @@ class Client:
 
         # Now get the metrics for each run
         run_metrics = self._get_run_metrics_from_server(
-            metric_names=metric_names, run_ids=run_ids, xaxis=xaxis, aggregate=aggregate
+            metric_names=metric_names,
+            run_ids=run_ids,
+            xaxis=xaxis,
+            aggregate=aggregate,
+            max_points=max_points,
         )
 
         if aggregate:
@@ -955,6 +962,7 @@ class Client:
             )
 
     @check_extra("plot")
+    @check_extra("dataset")
     def plot_metrics(
         self,
         run_ids: list[str],
@@ -991,9 +999,17 @@ class Client:
         if not isinstance(metric_names, list):
             raise ValueError("Invalid names specified, must be a list of metric names.")
 
-        data: "DataFrame" = self.get_multiple_metrics(  # type: ignore
-            run_ids, metric_names, xaxis, max_points, format="dataframe"
+        data: "DataFrame" = self.get_metric_values(  # type: ignore
+            run_ids=run_ids,
+            metric_names=metric_names,
+            xaxis=xaxis,
+            max_points=max_points,
+            format="dataframe",
+            aggregate=False,
         )
+
+        # Undo multi-indexing
+        flattened_df = data.reset_index()
 
         import matplotlib.pyplot as plt
 
@@ -1007,21 +1023,16 @@ class Client:
                 elif len(run_ids) == 1 and len(metric_names) > 1:
                     label = name
 
-                plt.plot(
-                    data[(run, name, xaxis)], data[(run, name, "value")], label=label
-                )
-                plt.plot(
-                    data[(run, name, xaxis)], data[(run, name, "value")], label=label
-                )
+                flattened_df.plot(y=name, x=xaxis, label=label)
 
         if xaxis == "step":
-            plt.xlabel("steps")
+            plt.xlabel("Steps")
         elif xaxis == "time":
-            plt.xlabel("relative time")
+            plt.xlabel("Relative Time")
         if xaxis == "step":
             plt.xlabel("steps")
-        elif xaxis == "time":
-            plt.xlabel("relative time")
+        elif xaxis == "timestamp":
+            plt.xlabel("Time")
 
         if len(metric_names) == 1:
             plt.ylabel(metric_names[0])

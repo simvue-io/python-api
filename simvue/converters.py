@@ -11,6 +11,8 @@ import typing
 if typing.TYPE_CHECKING:
     from pandas import DataFrame
 
+from .utilities import check_extra
+
 
 def aggregated_metrics_to_dataframe(
     request_response_data: dict[str, list[dict[str, float]]],
@@ -149,8 +151,12 @@ def parse_run_set_metrics(
         check_extra("dataset")
         import pandas
 
-        _data_frame = pandas.DataFrame(result_dict)
-        _data_frame.index.name = xaxis
+        _data_frame = pandas.DataFrame(
+            result_dict,
+            index=pandas.MultiIndex.from_product(
+                [_all_steps, run_labels], names=(xaxis, "run")
+            ),
+        )
         return _data_frame
     elif parse_to == "dict":
         return result_dict

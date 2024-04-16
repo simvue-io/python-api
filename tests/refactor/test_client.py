@@ -37,37 +37,13 @@ def test_get_metric_values(create_test_run: tuple[sv_run.Run, dict]) -> None:
     assert (
         len(
             client.get_metric_values(
-                run_id=create_test_run[1]["run_id"],
-                metric_name=create_test_run[1]["metrics"][0],
+                run_ids=[create_test_run[1]["run_id"]],
+                metric_names=[create_test_run[1]["metrics"][0]],
                 xaxis="step",
+                format="dict"
             )
         )
         > 0
-    )
-
-
-@pytest.mark.dependency
-@pytest.mark.client
-@pytest.mark.parametrize(
-    "aggregate", (True, False),
-    ids=("aggregated", "normal")
-)
-@pytest.mark.parametrize(
-    "format", ("list", "dataframe")
-)
-def test_multiple_metric_retrieval(create_test_run: tuple[sv_run.Run, dict], aggregate: bool, format: str) -> None:
-    client = svc.Client()
-    if format == "dataframe":
-        try:
-            import pandas 
-        except ImportError:
-            pytest.skip(reason="Pandas not available")
-    client.get_multiple_metrics(
-        run_ids=[create_test_run[1]["run_id"]],
-        metric_names=list(create_test_run[1]["metrics"]),
-        xaxis="time",
-        aggregate=aggregate,
-        format=format
     )
 
 
