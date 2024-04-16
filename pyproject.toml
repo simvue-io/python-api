@@ -72,7 +72,8 @@ markers = [
     "dispatch: test data dispatcher",
     "run: test the simvue Run class",
     "utilities: test simvue utilities module",
-    "scenario: test scenarios"
+    "scenario: test scenarios",
+    "executor: tests of executors"
 ]
 
 [tool.interrogate]
