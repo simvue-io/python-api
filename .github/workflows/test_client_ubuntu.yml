@@ -13,11 +13,10 @@ permissions:
   contents: read
 
 jobs:
-  timeout-minutes: 10
   build:
 
     runs-on: ubuntu-latest
-
+    timeout-minutes: 10
     steps:
     - uses: actions/checkout@v3
     - name: Set up Python 3.11
