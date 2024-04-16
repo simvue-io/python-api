@@ -77,7 +77,7 @@ class Run:
         self._status = None
         self._upload_time_log = None
         self._upload_time_event = None
-        self._data = []
+        self._data = {}
         self._events = []
         self._step = 0
         self._queue_size = QUEUE_SIZE
@@ -418,6 +418,8 @@ class Run:
         self._simvue = Simvue(self._name, self._uuid, self._mode, self._suppress_errors)
         name, self._id = self._simvue.create_run(data)
 
+        self._data = data
+
         if not name:
             return False
         elif name is not True:
@@ -690,6 +692,7 @@ class Run:
         Write event
         """
         if self._mode == "disabled":
+            self._error("Cannot log events in 'disabled' state")
             return True
 
         if not self._uuid and not self._name:
@@ -710,6 +713,9 @@ class Run:
 
         _data = {"message": message, "timestamp": timestamp or self.time_stamp}
         self._dispatcher.add_item(_data, "events", self._queue_blocking)
+
+        # Need to stall the exit of Run so any executor events can be sent
+        time.sleep(1)
 
         return True
 
