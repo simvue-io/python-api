@@ -102,7 +102,9 @@ class Run:
         self._executor.wait_for_completion()
         identifier = self._id
         logger.debug(
-            "Automatically closing run %s in status %s", identifier, self._status
+            "Automatically closing run '%s' in status %s",
+            identifier if self._mode == "online" else "unregistered",
+            self._status,
         )
 
         if self._heartbeat_thread and self._heartbeat_termination_trigger:
@@ -346,6 +348,15 @@ class Run:
         if not self._suppress_errors:
             raise RuntimeError(message)
         else:
+            # Simvue support now terminated as the instance of Run has entered
+            # the dormant state due to exception throw so set listing to be 'lost'
+            if self._status == "running" and self._simvue:
+                self._simvue.update({"name": self._name, "status": "lost"})
+
+            # Purge the queue as we can no longer send metrics
+            if self._dispatcher:
+                self._dispatcher.purge()
+
             logger.error(message)
 
         self._aborted = True

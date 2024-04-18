@@ -2,6 +2,7 @@ import pytest
 import time
 import typing
 import contextlib
+import inspect
 import uuid
 import concurrent.futures
 import random
@@ -222,20 +223,28 @@ def test_runs_multiple_series() -> None:
 
 
 @pytest.mark.run
-def test_suppressed_errors(setup_logging: "CountingLogHandler") -> None:
+@pytest.mark.parametrize(
+    "post_init", (True, False),
+    ids=("pre-init", "post-init")
+)
+def test_suppressed_errors(setup_logging: "CountingLogHandler", post_init: bool) -> None:
     setup_logging.captures = ["Skipping call to"]
 
-    with sv_run.Run(mode="offline") as run:
-        suppressed_funcs = [
-            func for func in dir(run)
-            if hasattr(func, "__skip_if_failed")
-        ]
+    with sv_run.Run(mode="offline") as run:            
+        decorated_funcs = [name for name, method in inspect.getmembers(run, inspect.ismethod) if method.__name__.endswith("__fail_safe")]
 
-        # Check that the wrapped function has the original name
-        assert run.init.__name__ == "init"
+        if post_init:
+            decorated_funcs.remove("init")
+            run.init(name="test_suppressed_errors", folder="/simvue_unit_testing", tags=["simvue_client_unit_tests"])
+
         run.config(suppress_errors=True)
         run._error("Oh dear this error happened :(")
-        for func in suppressed_funcs:
+        if run._dispatcher:
+            assert run._dispatcher.empty
+        for func in decorated_funcs:
             assert not getattr(run, func)()
-    assert setup_logging.counts[0] == len(suppressed_funcs)
+    if post_init:
+        assert setup_logging.counts[0] == len(decorated_funcs) + 1
+    else:
+        assert setup_logging.counts[0] == len(decorated_funcs)
     
