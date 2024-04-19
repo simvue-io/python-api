@@ -34,3 +34,15 @@ class DirectDispatcher(DispatcherBaseClass):
     def add_item(self, item: typing.Any, object_type: str, *_, **__) -> None:
         """Execute callback on the given item"""
         self._callback([item], object_type)
+
+    def run(self) -> None:
+        """Run does not execute anything in this context"""
+        pass
+
+    def start(self) -> None:
+        """Start does not execute anything in this context"""
+        pass
+
+    def join(self) -> None:
+        """Join does not execute anything in this context"""
+        pass

@@ -3,7 +3,7 @@ import abc
 import typing
 
 
-class DispatcherBaseClass(threading.Thread):
+class DispatcherBaseClass(abc.ABC):
     def __init__(
         self,
         callback: typing.Callable[[list[typing.Any], str], None],
@@ -22,4 +22,12 @@ class DispatcherBaseClass(threading.Thread):
 
     @abc.abstractmethod
     def run(self) -> None:
+        pass
+
+    @abc.abstractmethod
+    def start(self) -> None:
+        pass
+
+    @abc.abstractmethod
+    def join(self) -> None:
         pass

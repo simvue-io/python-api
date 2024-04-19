@@ -24,9 +24,9 @@ logger = logging.getLogger(__name__)
 logger.setLevel(logging.DEBUG)
 
 
-class QueuedDispatcher(DispatcherBaseClass):
+class QueuedDispatcher(threading.Thread, DispatcherBaseClass):
     """
-    The QueueDispatcher class enforces a maximum rate of execution for a given function
+    The QueuedDispatcher class enforces a maximum rate of execution for a given function
     on items within a queue. Multiple queues can be defined with the dispatch
     of each being executed in series. Items are added to a buffer which is handed
     to the callback.
@@ -61,11 +61,13 @@ class QueuedDispatcher(DispatcherBaseClass):
         max_read_rate : float
             maximum rate at which the callback can be executed
         """
-        super().__init__(
+        DispatcherBaseClass.__init__(
+            self,
             callback=callback,
             object_types=object_types,
             termination_trigger=termination_trigger,
         )
+        super().__init__()
 
         self._termination_trigger = termination_trigger
         self._callback = callback
@@ -73,7 +75,6 @@ class QueuedDispatcher(DispatcherBaseClass):
         self._max_read_rate = max_read_rate
         self._max_buffer_size = max_buffer_size
         self._send_timer = 0
-        self._queue_blocking = queue_blocking  # Does nothing
 
     def add_item(self, item: typing.Any, object_type: str, blocking: bool) -> None:
         """Add an item to the specified queue with/without blocking"""

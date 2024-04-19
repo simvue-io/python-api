@@ -196,17 +196,12 @@ def test_direct_dispatcher(multiple: bool, append_during_dispatch: bool) -> None
             for variable, dispatcher in zip(variables, dispatchers):  
                 dispatcher.add_item({string.ascii_uppercase[i % 26]: i}, variable)
 
-    for dispatcher in dispatchers:
-        dispatcher.start()
-
     if append_during_dispatch:
         for i in range(n_elements):
             for variable, dispatcher in zip(variables, dispatchers):  
                 dispatcher.add_item({string.ascii_uppercase[i % 26]: i}, variable)
 
     event.set()
-
-    dispatcher.join()
 
     for variable in variables:
         assert check_dict[variable]["counter"] >= 1, f"Check of counter for dispatcher '{variable}' failed with count = {check_dict[variable]['counter']}"
