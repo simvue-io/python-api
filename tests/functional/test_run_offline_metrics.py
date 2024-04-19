@@ -58,7 +58,7 @@ class TestRunOfflineMetrics(unittest.TestCase):
         metrics_names = client.get_metrics_names(run_id)
         self.assertEqual(metrics_names, ["a", "b"])
 
-        runs = client.delete_folder(folder, runs=True)
+        client.delete_folder(folder, remove_runs=True)
 
 
 if __name__ == "__main__":

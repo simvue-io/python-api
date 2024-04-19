@@ -22,13 +22,13 @@ class TestRunFolderMetadataFind(unittest.TestCase):
                 found = True
         self.assertTrue(found)
 
-        runs = client.delete_folder(folder, runs=True)
+        client.delete_folder(folder, remove_runs=True)
 
         client = Client()
         with self.assertRaises(Exception) as context:
             client.get_folder(folder)
 
-        self.assertTrue('Folder does not exist' in str(context.exception))
+        self.assertTrue(f"Folder '{folder}' does not exist" in str(context.exception))
 
 if __name__ == '__main__':
     unittest.main()

@@ -17,8 +17,8 @@ class TestArtifacts(unittest.TestCase):
         client = Client()
         with self.assertRaises(Exception) as context:
             client.get_artifact(run, str(uuid.uuid4()))
-            
-        self.assertTrue('Run does not exist' in str(context.exception))
+        
+        self.assertTrue(any(i in str(context.exception) for i in ('Run does not exist', 'No such run')))
 
 if __name__ == '__main__':
     unittest.main()

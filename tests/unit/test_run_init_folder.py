@@ -6,9 +6,6 @@ def test_run_init_folder():
     """
     Check that run.init throws an exception if folder input is not specified correctly
     """
-    os.environ["SIMVUE_TOKEN"] = "test"
-    os.environ["SIMVUE_URL"] = "https://simvue.io"
-
     x1_lower = 2
     x1_upper = 6
 

@@ -422,9 +422,6 @@ class Client:
         response = requests.delete(
             f"{self._url}/api/folders/{folder_id}", headers=self._headers, params=params
         )
-        response = requests.delete(
-            f"{self._url}/api/folders/{folder_id}", headers=self._headers, params=params
-        )
 
         if response.status_code == 200:
             runs: list[dict] = response.json().get("runs", [])
@@ -602,7 +599,6 @@ class Client:
         contains: typing.Optional[str],
         out_path: str,
     ) -> list[dict[str, str]]:
-
         downloads: list[dict[str, str]] = []
 
         for item in request_response.json():
@@ -983,9 +979,6 @@ class Client:
         response = requests.get(
             f"{self._url}/api/metrics", headers=self._headers, params=params
         )
-        response = requests.get(
-            f"{self._url}/api/metrics", headers=self._headers, params=params
-        )
 
         if response.status_code != 200:
             try:
@@ -1015,7 +1008,6 @@ class Client:
 
             for name, entries in agg_data.items():
                 for item in entries:
-
                     data.append(
                         [
                             item[xaxis],
@@ -1137,7 +1129,7 @@ class Client:
         """
 
         msg_filter: str = (
-            json.dumps([f"event.message contains {message_contains}"])
+            json.dumps([{"operator": "contains", "value": message_contains}])
             if message_contains
             else ""
         )

@@ -1,10 +1,17 @@
 import configparser
+import datetime
+import hashlib
 import logging
+import importlib.util
+import contextlib
 import os
 import pathlib
 import typing
 
 import jwt
+
+CHECKSUM_BLOCK_SIZE = 4096
+EXTRAS: tuple[str, ...] = ("plot", "torch", "dataset")
 
 logger = logging.getLogger(__name__)
 
@@ -48,30 +55,29 @@ def find_first_instance_of_file(
 def check_extra(extra_name: str) -> typing.Callable:
     def decorator(class_func: typing.Callable) -> typing.Callable:
         def wrapper(self, *args, **kwargs) -> typing.Any:
-            if extra_name == "plot":
-                try:
-                    import matplotlib
-                    import plotly
-                except ImportError:
-                    raise RuntimeError(
-                        f"Plotting features require the '{extra_name}' extension to Simvue"
-                    )
-            elif extra_name == "torch":
-                try:
-                    import torch
-                except ImportError:
-                    raise RuntimeError(
-                        f"PyTorch features require the '{extra_name}' extension to Simvue"
-                    )
-            elif extra_name == "dataset":
-                try:
-                    import numpy
-                    import pandas
-                except ImportError:
-                    raise RuntimeError(
-                        f"Dataset features require the '{extra_name}' extension to Simvue"
-                    )
-            else:
+            if extra_name == "plot" and not all(
+                [
+                    importlib.util.find_spec("matplotlib"),
+                    importlib.util.find_spec("plotly"),
+                ]
+            ):
+                raise RuntimeError(
+                    f"Plotting features require the '{extra_name}' extension to Simvue"
+                )
+            elif extra_name == "torch" and not importlib.util.find_spec("torch"):
+                raise RuntimeError(
+                    "PyTorch features require the 'torch' module to be installed"
+                )
+            elif extra_name == "dataset" and not all(
+                [
+                    importlib.util.find_spec("numpy"),
+                    importlib.util.find_spec("pandas"),
+                ]
+            ):
+                raise RuntimeError(
+                    f"Dataset features require the '{extra_name}' extension to Simvue"
+                )
+            elif extra_name not in EXTRAS:
                 raise RuntimeError(f"Unrecognised extra '{extra_name}'")
             return class_func(self, *args, **kwargs)
 
@@ -114,41 +120,16 @@ def skip_if_failed(
                 self, ignore_exc_attr, None
             ):
                 logger.debug(
-                    f"Skipping call to '{class_func.__name__}', client in fail state (see logs)."
+                    f"Skipping call to '{class_func.__name__}', "
+                    f"client in fail state (see logs)."
                 )
                 return on_failure_return
             return class_func(self, *args, **kwargs)
 
+        wrapper.__name__ = f"{class_func.__name__}__fail_safe"
         return wrapper
 
     return decorator
-
-
-def get_auth():
-    """
-    Get the URL and access token
-    """
-    url = None
-    token = None
-
-    # Try reading from config file
-    for filename in (
-        os.path.join(os.path.expanduser("~"), ".simvue.ini"),
-        "simvue.ini",
-    ):
-        try:
-            config = configparser.ConfigParser()
-            config.read(filename)
-            token = config.get("server", "token")
-            url = config.get("server", "url")
-        except:
-            pass
-
-    # Try environment variables
-    token = os.getenv("SIMVUE_TOKEN", token)
-    url = os.getenv("SIMVUE_URL", url)
-
-    return url, token
 
 
 def get_offline_directory():
@@ -161,12 +142,10 @@ def get_offline_directory():
         os.path.join(os.path.expanduser("~"), ".simvue.ini"),
         "simvue.ini",
     ):
-        try:
+        with contextlib.suppress(Exception):
             config = configparser.ConfigParser()
             config.read(filename)
             directory = config.get("offline", "cache")
-        except:
-            pass
 
     if not directory:
         directory = os.path.join(os.path.expanduser("~"), ".simvue")
@@ -201,10 +180,9 @@ def get_expiry(token):
     Get expiry date from a JWT token
     """
     expiry = 0
-    try:
+    with contextlib.suppress(jwt.DecodeError):
         expiry = jwt.decode(token, options={"verify_signature": False})["exp"]
-    except:
-        pass
+
     return expiry
 
 
@@ -218,3 +196,58 @@ def prepare_for_api(data_in, all=True):
     if "pickledFile" in data and all:
         del data["pickledFile"]
     return data
+
+
+def calculate_sha256(filename: str, is_file: bool) -> typing.Optional[str]:
+    """
+    Calculate sha256 checksum of the specified file
+    """
+    sha256_hash = hashlib.sha256()
+    if is_file:
+        try:
+            with open(filename, "rb") as fd:
+                for byte_block in iter(lambda: fd.read(CHECKSUM_BLOCK_SIZE), b""):
+                    sha256_hash.update(byte_block)
+                return sha256_hash.hexdigest()
+        except Exception:
+            return None
+
+    if isinstance(filename, str):
+        sha256_hash.update(bytes(filename, "utf-8"))
+    else:
+        sha256_hash.update(bytes(filename))
+    return sha256_hash.hexdigest()
+
+
+def validate_timestamp(timestamp):
+    """
+    Validate a user-provided timestamp
+    """
+    try:
+        datetime.datetime.strptime(timestamp, "%Y-%m-%d %H:%M:%S.%f")
+    except ValueError:
+        return False
+
+    return True
+
+
+def compare_alerts(first, second):
+    """ """
+    for key in ("name", "description", "source", "frequency", "notification"):
+        if key in first and key in second:
+            if not first[key]:
+                continue
+
+            if first[key] != second[key]:
+                return False
+
+    if "alerts" in first and "alerts" in second:
+        for key in ("rule", "window", "metric", "threshold", "range_low", "range_high"):
+            if key in first["alerts"] and key in second["alerts"]:
+                if not first[key]:
+                    continue
+
+                if first["alerts"][key] != second["alerts"]["key"]:
+                    return False
+
+    return True
