@@ -979,9 +979,6 @@ class Client:
         response = requests.get(
             f"{self._url}/api/metrics", headers=self._headers, params=params
         )
-        response = requests.get(
-            f"{self._url}/api/metrics", headers=self._headers, params=params
-        )
 
         if response.status_code != 200:
             try:
@@ -1132,7 +1129,7 @@ class Client:
         """
 
         msg_filter: str = (
-            json.dumps([f"event.message contains {message_contains}"])
+            json.dumps([{"operator": "contains", "value": message_contains}])
             if message_contains
             else ""
         )

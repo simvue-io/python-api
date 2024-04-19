@@ -36,7 +36,11 @@ ruff = "^0.3.2"
 pytest-cov = ">=4.1,<6.0"
 pytest-xdist = "^3.5.0"
 pytest-mock = "^3.14.0"
-torch = {version = "^2.0.0+cpu", source = "pytorch-cpu"}
+torch = [
+    {platform = "linux", version = "^2.0.0+cpu", source = "pytorch-cpu"},
+    {platform = "darwin", version="^2.0.0", source="PyPI"},
+    {platform = "win32", version="^2.0.0", source="PyPI"},
+]
 
 [build-system]
 requires = ["poetry-core"]
@@ -68,7 +72,8 @@ markers = [
     "dispatch: test data dispatcher",
     "run: test the simvue Run class",
     "utilities: test simvue utilities module",
-    "scenario: test scenarios"
+    "scenario: test scenarios",
+    "executor: tests of executors"
 ]
 
 [tool.interrogate]

@@ -14,6 +14,7 @@ import logging
 import multiprocessing
 import os
 import subprocess
+import time
 import typing
 
 if typing.TYPE_CHECKING:
@@ -108,10 +109,6 @@ class Executor:
         completion_callback : typing.Callable | None, optional
             callback to run when process terminates
         """
-        _alert_kwargs = {
-            k.replace("__", ""): v for k, v in kwargs.items() if k.startswith("__")
-        }
-
         _pos_args = list(args)
 
         if script:
@@ -119,13 +116,6 @@ class Executor:
 
         if input_file:
             self._runner.save(filename=input_file, category="input")
-
-        self._runner.add_alert(
-            f"{identifier} Status",
-            source="events",
-            pattern="non-zero exit code",
-            **_alert_kwargs,
-        )
 
         def _exec_process(
             proc_id: str,
@@ -248,11 +238,27 @@ class Executor:
         """Send log events for the result of each process"""
         for proc_id, code in self._exit_codes.items():
             if code != 0:
+                # If the process fails then purge the dispatcher event queue
+                # and ensure that the stderr event is sent before the run closes
+                if self._runner._dispatcher:
+                    self._runner._dispatcher.purge()
+
                 _err = self._std_err[proc_id]
-                _msg = f"Process {proc_id} returned non-zero exit code status {code} with:\n{_err}"
+                _msg = f"Process {proc_id} returned non-zero exit status {code} with:\n{_err}"
             else:
                 _msg = f"Process {proc_id} completed successfully."
             self._runner.log_event(_msg)
+
+            # Wait for the dispatcher to send the latest information before
+            # allowing the executor to finish (and as such the run instance to exit)
+            _wait_limit: float = 1
+            _current_time: float = 0
+            while (
+                self._runner._dispatcher
+                and not self._runner._dispatcher.empty
+                and _current_time < _wait_limit
+            ):
+                time.sleep((_current_time := _current_time + 0.1))
 
     def _save_output(self) -> None:
         """Save the output to Simvue"""
@@ -294,6 +300,7 @@ class Executor:
             process.join()
         self._log_events()
         self._save_output()
+
         if not self.success:
             self._runner.set_status("failed")
         self._clear_cache_files()
