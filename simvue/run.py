@@ -345,6 +345,20 @@ class Run:
         """
         Raise an exception if necessary and log error
         """
+        # Stop heartbeat
+        if self._heartbeat_termination_trigger and self._heartbeat_thread:
+            self._heartbeat_termination_trigger.set()
+            self._heartbeat_thread.join()
+
+        # Finish stopping all threads
+        if self._shutdown_event:
+            self._shutdown_event.set()
+
+        # Purge the queue as we can no longer send metrics
+        if self._dispatcher:
+            self._dispatcher.purge()
+            self._dispatcher.join()
+
         if not self._suppress_errors:
             raise RuntimeError(message)
         else:
@@ -352,10 +366,6 @@ class Run:
             # the dormant state due to exception throw so set listing to be 'lost'
             if self._status == "running" and self._simvue:
                 self._simvue.update({"name": self._name, "status": "lost"})
-
-            # Purge the queue as we can no longer send metrics
-            if self._dispatcher:
-                self._dispatcher.purge()
 
             logger.error(message)
 
@@ -960,6 +970,7 @@ class Run:
         """f
         Close the run
         """
+        self._executor.wait_for_completion()
         if self._mode == "disabled":
             return True
 
