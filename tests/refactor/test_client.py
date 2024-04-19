@@ -166,26 +166,30 @@ PRE_DELETION_TESTS: list[str] = [
 
 @pytest.mark.dependency
 @pytest.mark.client(depends=PRE_DELETION_TESTS)
-def test_run_deletion() -> None:
-    test_data = json.load(open("test_attrs.json"))
+def test_run_deletion(create_test_run: tuple[sv_run.Run, dict]) -> None:
+    run, run_data = create_test_run
+    run.close()
     client = svc.Client()
-    assert not client.delete_run(test_data["run_id"])
+    assert not client.delete_run(run_data["run_id"])
 
 
 @pytest.mark.dependency
 @pytest.mark.client(depends=PRE_DELETION_TESTS)
-def test_runs_deletion() -> None:
-    test_data = json.load(open("test_attrs.json"))
+def test_runs_deletion(create_test_run: tuple[sv_run.Run, dict]) -> None:
+    run, run_data = create_test_run
+    run.update_tags(["simvue_client_unit_tests", "test_runs_deletion"])
+    run.close()
     client = svc.Client()
-    assert len(client.delete_runs(test_data["folder"])) > 0
+    assert len(client.delete_runs(run_data["folder"])) > 0
 
 
 @pytest.mark.dependency
 @pytest.mark.client(depends=PRE_DELETION_TESTS + ["test_runs_deletion"])
-def test_folder_deletion() -> None:
-    test_data = json.load(open(data_file := "test_attrs.json"))
+def test_folder_deletion(create_test_run: tuple[sv_run.Run, dict]) -> None:
+    run, run_data = create_test_run
+    run.update_tags(["simvue_client_unit_tests", "test_folder_deletion"])
+    run.close()
     client = svc.Client()
     # This test is called last, all runs should have been deleted by the above
     # test so this should be empty
-    assert not client.delete_folder(test_data["folder"], remove_runs=True, allow_missing=True)
-    os.remove(data_file)
+    assert not client.delete_folder(run_data["folder"], remove_runs=True)
