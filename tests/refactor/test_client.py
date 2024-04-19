@@ -190,6 +190,5 @@ def test_folder_deletion(create_test_run: tuple[sv_run.Run, dict]) -> None:
     run.update_tags(["simvue_client_unit_tests", "test_folder_deletion"])
     run.close()
     client = svc.Client()
-    # This test is called last, all runs should have been deleted by the above
-    # test so this should be empty
-    assert not client.delete_folder(run_data["folder"], remove_runs=True)
+    # This test is called last, one run created so expect length 1
+    assert len(client.delete_folder(run_data["folder"], remove_runs=True)) == 1
