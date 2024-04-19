@@ -1,178 +1,63 @@
+"""
+Simvue Run
+==========
+
+Main class for recording metrics and information to Simvue during code execution.
+This forms the central API for users.
+"""
+
+import contextlib
 import datetime
-import hashlib
+import json
 import logging
 import mimetypes
-import multiprocessing
+import threading
 import os
-import platform
 import re
-import socket
-import subprocess
 import sys
-import time as tm
+import time
 import typing
 import uuid
+from datetime import timezone
 
 import click
+import msgpack
+import psutil
 from pydantic import ValidationError
 
+import simvue.api as sv_api
+
+from .dispatch import Dispatcher
 from .executor import Executor
 from .factory import Simvue
+from .metrics import get_gpu_metrics, get_process_cpu, get_process_memory
 from .models import RunInput
 from .serialization import Serializer
-from .utilities import get_auth, get_expiry
-from .worker import Worker
+from .system import get_system
+from .utilities import (
+    calculate_sha256,
+    compare_alerts,
+    create_file,
+    skip_if_failed,
+    get_auth,
+    get_expiry,
+    get_offline_directory,
+    validate_timestamp,
+)
 
 INIT_MISSING = "initialize a run using init() first"
 QUEUE_SIZE = 10000
-CHECKSUM_BLOCK_SIZE = 4096
 UPLOAD_TIMEOUT = 30
+HEARTBEAT_INTERVAL: int = 60
+RESOURCES_METRIC_PREFIX: str = "resources"
 
 logger = logging.getLogger(__name__)
-
-
-def compare_alerts(first, second):
-    """ """
-    for key in ("name", "description", "source", "frequency", "notification"):
-        if key in first and key in second:
-            if not first[key]:
-                continue
-
-            if first[key] != second[key]:
-                return False
-
-    if "alerts" in first and "alerts" in second:
-        for key in ("rule", "window", "metric", "threshold", "range_low", "range_high"):
-            if key in first["alerts"] and key in second["alerts"]:
-                if not first[key]:
-                    continue
-
-                if first["alerts"][key] != second["alerts"]["key"]:
-                    return False
-
-    return True
 
 
 def walk_through_files(path):
     for dirpath, _, filenames in os.walk(path):
         for filename in filenames:
             yield os.path.join(dirpath, filename)
-
-
-def get_cpu_info():
-    """
-    Get CPU info
-    """
-    model_name = ""
-    arch = ""
-
-    try:
-        info = subprocess.check_output("lscpu").decode().strip()
-        for line in info.split("\n"):
-            if "Model name" in line:
-                model_name = line.split(":")[1].strip()
-            if "Architecture" in line:
-                arch = line.split(":")[1].strip()
-    except:
-        # TODO: Try /proc/cpuinfo
-        pass
-
-    if arch == "":
-        arch = platform.machine()
-
-    if model_name == "":
-        try:
-            info = (
-                subprocess.check_output(["sysctl", "machdep.cpu.brand_string"])
-                .decode()
-                .strip()
-            )
-            if "machdep.cpu.brand_string:" in info:
-                model_name = info.split("machdep.cpu.brand_string: ")[1]
-        except:
-            pass
-
-    return model_name, arch
-
-
-def get_gpu_info():
-    """
-    Get GPU info
-    """
-    try:
-        output = subprocess.check_output(
-            ["nvidia-smi", "--query-gpu=name,driver_version", "--format=csv"]
-        )
-        lines = output.split(b"\n")
-        tokens = lines[1].split(b", ")
-    except:
-        return {"name": "", "driver_version": ""}
-
-    return {"name": tokens[0].decode(), "driver_version": tokens[1].decode()}
-
-
-def get_system():
-    """
-    Get system details
-    """
-    cpu = get_cpu_info()
-    gpu = get_gpu_info()
-
-    system = {}
-    system["cwd"] = os.getcwd()
-    system["hostname"] = socket.gethostname()
-    system["pythonversion"] = (
-        f"{sys.version_info.major}."
-        f"{sys.version_info.minor}."
-        f"{sys.version_info.micro}"
-    )
-    system["platform"] = {}
-    system["platform"]["system"] = platform.system()
-    system["platform"]["release"] = platform.release()
-    system["platform"]["version"] = platform.version()
-    system["cpu"] = {}
-    system["cpu"]["arch"] = cpu[1]
-    system["cpu"]["processor"] = cpu[0]
-    system["gpu"] = {}
-    system["gpu"]["name"] = gpu["name"]
-    system["gpu"]["driver"] = gpu["driver_version"]
-
-    return system
-
-
-def calculate_sha256(filename, is_file):
-    """
-    Calculate sha256 checksum of the specified file
-    """
-    sha256_hash = hashlib.sha256()
-    if is_file:
-        try:
-            with open(filename, "rb") as fd:
-                for byte_block in iter(lambda: fd.read(CHECKSUM_BLOCK_SIZE), b""):
-                    sha256_hash.update(byte_block)
-                return sha256_hash.hexdigest()
-        except:
-            pass
-    else:
-        if isinstance(filename, str):
-            sha256_hash.update(bytes(filename, "utf-8"))
-        else:
-            sha256_hash.update(bytes(filename))
-        return sha256_hash.hexdigest()
-
-    return None
-
-
-def validate_timestamp(timestamp):
-    """
-    Validate a user-provided timestamp
-    """
-    try:
-        datetime.datetime.strptime(timestamp, "%Y-%m-%d %H:%M:%S.%f")
-    except ValueError:
-        return False
-
-    return True
 
 
 def check_run_initialised(
@@ -189,7 +74,7 @@ def check_run_initialised(
     return _wrapper
 
 
-class Run(object):
+class Run:
     """
     Track simulation details based on token and URL
     """
@@ -200,26 +85,30 @@ class Run(object):
         self._name = None
         self._worker = None
         self._executor = Executor(self)
+        self._dispatcher = None
         self._id = None
         self._suppress_errors = False
         self._queue_blocking = False
         self._status = None
         self._upload_time_log = None
         self._upload_time_event = None
-        self._data = []
+        self._data = {}
         self._events = []
         self._step = 0
         self._queue_size = QUEUE_SIZE
         self._metrics_queue = None
         self._events_queue = None
         self._active = False
+        self._aborted: bool = False
         self._url, self._token = get_auth()
         self._headers = {"Authorization": f"Bearer {self._token}"}
         self._simvue = None
         self._pid = 0
         self._resources_metrics_interval = 30
         self._shutdown_event = None
+        self._heartbeat_termination_trigger = None
         self._storage_id = None
+        self._heartbeat_thread = None
 
     def __enter__(self):
         return self
@@ -228,13 +117,21 @@ class Run(object):
         self._executor.wait_for_completion()
         identifier = self._id
         logger.debug(
-            "Automatically closing run %s in status %s", identifier, self._status
+            "Automatically closing run '%s' in status %s",
+            identifier if self._mode == "online" else "unregistered",
+            self._status,
         )
 
+        if self._heartbeat_thread and self._heartbeat_termination_trigger:
+            self._heartbeat_termination_trigger.set()
+            self._heartbeat_thread.join()
+
         if (self._id or self._mode == "offline") and self._status == "running":
-            if self._shutdown_event is not None:
-                self._shutdown_event.set()
             if not type:
+                if self._shutdown_event is not None:
+                    self._shutdown_event.set()
+                if self._dispatcher:
+                    self._dispatcher.join()
                 self.set_status("completed")
             else:
                 if self._active:
@@ -245,8 +142,12 @@ class Run(object):
                     if traceback and self._active:
                         self.log_event(f"Traceback: {traceback}")
                         self.set_status("failed")
-        if self._worker:
-            self._worker.join()
+        else:
+            if self._shutdown_event is not None:
+                self._shutdown_event.set()
+            if self._dispatcher:
+                self._dispatcher.purge()
+                self._dispatcher.join()
 
         if _non_zero := self.executor.exit_status:
             logger.error(
@@ -258,8 +159,154 @@ class Run(object):
         """
         Check if token is valid
         """
-        if self._mode == "online" and tm.time() - get_expiry(self._token) > 0:
+        if self._mode == "online" and time.time() - get_expiry(self._token) > 0:
             self._error("token has expired or is invalid")
+
+    @property
+    def duration(self) -> float:
+        return time.time() - self._start_time
+
+    @property
+    def time_stamp(self) -> str:
+        return datetime.datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S.%f")
+
+    @property
+    def processes(self) -> list[psutil.Process]:
+        """
+        Create an array containing a list of processes
+        """
+        if not self._parent_process:
+            return []
+
+        _all_processes: list[psutil.Process] = [self._parent_process]
+
+        with contextlib.suppress((psutil.NoSuchProcess, psutil.ZombieProcess)):
+            for child in self._parent_process.children(recursive=True):
+                if child not in _all_processes:
+                    _all_processes.append(child)
+
+        return list(set(_all_processes))
+
+    def _get_sysinfo(self) -> dict[str, typing.Any]:
+        cpu = get_process_cpu(self.processes)
+        memory = get_process_memory(self.processes)
+        gpu = get_gpu_metrics(self.processes)
+        data = {}
+
+        if memory is not None and cpu is not None:
+            data = {
+                f"{RESOURCES_METRIC_PREFIX}/cpu.usage.percent": cpu,
+                f"{RESOURCES_METRIC_PREFIX}/memory.usage": memory,
+            }
+            if gpu:
+                for item in gpu:
+                    data[item] = gpu[item]
+        return data
+
+    def _create_heartbeat_callback(
+        self,
+    ) -> typing.Callable[[str, dict, str, bool], None]:
+        def _heartbeat(
+            url: str = self._url,
+            headers: dict[str, str] = self._headers,
+            run_id: str = self._id,
+            online: bool = self._mode == "online",
+            heartbeat_trigger: threading.Event = self._heartbeat_termination_trigger,
+        ) -> None:
+            last_heartbeat = time.time()
+
+            # Get the system metrics once before looping
+            self._add_metrics_to_dispatch(self._get_sysinfo())
+
+            # This loop is run in a daemon thread so termination occurs when
+            # parent closes
+            while not heartbeat_trigger.is_set():
+                time.sleep(0.1)
+
+                if time.time() - last_heartbeat < HEARTBEAT_INTERVAL:
+                    continue
+
+                last_heartbeat = time.time()
+
+                # System metrics are appended to the queue at an interval
+                # equivalent to the heartbeat interval
+                # Hard coded step to 0 for resource metrics so that user
+                # logged metrics dont appear to 'skip' steps
+                self._add_metrics_to_dispatch(self._get_sysinfo())
+
+                if online:
+                    _data = {"id": run_id}
+                    sv_api.put(f"{url}/api/runs/heartbeat", headers=headers, data=_data)
+                else:
+                    create_file(os.path.join(get_offline_directory(), "heartbeat"))
+
+        return _heartbeat
+
+    def _create_dispatch_callback(
+        self,
+    ) -> typing.Callable[[list[typing.Any], str, dict[str, typing.Any]], None]:
+        """Generates the relevant callback for posting of metrics and events
+
+        The generated callback is assigned to the dispatcher instance and is
+        executed on metrics and events objects held in a buffer.
+        """
+
+        if not self._uuid:
+            raise RuntimeError("Expected unique identifier for run")
+
+        def _offline_dispatch_callback(
+            buffer: list[typing.Any],
+            category: str,
+            run_id=self._id,
+            uuid: str = self._uuid,
+        ) -> None:
+            if not os.path.exists((_offline_directory := get_offline_directory())):
+                logger.error(
+                    f"Cannot write to offline directory '{_offline_directory}', directory not found."
+                )
+                return
+            _directory = os.path.join(_offline_directory, uuid)
+
+            unique_id = time.time()
+            filename = f"{_directory}/{category}-{unique_id}"
+            _data = {category: buffer, "run": run_id}
+            try:
+                with open(filename, "w") as fh:
+                    json.dump(_data, fh)
+            except Exception as err:
+                if self._suppress_errors:
+                    logger.error(
+                        "Got exception writing offline update for %s: %s",
+                        category,
+                        str(err),
+                    )
+                else:
+                    raise err
+
+        def _online_dispatch_callback(
+            buffer: list[typing.Any],
+            category: str,
+            url=self._url,
+            run_id=self._id,
+            headers=self._headers,
+        ) -> None:
+            if not buffer:
+                return
+            _data = {category: buffer, "run": run_id}
+            _data_bin = msgpack.packb(_data, use_bin_type=True)
+            _url: str = f"{url}/api/{category}"
+
+            _msgpack_header = headers | {"Content-Type": "application/msgpack"}
+
+            sv_api.post(
+                url=_url, headers=_msgpack_header, data=_data_bin, is_json=False
+            )
+
+        return (
+            _online_dispatch_callback
+            if self._mode == "online"
+            else _offline_dispatch_callback
+        )
 
     def _start(self, reconnect=False):
         """
@@ -283,30 +330,29 @@ class Run(object):
             if not self._simvue.update(data):
                 return False
 
-        self._start_time = tm.time()
+        self._start_time = time.time()
 
         if self._pid == 0:
             self._pid = os.getpid()
 
-        self._metrics_queue = multiprocessing.Manager().Queue(maxsize=self._queue_size)
-        self._events_queue = multiprocessing.Manager().Queue(maxsize=self._queue_size)
-        self._shutdown_event = multiprocessing.Manager().Event()
-        self._worker = Worker(
-            self._metrics_queue,
-            self._events_queue,
-            self._shutdown_event,
-            self._uuid,
-            self._name,
-            self._id,
-            self._url,
-            self._headers,
-            self._mode,
-            self._pid,
-            self._resources_metrics_interval,
+        self._parent_process = psutil.Process(self._pid) if self._pid else None
+
+        self._shutdown_event = threading.Event()
+        self._heartbeat_termination_trigger = threading.Event()
+
+        self._dispatcher = Dispatcher(
+            termination_trigger=self._shutdown_event,
+            queue_blocking=self._queue_blocking,
+            queue_categories=["events", "metrics"],
+            callback=self._create_dispatch_callback(),
         )
 
-        if multiprocessing.current_process()._parent_pid is None:
-            self._worker.start()
+        self._heartbeat_thread = threading.Thread(
+            target=self._create_heartbeat_callback(), daemon=True
+        )
+
+        self._dispatcher.start()
+        self._heartbeat_thread.start()
 
         self._active = True
 
@@ -314,11 +360,33 @@ class Run(object):
         """
         Raise an exception if necessary and log error
         """
+        # Stop heartbeat
+        if self._heartbeat_termination_trigger and self._heartbeat_thread:
+            self._heartbeat_termination_trigger.set()
+            self._heartbeat_thread.join()
+
+        # Finish stopping all threads
+        if self._shutdown_event:
+            self._shutdown_event.set()
+
+        # Purge the queue as we can no longer send metrics
+        if self._dispatcher:
+            self._dispatcher.purge()
+            self._dispatcher.join()
+
         if not self._suppress_errors:
             raise RuntimeError(message)
         else:
+            # Simvue support now terminated as the instance of Run has entered
+            # the dormant state due to exception throw so set listing to be 'lost'
+            if self._status == "running" and self._simvue:
+                self._simvue.update({"name": self._name, "status": "lost"})
+
             logger.error(message)
 
+        self._aborted = True
+
+    @skip_if_failed("_aborted", "_suppress_errors", None)
     def init(
         self,
         name=None,
@@ -386,6 +454,8 @@ class Run(object):
         self._simvue = Simvue(self._name, self._uuid, self._mode, self._suppress_errors)
         name, self._id = self._simvue.create_run(data)
 
+        self._data = data
+
         if not name:
             return False
         elif name is not True:
@@ -404,6 +474,7 @@ class Run(object):
 
         return True
 
+    @skip_if_failed("_aborted", "_suppress_errors", None)
     def add_process(
         self,
         identifier: str,
@@ -411,7 +482,6 @@ class Run(object):
         executable: typing.Optional[str] = None,
         script: typing.Optional[str] = None,
         input_file: typing.Optional[str] = None,
-        print_stdout: bool = False,
         completion_callback: typing.Optional[
             typing.Callable[[int, int, str], None]
         ] = None,
@@ -460,8 +530,6 @@ class Run(object):
         input_file : str | None, optional
             the input file to run, note this only work if the input file is not an option, if this is the case
             you should provide it as such and perform the upload manually, by default None
-        print_stdout : bool, optional
-            print output of command to the terminal, default is False
         completion_callback : typing.Callable | None, optional
             callback to run when process terminates
         env : typing.Dict[str, str], optional
@@ -505,7 +573,6 @@ class Run(object):
             executable=executable,
             script=script,
             input_file=input_file,
-            print_stdout=print_stdout,
             completion_callback=completion_callback,
             env=env,
             **cmd_kwargs,
@@ -551,6 +618,7 @@ class Run(object):
         """
         return self._id
 
+    @skip_if_failed("_aborted", "_suppress_errors", False)
     def reconnect(self, run_id, uid=None):
         """
         Reconnect to a run in the created state
@@ -565,12 +633,14 @@ class Run(object):
         self._simvue = Simvue(self._name, self._id, self._mode, self._suppress_errors)
         self._start(reconnect=True)
 
+    @skip_if_failed("_aborted", "_suppress_errors", None)
     def set_pid(self, pid):
         """
         Set pid of process to be monitored
         """
         self._pid = pid
 
+    @skip_if_failed("_aborted", "_suppress_errors", False)
     def config(
         self,
         suppress_errors=False,
@@ -611,6 +681,7 @@ class Run(object):
             self._storage_id = storage_id
 
     @check_run_initialised
+    @skip_if_failed("_aborted", "_suppress_errors", False)
     def update_metadata(self, metadata):
         """
         Add/update metadata
@@ -633,6 +704,7 @@ class Run(object):
 
         return False
 
+    @skip_if_failed("_aborted", "_suppress_errors", False)
     def update_tags(self, tags):
         """
         Add/update tags
@@ -652,11 +724,13 @@ class Run(object):
         return False
 
     @check_run_initialised
+    @skip_if_failed("_aborted", "_suppress_errors", False)
     def log_event(self, message, timestamp=None):
         """
         Write event
         """
         if self._mode == "disabled":
+            self._error("Cannot log events in 'disabled' state")
             return True
 
         if not self._uuid and not self._name:
@@ -671,29 +745,24 @@ class Run(object):
             self._error("Cannot log events when not in the running state")
             return False
 
-        data = {}
-        data["message"] = message
-        data["timestamp"] = datetime.datetime.utcnow().strftime("%Y-%m-%d %H:%M:%S.%f")
-        if timestamp is not None:
-            if validate_timestamp(timestamp):
-                data["timestamp"] = timestamp
-            else:
-                self._error("Invalid timestamp format")
-                return False
+        if timestamp and not validate_timestamp(timestamp):
+            self._error("Invalid timestamp format")
+            return False
 
-        try:
-            self._events_queue.put(data, block=self._queue_blocking)
-        except Exception as err:
-            logger.error(str(err))
+        _data = {"message": message, "timestamp": timestamp or self.time_stamp}
+        self._dispatcher.add_item(_data, "events", self._queue_blocking)
+
+        # Need to stall the exit of Run so any executor events can be sent
+        time.sleep(1)
 
         return True
 
-    @check_run_initialised
-    def log_metrics(self, metrics, step=None, time=None, timestamp=None):
-        """
-        Write metrics
-        """
+    def _add_metrics_to_dispatch(self, metrics, step=None, time=None, timestamp=None):
         if self._mode == "disabled":
+            return True
+
+        # If there are no metrics to log just ignore
+        if not metrics:
             return True
 
         if not self._uuid and not self._name:
@@ -712,32 +781,30 @@ class Run(object):
             self._error("Metrics must be a dict")
             return False
 
-        data = {}
-        data["values"] = metrics
-        data["time"] = tm.time() - self._start_time
-        if time is not None:
-            data["time"] = time
-        data["timestamp"] = datetime.datetime.utcnow().strftime("%Y-%m-%d %H:%M:%S.%f")
-        if timestamp is not None:
-            if validate_timestamp(timestamp):
-                data["timestamp"] = timestamp
-            else:
-                self._error("Invalid timestamp format")
-                return False
+        if timestamp and not validate_timestamp(timestamp):
+            self._error("Invalid timestamp format")
+            return False
 
-        if step is None:
-            data["step"] = self._step
-        else:
-            data["step"] = step
-
-        self._step += 1
-
-        try:
-            self._metrics_queue.put(data, block=self._queue_blocking)
-        except Exception as err:
-            logger.error(str(err))
+        _data: dict[str, typing.Any] = {
+            "values": metrics,
+            "time": time if time is not None else self.duration,
+            "timestamp": timestamp if timestamp is not None else self.time_stamp,
+            "step": step if step is not None else self._step,
+        }
+        self._dispatcher.add_item(_data, "metrics", self._queue_blocking)
 
         return True
+
+    @check_run_initialised
+    @skip_if_failed("_aborted", "_suppress_errors", False)
+    def log_metrics(self, metrics, step=None, time=None, timestamp=None):
+        """
+        Write metrics
+        """
+        self._add_metrics_to_dispatch(
+            metrics, step=step, time=time, timestamp=timestamp
+        )
+        self._step += 1
 
     @check_run_initialised
     def save(
@@ -843,6 +910,7 @@ class Run(object):
         return True
 
     @check_run_initialised
+    @skip_if_failed("_aborted", "_suppress_errors", False)
     def save_directory(self, directory, category, filetype=None, preserve_path=False):
         """
         Upload a whole directory
@@ -875,6 +943,7 @@ class Run(object):
         return True
 
     @check_run_initialised
+    @skip_if_failed("_aborted", "_suppress_errors", False)
     def save_all(self, items, category, filetype=None, preserve_path=False):
         """
         Save the list of files and/or directories
@@ -891,6 +960,7 @@ class Run(object):
                 self._error(f"{item}: No such file or directory")
 
     @check_run_initialised
+    @skip_if_failed("_aborted", "_suppress_errors", False)
     def set_status(self, status):
         """
         Set run status
@@ -917,10 +987,12 @@ class Run(object):
 
         return False
 
+    @skip_if_failed("_aborted", "_suppress_errors", False)
     def close(self):
         """f
         Close the run
         """
+        self._executor.wait_for_completion()
         if self._mode == "disabled":
             return True
 
@@ -932,12 +1004,23 @@ class Run(object):
             self._error("Run is not active")
             return False
 
-        if self._status != "failed":
-            self.set_status("completed")
+        if self._heartbeat_thread and self._heartbeat_termination_trigger:
+            self._heartbeat_termination_trigger.set()
+            self._heartbeat_thread.join()
 
-        self._shutdown_event.set()
+        if self._shutdown_event:
+            self._shutdown_event.set()
+
+        if self._status != "failed":
+            if self._dispatcher:
+                self._dispatcher.join()
+            self.set_status("completed")
+        elif self._dispatcher:
+            self._dispatcher.purge()
+            self._dispatcher.join()
 
     @check_run_initialised
+    @skip_if_failed("_aborted", "_suppress_errors", False)
     def set_folder_details(self, path, metadata={}, tags=[], description=None):
         """
         Add metadata to the specified folder
@@ -978,6 +1061,7 @@ class Run(object):
         return False
 
     @check_run_initialised
+    @skip_if_failed("_aborted", "_suppress_errors", False)
     def add_alerts(self, ids=None, names=None):
         """
         Add one or more existing alerts by name or id
@@ -1005,6 +1089,7 @@ class Run(object):
         return False
 
     @check_run_initialised
+    @skip_if_failed("_aborted", "_suppress_errors", False)
     def add_alert(
         self,
         name,
@@ -1112,6 +1197,7 @@ class Run(object):
         return False
 
     @check_run_initialised
+    @skip_if_failed("_aborted", "_suppress_errors", False)
     def log_alert(self, name, state):
         """
         Set the state of an alert

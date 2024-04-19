@@ -19,7 +19,7 @@ class TestRunMetadata(unittest.TestCase):
         run.close()
 
         client = Client()
-        data = client.get_run(run.id, metadata=True)
+        data = client.get_run(run.id)
         self.assertEqual(data['metadata'], metadata)
 
         runs = client.delete_runs(folder)

@@ -1,15 +1,12 @@
 exclude: '^tests|^docs'
+ci:
+    autofix_prs: false
+    autoupdate_branch: ''
+    autoupdate_commit_msg: '[pre-commit.ci] pre-commit autoupdate'
+    autoupdate_schedule: weekly
+    skip: []
+    submodules: false
 repos:
-  - repo: https://github.com/pycqa/isort
-    rev: 5.13.2
-    hooks:
-      - id: isort
-        name: isort (python)
-        args: ["--profile", "black"]
-  - repo: https://github.com/psf/black
-    rev: 24.2.0
-    hooks:
-      - id: black
   - repo: https://github.com/pre-commit/pre-commit-hooks
     rev: v4.5.0
     hooks:
@@ -25,7 +22,12 @@ repos:
       - id: no-commit-to-branch
         args: [--branch, main, --branch, dev]
       - id: check-added-large-files
-
+  - repo: https://github.com/astral-sh/ruff-pre-commit
+    rev: v0.3.3
+    hooks:
+      - id: ruff
+        args: [ --fix, --exit-non-zero-on-fix]
+      - id: ruff-format
   - repo: https://github.com/conorfalvey/check_pdb_hook
     rev: 0.0.9
     hooks:
