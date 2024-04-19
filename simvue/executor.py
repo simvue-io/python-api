@@ -300,6 +300,7 @@ class Executor:
             process.join()
         self._log_events()
         self._save_output()
+
         if not self.success:
             self._runner.set_status("failed")
         self._clear_cache_files()

@@ -85,17 +85,13 @@ def skip_if_failed(
                 self, ignore_exc_attr, None
             ):
                 logger.debug(
-                    f"Skipping call to '{class_func.__name__}', client in fail state (see logs)."
+                    f"Skipping call to '{class_func.__name__}', "
+                    f"client in fail state (see logs)."
                 )
                 return on_failure_return
             return class_func(self, *args, **kwargs)
 
-        # Rename the wrapped function back to what it was called on
-        wrapper.__name__ = class_func.__name__
-
-        # To maintain a record of whether the function was wrapped
-        setattr(wrapper, "__skip_if_failed", True)
-
+        wrapper.__name__ = f"{class_func.__name__}__fail_safe"
         return wrapper
 
     return decorator
