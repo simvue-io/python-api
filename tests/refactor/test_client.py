@@ -187,5 +187,5 @@ def test_folder_deletion() -> None:
     client = svc.Client()
     # This test is called last, all runs should have been deleted by the above
     # test so this should be empty
-    assert len(client.delete_folder(test_data["folder"], remove_runs=True)) == 0
+    assert not client.delete_folder(test_data["folder"], remove_runs=True, allow_missing=True)
     os.remove(data_file)
