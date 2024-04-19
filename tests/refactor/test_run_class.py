@@ -6,6 +6,7 @@ import inspect
 import uuid
 import concurrent.futures
 import random
+import inspect
 
 import simvue.run as sv_run
 import simvue.client as sv_cl
@@ -13,6 +14,16 @@ import simvue.client as sv_cl
 if typing.TYPE_CHECKING:
     from .conftest import CountingLogHandler
 
+
+@pytest.mark.run
+def test_check_run_initialised_decorator() -> None:
+    with sv_run.Run(mode="offline") as run:
+        for method_name, method in inspect.getmembers(run, inspect.ismethod):
+            if not method.__name__.endswith("init_locked"):
+                continue
+            with pytest.raises(RuntimeError) as e:
+                getattr(run, method_name)()
+            assert "Simvue Run must be initialised" in str(e.value)
 
 @pytest.mark.run
 @pytest.mark.parametrize("overload_buffer", (True, False), ids=("overload", "normal"))

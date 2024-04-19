@@ -71,6 +71,8 @@ def check_run_initialised(
             )
         return function(self, *args, **kwargs)
 
+    _wrapper.__name__ = f"{function.__name__}__init_locked"
+
     return _wrapper
 
 
