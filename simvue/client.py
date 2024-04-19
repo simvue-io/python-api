@@ -1129,7 +1129,7 @@ class Client:
         """
 
         msg_filter: str = (
-            json.dumps([f"event.message contains {message_contains}"])
+            json.dumps([{"operator": "contains", "value": message_contains}])
             if message_contains
             else ""
         )
@@ -1140,7 +1140,6 @@ class Client:
             "start": start_index or 0,
             "count": count_limit or 0,
         }
-        print(params)
 
         response = requests.get(
             f"{self._url}/api/events", headers=self._headers, params=params
