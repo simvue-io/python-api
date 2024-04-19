@@ -34,6 +34,7 @@ from .metrics import get_gpu_metrics, get_process_cpu, get_process_memory
 from .models import RunInput
 from .serialization import Serializer
 from .system import get_system
+from .metadata import git_info
 from .utilities import (
     calculate_sha256,
     compare_alerts,
@@ -408,7 +409,7 @@ class Run:
             self._status = "created"
 
         data = {
-            "metadata": metadata,
+            "metadata": metadata | git_info(os.getcwd()),
             "tags": tags,
             "system": {"cpu": {}, "gpu": {}, "platform": {}},
             "status": self._status,
