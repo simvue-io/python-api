@@ -26,7 +26,7 @@ repos:
     rev: v0.3.3
     hooks:
       - id: ruff
-        args: [ --fix, --exit-non-zero-on-fix]
+        args: [ --fix, --exit-non-zero-on-fix, "--ignore=C901" ]
       - id: ruff-format
   - repo: https://github.com/conorfalvey/check_pdb_hook
     rev: 0.0.9
