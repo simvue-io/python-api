@@ -30,11 +30,22 @@ def test_time_multi_run_create_threshold() -> None:
     assert start - end < 60.0
 
 
+@pytest.fixture
+def run_deleter(request):
+    ident_dict = {}
+
+    def delete_run():
+        simvue.Client().delete_run(ident_dict["ident"])
+
+    request.addfinalizer(delete_run)
+    return ident_dict
+
+
 @pytest.mark.scenario
 @pytest.mark.parametrize("values_per_run", (1, 2, 100, 1500))
 @pytest.mark.parametrize("processing", ("local", "on_thread", "on_process"))
 def test_uploaded_data_immediately_accessible(
-    values_per_run: int, processing: str
+    values_per_run: int, processing: str, run_deleter
 ) -> None:
     def upload(name: str, values_per_run: int, shared_dict) -> None:
         run = simvue.Run()
@@ -60,6 +71,8 @@ def test_uploaded_data_immediately_accessible(
         thread.start()
         thread.join()
 
+    run_deleter["ident"] = shared_dict["ident"]
+
     values = simvue.Client().get_metrics(
         shared_dict["ident"], "increment", "step", max_points=2 * values_per_run
     )
@@ -68,5 +81,3 @@ def test_uploaded_data_immediately_accessible(
 
     for i in range(len(values)):
         assert i == int(values[i][1]), "values should be ascending ints"
-
-    simvue.Client().delete_run(shared_dict["ident"])
