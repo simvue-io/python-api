@@ -31,7 +31,11 @@ def test_time_multi_run_create_threshold() -> None:
 
 
 @pytest.mark.scenario
-def test_uploaded_data_immediately_accessible() -> None:
+@pytest.mark.parametrize("values_per_run", (1, 2, 100, 1500))
+@pytest.mark.parametrize("processing", ("local", "on_thread", "on_process"))
+def test_uploaded_data_immediately_accessible(
+    values_per_run: int, processing: str
+) -> None:
     def upload(name: str, values_per_run: int, shared_dict) -> None:
         run = simvue.Run()
         run.init(name=name, tags=["simvue_client_tests"])
@@ -43,9 +47,18 @@ def test_uploaded_data_immediately_accessible() -> None:
     name = "Test-" + str(random.randint(0, 1000000000))
     manager = Manager()
     shared_dict = manager.dict()
-    values_per_run = 100
 
-    upload(name, values_per_run, shared_dict)
+    if processing == "local":
+        upload(name, values_per_run, shared_dict)
+    else:
+        if processing == "on_thread":
+            thread = threading.Thread(
+                target=upload, args=(name, values_per_run, shared_dict)
+            )
+        else:
+            thread = Process(target=upload, args=(name, values_per_run, shared_dict))
+        thread.start()
+        thread.join()
 
     values = simvue.Client().get_metrics(
         shared_dict["ident"], "increment", "step", max_points=2 * values_per_run
