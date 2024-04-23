@@ -26,7 +26,7 @@ class CountingLogHandler(logging.Handler):
                 self.counts[i] += 1
 
 @pytest.fixture(autouse=True)
-def setup_logging() -> logging.Handler:
+def setup_logging() -> CountingLogHandler:
     logging.basicConfig(level=logging.DEBUG)
     handler = CountingLogHandler()
     logging.getLogger().setLevel(logging.DEBUG)

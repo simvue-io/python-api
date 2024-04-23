@@ -6,6 +6,7 @@ import importlib.util
 import contextlib
 import os
 import typing
+import tabulate
 
 import jwt
 
@@ -13,6 +14,27 @@ CHECKSUM_BLOCK_SIZE = 4096
 EXTRAS: tuple[str, ...] = ("plot", "torch", "dataset")
 
 logger = logging.getLogger(__name__)
+
+
+def parse_validation_response(
+    response: dict[str, list[dict[str, str]]],
+) -> typing.Optional[str]:
+    print(response)
+    if not (_issues := response.get("detail")):
+        return None
+
+    _out: list[list[str]] = []
+
+    for issue in _issues:
+        _type: str = issue["type"]
+        _location: str = "/".join(str(i) for i in issue["loc"])
+        _msg: str = issue["msg"]
+        _out.append([_type, _location, _msg])
+
+    _table = tabulate.tabulate(
+        _out, headers=["Type", "Location", "Message"], tablefmt="fancy_grid"
+    )
+    return str(_table)
 
 
 def check_extra(extra_name: str) -> typing.Callable:
