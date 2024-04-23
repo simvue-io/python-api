@@ -162,12 +162,8 @@ def test_queued_dispatch_error_attempting_to_use_non_existent_queue() -> None:
 
 
 @pytest.mark.dispatch
-@pytest.mark.parametrize(
-    "append_during_dispatch", (True, False),
-    ids=("pre_append", "append")
-)
 @pytest.mark.parametrize("multiple", (True, False), ids=("multiple", "single"))
-def test_direct_dispatcher(multiple: bool, append_during_dispatch: bool) -> None:
+def test_direct_dispatcher(multiple: booll) -> None:
     n_elements: int = 10
     time_threshold: float = 1
 
@@ -191,15 +187,9 @@ def test_direct_dispatcher(multiple: bool, append_during_dispatch: bool) -> None
             DirectDispatcher(callback, [variable], event)
         )
 
-    if not append_during_dispatch:
-        for i in range(n_elements):
-            for variable, dispatcher in zip(variables, dispatchers):  
-                dispatcher.add_item({string.ascii_uppercase[i % 26]: i}, variable)
-
-    if append_during_dispatch:
-        for i in range(n_elements):
-            for variable, dispatcher in zip(variables, dispatchers):  
-                dispatcher.add_item({string.ascii_uppercase[i % 26]: i}, variable)
+    for i in range(n_elements):
+        for variable, dispatcher in zip(variables, dispatchers):  
+            dispatcher.add_item({string.ascii_uppercase[i % 26]: i}, variable)
 
     event.set()
 
