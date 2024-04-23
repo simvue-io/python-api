@@ -10,7 +10,6 @@ import json
 import logging
 import os
 import typing
-import contextlib
 from concurrent.futures import ThreadPoolExecutor, as_completed
 
 import requests
@@ -101,6 +100,39 @@ class Client:
 
         self._headers: dict[str, str] = {"Authorization": f"Bearer {self._token}"}
 
+    def _get_json_from_response(
+        self,
+        expected_status: list[int],
+        scenario: str,
+        response: requests.Response,
+    ) -> typing.Union[dict, list]:
+        try:
+            json_response = response.json()
+        except json.JSONDecodeError:
+            json_response = None
+
+        error_str = f"{scenario} failed "
+
+        if (_status_code := response.status_code) in expected_status:
+            if json_response is not None:
+                return json_response
+            details = "could not request JSON response"
+        else:
+            error_str += f"with status {_status_code}"
+            details = (json_response or {}).get("details")
+
+        try:
+            txt_response = response.text
+        except UnicodeDecodeError:
+            txt_response = None
+
+        if details:
+            error_str += f": {details}"
+        elif txt_response:
+            error_str += f": {txt_response}"
+
+        raise RuntimeError(error_str)
+
     def get_run_id_from_name(self, name: str) -> str:
         """Get Run ID from the server matching the specified name
 
@@ -129,17 +161,19 @@ class Client:
             f"{self._url}/api/runs", headers=self._headers, params=params
         )
 
-        if response.status_code != 200:
-            try:
-                detail = response.json().get("detail", response.text)
-            except requests.exceptions.JSONDecodeError:
-                detail = response.text
+        json_response = self._get_json_from_response(
+            expected_status=[200],
+            scenario="Retrieval of run ID from name",
+            response=response,
+        )
+
+        if not isinstance(json_response, dict):
             raise RuntimeError(
-                "Retrieval of run ID from name failed with "
-                f"status {response.status_code}: {detail}"
+                "Expected dictionary as response for ID "
+                f"retrieval but got {type(json_response)}"
             )
 
-        if not (response_data := response.json().get("data")):
+        if not (response_data := json_response.get("data")):
             raise RuntimeError(f"No ID found for run '{name}'")
 
         if len(response_data) == 0:
@@ -152,7 +186,7 @@ class Client:
             raise RuntimeError("Failed to retrieve identifier for run.")
         return first_id
 
-    def get_run(self, run_id: str) -> dict[str, typing.Any]:
+    def get_run(self, run_id: str) -> typing.Optional[dict[str, typing.Any]]:
         """Retrieve a single run
 
         Parameters
@@ -175,24 +209,21 @@ class Client:
             f"{self._url}/api/runs/{run_id}", headers=self._headers
         )
 
-        if response.status_code == 404 and (detail := response.json().get("detail")):
-            raise RuntimeError(
-                f"Retrieval of run '{run_id}' failed with status "
-                f"{response.status_code}: {detail}"
-            )
-
-        if response.status_code == 200:
-            return response.json()
-
-        try:
-            detail = response.json().get("detail", response.text)
-        except requests.exceptions.JSONDecodeError:
-            detail = response.text
-
-        raise RuntimeError(
-            f"Retrieval of run '{run_id}' failed with status "
-            f"{response.status_code}: {detail}"
+        json_response = self._get_json_from_response(
+            expected_status=[200, 404],
+            scenario=f"Retrieval of run '{run_id}'",
+            response=response,
         )
+
+        if response.status_code == 404:
+            return None
+
+        if not isinstance(json_response, dict):
+            raise RuntimeError(
+                "Expected dictionary from JSON response during run retrieval "
+                f"but got '{type(json_response)}'"
+            )
+        return json_response
 
     def get_run_name_from_id(self, run_id: str) -> str:
         """Retrieve the name of a run from its identifier
@@ -211,6 +242,9 @@ class Client:
             raise ValueError("Expected value for run_id but got None")
 
         _run_data = self.get_run(run_id)
+
+        if not _run_data:
+            raise RuntimeError(f"Failed to retrieve data for run '{run_id}'")
 
         if not (_name := _run_data.get("name")):
             raise RuntimeError("Expected key 'name' in server response")
@@ -278,16 +312,17 @@ class Client:
         if format not in ("dict", "dataframe"):
             raise ValueError("Invalid format specified")
 
-        if response.status_code != 200:
-            try:
-                detail = response.json().get("detail", response.text)
-            except requests.exceptions.JSONDecodeError:
-                detail = response.text
+        json_response = self._get_json_from_response(
+            expected_status=[200], scenario="Run retrieval", response=response
+        )
+
+        if not isinstance(json_response, dict):
             raise RuntimeError(
-                f"Run retrieval failed with code {response.status_code}: " f"{detail}"
+                "Expected dictionary from JSON response during retrieval of runs "
+                f"but got '{type(json_response)}'"
             )
 
-        if response_data := response.json().get("data"):
+        if response_data := json_response.get("data"):
             return response_data
         elif format == "dataframe":
             return to_dataframe(response.json())
@@ -317,19 +352,21 @@ class Client:
             f"{self._url}/api/runs/{run_identifier}", headers=self._headers
         )
 
-        if response.status_code == 200:
-            logger.debug(f"Run '{run_identifier}' deleted successfully")
-            return response.json()
-
-        try:
-            error_detail = response.json().get("detail", response.text)
-        except requests.exceptions.JSONDecodeError:
-            error_detail = response.text
-
-        raise RuntimeError(
-            f"Deletion of run '{run_identifier}' failed with code"
-            f" {response.status_code}: {error_detail}"
+        json_response = self._get_json_from_response(
+            expected_status=[200],
+            scenario=f"Deletion of run '{run_identifier}'",
+            response=response,
         )
+
+        logger.debug(f"Run '{run_identifier}' deleted successfully")
+
+        if not isinstance(json_response, dict):
+            raise RuntimeError(
+                "Expected dictionary from JSON response during run deletion "
+                f"but got '{type(json_response)}'"
+            )
+
+        return json_response or None
 
     def _get_folder_id_from_path(self, path: str) -> typing.Optional[str]:
         """Retrieve folder identifier for the specified path if found
@@ -450,19 +487,20 @@ class Client:
             f"{self._url}/api/folders/{folder_id}", headers=self._headers, params=params
         )
 
-        if response.status_code == 200:
-            runs: list[dict] = response.json().get("runs", [])
-            return runs
-
-        try:
-            detail = response.json().get("detail", response.text)
-        except requests.exceptions.JSONDecodeError:
-            detail = response.text
-
-        raise RuntimeError(
-            f"Deletion of folder '{folder_name}' failed with"
-            f" code {response.status_code}: {detail}"
+        json_response = self._get_json_from_response(
+            expected_status=[200, 404],
+            scenario=f"Deletion of folder '{folder_name}'",
+            response=response,
         )
+
+        if not isinstance(json_response, dict):
+            raise RuntimeError(
+                "Expected dictionary from JSON response during folder deletion "
+                f"but got '{type(json_response)}'"
+            )
+
+        runs: list[dict] = json_response.get("runs", [])
+        return runs
 
     def list_artifacts(self, run_id: str) -> list[dict[str, typing.Any]]:
         """Retrieve artifacts for a given run
@@ -488,21 +526,45 @@ class Client:
             f"{self._url}/api/artifacts", headers=self._headers, params=params
         )
 
-        if response.status_code != 200:
-            try:
-                detail = response.json().get("detail", response.text)
-            except requests.exceptions.JSONDecodeError:
-                detail = response.text
+        json_response = self._get_json_from_response(
+            expected_status=[200],
+            scenario=f"Retrieval of artifacts for run '{run_id}",
+            response=response,
+        )
+
+        if not isinstance(json_response, list):
             raise RuntimeError(
-                f"Retrieval of artifacts for run '{run_id}' failed with "
-                f"status {response.status_code}: {detail}"
+                "Expected list of entries from JSON response during artifact "
+                f"retrieval but got '{type(json_response)}'"
+            )
+        return json_response
+
+    def _retrieve_artifact_from_server(self, run_id: str, name: str):
+        params: dict[str, str] = {"name": name}
+
+        response = requests.get(
+            f"{self._url}/api/runs/{run_id}/artifacts",
+            headers=self._headers,
+            params=params,
+        )
+
+        json_response = self._get_json_from_response(
+            expected_status=[200, 400],
+            scenario=f"Retrieval of artifact '{name}' for run '{run_id}'",
+            response=response,
+        )
+
+        if not isinstance(json_response, list):
+            raise RuntimeError(
+                "Expected list from JSON response during retrieval of "
+                f"artifact but got '{type(json_response)}'"
             )
 
-        return response.json()
+        return json_response
 
     def get_artifact(
         self, run_id: str, name: str, allow_pickle: bool = False
-    ) -> DeserializedContent:
+    ) -> typing.Optional[DeserializedContent]:
         """Return the contents of a specified artifact
 
         Parameters
@@ -525,27 +587,15 @@ class Client:
         RuntimeError
             if retrieval of artifact from the server failed
         """
-        params: dict[str, str] = {"name": name}
+        json_response = self._retrieve_artifact_from_server(run_id, name)
 
-        response = requests.get(
-            f"{self._url}/api/runs/{run_id}/artifacts",
-            headers=self._headers,
-            params=params,
-        )
-
-        if response.status_code == 404 and (detail := response.json().get("detail")):
-            raise RuntimeError(
-                f"Retrieval of artifact '{name}' for run '{run_id}' failed with "
-                f"status {response.status_code}: {detail}"
-            )
-
-        if response.status_code != 200:
+        if not json_response:
             return None
 
-        url = response.json()[0]["url"]
-        mimetype = response.json()[0]["type"]
-        url = response.json()[0]["url"]
-        mimetype = response.json()[0]["type"]
+        url = json_response[0]["url"]
+        mimetype = json_response[0]["type"]
+        url = json_response[0]["url"]
+        mimetype = json_response[0]["type"]
 
         response = requests.get(url, timeout=DOWNLOAD_TIMEOUT)
         response.raise_for_status()
@@ -579,31 +629,15 @@ class Client:
             if there was a failure during retrieval of information from the
             server
         """
-        params: dict[str, str] = {"name": name}
+        json_response = self._retrieve_artifact_from_server(run_id, name)
 
-        response: requests.Response = requests.get(
-            f"{self._url}/api/runs/{run_id}/artifacts",
-            headers=self._headers,
-            params=params,
-        )
-
-        if response.status_code != 200:
-            try:
-                detail = response.json().get("detail", response.text)
-            except requests.exceptions.JSONDecodeError:
-                detail = response.text
-            raise RuntimeError(
-                f"Download of artifacts for run '{run_id}' failed with "
-                f"status {response.status_code}: {detail}"
-            )
-
-        if not (results := response.json()):
+        if not json_response:
             raise RuntimeError(
                 f"Failed to download artifact '{name}' from run '{run_id}',"
                 " no results found."
             )
 
-        if not (url := results[0].get("url")):
+        if not (url := json_response[0].get("url")):
             raise RuntimeError(
                 "Failed to download artifacts, "
                 "expected URL for retrieval but server "
@@ -696,15 +730,11 @@ class Client:
             f"{self._url}/api/runs/{run_id}/artifacts", headers=self._headers
         )
 
-        if response.status_code != 200:
-            try:
-                detail = response.json().get("detail", response.text)
-            except requests.exceptions.JSONDecodeError:
-                detail = response.text
-            raise RuntimeError(
-                f"Download of artifacts for run '{run_id}' failed with "
-                f"status {response.status_code}: {detail}"
-            )
+        self._get_json_from_response(
+            expected_status=[200],
+            scenario=f"Download of artifacts for run '{run_id}'",
+            response=response,
+        )
 
         downloads: list[dict[str, str]] = self._assemble_artifact_downloads(
             request_response=response,
@@ -725,7 +755,7 @@ class Client:
                         f"failed with exception: {e}"
                     )
 
-    def get_folder(self, folder_id: str) -> dict[str, typing.Any]:
+    def get_folder(self, folder_id: str) -> typing.Optional[dict[str, typing.Any]]:
         """Retrieve a folder by identifier
 
         Parameters
@@ -735,35 +765,17 @@ class Client:
 
         Returns
         -------
-        dict[str, typing.Any]
-            data for the requested folder
+        dict[str, typing.Any] | None
+            data for the requested folder if it exists else None
 
         Raises
         ------
         RuntimeError
             if there was a failure when retrieving information from the server
         """
-        params: dict[str, str] = {"filters": json.dumps([f"path == {folder_id}"])}
-
-        response: requests.Response = requests.get(
-            f"{self._url}/api/folders", headers=self._headers, params=params
-        )
-
-        if response.status_code != 200:
-            try:
-                detail = response.json().get("detail", response.text)
-            except requests.exceptions.JSONDecodeError:
-                detail = response.text
-            raise RuntimeError(
-                f"Retrieval of folder '{folder_id}' failed with "
-                f"status {response.status_code}: {detail}"
-            )
-
-        if response.status_code == 200:
-            if len(data := response.json().get("data")) == 0:
-                raise RuntimeError(f"Folder '{folder_id}' does not exist")
-
-        return data[0]
+        if not (_folders := self.get_folders(filters=[f"path == {folder_id}"])):
+            return None
+        return _folders[0]
 
     def get_folders(
         self, filters: typing.Optional[list[str]] = None
@@ -791,20 +803,24 @@ class Client:
             f"{self._url}/api/folders", headers=self._headers, params=params
         )
 
-        if response.status_code == 200:
-            return response.json().get("data", [])
-
-        try:
-            detail = response.json().get("detail", response.text)
-        except requests.exceptions.JSONDecodeError:
-            detail = response.text
-
-        raise RuntimeError(
-            "Retrieval of folders failed with status code "
-            f"{response.status_code}: {detail}"
+        json_response = self._get_json_from_response(
+            expected_status=[200], scenario="Retrieval of folders", response=response
         )
 
-    def get_metrics_names(self, run_id: str) -> dict[str, typing.Any]:
+        if not isinstance(json_response, dict):
+            raise RuntimeError(
+                "Expected dictionary from JSON response during folder retrieval "
+                f"but got '{type(json_response)}'"
+            )
+
+        if not (data := json_response.get("data")):
+            raise RuntimeError(
+                "Expected key 'data' in response during folder retrieval"
+            )
+
+        return data
+
+    def get_metrics_names(self, run_id: str) -> list[str]:
         """Return information on all metrics within a run
 
         Parameters
@@ -814,8 +830,8 @@ class Client:
 
         Returns
         -------
-        dict[str, Any]
-            metric data for the given run
+        list[str]
+            names of metrics in the given run
 
         Raises
         ------
@@ -828,18 +844,19 @@ class Client:
             f"{self._url}/api/metrics/names", headers=self._headers, params=params
         )
 
-        if response.status_code == 200:
-            return response.json()
-
-        try:
-            detail = response.json().get("detail", response.text)
-        except requests.exceptions.JSONDecodeError:
-            detail = response.text
-
-        raise RuntimeError(
-            f"Request for metric names for run '{run_id}' failed with "
-            f"status code {response.status_code}: {detail}"
+        json_response = self._get_json_from_response(
+            expected_status=[200],
+            scenario=f"Request for metric names for run '{run_id}'",
+            response=response,
         )
+
+        if not isinstance(json_response, list):
+            raise RuntimeError(
+                "Expected list from JSON response during folder retrieval "
+                f"but got '{type(json_response)}'"
+            )
+
+        return json_response
 
     def _get_run_metrics_from_server(
         self,
@@ -856,20 +873,23 @@ class Client:
             "xaxis": xaxis,
             "max_points": max_points,
         }
+        print(params)
         metrics_response: requests.Response = requests.get(
             f"{self._url}/api/metrics", headers=self._headers, params=params
         )
 
-        if metrics_response.status_code != 200:
-            detail = metrics_response.text
-            with contextlib.suppress(json.JSONDecodeError):
-                detail = metrics_response.json().get("detail", detail)
+        json_response = self._get_json_from_response(
+            expected_status=[200],
+            scenario=f"Retrieval of metrics '{metric_names}' in " f"runs '{run_ids}'",
+            response=metrics_response,
+        )
+
+        if not isinstance(json_response, dict):
             raise RuntimeError(
-                f"Retrieval of metrics '{metric_names}' in "
-                f"runs '{run_ids}' failed with status code {metrics_response.status_code}: "
-                f"{detail}"
+                "Expected dictionary from JSON response for metric retrieval"
             )
-        return metrics_response.json()
+
+        return json_response
 
     def get_metric_values(
         self,
@@ -1086,22 +1106,19 @@ class Client:
         response = requests.get(
             f"{self._url}/api/events", headers=self._headers, params=params
         )
-        response = requests.get(
-            f"{self._url}/api/events", headers=self._headers, params=params
+
+        json_response = self._get_json_from_response(
+            expected_status=[200],
+            scenario=f"Retrieval of events for run '{run_id}'",
+            response=response,
         )
 
-        if response.status_code == 200:
-            return response.json().get("data", [])
+        if not isinstance(json_response, dict):
+            raise RuntimeError(
+                "Expected dictionary from JSON response when retrieving events"
+            )
 
-        try:
-            detail = response.json().get("detail", response.text)
-        except requests.exceptions.JSONDecodeError:
-            detail = response.text
-
-        raise RuntimeError(
-            f"Retrieval of events for run '{run_id}' failed with "
-            f"status code {response.status_code}: {detail}"
-        )
+        return response.json().get("data", [])
 
     def get_alerts(
         self, run_id: str, critical_only: bool = True, names_only: bool = True
@@ -1129,20 +1146,21 @@ class Client:
         """
         response = requests.get(f"{self._url}/api/runs/{run_id}", headers=self._headers)
 
-        if response.status_code != 200:
-            try:
-                detail = response.json().get("detail", response.text)
-            except requests.exceptions.JSONDecodeError:
-                detail = response.text
+        json_response = self._get_json_from_response(
+            expected_status=[200],
+            scenario=f"Retrieval of alerts for run '{run_id}'",
+            response=response,
+        )
+
+        if not isinstance(json_response, dict):
             raise RuntimeError(
-                f"Retrieval of alerts for run '{run_id}' failed with "
-                f"status {response.status_code}: {detail}"
+                "Expected dictionary from JSON response when retrieving alerts"
             )
 
-        if (alerts := response.json().get("alerts")) is None:
+        if (alerts := json_response.get("alerts")) is None:
             raise RuntimeError(
                 "Expected key 'alerts' in response when retrieving "
-                f"alerts for run '{run_id}': {response.json()}"
+                f"alerts for run '{run_id}': {json_response}"
             )
 
         if critical_only:

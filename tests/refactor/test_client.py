@@ -1,6 +1,6 @@
 import pytest
 import os.path
-import json
+import typing
 import glob
 import time
 import tempfile
@@ -164,26 +164,55 @@ PRE_DELETION_TESTS: list[str] = [
 
 @pytest.mark.dependency
 @pytest.mark.client(depends=PRE_DELETION_TESTS)
-def test_run_deletion() -> None:
-    test_data = json.load(open("test_attrs.json"))
+def test_run_deletion(create_test_run: tuple[sv_run.Run, dict]) -> None:
+    run, run_data = create_test_run
+    run.close()
     client = svc.Client()
-    assert not client.delete_run(test_data["run_id"])
+    assert not client.delete_run(run_data["run_id"])
 
 
 @pytest.mark.dependency
 @pytest.mark.client(depends=PRE_DELETION_TESTS)
-def test_runs_deletion() -> None:
-    test_data = json.load(open("test_attrs.json"))
+def test_runs_deletion(create_test_run: tuple[sv_run.Run, dict]) -> None:
+    run, run_data = create_test_run
+    run.update_tags(["simvue_client_unit_tests", "test_runs_deletion"])
+    run.close()
     client = svc.Client()
-    assert len(client.delete_runs(test_data["folder"])) > 0
+    assert len(client.delete_runs(run_data["folder"])) > 0
 
 
 @pytest.mark.dependency
 @pytest.mark.client(depends=PRE_DELETION_TESTS + ["test_runs_deletion"])
-def test_folder_deletion() -> None:
-    test_data = json.load(open(data_file := "test_attrs.json"))
+def test_folder_deletion(create_test_run: tuple[sv_run.Run, dict]) -> None:
+    run, run_data = create_test_run
+    run.update_tags(["simvue_client_unit_tests", "test_folder_deletion"])
+    run.close()
     client = svc.Client()
-    # This test is called last, all runs should have been deleted by the above
-    # test so this should be empty
-    assert len(client.delete_folder(test_data["folder"], remove_runs=True)) == 0
-    os.remove(data_file)
+    # This test is called last, one run created so expect length 1
+    assert len(client.delete_folder(run_data["folder"], remove_runs=True)) == 1
+
+
+@pytest.mark.dependency
+@pytest.mark.client
+@pytest.mark.parametrize("aggregate", (True, False), ids=("aggregated", "normal"))
+@pytest.mark.parametrize("format", ("dict", "dataframe"))
+@pytest.mark.parametrize("xaxis", ("step", "time", "timestamp"))
+def test_multiple_metric_retrieval(
+    create_test_run: tuple[sv_run.Run, dict],
+    aggregate: bool,
+    format: typing.Literal["dict", "dataframe"],
+    xaxis: typing.Literal["step", "time", "timestamp"],
+) -> None:
+    client = svc.Client()
+    if format == "dataframe":
+        try:
+            import pandas
+        except ImportError:
+            pytest.skip(reason="Pandas not available")
+    client.get_metric_values(
+        run_ids=[create_test_run[1]["run_id"]],
+        metric_names=list(create_test_run[1]["metrics"]),
+        xaxis=xaxis,
+        aggregate=aggregate,
+        format=format,
+    )
