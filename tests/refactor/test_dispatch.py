@@ -163,7 +163,7 @@ def test_queued_dispatch_error_attempting_to_use_non_existent_queue() -> None:
 
 @pytest.mark.dispatch
 @pytest.mark.parametrize("multiple", (True, False), ids=("multiple", "single"))
-def test_direct_dispatcher(multiple: booll) -> None:
+def test_direct_dispatcher(multiple: bool) -> None:
     n_elements: int = 10
     time_threshold: float = 1
 

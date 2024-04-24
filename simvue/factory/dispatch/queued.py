@@ -37,7 +37,6 @@ class QueuedDispatcher(threading.Thread, DispatcherBaseClass):
         callback: typing.Callable[[list[typing.Any], str], None],
         object_types: list[str],
         termination_trigger: threading.Event,
-        queue_blocking: bool = False,
         max_buffer_size: int = MAX_BUFFER_SIZE,
         max_read_rate: float = MAX_REQUESTS_PER_SECOND,
     ) -> None:
