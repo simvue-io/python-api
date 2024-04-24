@@ -895,7 +895,7 @@ class Client:
         self,
         metric_names: list[str],
         xaxis: typing.Literal["step", "time", "timestamp"],
-        format: typing.Literal["dataframe", "dict"] = "dict",
+        output_format: typing.Literal["dataframe", "dict"] = "dict",
         run_ids: typing.Optional[list[str]] = None,
         run_filters: typing.Optional[list[str]] = None,
         use_run_names: bool = False,
@@ -909,12 +909,19 @@ class Client:
 
         Parameters
         ----------
-        metric_name : str
-            the name of the metric to return values for
-        format : str ('dataframe' | 'list')
+        metric_names : list[str]
+            the names of metrics to return values for
+        xaxis : str ('step' | 'time' | 'timestamp')
+            the xaxis type
+        output_format : str ('dataframe' | 'list')
             the format of the output, either a list or a Pandas dataframe
+        run_ids : list[str], optional
+            list of runs by id to include within metric retrieval
         run_filters : list[str]
             filters for specifying runs to include
+        use_run_names : bool, optional
+            use run names as opposed to IDs, note this is not recommended for
+            multiple runs with the same name. Default is False.
         aggregate : bool, optional
             return results as averages, default is False however if this is
             not explicitly set to False and the number of runs exceeds 100
@@ -924,7 +931,7 @@ class Client:
 
         Returns
         -------
-        list or DataFrame or None
+        dict or DataFrame or None
             values for the given metric at each time interval
             if no runs pass filtering then return None
         """
@@ -974,11 +981,11 @@ class Client:
 
         if aggregate:
             return aggregated_metrics_to_dataframe(
-                run_metrics, xaxis=xaxis, parse_to=format
+                run_metrics, xaxis=xaxis, parse_to=output_format
             )
         else:
             return parse_run_set_metrics(
-                run_metrics, xaxis=xaxis, run_labels=run_labels, parse_to=format
+                run_metrics, xaxis=xaxis, run_labels=run_labels, parse_to=output_format
             )
 
     @check_extra("plot")
