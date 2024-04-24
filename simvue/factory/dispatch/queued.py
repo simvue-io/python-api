@@ -49,9 +49,6 @@ class QueuedDispatcher(threading.Thread, DispatcherBaseClass):
             function to execute on queued items
         object_types : list[str]
             labels for each queue
-        queue_blocking : bool
-            whether to block queues during object to queue assignment.
-            Default is False.
         termination_trigger : threading.Event
             a threading event which when set declares that the dispatcher
             should terminate
@@ -75,7 +72,9 @@ class QueuedDispatcher(threading.Thread, DispatcherBaseClass):
         self._max_buffer_size = max_buffer_size
         self._send_timer = 0
 
-    def add_item(self, item: typing.Any, object_type: str, blocking: bool) -> None:
+    def add_item(
+        self, item: typing.Any, object_type: str, blocking: bool = True
+    ) -> None:
         """Add an item to the specified queue with/without blocking"""
         if self._termination_trigger.is_set():
             raise RuntimeError(
