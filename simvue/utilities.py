@@ -18,13 +18,31 @@ logger = logging.getLogger(__name__)
 
 def parse_validation_response(
     response: dict[str, list[dict[str, str]]],
-) -> typing.Optional[str]:
-    if not (_issues := response.get("detail")):
-        return None
+) -> str:
+    """Parse ValidationError response from server
+
+    Reformats the error information from a validation error into a human
+    readable table. Checks if 'body' exists within response to determine
+    whether or not the output can contain the original input.
+
+    Parameters
+    ----------
+    response : dict[str, list[dict[str, str]]]
+        response from Simvue server
+
+    Returns
+    -------
+    str
+        return the validation information
+    """
+    if not (issues := response.get("detail")):
+        raise RuntimeError(
+            "Expected key 'detail' in server response during validation failure"
+        )
 
     out: list[list[str]] = []
 
-    for issue in _issues:
+    for issue in issues:
         obj_type: str = issue["type"]
         location: list[str] = issue["loc"]
         location.remove("body")
