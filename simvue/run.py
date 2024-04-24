@@ -165,7 +165,7 @@ class Run:
 
         _all_processes: list[psutil.Process] = [self._parent_process]
 
-        with contextlib.suppress((psutil.NoSuchProcess, psutil.ZombieProcess)):
+        with contextlib.suppress(psutil.NoSuchProcess, psutil.ZombieProcess):
             for child in self._parent_process.children(recursive=True):
                 if child not in _all_processes:
                     _all_processes.append(child)
