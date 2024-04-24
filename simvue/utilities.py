@@ -19,21 +19,37 @@ logger = logging.getLogger(__name__)
 def parse_validation_response(
     response: dict[str, list[dict[str, str]]],
 ) -> typing.Optional[str]:
-    print(response)
     if not (_issues := response.get("detail")):
         return None
 
-    _out: list[list[str]] = []
+    out: list[list[str]] = []
 
     for issue in _issues:
-        _type: str = issue["type"]
-        _location: str = "/".join(str(i) for i in issue["loc"])
-        _msg: str = issue["msg"]
-        _out.append([_type, _location, _msg])
+        obj_type: str = issue["type"]
+        location: list[str] = issue["loc"]
+        location.remove("body")
+        location_addr: str = ""
+        for i, loc in enumerate(location):
+            if isinstance(loc, int):
+                location_addr += f"[{loc}]"
+            else:
+                location_addr += f"{'.' if i > 0 else ''}{loc}"
+        headers = ["Type", "Location", "Message"]
+        information = [obj_type, location_addr]
 
-    _table = tabulate.tabulate(
-        _out, headers=["Type", "Location", "Message"], tablefmt="fancy_grid"
-    )
+        # Check if server response contains 'body'
+        if body := response.get("body"):
+            headers = ["Type", "Location", "Input", "Message"]
+            input_arg = body
+            for loc in location:
+                input_arg = input_arg[loc]
+            information.append(input_arg)
+
+        msg: str = issue["msg"]
+        information.append(msg)
+        out.append(information)
+
+    _table = tabulate.tabulate(out, headers=headers, tablefmt="fancy_grid")
     return str(_table)
 
 

@@ -23,6 +23,7 @@ from datetime import timezone
 import click
 import msgpack
 import psutil
+import pydantic
 from pydantic import ValidationError
 
 import simvue.api as sv_api
@@ -191,6 +192,9 @@ class Run:
     def _create_heartbeat_callback(
         self,
     ) -> typing.Callable[[str, dict, str, bool], None]:
+        if not self._url or not self._id or not self._heartbeat_termination_trigger:
+            raise RuntimeError("Cannot start run heartbeat, run not initialised")
+
         def _heartbeat(
             url: str = self._url,
             headers: dict[str, str] = self._headers,
@@ -312,7 +316,7 @@ class Run:
         if reconnect:
             data["system"] = get_system()
 
-            if not self._simvue.update(data):
+            if not self._simvue or not self._simvue.update(data):
                 return False
 
         self._start_time = time.time()
@@ -372,15 +376,16 @@ class Run:
         self._aborted = True
 
     @skip_if_failed("_aborted", "_suppress_errors", None)
+    @pydantic.validate_call
     def init(
         self,
-        name=None,
-        metadata={},
-        tags=[],
-        description=None,
-        folder="/",
-        running=True,
-        ttl=-1,
+        name: typing.Optional[str] = None,
+        metadata: typing.Optional[dict] = None,
+        tags: typing.Optional[list[str]] = None,
+        description: typing.Optional[str] = None,
+        folder: str = "/",
+        running: bool = True,
+        ttl: pydantic.conint(ge=-1) = -1,
     ):
         """
         Initialise a run
@@ -408,8 +413,8 @@ class Run:
             self._status = "created"
 
         data = {
-            "metadata": metadata,
-            "tags": tags,
+            "metadata": metadata or {},
+            "tags": tags or [],
             "system": {"cpu": {}, "gpu": {}, "platform": {}},
             "status": self._status,
             "ttl": ttl,
@@ -460,6 +465,7 @@ class Run:
         return True
 
     @skip_if_failed("_aborted", "_suppress_errors", None)
+    @pydantic.validate_call
     def add_process(
         self,
         identifier: str,
@@ -470,7 +476,7 @@ class Run:
         completion_callback: typing.Optional[
             typing.Callable[[int, int, str], None]
         ] = None,
-        env: typing.Optional[typing.Dict[str, str]] = None,
+        env: typing.Optional[dict[str, str]] = None,
         **cmd_kwargs,
     ) -> None:
         """Add a process to be executed to the executor.
@@ -517,7 +523,7 @@ class Run:
             you should provide it as such and perform the upload manually, by default None
         completion_callback : typing.Callable | None, optional
             callback to run when process terminates
-        env : typing.Dict[str, str], optional
+        env : dict[str, str], optional
             environment variables for process
         **kwargs
             all other keyword arguments are interpreted as options to the command
@@ -563,6 +569,7 @@ class Run:
             **cmd_kwargs,
         )
 
+    @pydantic.validate_call
     def kill_process(self, process_id: str) -> None:
         """Kill a running process by ID
 
@@ -603,6 +610,7 @@ class Run:
         """
         return self._id
 
+    @pydantic.validate_call
     @skip_if_failed("_aborted", "_suppress_errors", False)
     def reconnect(self, run_id, uid=None):
         """
@@ -618,23 +626,25 @@ class Run:
         self._simvue = Simvue(self._name, self._id, self._mode, self._suppress_errors)
         self._start(reconnect=True)
 
+    @pydantic.validate_call
     @skip_if_failed("_aborted", "_suppress_errors", None)
-    def set_pid(self, pid):
+    def set_pid(self, pid: int) -> None:
         """
         Set pid of process to be monitored
         """
         self._pid = pid
 
+    @pydantic.validate_call
     @skip_if_failed("_aborted", "_suppress_errors", False)
     def config(
         self,
-        suppress_errors=False,
-        queue_blocking=False,
-        queue_size=QUEUE_SIZE,
-        disable_resources_metrics=False,
-        resources_metrics_interval=30,
-        storage_id=None,
-    ):
+        suppress_errors: bool = False,
+        queue_blocking: bool = False,
+        queue_size: int = QUEUE_SIZE,
+        disable_resources_metrics: bool = False,
+        resources_metrics_interval: pydantic.PositiveInt = 30,
+        storage_id: typing.Optional[str] = None,
+    ) -> None:
         """
         Optional configuration
         """
@@ -666,7 +676,8 @@ class Run:
             self._storage_id = storage_id
 
     @skip_if_failed("_aborted", "_suppress_errors", False)
-    def update_metadata(self, metadata):
+    @pydantic.validate_call
+    def update_metadata(self, metadata: dict[str, str]):
         """
         Add/update metadata
         """
@@ -683,13 +694,14 @@ class Run:
 
         data = {"metadata": metadata}
 
-        if self._simvue.update(data):
+        if self._simvue and self._simvue.update(data):
             return True
 
         return False
 
     @skip_if_failed("_aborted", "_suppress_errors", False)
-    def update_tags(self, tags):
+    @pydantic.validate_call
+    def update_tags(self, tags: list[str]) -> bool:
         """
         Add/update tags
         """
@@ -702,13 +714,14 @@ class Run:
 
         data = {"tags": tags}
 
-        if self._simvue.update(data):
+        if self._simvue and self._simvue.update(data):
             return True
 
         return False
 
+    @pydantic.validate_call
     @skip_if_failed("_aborted", "_suppress_errors", False)
-    def log_event(self, message, timestamp=None):
+    def log_event(self, message: str, timestamp: typing.Optional[str] = None):
         """
         Write event
         """
@@ -740,7 +753,13 @@ class Run:
 
         return True
 
-    def _add_metrics_to_dispatch(self, metrics, step=None, time=None, timestamp=None):
+    def _add_metrics_to_dispatch(
+        self,
+        metrics: dict[str, typing.Union[int, float]],
+        step: typing.Optional[pydantic.NonNegativeInt] = None,
+        time: typing.Optional[pydantic.NonNegativeFloat] = None,
+        timestamp: typing.Optional[datetime.datetime] = None,
+    ) -> bool:
         if self._mode == "disabled":
             return True
 
@@ -778,8 +797,15 @@ class Run:
 
         return True
 
+    @pydantic.validate_call
     @skip_if_failed("_aborted", "_suppress_errors", False)
-    def log_metrics(self, metrics, step=None, time=None, timestamp=None):
+    def log_metrics(
+        self,
+        metrics: dict[str, typing.Union[int, float]],
+        step: typing.Optional[pydantic.NonNegativeInt] = None,
+        time: typing.Optional[pydantic.NonNegativeFloat] = None,
+        timestamp: typing.Optional[datetime.datetime] = None,
+    ) -> None:
         """
         Write metrics
         """
@@ -788,15 +814,16 @@ class Run:
         )
         self._step += 1
 
+    @pydantic.validate_call
     def save(
         self,
-        filename,
-        category,
-        filetype=None,
-        preserve_path=False,
-        name=None,
-        allow_pickle=False,
-    ):
+        filename: str,
+        category: typing.Literal["input", "output", "code"],
+        filetype: typing.Optional[str] = None,
+        preserve_path: bool = False,
+        name: typing.Optional[str] = None,
+        allow_pickle: bool = False,
+    ) -> bool:
         """
         Upload file or object
         """
@@ -812,12 +839,11 @@ class Run:
             return False
 
         is_file = False
-        if isinstance(filename, str):
-            if not os.path.isfile(filename):
-                self._error(f"File {filename} does not exist")
-                return False
-            else:
-                is_file = True
+        if not os.path.isfile(filename):
+            self._error(f"File {filename} does not exist")
+            return False
+        else:
+            is_file = True
 
         if filetype:
             mimetypes_valid = ["application/vnd.plotly.v1+json"]
@@ -890,8 +916,15 @@ class Run:
 
         return True
 
+    @pydantic.validate_call
     @skip_if_failed("_aborted", "_suppress_errors", False)
-    def save_directory(self, directory, category, filetype=None, preserve_path=False):
+    def save_directory(
+        self,
+        directory: str,
+        category: typing.Literal["input", "output", "code"],
+        filetype: typing.Optional[str] = None,
+        preserve_path: bool = False,
+    ) -> bool:
         """
         Upload a whole directory
         """
@@ -922,13 +955,22 @@ class Run:
 
         return True
 
+    @pydantic.validate_call
     @skip_if_failed("_aborted", "_suppress_errors", False)
-    def save_all(self, items, category, filetype=None, preserve_path=False):
+    def save_all(
+        self,
+        items: list[str],
+        category: typing.Literal["input", "output", "code"],
+        filetype: typing.Optional[str] = None,
+        preserve_path: bool = False,
+    ) -> bool:
         """
         Save the list of files and/or directories
         """
+        success: bool = True
+
         if self._mode == "disabled":
-            return True
+            return success
 
         for item in items:
             if os.path.isfile(item):
@@ -937,9 +979,14 @@ class Run:
                 self.save_directory(item, category, filetype, preserve_path)
             else:
                 self._error(f"{item}: No such file or directory")
+                success = False
+        return success
 
     @skip_if_failed("_aborted", "_suppress_errors", False)
-    def set_status(self, status):
+    @pydantic.validate_call
+    def set_status(
+        self, status: typing.Literal["completed", "failed", "terminated"]
+    ) -> bool:
         """
         Set run status
         """
@@ -966,7 +1013,7 @@ class Run:
         return False
 
     @skip_if_failed("_aborted", "_suppress_errors", False)
-    def close(self):
+    def close(self) -> bool:
         """f
         Close the run
         """
@@ -996,9 +1043,17 @@ class Run:
         elif self._dispatcher:
             self._dispatcher.purge()
             self._dispatcher.join()
+        return True
 
+    @pydantic.validate_call
     @skip_if_failed("_aborted", "_suppress_errors", False)
-    def set_folder_details(self, path, metadata={}, tags=[], description=None):
+    def set_folder_details(
+        self,
+        path: str,
+        metadata: typing.Optional[dict[str, typing.Union[int, str, float]]] = None,
+        tags: typing.Optional[list[str]] = None,
+        description: typing.Optional[str] = None,
+    ) -> bool:
         """
         Add metadata to the specified folder
         """
@@ -1021,13 +1076,11 @@ class Run:
             self._error("tags must be a list")
             return False
 
-        data = {"path": path}
+        data: dict[str, typing.Union[dict, str, float, int, list]] = {"path": path}
 
-        if metadata:
-            data["metadata"] = metadata
+        data["metadata"] = metadata or {}
 
-        if tags:
-            data["tags"] = tags
+        data["tags"] = tags or []
 
         if description:
             data["description"] = description
@@ -1037,8 +1090,13 @@ class Run:
 
         return False
 
+    @pydantic.validate_call
     @skip_if_failed("_aborted", "_suppress_errors", False)
-    def add_alerts(self, ids=None, names=None):
+    def add_alerts(
+        self,
+        ids: typing.Optional[list[str]] = None,
+        names: typing.Optional[list[str]] = None,
+    ) -> bool:
         """
         Add one or more existing alerts by name or id
         """
@@ -1064,21 +1122,24 @@ class Run:
 
         return False
 
+    @pydantic.validate_call
     @skip_if_failed("_aborted", "_suppress_errors", False)
     def add_alert(
         self,
-        name,
-        source="metrics",
-        frequency=None,
-        window=5,
-        rule=None,
-        metric=None,
-        threshold=None,
-        range_low=None,
-        range_high=None,
-        notification="none",
-        pattern=None,
-    ):
+        name: str,
+        source: typing.Literal["metrics", "events"] = "metrics",
+        frequency: typing.Optional[pydantic.PositiveInt] = None,
+        window: pydantic.PositiveInt = 5,
+        rule: typing.Optional[
+            typing.Literal["is above", "is below", "is inside range"]
+        ] = None,
+        metric: typing.Optional[str] = None,
+        threshold: typing.Optional[typing.Union[int, float]] = None,
+        range_low: typing.Optional[float] = None,
+        range_high: typing.Optional[float] = None,
+        notification: typing.Literal["none", "email"] = "none",
+        pattern: typing.Optional[str] = None,
+    ) -> bool:
         """
         Creates an alert with the specified name (if it doesn't exist)
         and applies it to the current run
@@ -1171,8 +1232,9 @@ class Run:
 
         return False
 
+    @pydantic.validate_call
     @skip_if_failed("_aborted", "_suppress_errors", False)
-    def log_alert(self, name, state):
+    def log_alert(self, name: str, state: typing.Literal["ok", "critical"]) -> bool:
         """
         Set the state of an alert
         """

@@ -248,3 +248,8 @@ def test_suppressed_errors(setup_logging: "CountingLogHandler", post_init: bool)
     else:
         assert setup_logging.counts[0] == len(decorated_funcs)
     
+
+@pytest.mark.run
+def test_bad_run_arguments() -> None:
+    with sv_run.Run() as run:
+        run.init("sdas", [34])
