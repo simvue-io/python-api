@@ -1,6 +1,6 @@
 import pytest
 import os.path
-import json
+import typing
 import glob
 import time
 import tempfile
@@ -19,56 +19,48 @@ def test_get_events(create_test_run: tuple[sv_run.Run, dict]) -> None:
 @pytest.mark.client
 def test_get_alerts(create_test_run: tuple[sv_run.Run, dict]) -> None:
     client = svc.Client()
-    assert len(client.get_alerts(create_test_run[1]["run_id"], critical_only=False)) == 5
+    assert (
+        len(client.get_alerts(create_test_run[1]["run_id"], critical_only=False)) == 5
+    )
 
 
 @pytest.mark.dependency
 @pytest.mark.client
 def test_get_run_id_from_name(create_test_run: tuple[sv_run.Run, dict]) -> None:
     client = svc.Client()
-    assert client.get_run_id_from_name(create_test_run[1]["run_name"]) == create_test_run[1]["run_id"]
-
-
-@pytest.mark.dependency
-@pytest.mark.client
-def test_get_metrics(create_test_run: tuple[sv_run.Run, dict]) -> None:
-    client = svc.Client()
-    time.sleep(4)
     assert (
-        len(
-            client.get_metrics(
-                run_id=create_test_run[1]["run_id"],
-                metric_name=create_test_run[1]["metrics"][0],
-                xaxis="step",
-            )
-        )
-        > 0
+        client.get_run_id_from_name(create_test_run[1]["run_name"])
+        == create_test_run[1]["run_id"]
     )
 
 
 @pytest.mark.dependency
 @pytest.mark.client
-@pytest.mark.parametrize(
-    "aggregate", (True, False),
-    ids=("aggregated", "normal")
-)
-@pytest.mark.parametrize(
-    "format", ("list", "dataframe")
-)
-def test_multiple_metric_retrieval(create_test_run: tuple[sv_run.Run, dict], aggregate: bool, format: str) -> None:
+@pytest.mark.parametrize("aggregate", (True, False), ids=("aggregate", "complete"))
+def test_get_metric_values(
+    create_test_run: tuple[sv_run.Run, dict], aggregate: bool
+) -> None:
     client = svc.Client()
-    if format == "dataframe":
-        try:
-            import pandas 
-        except ImportError:
-            pytest.skip(reason="Pandas not available")
-    client.get_metrics_multiple(
+    time.sleep(0.5)
+    _metrics_dict = client.get_metric_values(
         run_ids=[create_test_run[1]["run_id"]],
-        metric_names=list(create_test_run[1]["metrics"]),
-        xaxis="time",
+        metric_names=[create_test_run[1]["metrics"][0]],
+        xaxis="step",
         aggregate=aggregate,
-        format=format
+        output_format="dict",
     )
+    assert _metrics_dict
+    assert isinstance(_metrics_dict, dict)
+    _first_entry: dict = next(iter(_metrics_dict.values()))
+    assert create_test_run[1]["metrics"][0] in _metrics_dict.keys()
+    if aggregate:
+        _value_types = set(i[1] for i in _first_entry.keys())
+        assert all(
+            i in _value_types for i in ("average", "min", "max")
+        ), f"Expected ('average', 'min', 'max') in {_value_types}"
+    else:
+        _runs = set(i[1] for i in _first_entry.keys())
+        assert create_test_run[1]["run_id"] in _runs
 
 
 @pytest.mark.dependency
@@ -78,12 +70,12 @@ def test_plot_metrics(create_test_run: tuple[sv_run.Run, dict]) -> None:
         import matplotlib
     except ImportError:
         pytest.skip("Plotting modules not found")
-    
+
     client = svc.Client()
     client.plot_metrics(
         run_ids=[create_test_run[1]["run_id"]],
         metric_names=list(create_test_run[1]["metrics"]),
-        xaxis="time"
+        xaxis="time",
     )
 
 
@@ -97,15 +89,20 @@ def test_get_artifacts(create_test_run: tuple[sv_run.Run, dict]) -> None:
 
 @pytest.mark.dependency
 @pytest.mark.client
-@pytest.mark.parametrize(
-    "file_id", (1, 2, 3),
-    ids=lambda x: f"file_{x}"
-)
-def test_get_artifact_as_file(create_test_run: tuple[sv_run.Run, dict], file_id: int) -> None:
+@pytest.mark.parametrize("file_id", (1, 2, 3), ids=lambda x: f"file_{x}")
+def test_get_artifact_as_file(
+    create_test_run: tuple[sv_run.Run, dict], file_id: int
+) -> None:
     with tempfile.TemporaryDirectory() as tempd:
         client = svc.Client()
-        client.get_artifact_as_file(create_test_run[1]["run_id"], name=create_test_run[1][f"file_{file_id}"], path=tempd)
-        assert create_test_run[1][f"file_{file_id}"] in [os.path.basename(i) for i in glob.glob(os.path.join(tempd, "*"))]
+        client.get_artifact_as_file(
+            create_test_run[1]["run_id"],
+            name=create_test_run[1][f"file_{file_id}"],
+            path=tempd,
+        )
+        assert create_test_run[1][f"file_{file_id}"] in [
+            os.path.basename(i) for i in glob.glob(os.path.join(tempd, "*"))
+        ]
 
 
 @pytest.mark.dependency
@@ -161,8 +158,9 @@ PRE_DELETION_TESTS: list[str] = [
     "test_get_metrics_multiple",
     "test_plot_metrics",
     "test_get_run_id_from_name",
-    "test_get_folder"
+    "test_get_folder",
 ]
+
 
 @pytest.mark.dependency
 @pytest.mark.client(depends=PRE_DELETION_TESTS)
@@ -192,3 +190,29 @@ def test_folder_deletion(create_test_run: tuple[sv_run.Run, dict]) -> None:
     client = svc.Client()
     # This test is called last, one run created so expect length 1
     assert len(client.delete_folder(run_data["folder"], remove_runs=True)) == 1
+
+
+@pytest.mark.dependency
+@pytest.mark.client
+@pytest.mark.parametrize("aggregate", (True, False), ids=("aggregated", "normal"))
+@pytest.mark.parametrize("format", ("dict", "dataframe"))
+@pytest.mark.parametrize("xaxis", ("step", "time", "timestamp"))
+def test_multiple_metric_retrieval(
+    create_test_run: tuple[sv_run.Run, dict],
+    aggregate: bool,
+    format: typing.Literal["dict", "dataframe"],
+    xaxis: typing.Literal["step", "time", "timestamp"],
+) -> None:
+    client = svc.Client()
+    if format == "dataframe":
+        try:
+            import pandas
+        except ImportError:
+            pytest.skip(reason="Pandas not available")
+    client.get_metric_values(
+        run_ids=[create_test_run[1]["run_id"]],
+        metric_names=list(create_test_run[1]["metrics"]),
+        xaxis=xaxis,
+        aggregate=aggregate,
+        output_format=format,
+    )

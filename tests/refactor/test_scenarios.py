@@ -73,11 +73,11 @@ def test_uploaded_data_immediately_accessible(
 
     run_deleter["ident"] = shared_dict["ident"]
 
-    values = simvue.Client().get_metrics(
-        shared_dict["ident"], "increment", "step", max_points=2 * values_per_run
-    )
+    values = simvue.Client().get_metric_values(
+        ["increment"], "step", run_ids=[shared_dict["ident"]], max_points=2 * values_per_run, aggregate=False
+    )["increment"]
 
     assert len(values) == values_per_run, "all uploaded values should be returned"
 
     for i in range(len(values)):
-        assert i == int(values[i][1]), "values should be ascending ints"
+        assert i == int(values[(i, shared_dict["ident"])]), "values should be ascending ints"
