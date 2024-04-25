@@ -151,7 +151,7 @@ def test_runs_multiple_parallel(multi_threaded: bool) -> None:
                     run_ids=[run_id],
                     metric_names=[f"var_{id + 1}"],
                     xaxis="step",
-                    format="dict",
+                    output_format="dict",
                     aggregate=False
                 )
                 with contextlib.suppress(RuntimeError):
@@ -192,7 +192,7 @@ def test_runs_multiple_parallel(multi_threaded: bool) -> None:
                         run_ids=[run_id],
                         metric_names=[f"var_{i}"],
                         xaxis="step",
-                        format="dict",
+                        output_format="dict",
                         aggregate=False
                     )
 
@@ -235,7 +235,7 @@ def test_runs_multiple_series() -> None:
             run_ids=[run_id],
             metric_names=[f"var_{i}"],
             xaxis="step",
-            format="dict",
+            output_format="dict",
             aggregate=False
         )
 

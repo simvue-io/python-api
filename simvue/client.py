@@ -1031,7 +1031,7 @@ class Client:
             metric_names=metric_names,
             xaxis=xaxis,
             max_points=max_points,
-            format="dataframe",
+            output_format="dataframe",
             aggregate=False,
         )
 

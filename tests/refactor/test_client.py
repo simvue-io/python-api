@@ -47,7 +47,7 @@ def test_get_metric_values(
         metric_names=[create_test_run[1]["metrics"][0]],
         xaxis="step",
         aggregate=aggregate,
-        format="dict",
+        output_format="dict",
     )
     assert _metrics_dict
     assert isinstance(_metrics_dict, dict)
@@ -214,5 +214,5 @@ def test_multiple_metric_retrieval(
         metric_names=list(create_test_run[1]["metrics"]),
         xaxis=xaxis,
         aggregate=aggregate,
-        format=format,
+        output_format=format,
     )
