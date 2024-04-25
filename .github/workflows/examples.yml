@@ -1,0 +1,44 @@
+name: Simvue Examples
+
+on:
+  push:
+    branches: [ "main", "dev", "hotfix/update-ci", "296-*" ]
+  pull_request:
+    branches: [ "main", "dev", "hotfix/update-ci" ]
+
+permissions:
+  contents: read
+
+jobs:
+  blue_mira_example:
+    strategy:
+        matrix:
+            os: ["ubuntu-latest"]
+            python-version: ["3.11"]
+    runs-on: ${{ matrix.os }}
+    steps:
+        - uses: actions/checkout@v4
+        - name: Download BlueMira
+          uses: actions/checkout@v4
+          with:
+            repository: Fusion-Power-Plant-Framework/bluemira
+            ref: v1.10.0
+            path: blue_mira
+        - uses: conda-incubator/setup-miniconda@v3
+          with:
+            activate-environment: bluemira
+            environment-file: blue_mira/conda/environment.yml
+            miniforge-version: "latest"
+            use-only-tar-bz2: false
+            miniforge-variant: Mambaforge
+            use-mamba: true
+            python-version: ${{ matrix.python-version }}
+        - name: Install bluemira
+          shell: bash -l {0}
+          run: pip install -e blue_mira
+        - name: Install Simvue
+          shell: bash -l {0}
+          run: pip install -e .
+        - name: Run Example
+          shell: bash -l {0}
+          run: python ./examples/GeometryOptimisation/bluemira_simvue_geometry_optimisation.py
