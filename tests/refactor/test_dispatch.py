@@ -142,7 +142,13 @@ def test_nested_queued_dispatch(multi_queue: bool) -> None:
 def test_queued_dispatch_error_adding_item_after_termination() -> None:
     trigger = Event()
 
-    dispatcher = QueuedDispatcher(lambda *_: None, ["q"], trigger, False, 5, 2)
+    dispatcher = QueuedDispatcher(
+        callback=lambda *_: None,
+        object_types=["q"],
+        termination_trigger=trigger,
+        max_buffer_size=5,
+        max_read_rate=2
+    )
     dispatcher.start()
 
     trigger.set()
@@ -152,7 +158,13 @@ def test_queued_dispatch_error_adding_item_after_termination() -> None:
 
 def test_queued_dispatch_error_attempting_to_use_non_existent_queue() -> None:
     trigger = Event()
-    dispatcher = QueuedDispatcher(lambda *_: None, ["q"], trigger, False, 5, 2)
+    dispatcher = QueuedDispatcher(
+        callback=lambda *_: None,
+        object_types=["q"],
+        termination_trigger=trigger,
+        max_buffer_size=5,
+        max_read_rate=2
+    )
     dispatcher.start()
 
     with pytest.raises(KeyError):
