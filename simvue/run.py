@@ -735,9 +735,6 @@ class Run:
         _data = {"message": message, "timestamp": timestamp or self.time_stamp}
         self._dispatcher.add_item(_data, "events", self._queue_blocking)
 
-        # Need to stall the exit of Run so any executor events can be sent
-        time.sleep(1)
-
         return True
 
     def _add_metrics_to_dispatch(self, metrics, step=None, time=None, timestamp=None):
