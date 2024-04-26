@@ -140,3 +140,6 @@ simvue.ini
 
 # VSCode
 .vscode/
+
+# Vagrant
+Vagrantfile

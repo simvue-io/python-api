@@ -10,7 +10,7 @@ permissions:
   contents: read
 
 jobs:
-  blue_mira_example:
+  GeometryOptimisation:
     strategy:
         matrix:
             os: ["ubuntu-latest"]
@@ -42,3 +42,20 @@ jobs:
         - name: Run Example
           shell: bash -l {0}
           run: python ./examples/GeometryOptimisation/bluemira_simvue_geometry_optimisation.py
+  OpenFOAM:
+    runs-on: ubuntu-latest
+    container: openfoam/openfoam10-paraview56
+    steps:
+      - uses: actions/checkout@v3
+      - name: Set up Python 3.11
+        uses: actions/setup-python@v3
+        with:
+          python-version: "3.11"
+      - name: Install dependencies
+        run: python -m pip install poetry ukaea-multiparser
+      - name: Test with pytest
+        run: |
+          export SIMVUE_URL=${{ secrets.SIMVUE_URL }}
+          export SIMVUE_TOKEN=${{ secrets.SIMVUE_TOKEN }}
+          poetry install
+          poetry run python ./examples/OpenFOAM/simvue_openfoam.py /opt/openfoam10/tutorials/incompressible/pimpleFoam/laminar/movingCone/Allrun
