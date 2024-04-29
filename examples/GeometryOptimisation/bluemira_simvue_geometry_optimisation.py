@@ -68,6 +68,7 @@ run.init(
         "optimiser.ftol_abs": ftol_abs,
         "optimiser.ftol_rel": ftol_rel,
     },
+    folder="/simvue_client_demos",
     description="A simple GeometryOptimisationProblem, where we minimise the length of parameterised geometry using gradient-based optimisation algorithm.",
 )
 

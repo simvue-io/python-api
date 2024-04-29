@@ -11,11 +11,7 @@ permissions:
 
 jobs:
   GeometryOptimisation:
-    strategy:
-        matrix:
-            os: ["ubuntu-latest"]
-            python-version: ["3.11"]
-    runs-on: ${{ matrix.os }}
+    runs-on: ubuntu-latest
     steps:
         - uses: actions/checkout@v4
         - name: Download BlueMira
@@ -32,7 +28,7 @@ jobs:
             use-only-tar-bz2: false
             miniforge-variant: Mambaforge
             use-mamba: true
-            python-version: ${{ matrix.python-version }}
+            python-version: "3.11"
         - name: Install bluemira
           shell: bash -l {0}
           run: pip install -e blue_mira
@@ -82,19 +78,57 @@ jobs:
           export SIMVUE_TOKEN=${{ secrets.SIMVUE_TOKEN }}
           python3.11 ./examples/OpenFOAM/simvue_openfoam.py /opt/openfoam10/tutorials/incompressible/pimpleFoam/laminar/movingCone/Allrun
   Optuna:
-      runs-on: ubuntu-latest
-      steps:
-        - uses: actions/checkout@v4
-        - name: Setup Python
-          uses: actions/setup-python@v5
-          with:
-            python-version: "3.11"
-        - name: Install Simvue
-          run: python3 -m pip install .
-        - name: Install Dependencies
-          run: python3 -m pip install -r examples/Optuna/PyTorch/requirements.txt
-        - name: Run Example
-          run: |
-            export SIMVUE_URL=${{ secrets.SIMVUE_URL }}
-            export SIMVUE_TOKEN=${{ secrets.SIMVUE_TOKEN }}
-            python3.11 ./examples/Optuna/PyTorch/simvue_optuna_pytorch.py
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Install Simvue
+        run: python3 -m pip install .
+      - name: Install Dependencies
+        run: python3 -m pip install -r examples/Optuna/PyTorch/requirements.txt
+      - name: Run Example
+        run: |
+          export SIMVUE_URL=${{ secrets.SIMVUE_URL }}
+          export SIMVUE_TOKEN=${{ secrets.SIMVUE_TOKEN }}
+          python3.11 ./examples/Optuna/PyTorch/simvue_optuna_pytorch.py
+  PyTorch:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Install Simvue
+        run: python3 -m pip install .
+      - name: Install Dependencies
+        run: python3 -m pip install -r examples/PyTorch/requirements.txt
+      - name: Run Example
+        run: |
+          export SIMVUE_URL=${{ secrets.SIMVUE_URL }}
+          export SIMVUE_TOKEN=${{ secrets.SIMVUE_TOKEN }}
+          python3.11 ./examples/PyTorch/main.py
+  SU2:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Download SU2
+        run: |
+          wget https://github.com/su2code/SU2/releases/download/v8.0.1/SU2-v8.0.1-linux64.zip
+          unzip SU2-v8.0.1-linux64.zip
+      - name: Install dependencies
+        run: |
+          python -m pip install ukaea-multiparser
+          python -m pip install .
+      - name: Run Example
+        run: |
+          export SIMVUE_URL=${{ secrets.SIMVUE_URL }}
+          export SIMVUE_TOKEN=${{ secrets.SIMVUE_TOKEN }}
+          python examples/SU2/SU2.py bin --config tests/example_data/SU2_inv_ONERAM6.cfg

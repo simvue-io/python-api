@@ -2,7 +2,6 @@ FROM openfoam/openfoam10-paraview56
 ARG simvue_file
 USER root
 RUN add-apt-repository ppa:deadsnakes/ppa -y
-RUN
 RUN apt-get update && \
     apt-get install -y python3.11-full
 RUN useradd simvue -m

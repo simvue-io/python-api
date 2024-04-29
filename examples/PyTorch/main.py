@@ -197,7 +197,10 @@ def main():
     scheduler = StepLR(optimizer, step_size=1, gamma=args.gamma)
 
     run = Run()
-    run.init(tags=["PyTorch"])
+    run.init(
+        tags=["PyTorch"],
+        folder="/simvue_client_demos",
+    )
 
     for epoch in range(1, args.epochs + 1):
         train(args, model, device, train_loader, optimizer, epoch, run)
