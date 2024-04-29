@@ -16,10 +16,12 @@ if typing.TYPE_CHECKING:
 
 @pytest.mark.run
 @pytest.mark.parametrize("overload_buffer", (True, False), ids=("overload", "normal"))
+@pytest.mark.parametrize("visibility", ("bad_option", "tenant", "public", ["ciuser01"], None))
 def test_log_metrics(
     overload_buffer: bool,
     setup_logging: "CountingLogHandler",
     mocker,
+    visibility: typing.Union[typing.Literal["public", "tenant"], list[str], None]
 ) -> None:
     METRICS = {"a": 10, "b": 1.2}
 
@@ -29,10 +31,24 @@ def test_log_metrics(
     # occurs immediately and is not captured by the handler when using the fixture
     run = sv_run.Run()
     run.config(suppress_errors=False)
+
+    if visibility == "bad_option":
+        with pytest.raises(RuntimeError):
+            run.init(
+                name=f"test_run_{str(uuid.uuid4()).split('-', 1)[0]}",
+                tags=["simvue_client_unit_tests"],
+                folder="/simvue_unit_testing",
+                ttl=60 * 60,
+                visibility=visibility
+            )
+        return
+
     run.init(
         name=f"test_run_{str(uuid.uuid4()).split('-', 1)[0]}",
         tags=["simvue_client_unit_tests"],
-        folder="/simvue_unit_testing"
+        folder="/simvue_unit_testing",
+        ttl=60 * 60,
+        visibility=visibility
     )
 
     run.update_tags(["simvue_client_unit_tests", "test_log_metrics"])
@@ -269,4 +285,3 @@ def test_suppressed_errors(setup_logging: "CountingLogHandler", post_init: bool)
         assert setup_logging.counts[0] == len(decorated_funcs) + 1
     else:
         assert setup_logging.counts[0] == len(decorated_funcs)
-    

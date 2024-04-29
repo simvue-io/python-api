@@ -380,11 +380,19 @@ class Run:
         description=None,
         folder="/",
         running=True,
+        visibility: typing.Union[
+            typing.Literal["public", "tenant"], list[str], None
+        ] = None,
         ttl=-1,
     ):
         """
         Initialise a run
         """
+        if isinstance(visibility, str) and visibility not in ("public", "tenant"):
+            self._error(
+                "invalid visibility option, must be either None, 'public', 'tenant' or a list of users"
+            )
+
         if self._mode not in ("online", "offline", "disabled"):
             self._error("invalid mode specified, must be online, offline or disabled")
 
@@ -413,6 +421,11 @@ class Run:
             "system": {"cpu": {}, "gpu": {}, "platform": {}},
             "status": self._status,
             "ttl": ttl,
+            "visibility": {
+                "users": [] if not isinstance(visibility, list) else visibility,
+                "tenant": visibility == "tenant",
+                "public": visibility == "public",
+            },
         }
 
         if name:

@@ -83,7 +83,9 @@ def setup_test_run(run: sv_run.Run, create_objects: bool):
     run.init(
         name=f"test_run_{TEST_DATA['metadata']['test_identifier']}",
         tags=["simvue_client_unit_tests"],
-        folder=TEST_DATA["folder"]
+        folder=TEST_DATA["folder"],
+        ttl=60 * 60,
+        visibility="tenant"
     )
     run._dispatcher._max_buffer_size = MAX_BUFFER_SIZE
 
