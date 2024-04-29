@@ -43,7 +43,7 @@ jobs:
           shell: bash -l {0}
           run: python ./examples/GeometryOptimisation/bluemira_simvue_geometry_optimisation.py
   OpenFOAM:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-22.04
     container:
       image: openfoam/openfoam10-paraview56
       options: --user root
