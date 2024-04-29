@@ -42,6 +42,21 @@ jobs:
         - name: Run Example
           shell: bash -l {0}
           run: python ./examples/GeometryOptimisation/bluemira_simvue_geometry_optimisation.py
+  Logging:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Install Simvue
+        run: python3 -m pip install .
+      - name: Run Example
+        run: |
+          export SIMVUE_URL=${{ secrets.SIMVUE_URL }}
+          export SIMVUE_TOKEN=${{ secrets.SIMVUE_TOKEN }}
+          python3 examples/Logging/logging-to-simvue.py
   OpenFOAM:
     runs-on: ubuntu-latest
     container:
@@ -59,9 +74,10 @@ jobs:
         run: |
           python3.11 -m ensurepip --upgrade
           python3.11 -m pip install ukaea-multiparser
-      - name: Test with pytest
+      - name: Install Package
+        run: python3.11 -m pip install .
+      - name: Run Example
         run: |
           export SIMVUE_URL=${{ secrets.SIMVUE_URL }}
           export SIMVUE_TOKEN=${{ secrets.SIMVUE_TOKEN }}
-          python3.11 -m pip install .
           python3.11 ./examples/OpenFOAM/simvue_openfoam.py /opt/openfoam10/tutorials/incompressible/pimpleFoam/laminar/movingCone/Allrun
