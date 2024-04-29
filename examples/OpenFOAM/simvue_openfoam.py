@@ -27,7 +27,8 @@ from typing import Any
 
 @click.command
 @click.argument("all_run_script", type=click.Path(exists=True))
-def open_foam_simvue_demo(all_run_script: str) -> None:
+@click.option("--ci", is_flag=True, default=False)
+def open_foam_simvue_demo(all_run_script: str, ci: bool) -> None:
     """Run the Allrun file for the given simulation and parse the log.PimpleFoam content
 
     Parameters
@@ -71,6 +72,7 @@ def open_foam_simvue_demo(all_run_script: str) -> None:
             f"open_foam_demo_{uniq_id}",
             folder="/simvue_client_demos",
             tags=["OpenFOAM"],
+            ttl=60 * 60 if ci else -1,
         )
         run.add_process(
             identifier="OpenFOAM",

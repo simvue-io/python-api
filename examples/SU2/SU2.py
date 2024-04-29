@@ -15,8 +15,9 @@ import simvue
 @click.argument("su2_binary_directory", type=click.Path(exists=True))
 @click.option("--config", help="URL or path of config file", default=None)
 @click.option("--mesh", help="URL or path of mesh file", default=None)
+@click.option("--ci", is_flag=True, default=False)
 def run_su2_example(
-    su2_binary_directory: str, config: str | None, mesh: str | None
+    su2_binary_directory: str, config: str | None, mesh: str | None, ci: bool
 ) -> None:
     # Name of history file to collect metrics from
     HISTORY: str = "history.csv"
@@ -100,6 +101,7 @@ def run_su2_example(
                 os.path.splitext(os.path.basename(mesh_filename))[0],
             ],
             description="SU2 tutorial https://su2code.github.io/tutorials/Inviscid_ONERAM6/",
+            ttl=60 * 60 if ci else -1,
         )
         run.add_process(
             identifier="SU2_simulation",

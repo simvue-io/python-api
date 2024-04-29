@@ -25,13 +25,30 @@ FOLDER_NAME = randomname.get_name()
 
 
 @click.command
-@click.option("--epochs", type=int, default=EPOCHS)
-@click.option("--batch-size", type=int, default=BATCHSIZE)
-@click.option("--train-examples", type=int, default=BATCHSIZE * 30)
-@click.option("--valid-examples", type=int, default=BATCHSIZE * 10)
+@click.option("--epochs", type=int, default=EPOCHS, show_default=True)
+@click.option("--batch-size", type=int, default=BATCHSIZE, show_default=True)
+@click.option("--train-examples", type=int, default=BATCHSIZE * 30, show_default=True)
+@click.option("--valid-examples", type=int, default=BATCHSIZE * 10, show_default=True)
+@click.option("--trials", type=int, default=100, show_default=True)
+@click.option("--timeout", type=int, default=600, show_default=True)
+@click.option("--ci", is_flag=True, default=False)
 def run_optuna_example(
-    epochs: int, batch_size: int, train_examples: int, valid_examples: int
+    epochs: int,
+    batch_size: int,
+    train_examples: int,
+    valid_examples: int,
+    ci: bool,
+    trials: int,
+    timeout: int,
 ) -> None:
+    if ci:
+        batch_size = 1
+        train_examples = 1
+        valid_examples = 1
+        epochs = 1
+        trials = 1
+        timeout = 30
+
     def train(optimizer, model, train_loader, batch_size=batch_size):
         model.train()
         for batch_idx, (data, target) in enumerate(train_loader):
@@ -116,27 +133,30 @@ def run_optuna_example(
         config["trial.number"] = trial.number
         from simvue import Run
 
-        run = Run()
-        run.init(folder="/optuna/tests/%s" % FOLDER_NAME, metadata=config)
+        with Run() as run:
+            run.init(
+                folder="/optuna/tests/%s" % FOLDER_NAME,
+                metadata=config,
+                ttl=60 * 60 if ci else -1,
+            )
 
-        # Training of the model.
-        for epoch in range(epochs):
-            train(optimizer, model, train_loader)
-            val_accuracy = validate(model, valid_loader)
-            trial.report(val_accuracy, epoch)
+            # Training of the model.
+            for epoch in range(epochs):
+                train(optimizer, model, train_loader)
+                val_accuracy = validate(model, valid_loader)
+                trial.report(val_accuracy, epoch)
 
-            # report validation accuracy to wandb
-            run.log_metrics({"validation accuracy": val_accuracy}, step=epoch)
+                # report validation accuracy to wandb
+                run.log_metrics({"validation accuracy": val_accuracy}, step=epoch)
 
-            # Handle pruning based on the intermediate value.
-            if trial.should_prune():
-                run.update_metadata({"state": "pruned"})
-                run.close()
-                raise optuna.exceptions.TrialPruned()
+                # Handle pruning based on the intermediate value.
+                if trial.should_prune():
+                    run.update_metadata({"state": "pruned"})
+                    run.close()
+                    raise optuna.exceptions.TrialPruned()
 
-        # report the final validation accuracy to simvue
-        run.update_metadata({"final accuracy": val_accuracy, "state": "completed"})
-        run.close()
+            # report the final validation accuracy to simvue
+            run.update_metadata({"final accuracy": val_accuracy, "state": "completed"})
 
         return val_accuracy
 
@@ -145,4 +165,8 @@ def run_optuna_example(
         study_name=STUDY_NAME,
         pruner=optuna.pruners.MedianPruner(),
     )
-    study.optimize(objective, n_trials=100, timeout=600)
+    study.optimize(objective, n_trials=trials, timeout=timeout)
+
+
+if __name__ in "__main__":
+    run_optuna_example()
