@@ -44,7 +44,9 @@ jobs:
           run: python ./examples/GeometryOptimisation/bluemira_simvue_geometry_optimisation.py
   OpenFOAM:
     runs-on: ubuntu-latest
-    container: openfoam/openfoam10-paraview56
+    container:
+      image: openfoam/openfoam10-paraview56
+      options: --user root
     steps:
       - uses: actions/checkout@v3
       - name: Set up Python 3.11
