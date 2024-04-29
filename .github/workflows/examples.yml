@@ -81,3 +81,20 @@ jobs:
           export SIMVUE_URL=${{ secrets.SIMVUE_URL }}
           export SIMVUE_TOKEN=${{ secrets.SIMVUE_TOKEN }}
           python3.11 ./examples/OpenFOAM/simvue_openfoam.py /opt/openfoam10/tutorials/incompressible/pimpleFoam/laminar/movingCone/Allrun
+  Optuna:
+      runs-on: ubuntu-latest
+      steps:
+        - uses: actions/checkout@v4
+        - name: Setup Python
+          uses: actions/setup-python@v5
+          with:
+            python-version: "3.11"
+        - name: Install Simvue
+          run: python3 -m pip install .
+        - name: Install Dependencies
+          run: python3 -m pip install -r examples/Optuna/PyTorch/requirements.txt
+        - name: Run Example
+          run: |
+            export SIMVUE_URL=${{ secrets.SIMVUE_URL }}
+            export SIMVUE_TOKEN=${{ secrets.SIMVUE_TOKEN }}
+            python3.11 ./examples/Optuna/PyTorch/simvue_optuna_pytorch.py
