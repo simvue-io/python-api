@@ -110,7 +110,7 @@ jobs:
         run: |
           export SIMVUE_URL=${{ secrets.SIMVUE_URL }}
           export SIMVUE_TOKEN=${{ secrets.SIMVUE_TOKEN }}
-          python3.11 ./examples/PyTorch/main.py
+          python3.11 ./examples/PyTorch/main.py --epochs 2 --batch-size 2
   SU2:
     runs-on: ubuntu-latest
     steps:
