@@ -77,7 +77,7 @@ def get_json(filename, run_id=None, artifact=False):
     return data
 
 
-def sender():
+def sender() -> str:
     """
     Asynchronous upload of runs to Simvue server
     """
@@ -85,6 +85,7 @@ def sender():
 
     # Clean up old runs after waiting 5 mins
     runs = glob.glob(f"{directory}/*/sent")
+    run_id = None
 
     for run in runs:
         id = run.split("/")[len(run.split("/")) - 2]
@@ -286,3 +287,4 @@ def sender():
         elif updates == 0 and status == "lost":
             logger.info("Finished sending run %s as it was lost", run_init["name"])
             create_file(f"{current}/sent")
+    return run_id
