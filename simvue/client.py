@@ -899,13 +899,15 @@ class Client:
         run_ids: typing.Optional[list[str]] = None,
         run_filters: typing.Optional[list[str]] = None,
         use_run_names: bool = False,
-        aggregate: bool = True,
+        aggregate: bool = False,
         max_points: int = -1,
     ) -> typing.Union[dict, "DataFrame", None]:
         """Retrieve the values for a given metric across multiple runs
 
         Uses filters to specify which runs should be retrieved.
-        Note if the number of runs exceeds 100 'aggregated' will be set to True.
+
+        NOTE if the number of runs exceeds 100 'aggregated' will be set to True,
+        and aggregated is not supported for the 'timestamp' xaxis format
 
         Parameters
         ----------
@@ -923,9 +925,8 @@ class Client:
             use run names as opposed to IDs, note this is not recommended for
             multiple runs with the same name. Default is False.
         aggregate : bool, optional
-            return results as averages, default is False however if this is
-            not explicitly set to False and the number of runs exceeds 100
-            it will default to True
+            return results as averages (not compatible with xaxis=timestamp),
+            default is False
         max_points : int, optional
             maximum number of data points, by default -1 (all)
 
@@ -942,6 +943,12 @@ class Client:
             raise AssertionError(
                 "Specification of both 'run_ids' and 'run_filters' "
                 "in get_metric_values is ambiguous"
+            )
+
+        if xaxis == "timestamp" and aggregate:
+            raise AssertionError(
+                "Cannot return metric values with options 'aggregate=True' and "
+                "'xaxis=timestamp'"
             )
 
         if run_filters is not None:
