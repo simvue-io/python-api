@@ -72,7 +72,9 @@ def parse_validation_response(
 
 
 def check_extra(extra_name: str) -> typing.Callable:
-    def decorator(class_func: typing.Callable) -> typing.Callable:
+    def decorator(
+        class_func: typing.Optional[typing.Callable] = None,
+    ) -> typing.Optional[typing.Callable]:
         def wrapper(self, *args, **kwargs) -> typing.Any:
             if extra_name == "plot" and not all(
                 [
@@ -98,7 +100,7 @@ def check_extra(extra_name: str) -> typing.Callable:
                 )
             elif extra_name not in EXTRAS:
                 raise RuntimeError(f"Unrecognised extra '{extra_name}'")
-            return class_func(self, *args, **kwargs)
+            return class_func(self, *args, **kwargs) if class_func else None
 
         return wrapper
 
