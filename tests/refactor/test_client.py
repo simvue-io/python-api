@@ -209,6 +209,18 @@ def test_multiple_metric_retrieval(
             import pandas
         except ImportError:
             pytest.skip(reason="Pandas not available")
+
+    if aggregate and xaxis == "timestamp":
+        with pytest.raises(AssertionError):
+            client.get_metric_values(
+                run_ids=[create_test_run[1]["run_id"]],
+                metric_names=list(create_test_run[1]["metrics"]),
+                xaxis=xaxis,
+                aggregate=aggregate,
+                output_format=format,
+            )
+        return
+
     client.get_metric_values(
         run_ids=[create_test_run[1]["run_id"]],
         metric_names=list(create_test_run[1]["metrics"]),
