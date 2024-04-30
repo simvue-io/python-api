@@ -14,7 +14,11 @@ from concurrent.futures import ThreadPoolExecutor, as_completed
 
 import requests
 
-from .converters import metrics_to_dataframe, to_dataframe
+from .converters import (
+    aggregated_metrics_to_dataframe,
+    to_dataframe,
+    parse_run_set_metrics,
+)
 from .serialization import Deserializer
 from .types import DeserializedContent
 from .utilities import check_extra, get_auth
@@ -221,6 +225,31 @@ class Client:
             )
         return json_response
 
+    def get_run_name_from_id(self, run_id: str) -> str:
+        """Retrieve the name of a run from its identifier
+
+        Parameters
+        ----------
+        run_id : str
+            the unique identifier for the run
+
+        Returns
+        -------
+        str
+            the registered name for the run
+        """
+        if not run_id:
+            raise ValueError("Expected value for run_id but got None")
+
+        _run_data = self.get_run(run_id)
+
+        if not _run_data:
+            raise RuntimeError(f"Failed to retrieve data for run '{run_id}'")
+
+        if not (_name := _run_data.get("name")):
+            raise RuntimeError("Expected key 'name' in server response")
+        return _name
+
     def get_runs(
         self,
         filters: typing.Optional[list[str]],
@@ -230,7 +259,7 @@ class Client:
         metadata: bool = False,
         format: typing.Literal["dict", "dataframe"] = "dict",
     ) -> typing.Union[
-        "DataFrame", dict[str, typing.Union[int, str, float, None]], None
+        "DataFrame", list[dict[str, typing.Union[int, str, float, None]]], None
     ]:
         """Retrieve all runs matching filters
 
@@ -829,224 +858,145 @@ class Client:
 
         return json_response
 
-    def get_metrics(
+    def _get_run_metrics_from_server(
         self,
-        run_id: str,
-        metric_name: str,
-        xaxis: typing.Literal["step", "time", "timestamp"],
-        max_points: int = 0,
-        format: typing.Literal["list", "dataframe"] = "list",
-    ) -> typing.Union["DataFrame", list[list]]:
-        """Get time series metrics for the given metric name and run
-
-        Parameters
-        ----------
-        run_id : str
-            the unique identifier of the run
-        metric_name : str
-            the name of the metric set to retrieve
-        xaxis : str ('step' | 'time' | 'timestamp')
-            the x axis form
-        format : str ('list' | 'dataframe')
-            whether to return a list of entries or dataframe
-
-        Returns
-        -------
-        list[list] | pandas.DataFrame
-            time series data for metric
-
-        Raises
-        ------
-        ValueError
-            if an invalid argument is provided
-        RuntimeError
-            if there was a failure retrieving data from the server
-        """
-        run_response: requests.Response = requests.get(
-            f"{self._url}/api/runs/{run_id}", headers=self._headers
-        )
-
-        json_run_response = self._get_json_from_response(
-            expected_status=[200],
-            scenario=f"Retrieval of run '{run_id}' during metric request",
-            response=run_response,
-        )
-
-        if not isinstance(json_run_response, dict):
-            raise RuntimeError(
-                "Expected dictionary from JSON response during retrieval of run "
-                f"but got '{type(json_run_response)}'"
-            )
-
-        run_name: typing.Optional[str] = None
-
-        if run_response.status_code == 200 and not (
-            run_name := json_run_response.get("name")
-        ):
-            raise RuntimeError(
-                "Expected key 'name' in run_response for metric retrieval "
-                f"from run '{run_id}'"
-            )
-
-        params: dict[str, typing.Union[str, int]] = {
-            "runs": json.dumps([run_id]),
-            "metrics": json.dumps([metric_name]),
-            "xaxis": xaxis,
-            "max_points": max_points,
-        }
-
-        if xaxis not in ("step", "time", "timestamp"):
-            raise ValueError(
-                'Invalid xaxis specified, should be either "step", "time", or "timestamp"'
-            )
-
-        if format not in ("list", "dataframe"):
-            raise ValueError(
-                'Invalid format specified, should be either "list" or "dataframe"'
-            )
-
-        metrics_response: requests.Response = requests.get(
-            f"{self._url}/api/metrics", headers=self._headers, params=params
-        )
-
-        json_metric_response = self._get_json_from_response(
-            expected_status=[200],
-            scenario=f"Retrieval of metric listing for '{metric_name}' in run '{run_id}'",
-            response=metrics_response,
-        )
-
-        if not isinstance(json_metric_response, dict):
-            raise RuntimeError(
-                "Expected dictionary from JSON response during retrieval of run "
-                f"but got '{type(json_metric_response)}'"
-            )
-
-        run_data: typing.Optional[dict[str, typing.Any]]
-        metric_data: typing.Optional[list[dict[str, typing.Any]]]
-
-        if not (run_data := json_metric_response.get(run_id)) or not (
-            metric_data := run_data.get(metric_name)
-        ):
-            raise RuntimeError(
-                f"Expected entry for '{metric_name}' for run '{run_id}' in server "
-                "response, but none found"
-            )
-
-        data: list[list] = [
-            [item[xaxis], item["value"], run_name, metric_name] for item in metric_data
-        ]
-
-        if format == "dataframe":
-            return metrics_to_dataframe(data, xaxis, name=metric_name)
-
-        return data
-
-    def get_metrics_multiple(
-        self,
-        run_ids: list[str],
         metric_names: list[str],
-        xaxis: typing.Literal["step", "time"],
+        run_ids: list[str],
+        xaxis: str,
+        aggregate: bool,
         max_points: int = -1,
-        aggregate: bool = False,
-        format: typing.Literal["list", "dataframe"] = "list",
-    ):
-        """Get time series data for multiple runs/metrics
-
-        Parameters
-        ----------
-        run_ids : list[str]
-            unique identifiers of runs to retrieve
-        metric_names : list[str]
-            labels for metrics to retrieve
-        xaxis : str ('step' | 'time')
-            the x axis form
-        max_points : int, optional
-            maximum number of points to display, by default -1 (no limit)
-        aggregate : bool, optional
-             to aggregate the results, by default False
-        format : str ('list' | 'dataframe'), optional
-            the form in which to return results, by default "list"
-
-        Returns
-        -------
-        list | pandas.DataFrame
-            either a list or a dataframe containing metric values for the
-            runs specified
-
-        Raises
-        ------
-        ValueError
-            if an invalid argument is provided
-        RuntimError
-            if there was a failure retrieving data from the server
-        """
-        params: dict[str, typing.Union[int, str]] = {
+    ) -> dict[str, typing.Any]:
+        params: dict[str, typing.Union[str, int]] = {
             "runs": json.dumps(run_ids),
-            "metrics": json.dumps(metric_names),
             "aggregate": aggregate,
-            "max_points": max_points,
+            "metrics": json.dumps(metric_names),
             "xaxis": xaxis,
+            "max_points": max_points,
         }
-
-        if xaxis not in ("step", "time"):
-            raise ValueError(
-                'Invalid xaxis specified, should be either "step" or "time"'
-            )
-
-        if format not in ("list", "dataframe"):
-            raise ValueError(
-                'Invalid format specified, should be either "list" or "dataframe"'
-            )
-
-        response = requests.get(
+        print(params)
+        metrics_response: requests.Response = requests.get(
             f"{self._url}/api/metrics", headers=self._headers, params=params
         )
 
         json_response = self._get_json_from_response(
             expected_status=[200],
-            scenario=f"Retrieval of metrics '{metric_names}'",
-            response=response,
+            scenario=f"Retrieval of metrics '{metric_names}' in " f"runs '{run_ids}'",
+            response=metrics_response,
         )
 
         if not isinstance(json_response, dict):
             raise RuntimeError(
-                "Expected dictionary from JSON response during metric retrieval"
+                "Expected dictionary from JSON response for metric retrieval"
             )
 
-        data: list[list[typing.Union[str, int, float]]] = []
+        return json_response
 
-        if not aggregate:
-            non_agg_data: dict[
-                str, dict[str, list[dict[str, typing.Union[int, float]]]]
-            ] = response.json()
+    def get_metric_values(
+        self,
+        metric_names: list[str],
+        xaxis: typing.Literal["step", "time", "timestamp"],
+        output_format: typing.Literal["dataframe", "dict"] = "dict",
+        run_ids: typing.Optional[list[str]] = None,
+        run_filters: typing.Optional[list[str]] = None,
+        use_run_names: bool = False,
+        aggregate: bool = False,
+        max_points: int = -1,
+    ) -> typing.Union[dict, "DataFrame", None]:
+        """Retrieve the values for a given metric across multiple runs
 
-            for run_id, run in non_agg_data.items():
-                for name, metric_entry in run.items():
-                    for item in metric_entry:
-                        data.append([item[xaxis], item["value"], run_id, name])
+        Uses filters to specify which runs should be retrieved.
+
+        NOTE if the number of runs exceeds 100 'aggregated' will be set to True,
+        and aggregated is not supported for the 'timestamp' xaxis format
+
+        Parameters
+        ----------
+        metric_names : list[str]
+            the names of metrics to return values for
+        xaxis : str ('step' | 'time' | 'timestamp')
+            the xaxis type
+        output_format : str ('dataframe' | 'list')
+            the format of the output, either a list or a Pandas dataframe
+        run_ids : list[str], optional
+            list of runs by id to include within metric retrieval
+        run_filters : list[str]
+            filters for specifying runs to include
+        use_run_names : bool, optional
+            use run names as opposed to IDs, note this is not recommended for
+            multiple runs with the same name. Default is False.
+        aggregate : bool, optional
+            return results as averages (not compatible with xaxis=timestamp),
+            default is False
+        max_points : int, optional
+            maximum number of data points, by default -1 (all)
+
+        Returns
+        -------
+        dict or DataFrame or None
+            values for the given metric at each time interval
+            if no runs pass filtering then return None
+        """
+        if not metric_names:
+            raise ValueError("No metric names were provided")
+
+        if run_filters and run_ids:
+            raise AssertionError(
+                "Specification of both 'run_ids' and 'run_filters' "
+                "in get_metric_values is ambiguous"
+            )
+
+        if xaxis == "timestamp" and aggregate:
+            raise AssertionError(
+                "Cannot return metric values with options 'aggregate=True' and "
+                "'xaxis=timestamp'"
+            )
+
+        if run_filters is not None:
+            if not (filtered_runs := self.get_runs(filters=run_filters)):
+                return None
+
+            run_ids = [run["id"] for run in filtered_runs if run["id"]]
+
+            if use_run_names:
+                run_labels = [run["name"] for run in filtered_runs]
+        elif run_ids is not None:
+            if use_run_names:
+                run_labels = [
+                    self.get_run_name_from_id(run_id) for run_id in run_ids if run_id
+                ]
         else:
-            agg_data: dict[str, list[dict[str, typing.Union[int, float]]]] = (
-                response.json()
+            raise AssertionError(
+                "Expected either argument 'run_ids' or 'run_filters' for get_metric_values"
             )
 
-            for name, entries in agg_data.items():
-                for item in entries:
-                    data.append(
-                        [
-                            item[xaxis],
-                            item["min"],
-                            item["average"],
-                            item["max"],
-                            name,
-                        ]
-                    )
+        if not run_ids or any(not i for i in run_ids):
+            raise ValueError(
+                f"Expected list of run identifiers for 'run_ids' but got '{run_ids}'"
+            )
 
-        if format == "dataframe":
-            return metrics_to_dataframe(data, xaxis)
+        if not use_run_names:
+            run_labels = run_ids
 
-        return data
+        # Now get the metrics for each run
+        run_metrics = self._get_run_metrics_from_server(
+            metric_names=metric_names,
+            run_ids=run_ids,
+            xaxis=xaxis,
+            aggregate=aggregate,
+            max_points=max_points,
+        )
+
+        if aggregate:
+            return aggregated_metrics_to_dataframe(
+                run_metrics, xaxis=xaxis, parse_to=output_format
+            )
+        else:
+            return parse_run_set_metrics(
+                run_metrics, xaxis=xaxis, run_labels=run_labels, parse_to=output_format
+            )
 
     @check_extra("plot")
+    @check_extra("dataset")
     def plot_metrics(
         self,
         run_ids: list[str],
@@ -1083,9 +1033,17 @@ class Client:
         if not isinstance(metric_names, list):
             raise ValueError("Invalid names specified, must be a list of metric names.")
 
-        data: "DataFrame" = self.get_metrics_multiple(  # type: ignore
-            run_ids, metric_names, xaxis, max_points, format="dataframe"
+        data: "DataFrame" = self.get_metric_values(  # type: ignore
+            run_ids=run_ids,
+            metric_names=metric_names,
+            xaxis=xaxis,
+            max_points=max_points,
+            output_format="dataframe",
+            aggregate=False,
         )
+
+        # Undo multi-indexing
+        flattened_df = data.reset_index()
 
         import matplotlib.pyplot as plt
 
@@ -1099,21 +1057,16 @@ class Client:
                 elif len(run_ids) == 1 and len(metric_names) > 1:
                     label = name
 
-                plt.plot(
-                    data[(run, name, xaxis)], data[(run, name, "value")], label=label
-                )
-                plt.plot(
-                    data[(run, name, xaxis)], data[(run, name, "value")], label=label
-                )
+                flattened_df.plot(y=name, x=xaxis, label=label)
 
         if xaxis == "step":
-            plt.xlabel("steps")
+            plt.xlabel("Steps")
         elif xaxis == "time":
-            plt.xlabel("relative time")
+            plt.xlabel("Relative Time")
         if xaxis == "step":
             plt.xlabel("steps")
-        elif xaxis == "time":
-            plt.xlabel("relative time")
+        elif xaxis == "timestamp":
+            plt.xlabel("Time")
 
         if len(metric_names) == 1:
             plt.ylabel(metric_names[0])

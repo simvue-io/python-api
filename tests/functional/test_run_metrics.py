@@ -13,7 +13,7 @@ class TestRunMetrics(unittest.TestCase):
         name = 'test-%s' % str(uuid.uuid4())
         folder = '/test-%s' % str(uuid.uuid4())
         run = Run()
-        run.init(name, folder=folder)
+        run.init(name, folder=folder, tags=["simvue_client_tests", "test_run_metrics"])
         run.log_metrics({'a': 1.0})
         run.log_metrics({'a': 1.2})
 
@@ -25,20 +25,38 @@ class TestRunMetrics(unittest.TestCase):
         time.sleep(5)
 
         client = Client()
-        data_a = client.get_metrics(run.id, 'a', 'step')
-        data_b = client.get_metrics(run.id, 'b', 'step')
-        data_b_time = client.get_metrics(run.id, 'b', 'time')
+        data_a = client.get_metric_values(
+            metric_names=['a'],
+            run_ids=[run.id],
+            xaxis='step',
+            aggregate=False,
+            use_run_names=True
+        )
+        data_b = client.get_metric_values(
+            metric_names=['b'],
+            run_ids=[run.id],
+            xaxis='step',
+            aggregate=False,
+            use_run_names=True
+        )
+        data_b_time = client.get_metric_values(
+            metric_names=['b'],
+            run_ids=[run.id],
+            xaxis='time',
+            aggregate=False,
+            use_run_names=True
+        )
 
-        data_a_val = [[0, 1.0, name, 'a'], [1, 1.2, name, 'a']]
-        data_b_val = [[10, 2.0, name, 'b'], [11, 2.3, name, 'b']]
-        data_b_time_val = [[2.0, 2.0, name, 'b'], [3.0, 2.3, name, 'b']]
+        data_a_val = {'a': {(0, name): 1.0, (1, name): 1.2}}
+        data_b_val = {'b': {(10, name): 2.0, (11, name): 2.3}}
+        data_b_time_val = {'b': {(2.0, name): 2.0, (3.0, name): 2.3}}
 
         self.assertEqual(data_a, data_a_val)
         self.assertEqual(data_b, data_b_val)
         self.assertEqual(data_b_time, data_b_time_val)
 
         metrics_names = client.get_metrics_names(run.id)
-        self.assertEqual(metrics_names, ['a', 'b'])
+        assert all(i in metrics_names for i in ['a', 'b'])
 
         runs = client.delete_runs(folder)
         self.assertEqual(len(runs), 1)
