@@ -70,13 +70,14 @@ def create_plain_run_offline(mocker: pytest_mock.MockerFixture) -> typing.Genera
 
 
 def setup_test_run(run: sv_run.Run, create_objects: bool):
+    fix_use_id: str = str(uuid.uuid4()).split('-', 1)[0]
     TEST_DATA = {
         "event_contains": "sent event",
         "metadata": {
             "test_engine": "pytest",
-            "test_identifier": str(uuid.uuid4()).split('-', 1)[0]
+            "test_identifier": fix_use_id
         },
-        "folder": "/simvue_unit_testing"
+        "folder": f"/simvue_unit_testing/{fix_use_id}"
     }
     run.config(suppress_errors=False)
     run.init(
@@ -108,16 +109,16 @@ def setup_test_run(run: sv_run.Run, create_objects: bool):
     TEST_DATA["resources_metrics_interval"] = run._resources_metrics_interval
 
     if create_objects:
-        json.dump(TEST_DATA, open("test_attrs.json", "w"), indent=2)
-
         with tempfile.NamedTemporaryFile(suffix=".txt") as temp_f:
             with open(temp_f.name, "w") as out_f:
                 out_f.write("This is a test file")
             run.save(temp_f.name, category="input", name="test_file")
             TEST_DATA["file_1"] = "test_file"
 
-        run.save("test_attrs.json", category="output", name="test_attributes")
-        TEST_DATA["file_2"] = "test_attributes"
+        with tempfile.NamedTemporaryFile(suffix=".json") as temp_f: 
+            json.dump(TEST_DATA, open(f"test_attrs_{fix_use_id}.json", "w"), indent=2)
+            run.save(f"test_attrs_{fix_use_id}.json", category="output", name="test_attributes")
+            TEST_DATA["file_2"] = "test_attributes"
 
         with tempfile.NamedTemporaryFile(suffix=".py") as temp_f:
             with open(temp_f.name, "w") as out_f:

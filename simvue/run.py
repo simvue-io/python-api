@@ -182,7 +182,7 @@ class Run:
 
         _all_processes: list[psutil.Process] = [self._parent_process]
 
-        with contextlib.suppress((psutil.NoSuchProcess, psutil.ZombieProcess)):
+        with contextlib.suppress(psutil.NoSuchProcess, psutil.ZombieProcess):
             for child in self._parent_process.children(recursive=True):
                 if child not in _all_processes:
                     _all_processes.append(child)
@@ -753,9 +753,6 @@ class Run:
 
         _data = {"message": message, "timestamp": timestamp or self.time_stamp}
         self._dispatcher.add_item(_data, "events", self._queue_blocking)
-
-        # Need to stall the exit of Run so any executor events can be sent
-        time.sleep(1)
 
         return True
 
