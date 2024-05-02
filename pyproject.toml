@@ -21,6 +21,7 @@ numpy = {version = "^1.26.3", optional = true}
 matplotlib = {version = "^3.8.2", optional = true}
 toml = "^0.10.2"
 click = "^8.1.7"
+humanfriendly = "^10.0"
 
 [tool.poetry.extras]
 dataset = ["pandas", "numpy"]

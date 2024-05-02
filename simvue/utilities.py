@@ -2,6 +2,7 @@ import configparser
 import datetime
 import hashlib
 import logging
+import pydantic
 import importlib.util
 import contextlib
 import os
@@ -89,7 +90,15 @@ def skip_if_failed(
                     f"client in fail state (see logs)."
                 )
                 return on_failure_return
-            return class_func(self, *args, **kwargs)
+
+            # Handle case where Pydantic validates the inputs
+            try:
+                return class_func(self, *args, **kwargs)
+            except pydantic.ValidationError as e:
+                if getattr(self, ignore_exc_attr, False):
+                    setattr(self, failure_attr, True)
+                    logger.error(e.args[0])
+                    return on_failure_return
 
         wrapper.__name__ = f"{class_func.__name__}__fail_safe"
         return wrapper

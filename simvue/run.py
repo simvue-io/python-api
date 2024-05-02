@@ -12,9 +12,12 @@ import json
 import logging
 import mimetypes
 import threading
+import humanfriendly
 import os
+import pydantic
 import re
 import sys
+import pathlib
 import time
 import typing
 import uuid
@@ -45,19 +48,22 @@ from .utilities import (
     validate_timestamp,
 )
 
-INIT_MISSING = "initialize a run using init() first"
-QUEUE_SIZE = 10000
-UPLOAD_TIMEOUT = 30
+if typing.TYPE_CHECKING:
+    from .factory.base import SimvueBaseClass
+
+UPLOAD_TIMEOUT: int = 30
 HEARTBEAT_INTERVAL: int = 60
 RESOURCES_METRIC_PREFIX: str = "resources"
 
 logger = logging.getLogger(__name__)
 
 
-def walk_through_files(path):
-    for dirpath, _, filenames in os.walk(path):
+def walk_through_files(
+    path: pathlib.Path,
+) -> typing.Generator[pathlib.Path, None, None]:
+    for dirpath, _, filenames in path.walk():
         for filename in filenames:
-            yield os.path.join(dirpath, filename)
+            yield dirpath.joinpath(filename)
 
 
 class Run:
@@ -65,41 +71,44 @@ class Run:
     Track simulation details based on token and URL
     """
 
-    def __init__(self, mode="online"):
-        self._uuid = str(uuid.uuid4())
-        self._mode = mode
-        self._name = None
+    @pydantic.validate_call
+    def __init__(self, mode: typing.Literal["online", "offline"] = "online") -> None:
+        self._uuid: str = f"{uuid.uuid4()}"
+        self._mode: typing.Literal["online", "offline", "disabled"] = mode
+        self._name: typing.Optional[str] = None
         self._executor = Executor(self)
-        self._dispatcher = None
-        self._id = None
-        self._suppress_errors = False
-        self._queue_blocking = False
-        self._status = None
-        self._upload_time_log = None
-        self._upload_time_event = None
-        self._data = {}
-        self._events = []
-        self._step = 0
-        self._queue_size = QUEUE_SIZE
-        self._metrics_queue = None
-        self._events_queue = None
-        self._active = False
+        self._dispatcher: typing.Optional[Dispatcher] = None
+        self._id: typing.Optional[str] = None
+        self._suppress_errors: bool = False
+        self._queue_blocking: bool = False
+        self._status: typing.Optional[
+            typing.Literal[
+                "created", "running", "completed", "failed", "terminated", "lost"
+            ]
+        ] = None
+        self._data: dict[str, typing.Any] = {}
+        self._step: int = 0
+        self._active: bool = False
         self._aborted: bool = False
         self._url, self._token = get_auth()
-        self._headers = {"Authorization": f"Bearer {self._token}"}
-        self._simvue = None
-        self._pid = 0
-        self._resources_metrics_interval = 30
-        self._shutdown_event = None
-        self._heartbeat_termination_trigger = None
-        self._storage_id = None
-        self._heartbeat_thread = None
+        self._headers: dict[str, str] = {"Authorization": f"Bearer {self._token}"}
+        self._simvue: typing.Optional[SimvueBaseClass] = None
+        self._pid: typing.Optional[int] = 0
+        self._resources_metrics_interval: int = 30
+        self._shutdown_event: typing.Optional[threading.Event] = None
+        self._heartbeat_termination_trigger: typing.Optional[threading.Event] = None
+        self._storage_id: typing.Optional[str] = None
+        self._heartbeat_thread: typing.Optional[threading.Thread] = None
 
-    def __enter__(self):
+    def __enter__(self) -> "Run":
         return self
 
-    def __exit__(self, type, value, traceback):
+    def __exit__(
+        self, type: typing.Type[Exception], value: Exception, traceback: str
+    ) -> None:
+        # Wait for the executor to finish with currently running processes
         self._executor.wait_for_completion()
+
         identifier = self._id
         logger.debug(
             "Automatically closing run '%s' in status %s",
@@ -107,10 +116,12 @@ class Run:
             self._status,
         )
 
+        # Stop the run heartbeat
         if self._heartbeat_thread and self._heartbeat_termination_trigger:
             self._heartbeat_termination_trigger.set()
             self._heartbeat_thread.join()
 
+        # Handle case where run is aborted by user KeyboardInterrupt
         if (self._id or self._mode == "offline") and self._status == "running":
             if not type:
                 if self._shutdown_event is not None:
@@ -140,7 +151,7 @@ class Run:
             )
             sys.exit(_non_zero)
 
-    def _check_token(self):
+    def _check_token(self) -> None:
         """
         Check if token is valid
         """
@@ -191,6 +202,9 @@ class Run:
     def _create_heartbeat_callback(
         self,
     ) -> typing.Callable[[str, dict, str, bool], None]:
+        if not self._url or not self._id or not self._heartbeat_termination_trigger:
+            raise RuntimeError("Could not commence heartbeat, run not initialised")
+
         def _heartbeat(
             url: str = self._url,
             headers: dict[str, str] = self._headers,
@@ -229,7 +243,7 @@ class Run:
 
     def _create_dispatch_callback(
         self,
-    ) -> typing.Callable[[list[typing.Any], str, dict[str, typing.Any]], None]:
+    ) -> typing.Callable:
         """Generates the relevant callback for posting of metrics and events
 
         The generated callback is assigned to the dispatcher instance and is
@@ -238,11 +252,13 @@ class Run:
 
         if not self._uuid:
             raise RuntimeError("Expected unique identifier for run")
+        if not self._id or not self._url:
+            raise RuntimeError("Cannot commence dispatch, run not intialised")
 
         def _offline_dispatch_callback(
             buffer: list[typing.Any],
             category: str,
-            run_id=self._id,
+            run_id: str = self._id,
             uuid: str = self._uuid,
         ) -> None:
             if not os.path.exists((_offline_directory := get_offline_directory())):
@@ -271,9 +287,9 @@ class Run:
         def _online_dispatch_callback(
             buffer: list[typing.Any],
             category: str,
-            url=self._url,
-            run_id=self._id,
-            headers=self._headers,
+            url: str = self._url,
+            run_id: str = self._id,
+            headers: dict[str, str] = self._headers,
         ) -> None:
             if not buffer:
                 return
@@ -293,7 +309,7 @@ class Run:
             else _offline_dispatch_callback
         )
 
-    def _start(self, reconnect=False):
+    def _start(self, reconnect: bool = False) -> bool:
         """
         Start a run
         """
@@ -307,12 +323,12 @@ class Run:
 
         self._check_token()
 
-        data = {"status": self._status}
+        data: dict[str, typing.Any] = {"status": self._status}
 
         if reconnect:
             data["system"] = get_system()
 
-            if not self._simvue.update(data):
+            if self._simvue and not self._simvue.update(data):
                 return False
 
         self._start_time = time.time()
@@ -325,23 +341,29 @@ class Run:
         self._shutdown_event = threading.Event()
         self._heartbeat_termination_trigger = threading.Event()
 
-        self._dispatcher = Dispatcher(
-            termination_trigger=self._shutdown_event,
-            queue_blocking=self._queue_blocking,
-            queue_categories=["events", "metrics"],
-            callback=self._create_dispatch_callback(),
-        )
+        try:
+            self._dispatcher = Dispatcher(
+                termination_trigger=self._shutdown_event,
+                queue_blocking=self._queue_blocking,
+                queue_categories=["events", "metrics"],
+                callback=self._create_dispatch_callback(),
+            )
 
-        self._heartbeat_thread = threading.Thread(
-            target=self._create_heartbeat_callback(), daemon=True
-        )
+            self._heartbeat_thread = threading.Thread(
+                target=self._create_heartbeat_callback(), daemon=True
+            )
+        except RuntimeError as e:
+            self._error(e.args[0])
+            return False
 
         self._dispatcher.start()
         self._heartbeat_thread.start()
 
         self._active = True
 
-    def _error(self, message):
+        return True
+
+    def _error(self, message: str) -> None:
         """
         Raise an exception if necessary and log error
         """
@@ -372,18 +394,43 @@ class Run:
         self._aborted = True
 
     @skip_if_failed("_aborted", "_suppress_errors", None)
+    @pydantic.validate_call
     def init(
         self,
-        name=None,
-        metadata={},
-        tags=[],
-        description=None,
-        folder="/",
-        running=True,
-        ttl=-1,
-    ):
-        """
-        Initialise a run
+        name: typing.Optional[str] = None,
+        metadata: typing.Optional[dict[str, typing.Any]] = None,
+        tags: typing.Optional[list[str]] = None,
+        description: typing.Optional[str] = None,
+        folder: str = "/",
+        running: bool = True,
+        retention_period: typing.Optional[str] = None,
+    ) -> bool:
+        """Initialise a Simvue run
+
+        Parameters
+        ----------
+        name : typing.Optional[str], optional
+            the name to allocate this run, if not specified a name will be
+            selected at random, by default None
+        metadata : typing.Optional[dict[str, typing.Any]], optional
+            any metadata relating to the run as key-value pairs, by default None
+        tags : typing.Optional[list[str]], optional
+            a list of tags for this run, by default None
+        description : typing.Optional[str], optional
+            description of the run, by default None
+        folder : str, optional
+            folder within which to store the run, by default "/"
+        running : bool, optional
+            whether to set the status as running or created, the latter implying
+            the run will be commenced at a later time. Default is True.
+        retention_period : typing.Optional[str], optional
+            describer for time period to retain run, the default of None
+            removes this constraint.
+
+        Returns
+        -------
+        bool
+            whether the initialisation was successful
         """
         if self._mode not in ("online", "offline", "disabled"):
             self._error("invalid mode specified, must be online, offline or disabled")
@@ -396,45 +443,42 @@ class Run:
                 "Unable to get URL and token from environment variables or config file"
             )
 
-        if name:
-            if not re.match(r"^[a-zA-Z0-9\-\_\s\/\.:]+$", name):
-                self._error("specified name is invalid")
+        if name and not re.match(r"^[a-zA-Z0-9\-\_\s\/\.:]+$", name):
+            self._error("specified name is invalid")
 
         self._name = name
 
-        if running:
-            self._status = "running"
-        else:
-            self._status = "created"
+        self._status = "running" if running else "created"
 
-        data = {
-            "metadata": metadata,
-            "tags": tags,
-            "system": {"cpu": {}, "gpu": {}, "platform": {}},
+        # Parse the time to live/retention time if specified
+        try:
+            if retention_period:
+                retention_secs: float = humanfriendly.parse_timespan(retention_period)
+            else:
+                retention_secs = -1.0
+        except humanfriendly.InvalidTimespan as e:
+            self._error(e.args[0])
+
+        data: dict[str, typing.Any] = {
+            "metadata": metadata or {},
+            "tags": tags or [],
             "status": self._status,
-            "ttl": ttl,
+            "ttl": int(retention_secs),
+            "folder": folder,
+            "name": name,
+            "description": description,
+            "system": get_system()
+            if self._status == "running"
+            else {"cpu": {}, "gpu": {}, "platform": {}},
         }
-
-        if name:
-            data["name"] = name
-
-        if description:
-            data["description"] = description
-
-        data["folder"] = folder
-
-        if self._status == "running":
-            data["system"] = get_system()
-        elif self._status == "created":
-            del data["system"]
 
         self._check_token()
 
-        # compare with pydantic RunInput model
+        # Check against the expected run input
         try:
             RunInput(**data)
         except ValidationError as err:
-            self._error(err)
+            self._error(err.args[0])
 
         self._simvue = Simvue(self._name, self._uuid, self._mode, self._suppress_errors)
         name, self._id = self._simvue.create_run(data)
@@ -468,7 +512,7 @@ class Run:
         script: typing.Optional[str] = None,
         input_file: typing.Optional[str] = None,
         completion_callback: typing.Optional[
-            typing.Callable[[int, int, str], None]
+            typing.Callable[[int, str, str], None]
         ] = None,
         env: typing.Optional[typing.Dict[str, str]] = None,
         **cmd_kwargs,
@@ -604,7 +648,8 @@ class Run:
         return self._id
 
     @skip_if_failed("_aborted", "_suppress_errors", False)
-    def reconnect(self, run_id, uid=None):
+    @pydantic.validate_call
+    def reconnect(self, run_id: str, uid: typing.Optional[str] = None) -> bool:
         """
         Reconnect to a run in the created state
         """
@@ -612,29 +657,32 @@ class Run:
             return True
 
         self._status = "running"
-        self._uuid = uid
+        self._uuid = uid or self._uuid
 
         self._id = run_id
         self._simvue = Simvue(self._name, self._id, self._mode, self._suppress_errors)
         self._start(reconnect=True)
 
+        return True
+
     @skip_if_failed("_aborted", "_suppress_errors", None)
-    def set_pid(self, pid):
+    @pydantic.validate_call
+    def set_pid(self, pid: int) -> None:
         """
         Set pid of process to be monitored
         """
         self._pid = pid
 
     @skip_if_failed("_aborted", "_suppress_errors", False)
+    @pydantic.validate_call
     def config(
         self,
-        suppress_errors=False,
-        queue_blocking=False,
-        queue_size=QUEUE_SIZE,
-        disable_resources_metrics=False,
-        resources_metrics_interval=30,
-        storage_id=None,
-    ):
+        suppress_errors: bool = False,
+        queue_blocking: bool = False,
+        disable_resources_metrics: bool = False,
+        resources_metrics_interval: int = 30,
+        storage_id: typing.Optional[str] = None,
+    ) -> bool:
         """
         Optional configuration
         """
@@ -644,11 +692,6 @@ class Run:
 
         if not isinstance(queue_blocking, bool):
             self._error("queue_blocking must be boolean")
-        self._queue_blocking = queue_blocking
-
-        if not isinstance(queue_size, int):
-            self._error("queue_size must be an integer")
-        self._queue_size = queue_size
 
         if not isinstance(disable_resources_metrics, bool):
             self._error(
@@ -660,28 +703,33 @@ class Run:
 
         if not isinstance(resources_metrics_interval, int):
             self._error("resources_metrics_interval must be an integer")
+
         self._resources_metrics_interval = resources_metrics_interval
 
         if storage_id:
             self._storage_id = storage_id
 
+        return True
+
     @skip_if_failed("_aborted", "_suppress_errors", False)
-    def update_metadata(self, metadata):
+    @pydantic.validate_call
+    def update_metadata(self, metadata: dict[str, typing.Any]) -> bool:
         """
         Add/update metadata
         """
+
         if self._mode == "disabled":
             return True
 
-        if not self._uuid and not self._name:
-            self._error(INIT_MISSING)
+        if not self._simvue:
+            self._error("Cannot update metadata, run not initialised")
             return False
 
         if not isinstance(metadata, dict):
             self._error("metadata must be a dict")
             return False
 
-        data = {"metadata": metadata}
+        data: dict[str, dict[str, typing.Any]] = {"metadata": metadata}
 
         if self._simvue.update(data):
             return True
@@ -689,18 +737,19 @@ class Run:
         return False
 
     @skip_if_failed("_aborted", "_suppress_errors", False)
-    def update_tags(self, tags):
+    @pydantic.validate_call
+    def update_tags(self, tags: list[str]) -> bool:
         """
         Add/update tags
         """
         if self._mode == "disabled":
             return True
 
-        if not self._uuid and not self._name:
-            self._error(INIT_MISSING)
+        if not self._simvue:
+            self._error("Cannot update tags, run not initialised")
             return False
 
-        data = {"tags": tags}
+        data: dict[str, list[str]] = {"tags": tags}
 
         if self._simvue.update(data):
             return True
@@ -708,7 +757,8 @@ class Run:
         return False
 
     @skip_if_failed("_aborted", "_suppress_errors", False)
-    def log_event(self, message, timestamp=None):
+    @pydantic.validate_call
+    def log_event(self, message, timestamp: typing.Optional[str] = None) -> bool:
         """
         Write event
         """
@@ -716,8 +766,8 @@ class Run:
             self._error("Cannot log events in 'disabled' state")
             return True
 
-        if not self._uuid and not self._name:
-            self._error(INIT_MISSING)
+        if not self._simvue or not self._dispatcher:
+            self._error("Cannot log events, run not initialised")
             return False
 
         if not self._active:
@@ -737,7 +787,13 @@ class Run:
 
         return True
 
-    def _add_metrics_to_dispatch(self, metrics, step=None, time=None, timestamp=None):
+    def _add_metrics_to_dispatch(
+        self,
+        metrics: dict[str, typing.Union[int, float]],
+        step: typing.Optional[int] = None,
+        time: typing.Optional[int] = None,
+        timestamp: typing.Optional[str] = None,
+    ) -> bool:
         if self._mode == "disabled":
             return True
 
@@ -745,8 +801,8 @@ class Run:
         if not metrics:
             return True
 
-        if not self._uuid and not self._name:
-            self._error(INIT_MISSING)
+        if not self._simvue or not self._dispatcher:
+            self._error("Cannot log metrics, run not initialised")
             return False
 
         if not self._active:
@@ -755,10 +811,6 @@ class Run:
 
         if self._status != "running":
             self._error("Cannot log metrics when not in the running state")
-            return False
-
-        if not isinstance(metrics, dict) and not self._suppress_errors:
-            self._error("Metrics must be a dict")
             return False
 
         if timestamp and not validate_timestamp(timestamp):
@@ -776,39 +828,50 @@ class Run:
         return True
 
     @skip_if_failed("_aborted", "_suppress_errors", False)
-    def log_metrics(self, metrics, step=None, time=None, timestamp=None):
+    @pydantic.validate_call
+    def log_metrics(
+        self,
+        metrics: dict[str, typing.Union[int, float]],
+        step: typing.Optional[int] = None,
+        time: typing.Optional[int] = None,
+        timestamp: typing.Optional[str] = None,
+    ) -> bool:
         """
         Write metrics
         """
-        self._add_metrics_to_dispatch(
+        add_dispatch = self._add_metrics_to_dispatch(
             metrics, step=step, time=time, timestamp=timestamp
         )
         self._step += 1
+        return add_dispatch
 
+    @skip_if_failed("_aborted", "_suppress_errors", False)
+    @pydantic.validate_call
     def save(
         self,
-        filename,
-        category,
-        filetype=None,
-        preserve_path=False,
-        name=None,
-        allow_pickle=False,
-    ):
+        filename: str,
+        category: typing.Literal["input", "output", "code"],
+        filetype: typing.Optional[str] = None,
+        preserve_path: bool = False,
+        name: typing.Optional[str] = None,
+        allow_pickle: bool = False,
+    ) -> bool:
         """
         Upload file or object
         """
         if self._mode == "disabled":
             return True
 
-        if not self._uuid and not self._name:
-            self._error(INIT_MISSING)
+        if not self._simvue:
+            self._error("Cannot save files, run not initialised")
             return False
 
         if self._status == "created" and category == "output":
             self._error("Cannot upload output files for runs in the created state")
             return False
 
-        is_file = False
+        is_file: bool = False
+
         if isinstance(filename, str):
             if not os.path.isfile(filename):
                 self._error(f"File {filename} does not exist")
@@ -826,7 +889,8 @@ class Run:
                 self._error("Invalid MIME type specified")
                 return False
 
-        data = {}
+        data: dict[str, typing.Any] = {}
+
         if preserve_path:
             data["name"] = filename
             if data["name"].startswith("./"):
@@ -869,14 +933,23 @@ class Run:
             data["type"] = mimetype
 
         if not is_file:
-            data["pickled"], data["type"] = Serializer().serialize(
-                filename, allow_pickle
-            )
+            serialized = Serializer().serialize(filename, allow_pickle)
+
+            if not serialized or not (pickled := serialized[0]):
+                self._error(f"Failed to serialize '{filename}'")
+                return False
+
+            data_type = serialized[1]
+
+            data["pickled"] = pickled
+            data["type"] = data_type
+
             if not data["type"] and not allow_pickle:
                 self._error("Unable to save Python object, set allow_pickle to True")
-            data["checksum"] = calculate_sha256(data["pickled"], False)
+
+            data["checksum"] = calculate_sha256(pickled, False)
             data["originalPath"] = ""
-            data["size"] = sys.getsizeof(data["pickled"])
+            data["size"] = sys.getsizeof(pickled)
 
         if self._storage_id:
             data["storage"] = self._storage_id
@@ -888,19 +961,22 @@ class Run:
         return True
 
     @skip_if_failed("_aborted", "_suppress_errors", False)
-    def save_directory(self, directory, category, filetype=None, preserve_path=False):
+    @pydantic.validate_call
+    def save_directory(
+        self,
+        directory: pydantic.DirectoryPath,
+        category: typing.Literal["output", "input", "code"],
+        filetype: typing.Optional[str] = None,
+        preserve_path: bool = False,
+    ) -> bool:
         """
         Upload a whole directory
         """
         if self._mode == "disabled":
             return True
 
-        if not self._uuid and not self._name:
-            self._error(INIT_MISSING)
-            return False
-
-        if not os.path.isdir(directory):
-            self._error(f"Directory {directory} does not exist")
+        if not self._simvue:
+            self._error("Cannot save directory, run not inirialised")
             return False
 
         if filetype:
@@ -914,13 +990,20 @@ class Run:
                 return False
 
         for filename in walk_through_files(directory):
-            if os.path.isfile(filename):
-                self.save(filename, category, filetype, preserve_path)
+            if filename.is_file():
+                self.save(f"{filename}", category, filetype, preserve_path)
 
         return True
 
     @skip_if_failed("_aborted", "_suppress_errors", False)
-    def save_all(self, items, category, filetype=None, preserve_path=False):
+    @pydantic.validate_call
+    def save_all(
+        self,
+        items: list[typing.Union[pydantic.FilePath, pydantic.DirectoryPath]],
+        category: typing.Literal["input", "output", "code"],
+        filetype: typing.Optional[str] = None,
+        preserve_path: bool = False,
+    ) -> bool:
         """
         Save the list of files and/or directories
         """
@@ -928,33 +1011,38 @@ class Run:
             return True
 
         for item in items:
-            if os.path.isfile(item):
-                self.save(item, category, filetype, preserve_path)
-            elif os.path.isdir(item):
-                self.save_directory(item, category, filetype, preserve_path)
+            if item.is_file():
+                save_file = self.save(f"{item}", category, filetype, preserve_path)
+            elif item.is_dir():
+                save_file = self.save_directory(item, category, filetype, preserve_path)
             else:
                 self._error(f"{item}: No such file or directory")
+                save_file = False
+            if not save_file:
+                return False
+
+        return True
 
     @skip_if_failed("_aborted", "_suppress_errors", False)
-    def set_status(self, status):
+    @pydantic.validate_call
+    def set_status(
+        self, status: typing.Literal["completed", "failed", "terminated"]
+    ) -> bool:
         """
         Set run status
         """
         if self._mode == "disabled":
             return True
 
-        if not self._uuid and not self._name:
-            self._error(INIT_MISSING)
+        if not self._simvue or not self._name:
+            self._error("Cannot update run status, run is not initialised.")
             return False
 
         if not self._active:
             self._error("Run is not active")
             return False
 
-        if status not in ("completed", "failed", "terminated"):
-            self._error("invalid status")
-
-        data = {"name": self._name, "status": status}
+        data: dict[str, str] = {"name": self._name, "status": status}
         self._status = status
 
         if self._simvue.update(data):
@@ -963,7 +1051,7 @@ class Run:
         return False
 
     @skip_if_failed("_aborted", "_suppress_errors", False)
-    def close(self):
+    def close(self) -> bool:
         """f
         Close the run
         """
@@ -971,8 +1059,8 @@ class Run:
         if self._mode == "disabled":
             return True
 
-        if not self._uuid and not self._name:
-            self._error(INIT_MISSING)
+        if not self._simvue:
+            self._error("Cannot close run, not initialised")
             return False
 
         if not self._active:
@@ -993,17 +1081,25 @@ class Run:
         elif self._dispatcher:
             self._dispatcher.purge()
             self._dispatcher.join()
+        return True
 
     @skip_if_failed("_aborted", "_suppress_errors", False)
-    def set_folder_details(self, path, metadata={}, tags=[], description=None):
+    @pydantic.validate_call
+    def set_folder_details(
+        self,
+        path: str,
+        metadata: typing.Optional[dict[str, typing.Any]] = None,
+        tags: typing.Optional[list[str]] = None,
+        description=None,
+    ):
         """
         Add metadata to the specified folder
         """
         if self._mode == "disabled":
             return True
 
-        if not self._uuid and not self._name:
-            self._error(INIT_MISSING)
+        if not self._simvue:
+            self._error("Cannot update folder details, run was not initialised")
             return False
 
         if not self._active:
@@ -1018,13 +1114,13 @@ class Run:
             self._error("tags must be a list")
             return False
 
-        data = {"path": path}
+        data: dict[str, typing.Any] = {"path": path}
 
         if metadata:
-            data["metadata"] = metadata
+            data["metadata"] = metadata or {}
 
         if tags:
-            data["tags"] = tags
+            data["tags"] = tags or []
 
         if description:
             data["description"] = description
@@ -1035,10 +1131,19 @@ class Run:
         return False
 
     @skip_if_failed("_aborted", "_suppress_errors", False)
-    def add_alerts(self, ids=None, names=None):
+    @pydantic.validate_call
+    def add_alerts(
+        self,
+        ids: typing.Optional[list[str]] = None,
+        names: typing.Optional[list[str]] = None,
+    ) -> bool:
         """
         Add one or more existing alerts by name or id
         """
+        if not self._simvue:
+            self._error("Cannot add alerts, run not initialised")
+            return False
+
         ids = ids or []
         names = names or []
 
@@ -1055,17 +1160,19 @@ class Run:
             self._error("Need to provide alert ids or alert names")
             return False
 
-        data = {"id": self._id, "alerts": ids}
+        data: dict[str, typing.Any] = {"id": self._id, "alerts": ids}
+
         if self._simvue.update(data):
             return True
 
         return False
 
     @skip_if_failed("_aborted", "_suppress_errors", False)
+    @pydantic.validate_call
     def add_alert(
         self,
-        name,
-        source="metrics",
+        name: str,
+        source: typing.Literal["events", "metrics"] = "metrics",
         frequency=None,
         window=5,
         rule=None,
@@ -1075,7 +1182,7 @@ class Run:
         range_high=None,
         notification="none",
         pattern=None,
-    ):
+    ) -> bool:
         """
         Creates an alert with the specified name (if it doesn't exist)
         and applies it to the current run
@@ -1083,8 +1190,8 @@ class Run:
         if self._mode == "disabled":
             return True
 
-        if not self._uuid and not self._name:
-            self._error(INIT_MISSING)
+        if not self._simvue:
+            self._error("Cannot add alert, run not initialised")
             return False
 
         if rule:
