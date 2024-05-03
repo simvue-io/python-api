@@ -7,7 +7,7 @@ import time
 import typing
 import uuid
 
-from simvue.factory.base import SimvueBaseClass
+from simvue.factory.proxy.base import SimvueBaseClass
 from simvue.utilities import (
     create_file,
     get_offline_directory,
