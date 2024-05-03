@@ -83,7 +83,7 @@ def setup_test_run(run: sv_run.Run, create_objects: bool):
     run.init(
         name=f"test_run_{TEST_DATA['metadata']['test_identifier']}",
         tags=["simvue_client_unit_tests"],
-        folder=TEST_DATA["folder"]
+        folder=TEST_DATA["folder"],
     )
     run._dispatcher._max_buffer_size = MAX_BUFFER_SIZE
 
@@ -92,7 +92,7 @@ def setup_test_run(run: sv_run.Run, create_objects: bool):
             run.log_event(f"{TEST_DATA['event_contains']} {i}")
 
         for i in range(5):
-            run.add_alert(name=f"alert_{i}", source="events", frequency=1, pattern=TEST_DATA['event_contains'])
+            run.create_alert(name=f"alert_{i}", source="events", frequency=1, pattern=TEST_DATA['event_contains'])
 
         for i in range(5):
             run.log_metrics({"metric_counter": i, "metric_val": i*i - 1})

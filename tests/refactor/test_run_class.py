@@ -75,7 +75,7 @@ def test_log_metrics(
 
 @pytest.mark.run
 def test_log_metrics_offline(create_test_run_offline: tuple[sv_run.Run, dict]) -> None:
-    METRICS = {"a": 10, "b": 1.2, "c": "word"}
+    METRICS = {"a": 10, "b": 1.2, "c": 2}
     run, _ = create_test_run_offline
     run.update_tags(["simvue_client_unit_tests", "test_log_metrics"])
     run.log_metrics(METRICS)

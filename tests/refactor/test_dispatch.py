@@ -157,7 +157,3 @@ def test_error_attempting_to_use_non_existent_queue() -> None:
         dispatcher.add_item("blah", "z", False)
 
     trigger.set()
-
-    
-
-

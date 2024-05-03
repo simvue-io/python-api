@@ -61,18 +61,45 @@ logger = logging.getLogger(__name__)
 def walk_through_files(
     path: pathlib.Path,
 ) -> typing.Generator[pathlib.Path, None, None]:
+    """Walk through files within a directory
+
+    Parameters
+    ----------
+    path : pathlib.Path
+        root of search location
+
+    Returns
+    -------
+    typing.Generator[pathlib.Path, None, None]
+        iterator through file paths
+
+    Yields
+    ------
+    Iterator[typing.Generator[pathlib.Path, None, None]]
+        file path
+    """
     for dirpath, _, filenames in path.walk():
         for filename in filenames:
             yield dirpath.joinpath(filename)
 
 
 class Run:
-    """
-    Track simulation details based on token and URL
+    """Track simulation details based on token and URL
+
+    The Run class provides a way of monitoring simulation runs by logging metrics
+    and creating alerts based on such metrics. The recommended usage is as a
+    context manager to ensure the run is closed upon completion.
     """
 
     @pydantic.validate_call
     def __init__(self, mode: typing.Literal["online", "offline"] = "online") -> None:
+        """Initialise a new Simvue run
+
+        Parameters
+        ----------
+        mode : Literal['online', 'offline'], optional
+            mode of running, by default "online"
+        """
         self._uuid: str = f"{uuid.uuid4()}"
         self._mode: typing.Literal["online", "offline", "disabled"] = mode
         self._name: typing.Optional[str] = None
@@ -91,10 +118,10 @@ class Run:
         self._active: bool = False
         self._aborted: bool = False
         self._url, self._token = get_auth()
+        self._resources_metrics_interval: typing.Optional[int] = None
         self._headers: dict[str, str] = {"Authorization": f"Bearer {self._token}"}
         self._simvue: typing.Optional[SimvueBaseClass] = None
         self._pid: typing.Optional[int] = 0
-        self._resources_metrics_interval: int = 30
         self._shutdown_event: typing.Optional[threading.Event] = None
         self._heartbeat_termination_trigger: typing.Optional[threading.Event] = None
         self._storage_id: typing.Optional[str] = None
@@ -160,17 +187,17 @@ class Run:
 
     @property
     def duration(self) -> float:
+        """Return current run duration"""
         return time.time() - self._start_time
 
     @property
     def time_stamp(self) -> str:
+        """Return current timestamp"""
         return datetime.datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S.%f")
 
     @property
     def processes(self) -> list[psutil.Process]:
-        """
-        Create an array containing a list of processes
-        """
+        """Create an array containing a list of processes"""
         if not self._parent_process:
             return []
 
@@ -184,10 +211,17 @@ class Run:
         return list(set(_all_processes))
 
     def _get_sysinfo(self) -> dict[str, typing.Any]:
+        """Retrieve system administration
+
+        Returns
+        -------
+        dict[str, typing.Any]
+            retrieved system specifications
+        """
         cpu = get_process_cpu(self.processes)
         memory = get_process_memory(self.processes)
         gpu = get_gpu_metrics(self.processes)
-        data = {}
+        data: dict[str, typing.Any] = {}
 
         if memory is not None and cpu is not None:
             data = {
@@ -202,7 +236,7 @@ class Run:
     def _create_heartbeat_callback(
         self,
     ) -> typing.Callable[[str, dict, str, bool], None]:
-        if not self._url or not self._id or not self._heartbeat_termination_trigger:
+        if not self._url or not self._heartbeat_termination_trigger:
             raise RuntimeError("Could not commence heartbeat, run not initialised")
 
         def _heartbeat(
@@ -213,25 +247,25 @@ class Run:
             heartbeat_trigger: threading.Event = self._heartbeat_termination_trigger,
         ) -> None:
             last_heartbeat = time.time()
+            last_res_metric_call = time.time()
 
-            # Get the system metrics once before looping
             self._add_metrics_to_dispatch(self._get_sysinfo())
 
-            # This loop is run in a daemon thread so termination occurs when
-            # parent closes
             while not heartbeat_trigger.is_set():
                 time.sleep(0.1)
+
+                if (
+                    self._resources_metrics_interval
+                    and (res_time := time.time()) - last_res_metric_call
+                    > self._resources_metrics_interval
+                ):
+                    self._add_metrics_to_dispatch(self._get_sysinfo())
+                    last_res_metric_call = res_time
 
                 if time.time() - last_heartbeat < HEARTBEAT_INTERVAL:
                     continue
 
                 last_heartbeat = time.time()
-
-                # System metrics are appended to the queue at an interval
-                # equivalent to the heartbeat interval
-                # Hard coded step to 0 for resource metrics so that user
-                # logged metrics dont appear to 'skip' steps
-                self._add_metrics_to_dispatch(self._get_sysinfo())
 
                 if online:
                     _data = {"id": run_id}
@@ -252,13 +286,14 @@ class Run:
 
         if not self._uuid:
             raise RuntimeError("Expected unique identifier for run")
-        if not self._id or not self._url:
-            raise RuntimeError("Cannot commence dispatch, run not intialised")
+
+        if not self._url:
+            raise RuntimeError("Cannot commence dispatch, run not initialised")
 
         def _offline_dispatch_callback(
             buffer: list[typing.Any],
             category: str,
-            run_id: str = self._id,
+            run_id: typing.Optional[str] = self._id,
             uuid: str = self._uuid,
         ) -> None:
             if not os.path.exists((_offline_directory := get_offline_directory())):
@@ -310,8 +345,17 @@ class Run:
         )
 
     def _start(self, reconnect: bool = False) -> bool:
-        """
-        Start a run
+        """Start a run
+
+        Parameters
+        ----------
+        reconnect : bool, optional
+            whether this is a reconnect to an existing run, by default False
+
+        Returns
+        -------
+        bool
+            if successful
         """
         if self._mode == "disabled":
             return True
@@ -350,8 +394,9 @@ class Run:
             )
 
             self._heartbeat_thread = threading.Thread(
-                target=self._create_heartbeat_callback(), daemon=True
+                target=self._create_heartbeat_callback()
             )
+
         except RuntimeError as e:
             self._error(e.args[0])
             return False
@@ -364,8 +409,17 @@ class Run:
         return True
 
     def _error(self, message: str) -> None:
-        """
-        Raise an exception if necessary and log error
+        """Raise an exception if necessary and log error
+
+        Parameters
+        ----------
+        message : str
+            message to display in exception or logger message
+
+        Raises
+        ------
+        RuntimeError
+            exception throw
         """
         # Stop heartbeat
         if self._heartbeat_termination_trigger and self._heartbeat_thread:
@@ -377,7 +431,7 @@ class Run:
             self._shutdown_event.set()
 
         # Purge the queue as we can no longer send metrics
-        if self._dispatcher:
+        if self._dispatcher and self._dispatcher.is_alive():
             self._dispatcher.purge()
             self._dispatcher.join()
 
@@ -393,7 +447,7 @@ class Run:
 
         self._aborted = True
 
-    @skip_if_failed("_aborted", "_suppress_errors", None)
+    @skip_if_failed("_aborted", "_suppress_errors", False)
     @pydantic.validate_call
     def init(
         self,
@@ -404,6 +458,7 @@ class Run:
         folder: str = "/",
         running: bool = True,
         retention_period: typing.Optional[str] = None,
+        resources_metrics_interval: typing.Optional[int] = HEARTBEAT_INTERVAL,
     ) -> bool:
         """Initialise a Simvue run
 
@@ -426,14 +481,18 @@ class Run:
         retention_period : typing.Optional[str], optional
             describer for time period to retain run, the default of None
             removes this constraint.
+        resources_metrics_interval : int, optional
+            how often to publish resource metrics, if None these will not be published
 
         Returns
         -------
         bool
             whether the initialisation was successful
         """
+
         if self._mode not in ("online", "offline", "disabled"):
             self._error("invalid mode specified, must be online, offline or disabled")
+            return False
 
         if self._mode == "disabled":
             return True
@@ -442,9 +501,13 @@ class Run:
             self._error(
                 "Unable to get URL and token from environment variables or config file"
             )
+            return False
 
         if name and not re.match(r"^[a-zA-Z0-9\-\_\s\/\.:]+$", name):
             self._error("specified name is invalid")
+            return False
+
+        self._resources_metrics_interval = resources_metrics_interval
 
         self._name = name
 
@@ -458,6 +521,7 @@ class Run:
                 retention_secs = -1.0
         except humanfriendly.InvalidTimespan as e:
             self._error(e.args[0])
+            return False
 
         data: dict[str, typing.Any] = {
             "metadata": metadata or {},
@@ -478,7 +542,8 @@ class Run:
         try:
             RunInput(**data)
         except ValidationError as err:
-            self._error(err.args[0])
+            self._error(f"{err}")
+            return False
 
         self._simvue = Simvue(self._name, self._uuid, self._mode, self._suppress_errors)
         name, self._id = self._simvue.create_run(data)
@@ -627,37 +692,41 @@ class Run:
         return self._executor
 
     @property
-    def name(self):
-        """
-        Return the name of the run
-        """
+    def name(self) -> typing.Optional[str]:
+        """Return the name of the run"""
         return self._name
 
     @property
-    def uid(self):
-        """
-        Return the local unique identifier of the run
-        """
+    def uid(self) -> str:
+        """Return the local unique identifier of the run"""
         return self._uuid
 
     @property
-    def id(self):
-        """
-        Return the unique id of the run
-        """
+    def id(self) -> typing.Optional[str]:
+        """Return the unique id of the run"""
         return self._id
 
     @skip_if_failed("_aborted", "_suppress_errors", False)
     @pydantic.validate_call
-    def reconnect(self, run_id: str, uid: typing.Optional[str] = None) -> bool:
-        """
-        Reconnect to a run in the created state
+    def reconnect(self, run_id: str) -> bool:
+        """Reconnect to a run in the created state
+
+        Parameters
+        ----------
+        run_id : str
+            identifier of run to connect to
+        uid : typing.Optional[str], optional
+            unique identifier for this run, by default None
+
+        Returns
+        -------
+        bool
+            _description_
         """
         if self._mode == "disabled":
             return True
 
         self._status = "running"
-        self._uuid = uid or self._uuid
 
         self._id = run_id
         self._simvue = Simvue(self._name, self._id, self._mode, self._suppress_errors)
@@ -668,8 +737,12 @@ class Run:
     @skip_if_failed("_aborted", "_suppress_errors", None)
     @pydantic.validate_call
     def set_pid(self, pid: int) -> None:
-        """
-        Set pid of process to be monitored
+        """Set pid of process to be monitored
+
+        Parameters
+        ----------
+        pid : int
+            PID of the process to be monitored
         """
         self._pid = pid
 
@@ -677,34 +750,53 @@ class Run:
     @pydantic.validate_call
     def config(
         self,
-        suppress_errors: bool = False,
-        queue_blocking: bool = False,
-        disable_resources_metrics: bool = False,
-        resources_metrics_interval: int = 30,
+        *,
+        suppress_errors: typing.Optional[bool] = None,
+        queue_blocking: typing.Optional[bool] = None,
+        resources_metrics_interval: typing.Optional[int] = None,
+        disable_resources_metrics: typing.Optional[bool] = None,
         storage_id: typing.Optional[str] = None,
     ) -> bool:
-        """
-        Optional configuration
-        """
-        if not isinstance(suppress_errors, bool):
-            self._error("suppress_errors must be boolean")
-        self._suppress_errors = suppress_errors
+        """Optional configuration
 
-        if not isinstance(queue_blocking, bool):
-            self._error("queue_blocking must be boolean")
+        Parameters
+        ----------
+        suppress_errors : bool, optional
+            disable exception throwing instead putting Simvue into a
+            dormant state if an error occurs
+        queue_blocking : bool, optional
+            block thread queues during metric/event recording
+        resource_metrics_interval : int, optional
+            frequency at which to collect resource metrics
+        disable_resources_metrics : bool, optional
+            disable monitoring of resource metrics
+        storage_id : str, optional
+            identifier of storage to use, by default None
 
-        if not isinstance(disable_resources_metrics, bool):
+        Returns
+        -------
+        bool
+            _description_
+        """
+
+        if suppress_errors is not None:
+            self._suppress_errors = suppress_errors
+
+        if queue_blocking is not None:
+            self._queue_blocking = queue_blocking
+
+        if resources_metrics_interval and disable_resources_metrics:
             self._error(
-                f"disable_resources_metrics must be boolean, but got '{disable_resources_metrics}'"
+                "Setting of resource metric interval and disabling resource metrics is ambiguous"
             )
+            return False
 
         if disable_resources_metrics:
             self._pid = None
+            self._resources_metrics_interval = None
 
-        if not isinstance(resources_metrics_interval, int):
-            self._error("resources_metrics_interval must be an integer")
-
-        self._resources_metrics_interval = resources_metrics_interval
+        if resources_metrics_interval:
+            self._resources_metrics_interval = resources_metrics_interval
 
         if storage_id:
             self._storage_id = storage_id
@@ -946,6 +1038,7 @@ class Run:
 
             if not data["type"] and not allow_pickle:
                 self._error("Unable to save Python object, set allow_pickle to True")
+                return False
 
             data["checksum"] = calculate_sha256(pickled, False)
             data["originalPath"] = ""
@@ -1028,8 +1121,17 @@ class Run:
     def set_status(
         self, status: typing.Literal["completed", "failed", "terminated"]
     ) -> bool:
-        """
-        Set run status
+        """Set run status
+
+        Parameters
+        ----------
+        status : Literal['completed', 'failed', 'terminated']
+            status to assign to this run
+
+        Returns
+        -------
+        bool
+            if status update was successful
         """
         if self._mode == "disabled":
             return True
@@ -1052,9 +1154,7 @@ class Run:
 
     @skip_if_failed("_aborted", "_suppress_errors", False)
     def close(self) -> bool:
-        """f
-        Close the run
-        """
+        """Close the run"""
         self._executor.wait_for_completion()
         if self._mode == "disabled":
             return True
@@ -1088,12 +1188,27 @@ class Run:
     def set_folder_details(
         self,
         path: str,
-        metadata: typing.Optional[dict[str, typing.Any]] = None,
+        metadata: typing.Optional[dict[str, typing.Union[int, str, float]]] = None,
         tags: typing.Optional[list[str]] = None,
         description=None,
-    ):
-        """
-        Add metadata to the specified folder
+    ) -> bool:
+        """Add metadata to the specified folder
+
+        Parameters
+        ----------
+        path : str
+            folder path
+        metadata : dict[str, int | str | float], optional
+            additional metadata to attach to this folder, by default None
+        tags : typing.Optional[list[str]], optional
+            _description_, by default None
+        description : _type_, optional
+            _description_, by default None
+
+        Returns
+        -------
+        _type_
+            _description_
         """
         if self._mode == "disabled":
             return True
@@ -1137,8 +1252,19 @@ class Run:
         ids: typing.Optional[list[str]] = None,
         names: typing.Optional[list[str]] = None,
     ) -> bool:
-        """
-        Add one or more existing alerts by name or id
+        """Add a set of existing alerts to this run by name or id
+
+        Parameters
+        ----------
+        ids : typing.Optional[list[str]], optional
+            unique identifiers of the alerts to attach, by default None
+        names : typing.Optional[list[str]], optional
+            names of alerts to attach, by default None
+
+        Returns
+        -------
+        bool
+            returns True if successful
         """
         if not self._simvue:
             self._error("Cannot add alerts, run not initialised")
@@ -1148,8 +1274,7 @@ class Run:
         names = names or []
 
         if names and not ids:
-            alerts = self._simvue.list_alerts()
-            if alerts:
+            if alerts := self._simvue.list_alerts():
                 for alert in alerts:
                     if alert["name"] in names:
                         ids.append(alert["id"])
@@ -1169,23 +1294,88 @@ class Run:
 
     @skip_if_failed("_aborted", "_suppress_errors", False)
     @pydantic.validate_call
-    def add_alert(
+    def create_alert(
         self,
         name: str,
-        source: typing.Literal["events", "metrics"] = "metrics",
-        frequency=None,
-        window=5,
-        rule=None,
-        metric=None,
-        threshold=None,
-        range_low=None,
-        range_high=None,
-        notification="none",
-        pattern=None,
+        source: typing.Literal["events", "metrics", "user"] = "metrics",
+        frequency: typing.Optional[pydantic.PositiveInt] = None,
+        window: pydantic.PositiveInt = 5,
+        rule: typing.Optional[
+            typing.Literal[
+                "is above", "is below", "is inside range", "is outside range"
+            ]
+        ] = None,
+        metric: typing.Optional[str] = None,
+        threshold: typing.Optional[float] = None,
+        range_low: typing.Optional[float] = None,
+        range_high: typing.Optional[float] = None,
+        aggregation: typing.Optional[
+            typing.Literal["average", "sum", "at least one", "all"]
+        ] = "average",
+        notification: typing.Literal["email", "none"] = "none",
+        pattern: typing.Optional[str] = None,
     ) -> bool:
-        """
-        Creates an alert with the specified name (if it doesn't exist)
-        and applies it to the current run
+        """Creates an alert with the specified name (if it doesn't exist)
+        and applies it to the current run. If alert already exists it will
+        not be duplicated.
+
+        Note available arguments depend on the alert source:
+
+        Event
+        =====
+
+        Alerts triggered based on the contents of an event message, arguments are:
+            - frequency
+            - pattern
+
+        Metrics
+        =======
+
+        Alerts triggered based on metric value condictions, arguments are:
+            - frequency
+            - rule
+            - window
+            - aggregation
+            - metric
+            - threshold / (range_low, range_high)
+
+        User
+        ====
+
+        User defined alerts, manually triggered.
+
+        Parameters
+        ----------
+        name : str
+            name of alert
+        source : Literal['events', 'metrics', 'user'], optional
+            the source which triggers this alert based on status, either
+            event based, metric values or manual user defined trigger. By default "metrics".
+        frequency : PositiveInt, optional
+            frequency at which to check alert condition in seconds, by default None
+        window : PositiveInt, optional
+            time period in seconds over which metrics are averaged, by default 5
+        rule : Literal['is above', 'is below', 'is inside', 'is outside range'], optional
+            rule defining metric based alert conditions, by default None
+        metric : str, optional
+            metric to monitor, by default None
+        threshold : float, optional
+            the threshold value if 'rule' is 'is below' or 'is above', by default None
+        range_low : float, optional
+            the lower bound value if 'rule' is 'is inside range' or 'is outside range', by default None
+        range_high : float, optional
+            the upper bound value if 'rule' is 'is inside range' or 'is outside range', by default None
+        aggregation : Literal['average', 'sum', 'at least one', 'all'], optional
+            method to use when aggregating metrics within time window, default 'average'.
+        notification : Literal['email', 'none'], optional
+            whether to notify on trigger, by default "none"
+        pattern : str, optional
+            for event based alerts pattern to look for, by default None
+
+        Returns
+        -------
+        bool
+            returns True on success
         """
         if self._mode == "disabled":
             return True
@@ -1193,16 +1383,6 @@ class Run:
         if not self._simvue:
             self._error("Cannot add alert, run not initialised")
             return False
-
-        if rule:
-            if rule not in (
-                "is below",
-                "is above",
-                "is outside range",
-                "is inside range",
-            ):
-                self._error("alert rule invalid")
-                return False
 
         if rule in ("is below", "is above") and threshold is None:
             self._error("threshold must be defined for the specified alert type")
@@ -1216,17 +1396,10 @@ class Run:
             )
             return False
 
-        if notification not in ("none", "email"):
-            self._error("notification must be either none or email")
-            return False
-
-        if source not in ("metrics", "events", "user"):
-            self._error("source must be either metrics, events or user")
-            return False
-
         alert_definition = {}
 
         if source == "metrics":
+            alert_definition["aggregation"] = aggregation
             alert_definition["metric"] = metric
             alert_definition["window"] = window
             alert_definition["rule"] = rule
@@ -1240,7 +1413,7 @@ class Run:
         else:
             alert_definition = None
 
-        alert = {
+        alert: dict[str, typing.Any] = {
             "name": name,
             "frequency": frequency,
             "notification": notification,
@@ -1249,7 +1422,7 @@ class Run:
         }
 
         # Check if the alert already exists
-        alert_id = None
+        alert_id: typing.Optional[str] = None
         alerts = self._simvue.list_alerts()
         if alerts:
             for existing_alert in alerts:
@@ -1257,6 +1430,7 @@ class Run:
                     if compare_alerts(existing_alert, alert):
                         alert_id = existing_alert["id"]
                         logger.info("Existing alert found with id: %s", alert_id)
+                        break
 
         if not alert_id:
             response = self._simvue.add_alert(alert)
@@ -1276,12 +1450,30 @@ class Run:
         return False
 
     @skip_if_failed("_aborted", "_suppress_errors", False)
-    def log_alert(self, name, state):
-        """
-        Set the state of an alert
+    @pydantic.validate_call
+    def log_alert(
+        self, identifier: str, state: typing.Literal["ok", "critical"]
+    ) -> bool:
+        """Set the state of an alert
+
+        Parameters
+        ----------
+        identifier : str
+            identifier of alert to update
+        state : Literal['ok', 'critical']
+            state to set alert to
+
+        Returns
+        -------
+        bool
+            whether alert state update was successful
         """
         if state not in ("ok", "critical"):
             self._error('state must be either "ok" or "critical"')
             return False
+        if not self._simvue:
+            self._error("Cannot log alert, run not initialised")
+            return False
+        self._simvue.set_alert_state(identifier, state)
 
-        self._simvue.set_alert_state(name, state)
+        return True
