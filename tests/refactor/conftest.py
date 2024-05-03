@@ -4,6 +4,7 @@ import typing
 import uuid
 import time
 import tempfile
+import os
 import json
 import logging
 import simvue.run as sv_run
@@ -119,6 +120,7 @@ def setup_test_run(run: sv_run.Run, create_objects: bool):
             json.dump(TEST_DATA, open(f"test_attrs_{fix_use_id}.json", "w"), indent=2)
             run.save(f"test_attrs_{fix_use_id}.json", category="output", name="test_attributes")
             TEST_DATA["file_2"] = "test_attributes"
+            os.remove(f"test_attrs_{fix_use_id}.json")
 
         with tempfile.NamedTemporaryFile(suffix=".py") as temp_f:
             with open(temp_f.name, "w") as out_f:

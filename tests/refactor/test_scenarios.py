@@ -16,6 +16,7 @@ def test_time_multi_run_create_threshold() -> None:
                 f"test run {i}",
                 tags=["test_benchmarking"],
                 folder="/simvue_benchmark_testing",
+                retention_period="1 hour"
             )
     end = time.time()
     client = simvue.Client()
@@ -49,7 +50,7 @@ def test_uploaded_data_immediately_accessible(
 ) -> None:
     def upload(name: str, values_per_run: int, shared_dict) -> None:
         run = simvue.Run()
-        run.init(name=name, tags=["simvue_client_tests"])
+        run.init(name=name, tags=["simvue_client_tests"], retention_period="1 hour")
         shared_dict["ident"] = run._id
         for i in range(values_per_run):
             run.log_metrics({"increment": i})

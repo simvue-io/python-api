@@ -18,6 +18,6 @@ def test_run_init_folder():
             tags=["tag_1", "tag_2"],
             folder="test_folder",
             description="A test to validate folder input passed into run.init",
-            retention_period="1 min",
+            retention_period="1 hour",
         )
     assert "String should match pattern" in str(exc_info.value)
