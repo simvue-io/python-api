@@ -30,9 +30,9 @@ from pydantic import ValidationError
 
 import simvue.api as sv_api
 
-from .dispatch import Dispatcher
+from .factory.dispatch import Dispatcher
 from .executor import Executor
-from .factory import Simvue
+from .factory.proxy import Simvue
 from .metrics import get_gpu_metrics, get_process_cpu, get_process_memory
 from .models import RunInput
 from .serialization import Serializer
@@ -49,7 +49,8 @@ from .utilities import (
 )
 
 if typing.TYPE_CHECKING:
-    from .factory.base import SimvueBaseClass
+    from .factory.proxy import SimvueBaseClass
+    from .factory.dispatch import DispatcherBaseClass
 
 UPLOAD_TIMEOUT: int = 30
 HEARTBEAT_INTERVAL: int = 60
@@ -103,8 +104,9 @@ class Run:
         self._uuid: str = f"{uuid.uuid4()}"
         self._mode: typing.Literal["online", "offline", "disabled"] = mode
         self._name: typing.Optional[str] = None
+        self._dispatch_mode: typing.Literal["direct", "queued"] = "queued"
         self._executor = Executor(self)
-        self._dispatcher: typing.Optional[Dispatcher] = None
+        self._dispatcher: typing.Optional[DispatcherBaseClass] = None
         self._id: typing.Optional[str] = None
         self._suppress_errors: bool = False
         self._queue_blocking: bool = False
@@ -236,7 +238,7 @@ class Run:
     def _create_heartbeat_callback(
         self,
     ) -> typing.Callable[[str, dict, str, bool], None]:
-        if not self._url or not self._heartbeat_termination_trigger:
+        if not self._url or not self._heartbeat_termination_trigger or not self._id:
             raise RuntimeError("Could not commence heartbeat, run not initialised")
 
         def _heartbeat(
@@ -284,8 +286,8 @@ class Run:
         executed on metrics and events objects held in a buffer.
         """
 
-        if not self._uuid:
-            raise RuntimeError("Expected unique identifier for run")
+        if not self._id:
+            raise RuntimeError("Expected identifier for run")
 
         if not self._url:
             raise RuntimeError("Cannot commence dispatch, run not initialised")
@@ -387,9 +389,10 @@ class Run:
 
         try:
             self._dispatcher = Dispatcher(
+                mode=self._dispatch_mode,
                 termination_trigger=self._shutdown_event,
                 queue_blocking=self._queue_blocking,
-                queue_categories=["events", "metrics"],
+                object_types=["events", "metrics"],
                 callback=self._create_dispatch_callback(),
             )
 
