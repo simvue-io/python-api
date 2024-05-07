@@ -17,7 +17,6 @@ import os
 import pydantic
 import re
 import sys
-import pathlib
 import time
 import typing
 import uuid
@@ -57,31 +56,6 @@ HEARTBEAT_INTERVAL: int = 60
 RESOURCES_METRIC_PREFIX: str = "resources"
 
 logger = logging.getLogger(__name__)
-
-
-def walk_through_files(
-    path: pathlib.Path,
-) -> typing.Generator[pathlib.Path, None, None]:
-    """Walk through files within a directory
-
-    Parameters
-    ----------
-    path : pathlib.Path
-        root of search location
-
-    Returns
-    -------
-    typing.Generator[pathlib.Path, None, None]
-        iterator through file paths
-
-    Yields
-    ------
-    Iterator[typing.Generator[pathlib.Path, None, None]]
-        file path
-    """
-    for dirpath, _, filenames in path.walk():
-        for filename in filenames:
-            yield dirpath.joinpath(filename)
 
 
 class Run:
@@ -1085,9 +1059,10 @@ class Run:
                 self._error("Invalid MIME type specified")
                 return False
 
-        for filename in walk_through_files(directory):
-            if filename.is_file():
-                self.save(f"{filename}", category, filetype, preserve_path)
+        for dirpath, _, filenames in directory.walk():
+            for filename in filenames:
+                if (full_path := dirpath.joinpath(filename)).is_file():
+                    self.save(f"{full_path}", category, filetype, preserve_path)
 
         return True
 
