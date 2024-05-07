@@ -1276,6 +1276,7 @@ class Run:
         self,
         name: str,
         source: typing.Literal["events", "metrics", "user"] = "metrics",
+        description: typing.Optional[str] = None,
         frequency: typing.Optional[pydantic.PositiveInt] = None,
         window: pydantic.PositiveInt = 5,
         rule: typing.Optional[
@@ -1329,6 +1330,8 @@ class Run:
         source : Literal['events', 'metrics', 'user'], optional
             the source which triggers this alert based on status, either
             event based, metric values or manual user defined trigger. By default "metrics".
+        description : str, optional
+            description for this alert
         frequency : PositiveInt, optional
             frequency at which to check alert condition in seconds, by default None
         window : PositiveInt, optional
@@ -1381,6 +1384,7 @@ class Run:
             alert_definition["metric"] = metric
             alert_definition["window"] = window
             alert_definition["rule"] = rule
+            alert_definition["frequency"] = frequency
             if threshold is not None:
                 alert_definition["threshold"] = threshold
             elif range_low is not None and range_high is not None:
@@ -1388,15 +1392,16 @@ class Run:
                 alert_definition["range_high"] = range_high
         elif source == "events":
             alert_definition["pattern"] = pattern
+            alert_definition["frequency"] = frequency
         else:
             alert_definition = None
 
         alert: dict[str, typing.Any] = {
             "name": name,
-            "frequency": frequency,
             "notification": notification,
             "source": source,
             "alert": alert_definition,
+            "description": description,
         }
 
         # Check if the alert already exists

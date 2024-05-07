@@ -1105,7 +1105,7 @@ class Client:
         """
 
         msg_filter: str = (
-            json.dumps([{"operator": "contains", "value": message_contains}])
+            json.dumps([f"event.message contains {message_contains}"])
             if message_contains
             else ""
         )
