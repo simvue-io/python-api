@@ -39,7 +39,6 @@ from .system import get_system
 from .utilities import (
     calculate_sha256,
     compare_alerts,
-    create_file,
     skip_if_failed,
     get_auth,
     get_offline_directory,
@@ -237,11 +236,8 @@ class Run:
 
                 last_heartbeat = time.time()
 
-                if online:
-                    _data = {"id": run_id}
-                    sv_api.put(f"{url}/api/runs/heartbeat", headers=headers, data=_data)
-                else:
-                    create_file(os.path.join(get_offline_directory(), "heartbeat"))
+                if self._simvue:
+                    self._simvue.send_heartbeat()
 
         return _heartbeat
 
