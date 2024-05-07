@@ -46,3 +46,7 @@ class DirectDispatcher(DispatcherBaseClass):
     def join(self) -> None:
         """Join does not execute anything in this context"""
         pass
+
+    def purge(self) -> None:
+        """Purge does not execute anything in this context"""
+        pass
