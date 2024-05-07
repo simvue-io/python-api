@@ -31,3 +31,7 @@ class DispatcherBaseClass(abc.ABC):
     @abc.abstractmethod
     def join(self) -> None:
         pass
+
+    @abc.abstractmethod
+    def purge(self) -> None:
+        pass
