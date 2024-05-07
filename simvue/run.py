@@ -214,13 +214,15 @@ class Run:
     def _create_heartbeat_callback(
         self,
     ) -> typing.Callable[[str, dict, str, bool], None]:
-        if not self._url or not self._heartbeat_termination_trigger or not self._id:
+        if (
+            self._mode == "online" and (not self._url or not self._id)
+        ) or not self._heartbeat_termination_trigger:
             raise RuntimeError("Could not commence heartbeat, run not initialised")
 
         def _heartbeat(
-            url: str = self._url,
+            url: typing.Optional[str] = self._url,
             headers: dict[str, str] = self._headers,
-            run_id: str = self._id,
+            run_id: typing.Optional[str] = self._id,
             online: bool = self._mode == "online",
             heartbeat_trigger: threading.Event = self._heartbeat_termination_trigger,
         ) -> None:
@@ -262,7 +264,7 @@ class Run:
         executed on metrics and events objects held in a buffer.
         """
 
-        if not self._id:
+        if self._mode == "online" and not self._id:
             raise RuntimeError("Expected identifier for run")
 
         if not self._url:
@@ -1171,7 +1173,7 @@ class Run:
         path: str,
         metadata: typing.Optional[dict[str, typing.Union[int, str, float]]] = None,
         tags: typing.Optional[list[str]] = None,
-        description=None,
+        description: typing.Optional[str] = None,
     ) -> bool:
         """Add metadata to the specified folder
 
@@ -1181,15 +1183,15 @@ class Run:
             folder path
         metadata : dict[str, int | str | float], optional
             additional metadata to attach to this folder, by default None
-        tags : typing.Optional[list[str]], optional
-            _description_, by default None
-        description : _type_, optional
-            _description_, by default None
+        tags : list[str], optional
+            list of tags to assign to the folder, by default None
+        description : str, optional
+            description to assign to this folder, by default None
 
         Returns
         -------
-        _type_
-            _description_
+        bool
+            returns True if update was successful
         """
         if self._mode == "disabled":
             return True
@@ -1200,14 +1202,6 @@ class Run:
 
         if not self._active:
             self._error("Run is not active")
-            return False
-
-        if not isinstance(metadata, dict):
-            self._error("metadata must be a dict")
-            return False
-
-        if not isinstance(tags, list):
-            self._error("tags must be a list")
             return False
 
         data: dict[str, typing.Any] = {"path": path}
