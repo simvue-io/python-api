@@ -119,6 +119,11 @@ def get_auth():
     token = os.getenv("SIMVUE_TOKEN", token)
     url = os.getenv("SIMVUE_URL", url)
 
+    if not token:
+        raise ValueError("No Simvue server token was specified")
+    if not url:
+        raise ValueError("No Simvue server URL was specified")
+
     return url, token
 
 
