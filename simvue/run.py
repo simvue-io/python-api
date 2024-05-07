@@ -154,12 +154,14 @@ class Run:
             )
             sys.exit(_non_zero)
 
-    def _check_token(self) -> None:
+    def _check_token(self) -> bool:
         """
         Check if token is valid
         """
         if self._mode == "online" and time.time() - get_expiry(self._token) > 0:
             self._error("token has expired or is invalid")
+            return False
+        return True
 
     @property
     def duration(self) -> float:
@@ -341,7 +343,8 @@ class Run:
 
         logger.debug("Starting run")
 
-        self._check_token()
+        if not self._check_token():
+            return False
 
         data: dict[str, typing.Any] = {"status": self._status}
 
@@ -512,7 +515,8 @@ class Run:
             else {"cpu": {}, "gpu": {}, "platform": {}},
         }
 
-        self._check_token()
+        if not self._check_token():
+            return False
 
         # Check against the expected run input
         try:
