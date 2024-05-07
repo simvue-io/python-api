@@ -35,3 +35,7 @@ class DispatcherBaseClass(abc.ABC):
     @abc.abstractmethod
     def purge(self) -> None:
         pass
+
+    @abc.abstractmethod
+    def is_alive(self) -> bool:
+        pass
