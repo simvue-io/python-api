@@ -42,7 +42,6 @@ from .utilities import (
     create_file,
     skip_if_failed,
     get_auth,
-    get_expiry,
     get_offline_directory,
     validate_timestamp,
 )
@@ -153,15 +152,6 @@ class Run:
                 f"Simvue process executor terminated with non-zero exit status {_non_zero}"
             )
             sys.exit(_non_zero)
-
-    def _check_token(self) -> bool:
-        """
-        Check if token is valid
-        """
-        if self._mode == "online" and time.time() - get_expiry(self._token) > 0:
-            self._error("token has expired or is invalid")
-            return False
-        return True
 
     @property
     def duration(self) -> float:
@@ -345,7 +335,7 @@ class Run:
 
         logger.debug("Starting run")
 
-        if not self._check_token():
+        if self._simvue and not self._simvue.check_token():
             return False
 
         data: dict[str, typing.Any] = {"status": self._status}
@@ -516,9 +506,6 @@ class Run:
             if self._status == "running"
             else {"cpu": {}, "gpu": {}, "platform": {}},
         }
-
-        if not self._check_token():
-            return False
 
         # Check against the expected run input
         try:
