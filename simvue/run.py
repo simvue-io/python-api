@@ -1075,6 +1075,7 @@ class Run:
         range_low=None,
         range_high=None,
         notification="none",
+        description=None,
         pattern=None,
     ):
         """
@@ -1124,6 +1125,7 @@ class Run:
             alert_definition["metric"] = metric
             alert_definition["window"] = window
             alert_definition["rule"] = rule
+            alert_definition["frequency"] = frequency
             if threshold is not None:
                 alert_definition["threshold"] = threshold
             elif range_low is not None and range_high is not None:
@@ -1131,15 +1133,16 @@ class Run:
                 alert_definition["range_high"] = range_high
         elif source == "events":
             alert_definition["pattern"] = pattern
+            alert_definition["frequency"] = frequency
         else:
             alert_definition = None
 
         alert = {
             "name": name,
-            "frequency": frequency,
             "notification": notification,
             "source": source,
             "alert": alert_definition,
+            "description": description,
         }
 
         # Check if the alert already exists
