@@ -365,7 +365,6 @@ class Run:
             self._dispatcher = Dispatcher(
                 mode=self._dispatch_mode,
                 termination_trigger=self._shutdown_event,
-                queue_blocking=self._queue_blocking,
                 object_types=["events", "metrics"],
                 callback=self._create_dispatch_callback(),
             )
