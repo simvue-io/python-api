@@ -285,3 +285,17 @@ def test_suppressed_errors(setup_logging: "CountingLogHandler", post_init: bool)
         assert setup_logging.counts[0] == len(decorated_funcs) + 1
     else:
         assert setup_logging.counts[0] == len(decorated_funcs)
+    
+
+@pytest.mark.run
+def test_set_folder_details() -> None:
+    with sv_run.Run() as run:
+        folder_name: str ="/simvue_unit_test_folder"
+        description: str = "test description"
+        tags: list[str] = ["simvue_client_unit_tests", "test_set_folder_details"]
+        run.init(folder=folder_name)
+        run.set_folder_details(path=folder_name, tags=tags, description=description)
+    
+    client = sv_cl.Client()
+    assert (folder := client.get_folders([f"path == {folder_name}"])[0])["tags"] == tags
+    assert folder["description"] == description
