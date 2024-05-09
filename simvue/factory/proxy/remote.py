@@ -3,7 +3,7 @@ import time
 import typing
 
 from simvue.api import get, post, put
-from simvue.factory.base import SimvueBaseClass
+from simvue.factory.proxy.base import SimvueBaseClass
 from simvue.utilities import get_auth, get_expiry, prepare_for_api, skip_if_failed
 from simvue.version import __version__
 
@@ -334,8 +334,16 @@ class Remote(SimvueBaseClass):
             self._error(f"Got exception when listing alerts: {str(err)}")
             return []
 
+        if not (response_data := response.json()) or not (
+            data := response_data.get("data")
+        ):
+            self._error(
+                "Expected key 'data' in response from server during alert retrieval"
+            )
+            return []
+
         if response.status_code == 200:
-            return response.json()
+            return data
 
         return []
 
