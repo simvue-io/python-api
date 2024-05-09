@@ -275,3 +275,16 @@ def test_suppressed_errors(setup_logging: "CountingLogHandler", post_init: bool)
 def test_bad_run_arguments() -> None:
     with sv_run.Run() as run:
         run.init("sdas", [34])
+
+
+def test_set_folder_details() -> None:
+    with sv_run.Run() as run:
+        folder_name: str ="/simvue_unit_test_folder"
+        description: str = "test description"
+        tags: list[str] = ["simvue_client_unit_tests", "test_set_folder_details"]
+        run.init(folder=folder_name)
+        run.set_folder_details(path=folder_name, tags=tags, description=description)
+    
+    client = sv_cl.Client()
+    assert (folder := client.get_folders([f"path == {folder_name}"])[0])["tags"] == tags
+    assert folder["description"] == description
