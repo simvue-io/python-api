@@ -1,6 +1,12 @@
-from simvue.serialization import Serializer, Deserializer
-import matplotlib.pyplot as plt
+import pytest
+from simvue.serialization import Serializer
 
+try:
+    import matplotlib.pyplot as plt
+except ImportError:
+    plt = None
+
+@pytest.mark.skipif(not plt, reason="Matplotlib is not installed")
 def test_matplotlib_figure_mime_type():
     """
     Check that a matplotlib figure has the correct mime-type
