@@ -16,6 +16,7 @@ def test_time_multi_run_create_threshold() -> None:
                 f"test run {i}",
                 tags=["test_benchmarking"],
                 folder="/simvue_benchmark_testing",
+                retention_period="1 hour"
             )
     end = time.time()
     client = simvue.Client()

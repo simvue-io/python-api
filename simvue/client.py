@@ -873,7 +873,7 @@ class Client:
             "xaxis": xaxis,
             "max_points": max_points,
         }
-        print(params)
+
         metrics_response: requests.Response = requests.get(
             f"{self._url}/api/metrics", headers=self._headers, params=params
         )

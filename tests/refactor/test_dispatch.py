@@ -208,5 +208,3 @@ def test_direct_dispatcher(multiple: bool) -> None:
     for variable in variables:
         assert check_dict[variable]["counter"] >= 1, f"Check of counter for dispatcher '{variable}' failed with count = {check_dict[variable]['counter']}"
     assert time.time() - start_time < time_threshold
-
-
