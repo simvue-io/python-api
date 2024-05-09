@@ -39,3 +39,8 @@ class DispatcherBaseClass(abc.ABC):
     @abc.abstractmethod
     def is_alive(self) -> bool:
         pass
+
+    @property
+    @abc.abstractmethod
+    def empty(self) -> bool:
+        pass

@@ -54,3 +54,8 @@ class DirectDispatcher(DispatcherBaseClass):
     def is_alive(self) -> bool:
         """As unthreaded, state as not alive always"""
         return False
+
+    @property
+    def empty(self) -> bool:
+        """No queue so always empty"""
+        return True
