@@ -105,7 +105,12 @@ class Run:
         return self
 
     def __exit__(
-        self, type: typing.Type[Exception], value: Exception, traceback: str
+        self,
+        exc_type: typing.Optional[typing.Type[BaseException]],
+        value: BaseException,
+        traceback: typing.Optional[
+            typing.Union[typing.Type[BaseException], BaseException]
+        ],
     ) -> None:
         # Wait for the executor to finish with currently running processes
         self._executor.wait_for_completion()
@@ -124,7 +129,7 @@ class Run:
 
         # Handle case where run is aborted by user KeyboardInterrupt
         if (self._id or self._mode == "offline") and self._status == "running":
-            if not type:
+            if not exc_type:
                 if self._shutdown_event is not None:
                     self._shutdown_event.set()
                 if self._dispatcher:
@@ -132,8 +137,8 @@ class Run:
                 self.set_status("completed")
             else:
                 if self._active:
-                    self.log_event(f"{type.__name__}: {value}")
-                if type.__name__ in ("KeyboardInterrupt") and self._active:
+                    self.log_event(f"{exc_type.__name__}: {value}")
+                if exc_type.__name__ in ("KeyboardInterrupt") and self._active:
                     self.set_status("terminated")
                 else:
                     if traceback and self._active:
