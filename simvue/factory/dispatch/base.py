@@ -35,3 +35,8 @@ class DispatcherBaseClass(abc.ABC):
     @abc.abstractmethod
     def purge(self) -> None:
         pass
+
+    @property
+    @abc.abstractmethod
+    def empty(self) -> bool:
+        pass
