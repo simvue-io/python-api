@@ -1,4 +1,3 @@
-import pandas as pd
 from simvue.serialization import Serializer, Deserializer
 
 def test_pickle_serialization():
