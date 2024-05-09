@@ -18,8 +18,12 @@ class Remote(SimvueBaseClass):
     Class which interacts with Simvue REST API
     """
 
-    def __init__(self, name: str, uniq_id: str, suppress_errors: bool = True) -> None:
+    def __init__(
+        self, name: typing.Optional[str], uniq_id: str, suppress_errors: bool = True
+    ) -> None:
         self._url, self._token = get_auth()
+        self.check_token()
+
         self._headers: dict[str, str] = {
             "Authorization": f"Bearer {self._token}",
             "User-Agent": f"Simvue Python client {__version__}",

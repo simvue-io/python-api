@@ -2,6 +2,9 @@ import configparser
 import datetime
 import hashlib
 import logging
+import json
+import tabulate
+import pydantic
 import importlib.util
 import contextlib
 import os
@@ -89,7 +92,25 @@ def skip_if_failed(
                     f"client in fail state (see logs)."
                 )
                 return on_failure_return
-            return class_func(self, *args, **kwargs)
+
+            # Handle case where Pydantic validates the inputs
+            try:
+                return class_func(self, *args, **kwargs)
+            except pydantic.ValidationError as e:
+                out_table: list[str] = []
+                for data in json.loads(e.json()):
+                    out_table.append([data["loc"], data["type"], data["msg"]])
+                err_table = tabulate.tabulate(
+                    out_table,
+                    headers=["Location", "Type", "Message"],
+                    tablefmt="fancy_grid",
+                )
+                err_str = f"`{class_func.__name__}` Validation:\n{err_table}"
+                if getattr(self, ignore_exc_attr, True):
+                    setattr(self, failure_attr, True)
+                    logger.error(err_str)
+                    return on_failure_return
+                raise RuntimeError(err_str)
 
         wrapper.__name__ = f"{class_func.__name__}__fail_safe"
         return wrapper
