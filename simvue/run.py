@@ -1173,13 +1173,14 @@ class Run:
         elif self._dispatcher:
             self._dispatcher.purge()
             self._dispatcher.join()
-        return True
 
         if _non_zero := self.executor.exit_status:
             logger.error(
                 f"Simvue process executor terminated with non-zero exit status {_non_zero}"
             )
             sys.exit(_non_zero)
+
+        return True
 
     @skip_if_failed("_aborted", "_suppress_errors", False)
     @pydantic.validate_call

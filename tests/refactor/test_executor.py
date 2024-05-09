@@ -21,7 +21,7 @@ def test_executor_add_process(
     run.add_process(
         identifier=f"test_add_process_{'success' if successful else 'fail'}",
         c=f"exit {0 if successful else 1}",
-        executable="powershell" if sys.platform != "win32" else "powershell",
+        executable="bash" if sys.platform != "win32" else "powershell",
         completion_trigger=completion_trigger
     )
 
