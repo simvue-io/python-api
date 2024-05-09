@@ -535,16 +535,17 @@ class Run:
             _pos_args.pop(0)
 
         for kwarg, val in cmd_kwargs.items():
+            _quoted_val: str = f'"{val}"'
             if len(kwarg) == 1:
                 if isinstance(val, bool) and val:
                     _cmd_list += [f"-{kwarg}"]
                 else:
-                    _cmd_list += [f"-{kwarg}{(' '+f'"{val}"') if val else ''}"]
+                    _cmd_list += [f"-{kwarg}{(' '+ _quoted_val) if val else ''}"]
             else:
                 if isinstance(val, bool) and val:
                     _cmd_list += [f"--{kwarg}"]
                 else:
-                    _cmd_list += [f"--{kwarg}{(' '+f'"{val}"') if val else ''}"]
+                    _cmd_list += [f"--{kwarg}{(' '+_quoted_val) if val else ''}"]
 
         _cmd_list += _pos_args
         _cmd_str = " ".join(_cmd_list)
