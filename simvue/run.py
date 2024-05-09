@@ -539,12 +539,12 @@ class Run:
                 if isinstance(val, bool) and val:
                     _cmd_list += [f"-{kwarg}"]
                 else:
-                    _cmd_list += [f"-{kwarg}{(' '+val) if val else ''}"]
+                    _cmd_list += [f"-{kwarg}{(' '+f'"{val}"') if val else ''}"]
             else:
                 if isinstance(val, bool) and val:
                     _cmd_list += [f"--{kwarg}"]
                 else:
-                    _cmd_list += [f"--{kwarg}{(' '+val) if val else ''}"]
+                    _cmd_list += [f"--{kwarg}{(' '+f'"{val}"') if val else ''}"]
 
         _cmd_list += _pos_args
         _cmd_str = " ".join(_cmd_list)
