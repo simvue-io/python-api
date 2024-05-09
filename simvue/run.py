@@ -27,9 +27,9 @@ from pydantic import ValidationError
 
 import simvue.api as sv_api
 
-from .dispatch import Dispatcher
+from .factory.dispatch import Dispatcher
 from .executor import Executor
-from .factory import Simvue
+from .factory.proxy import Simvue
 from .metrics import get_gpu_metrics, get_process_cpu, get_process_memory
 from .models import RunInput
 from .serialization import Serializer
@@ -68,6 +68,7 @@ class Run:
     def __init__(self, mode="online"):
         self._uuid = str(uuid.uuid4())
         self._mode = mode
+        self._dispatch_mode = "queued"
         self._name = None
         self._executor = Executor(self)
         self._dispatcher = None
@@ -326,9 +327,9 @@ class Run:
         self._heartbeat_termination_trigger = threading.Event()
 
         self._dispatcher = Dispatcher(
+            mode=self._dispatch_mode,
             termination_trigger=self._shutdown_event,
-            queue_blocking=self._queue_blocking,
-            queue_categories=["events", "metrics"],
+            object_types=["events", "metrics"],
             callback=self._create_dispatch_callback(),
         )
 
@@ -380,7 +381,7 @@ class Run:
         description=None,
         folder="/",
         running=True,
-        ttl=-1,
+        ttl=None,
     ):
         """
         Initialise a run
@@ -1074,6 +1075,7 @@ class Run:
         range_low=None,
         range_high=None,
         notification="none",
+        description=None,
         pattern=None,
     ):
         """
@@ -1123,6 +1125,7 @@ class Run:
             alert_definition["metric"] = metric
             alert_definition["window"] = window
             alert_definition["rule"] = rule
+            alert_definition["frequency"] = frequency
             if threshold is not None:
                 alert_definition["threshold"] = threshold
             elif range_low is not None and range_high is not None:
@@ -1130,15 +1133,16 @@ class Run:
                 alert_definition["range_high"] = range_high
         elif source == "events":
             alert_definition["pattern"] = pattern
+            alert_definition["frequency"] = frequency
         else:
             alert_definition = None
 
         alert = {
             "name": name,
-            "frequency": frequency,
             "notification": notification,
             "source": source,
             "alert": alert_definition,
+            "description": description,
         }
 
         # Check if the alert already exists
