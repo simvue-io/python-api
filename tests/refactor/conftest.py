@@ -121,7 +121,6 @@ def setup_test_run(run: sv_run.Run, create_objects: bool):
                 json.dump(TEST_DATA, out_f, indent=2)
             run.save(test_json, category="output", name="test_attributes")
             TEST_DATA["file_2"] = "test_attributes"
-            os.remove(f"test_attrs_{fix_use_id}.json")
 
             with open((test_script := os.path.join(tempd, f"test_script.py")), "w") as out_f:
                 out_f.write(
