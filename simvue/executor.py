@@ -11,6 +11,8 @@ __author__ = "Kristian Zarebski"
 __date__ = "2023-11-15"
 
 import logging
+import multiprocessing.synchronize
+import sys
 import multiprocessing
 import os
 import subprocess
@@ -21,6 +23,50 @@ if typing.TYPE_CHECKING:
     import simvue
 
 logger = logging.getLogger(__name__)
+
+
+def _execute_process(
+    proc_id: str,
+    command: typing.List[str],
+    runner_name: str,
+    exit_status_dict: typing.Dict[str, int],
+    std_err: typing.Dict[str, str],
+    std_out: typing.Dict[str, str],
+    run_on_exit: typing.Optional[
+        typing.Callable[[int, int, str], None]
+    ],
+    trigger: typing.Optional[multiprocessing.synchronize.Event],
+    environment: typing.Optional[typing.Dict[str, str]]
+) -> None:
+    with open(f"{runner_name}_{proc_id}.err", "w") as err:
+        with open(f"{runner_name}_{proc_id}.out", "w") as out:
+            _result = subprocess.Popen(
+                command,
+                stdout=out,
+                stderr=err,
+                universal_newlines=True,
+                env=environment,
+            )
+
+    _status_code = _result.wait()
+
+    with open(f"{runner_name}_{proc_id}.err") as err:
+        std_err[proc_id] = err.read()
+
+    with open(f"{runner_name}_{proc_id}.out") as out:
+        std_out[proc_id] = out.read()
+
+    exit_status_dict[proc_id] = _status_code
+
+    if run_on_exit:
+        run_on_exit(
+            status_code=exit_status_dict[proc_id],
+            std_out=std_out[proc_id],
+            std_err=std_err[proc_id],
+        )
+    
+    if trigger:
+        trigger.set()
 
 
 class Executor:
@@ -62,6 +108,7 @@ class Executor:
         completion_callback: typing.Optional[
             typing.Callable[[int, str, str], None]
         ] = None,
+        completion_trigger: multiprocessing.synchronize.Event,
         **kwargs,
     ) -> None:
         """Add a process to be executed to the executor.
@@ -91,6 +138,8 @@ class Executor:
             ...
         ```
 
+        Note `completion_callback` is not supported on Windows operating systems.
+
         Parameters
         ----------
         identifier : str
@@ -107,54 +156,23 @@ class Executor:
         env : typing.Dict[str, str], optional
             environment variables for process
         completion_callback : typing.Callable | None, optional
-            callback to run when process terminates
+            callback to run when process terminates (not supported on Windows)
+        completion_trigger : multiprocessing.Event | None, optional
+            this trigger event is set when the processes completes
         """
         _pos_args = list(args)
+
+        if sys.platform == "win32" and completion_callback:
+            logger.warning(
+                "Completion callback for 'add_process' may fail on Windows due to "
+                "due to function pickling restrictions"
+            )
 
         if script:
             self._runner.save(filename=script, category="code")
 
         if input_file:
             self._runner.save(filename=input_file, category="input")
-
-        def _exec_process(
-            proc_id: str,
-            command: typing.List[str],
-            runner: "simvue.Run",
-            exit_status_dict: typing.Dict[str, int],
-            std_err: typing.Dict[str, str],
-            std_out: typing.Dict[str, str],
-            run_on_exit: typing.Optional[
-                typing.Callable[[int, int, str], None]
-            ] = completion_callback,
-            environment: typing.Optional[typing.Dict[str, str]] = env,
-        ) -> None:
-            with open(f"{runner.name}_{proc_id}.err", "w") as err:
-                with open(f"{runner.name}_{proc_id}.out", "w") as out:
-                    _result = subprocess.Popen(
-                        command,
-                        stdout=out,
-                        stderr=err,
-                        universal_newlines=True,
-                        env=environment,
-                    )
-
-            _status_code = _result.wait()
-
-            with open(f"{runner.name}_{proc_id}.err") as err:
-                std_err[proc_id] = err.read()
-
-            with open(f"{runner.name}_{proc_id}.out") as out:
-                std_out[proc_id] = out.read()
-
-            exit_status_dict[proc_id] = _status_code
-
-            if run_on_exit:
-                run_on_exit(
-                    status_code=exit_status_dict[proc_id],
-                    std_out=std_out[proc_id],
-                    std_err=std_err[proc_id],
-                )
 
         _command: typing.List[str] = []
 
@@ -189,14 +207,17 @@ class Executor:
         self._command_str[identifier] = " ".join(_command)
 
         self._processes[identifier] = multiprocessing.Process(
-            target=_exec_process,
+            target=_execute_process,
             args=(
                 identifier,
                 _command,
-                self._runner,
+                self._runner.name,
                 self._exit_codes,
                 self._std_err,
                 self._std_out,
+                completion_callback,
+                completion_trigger,
+                env
             ),
         )
         logger.debug(f"Executing process: {' '.join(_command)}")
@@ -297,7 +318,8 @@ class Executor:
     def wait_for_completion(self) -> None:
         """Wait for all processes to finish then perform tidy up and upload"""
         for process in self._processes.values():
-            process.join()
+            if process.is_alive():
+                process.join()
         self._log_events()
         self._save_output()
 
