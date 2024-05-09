@@ -1,3 +1,4 @@
+import pytest
 from simvue.serialization import Serializer, Deserializer
 
 try:

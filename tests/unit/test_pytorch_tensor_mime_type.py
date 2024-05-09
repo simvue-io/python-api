@@ -1,6 +1,12 @@
+import pytest
 from simvue.serialization import Serializer, Deserializer
-import torch
 
+try:
+    import torch
+except ImportError:
+    torch = None
+    
+@pytest.mark.skipif(not torch, reason="Torch is not installed")
 def test_pytorch_tensor_mime_type():
     """
     Check that a PyTorch tensor has the correct mime-type
