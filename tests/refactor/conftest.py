@@ -7,6 +7,8 @@ import tempfile
 import os
 import json
 import logging
+import pathlib
+import os
 import simvue.run as sv_run
 import simvue.utilities
 
@@ -43,8 +45,9 @@ def log_messages(caplog):
 @pytest.fixture
 def create_test_run() -> typing.Generator[typing.Tuple[sv_run.Run, dict], None, None]:
     with sv_run.Run() as run:
-        
         yield run, setup_test_run(run, True)
+    for file in pathlib.Path.cwd().glob("test_attrs*.json"):
+        os.remove(file)
 
 
 @pytest.fixture
@@ -53,12 +56,16 @@ def create_test_run_offline(mocker: pytest_mock.MockerFixture) -> typing.Generat
         mocker.patch.object(simvue.utilities, "get_offline_directory", lambda *_: temp_d)
         with sv_run.Run("offline") as run:
             yield run, setup_test_run(run, True)
+    for file in pathlib.Path.cwd().glob("test_attrs*.json"):
+        os.remove(file)
 
 
 @pytest.fixture
 def create_plain_run() -> typing.Generator[typing.Tuple[sv_run.Run, dict], None, None]:
     with sv_run.Run() as run:
         yield run, setup_test_run(run, False)
+    for file in pathlib.Path.cwd().glob("test_attrs*.json"):
+        os.remove(file)
 
 
 @pytest.fixture
@@ -68,7 +75,8 @@ def create_plain_run_offline(mocker: pytest_mock.MockerFixture) -> typing.Genera
         with sv_run.Run("offline") as run:
             
             yield run, setup_test_run(run, False)
-
+    for file in pathlib.Path.cwd().glob("test_attrs*.json"):
+        os.remove(file)
 
 def setup_test_run(run: sv_run.Run, create_objects: bool):
     fix_use_id: str = str(uuid.uuid4()).split('-', 1)[0]

@@ -483,9 +483,11 @@ class Run:
         # Parse the time to live/retention time if specified
         try:
             if retention_period:
-                retention_secs: float = humanfriendly.parse_timespan(retention_period)
+                retention_secs: typing.Optional[int] = int(
+                    humanfriendly.parse_timespan(retention_period)
+                )
             else:
-                retention_secs = -1.0
+                retention_secs = None
         except humanfriendly.InvalidTimespan as e:
             self._error(e.args[0])
             return False
@@ -494,7 +496,7 @@ class Run:
             "metadata": metadata or {},
             "tags": tags or [],
             "status": self._status,
-            "ttl": int(retention_secs),
+            "ttl": retention_secs,
             "folder": folder,
             "name": name,
             "description": description,
