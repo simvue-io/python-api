@@ -5,6 +5,30 @@ description = "Simulation tracking and monitoring"
 authors = ["Simvue Development Team <info@simvue.io>"]
 license = "Apache v2"
 readme = "README.md"
+classifiers = [
+    "Development Status :: 5 - Production/Stable",
+    "Intended Audience :: Science/Research",
+    "License :: OSI Approved :: Apache Software License",
+    "Natural Language :: English",
+    "Operating System :: Unix",
+    "Operating System :: Microsoft :: Windows",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Topic :: Scientific/Engineering",
+    "Topic :: System :: Monitoring",
+    "Topic :: Utilities",
+    "Typing :: Typed"
+]
+
+keywords = [
+    "tracking",
+    "monitoring",
+    "metrics",
+    "alerting",
+    "metrics-gathering"
+]
 
 [tool.poetry.dependencies]
 python = "^3.9"
