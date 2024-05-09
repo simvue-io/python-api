@@ -554,7 +554,7 @@ class Run:
         completion_callback: typing.Optional[
             typing.Callable[[int, str, str], None]
         ] = None,
-        completion_trigger: typing.Optional[multiprocessing.synchronize.Event]=None, 
+        completion_trigger: typing.Optional[multiprocessing.synchronize.Event] = None,
         env: typing.Optional[typing.Dict[str, str]] = None,
         **cmd_kwargs,
     ) -> None:
@@ -589,7 +589,7 @@ class Run:
 
         Alternatively you can use `completion_trigger` to create a multiprocessing event which will be set
         when the process has completed.
-        
+
         Parameters
         ----------
         identifier : str

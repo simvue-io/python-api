@@ -32,11 +32,9 @@ def _execute_process(
     exit_status_dict: typing.Dict[str, int],
     std_err: typing.Dict[str, str],
     std_out: typing.Dict[str, str],
-    run_on_exit: typing.Optional[
-        typing.Callable[[int, int, str], None]
-    ],
+    run_on_exit: typing.Optional[typing.Callable[[int, int, str], None]],
     trigger: typing.Optional[multiprocessing.synchronize.Event],
-    environment: typing.Optional[typing.Dict[str, str]]
+    environment: typing.Optional[typing.Dict[str, str]],
 ) -> None:
     with open(f"{runner_name}_{proc_id}.err", "w") as err:
         with open(f"{runner_name}_{proc_id}.out", "w") as out:
@@ -64,7 +62,7 @@ def _execute_process(
             std_out=std_out[proc_id],
             std_err=std_err[proc_id],
         )
-    
+
     if trigger:
         trigger.set()
 
@@ -217,7 +215,7 @@ class Executor:
                 self._std_out,
                 completion_callback,
                 completion_trigger,
-                env
+                env,
             ),
         )
         logger.debug(f"Executing process: {' '.join(_command)}")
