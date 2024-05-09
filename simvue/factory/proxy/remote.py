@@ -334,8 +334,16 @@ class Remote(SimvueBaseClass):
             self._error(f"Got exception when listing alerts: {str(err)}")
             return []
 
+        if not (response_data := response.json()) or not (
+            data := response_data.get("data")
+        ):
+            self._error(
+                "Expected key 'data' in response from server during alert retrieval"
+            )
+            return []
+
         if response.status_code == 200:
-            return response.json()
+            return data
 
         return []
 

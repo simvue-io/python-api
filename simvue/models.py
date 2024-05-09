@@ -1,6 +1,6 @@
 from typing import Annotated, Dict, List, Optional, Union
 
-from pydantic import BaseModel, Field, StringConstraints
+from pydantic import BaseModel, Field, StringConstraints, PositiveInt
 
 FOLDER_REGEX: str = r"^/.*"
 NAME_REGEX: str = r"^[a-zA-Z0-9\-\_\s\/\.:]+$"
@@ -17,4 +17,4 @@ class RunInput(BaseModel):
     description: Optional[str] = None
     folder: str = Field(pattern=FOLDER_REGEX)
     status: Optional[str] = None
-    ttl: int
+    ttl: Optional[PositiveInt] = None

@@ -381,7 +381,7 @@ class Run:
         description=None,
         folder="/",
         running=True,
-        ttl=-1,
+        ttl=None,
     ):
         """
         Initialise a run
