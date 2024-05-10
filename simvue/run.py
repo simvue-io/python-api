@@ -11,13 +11,16 @@ import datetime
 import json
 import logging
 import mimetypes
+import multiprocessing.synchronize
 import threading
 import humanfriendly
 import os
+import multiprocessing
 import pydantic
 import re
 import sys
 import time
+import platform
 import typing
 import uuid
 from datetime import timezone
@@ -551,6 +554,7 @@ class Run:
         completion_callback: typing.Optional[
             typing.Callable[[int, str, str], None]
         ] = None,
+        completion_trigger: typing.Optional[multiprocessing.synchronize.Event] = None,
         env: typing.Optional[typing.Dict[str, str]] = None,
         **cmd_kwargs,
     ) -> None:
@@ -581,6 +585,11 @@ class Run:
             ...
         ```
 
+        Note `completion_callback` is not supported on Windows operating systems.
+
+        Alternatively you can use `completion_trigger` to create a multiprocessing event which will be set
+        when the process has completed.
+
         Parameters
         ----------
         identifier : str
@@ -597,12 +606,20 @@ class Run:
             the input file to run, note this only work if the input file is not an option, if this is the case
             you should provide it as such and perform the upload manually, by default None
         completion_callback : typing.Callable | None, optional
-            callback to run when process terminates
+            callback to run when process terminates (not supported on Windows)
+        completion_trigger : multiprocessing.Event | None, optional
+            this trigger event is set when the processes completes
         env : typing.Dict[str, str], optional
             environment variables for process
         **kwargs
             all other keyword arguments are interpreted as options to the command
         """
+        if platform.system() == "Windows" and completion_callback:
+            raise RuntimeError(
+                "Use of 'completion_callback' on Windows based operating systems is unsupported "
+                "due to function pickling restrictions for multiprocessing"
+            )
+
         _cmd_list: typing.List[str] = []
         _pos_args = list(cmd_args)
 
@@ -641,6 +658,7 @@ class Run:
             script=script,
             input_file=input_file,
             completion_callback=completion_callback,
+            completion_trigger=completion_trigger,
             env=env,
             **cmd_kwargs,
         )
@@ -1155,6 +1173,13 @@ class Run:
         elif self._dispatcher:
             self._dispatcher.purge()
             self._dispatcher.join()
+
+        if _non_zero := self.executor.exit_status:
+            logger.error(
+                f"Simvue process executor terminated with non-zero exit status {_non_zero}"
+            )
+            sys.exit(_non_zero)
+
         return True
 
     @skip_if_failed("_aborted", "_suppress_errors", False)
