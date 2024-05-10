@@ -22,7 +22,6 @@ class Remote(SimvueBaseClass):
         self, name: typing.Optional[str], uniq_id: str, suppress_errors: bool = True
     ) -> None:
         self._url, self._token = get_auth()
-        self.check_token()
 
         self._headers: dict[str, str] = {
             "Authorization": f"Bearer {self._token}",
@@ -32,6 +31,8 @@ class Remote(SimvueBaseClass):
             "Content-Type": "application/msgpack"
         }
         super().__init__(name, uniq_id, suppress_errors)
+        self.check_token()
+
         self._id = uniq_id
 
     @skip_if_failed("_aborted", "_suppress_errors", (None, None))
