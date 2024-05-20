@@ -186,11 +186,11 @@ def remove_file(filename):
             logger.error("Unable to remove file %s due to: %s", filename, str(err))
 
 
-def get_expiry(token):
+def get_expiry(token) -> typing.Optional[int]:
     """
     Get expiry date from a JWT token
     """
-    expiry = 0
+    expiry: typing.Optional[int] = None
     with contextlib.suppress(jwt.DecodeError):
         expiry = jwt.decode(token, options={"verify_signature": False})["exp"]
 

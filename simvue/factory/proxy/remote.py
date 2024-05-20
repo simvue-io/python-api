@@ -429,7 +429,11 @@ class Remote(SimvueBaseClass):
         """
         Check token
         """
-        if time.time() - get_expiry(self._token) > 0:
+        if not (expiry := get_expiry(self._token)):
+            self._error("Failed to parse user token")
+            return False
+
+        if time.time() - expiry > 0:
             self._error("Token has expired")
             return False
         return True
