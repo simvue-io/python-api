@@ -14,7 +14,8 @@ def test_run_init_metadata():
 
     with pytest.raises(RuntimeError) as exc_info:
         run.init(metadata={'dataset.x1_lower': x1_lower, 'dataset.x1_upper': x1_upper},
-                description="A test to validate inputs passed into metadata dictionary"
+                description="A test to validate inputs passed into metadata dictionary",
+                retention_period="1 hour"
         )
 
     assert "Input should be a valid integer" in str(exc_info.value)

@@ -32,7 +32,8 @@ def test_log_metrics(
     run.init(
         name=f"test_run_{str(uuid.uuid4()).split('-', 1)[0]}",
         tags=["simvue_client_unit_tests"],
-        folder="/simvue_unit_testing"
+        folder="/simvue_unit_testing",
+        retention_period="1 hour",
     )
 
     run.update_tags(["simvue_client_unit_tests", "test_log_metrics"])
@@ -53,7 +54,7 @@ def test_log_metrics(
         run_ids=[run._id],
         metric_names=list(METRICS.keys()),
         xaxis="step",
-        aggregate=False
+        aggregate=False,
     )
 
     with contextlib.suppress(RuntimeError):
@@ -64,7 +65,11 @@ def test_log_metrics(
     for entry in _data.values():
         _steps += list(i[0] for i in entry.keys())
     _steps = set(_steps)
-    assert len(_steps) == 1 if not overload_buffer else run._dispatcher._max_buffer_size * 3
+    assert (
+        len(_steps) == 1
+        if not overload_buffer
+        else run._dispatcher._max_buffer_size * 3
+    )
 
     # Check metrics have been set
     assert setup_logging.counts[0] == 1 if not overload_buffer else 3
@@ -75,7 +80,7 @@ def test_log_metrics(
 
 @pytest.mark.run
 def test_log_metrics_offline(create_test_run_offline: tuple[sv_run.Run, dict]) -> None:
-    METRICS = {"a": 10, "b": 1.2, "c": "word"}
+    METRICS = {"a": 10, "b": 1.2, "c": 2}
     run, _ = create_test_run_offline
     run.update_tags(["simvue_client_unit_tests", "test_log_metrics"])
     run.log_metrics(METRICS)
@@ -128,6 +133,7 @@ def test_runs_multiple_parallel(multi_threaded: bool) -> None:
                     name=f"test_runs_multiple_{index + 1}",
                     tags=["simvue_client_unit_tests", "test_multi_run_threaded"],
                     folder="/simvue_unit_testing",
+                    retention_period="1 hour",
                 )
                 metrics = []
                 for _ in range(10):
@@ -152,7 +158,7 @@ def test_runs_multiple_parallel(multi_threaded: bool) -> None:
                     metric_names=[f"var_{id + 1}"],
                     xaxis="step",
                     output_format="dict",
-                    aggregate=False
+                    aggregate=False,
                 )
                 with contextlib.suppress(RuntimeError):
                     client.delete_run(run_id)
@@ -164,12 +170,14 @@ def test_runs_multiple_parallel(multi_threaded: bool) -> None:
                     name="test_runs_multiple_unthreaded_1",
                     tags=["simvue_client_unit_tests", "test_multi_run_unthreaded"],
                     folder="/simvue_unit_testing",
+                    retention_period="1 hour",
                 )
                 run_2.config(suppress_errors=False)
                 run_2.init(
                     name="test_runs_multiple_unthreaded_2",
                     tags=["simvue_client_unit_tests", "test_multi_run_unthreaded"],
                     folder="/simvue_unit_testing",
+                    retention_period="1 hour",
                 )
                 metrics_1 = []
                 metrics_2 = []
@@ -193,7 +201,7 @@ def test_runs_multiple_parallel(multi_threaded: bool) -> None:
                         metric_names=[f"var_{i}"],
                         xaxis="step",
                         output_format="dict",
-                        aggregate=False
+                        aggregate=False,
                     )
 
         with contextlib.suppress(RuntimeError):
@@ -216,6 +224,7 @@ def test_runs_multiple_series() -> None:
                 name=f"test_runs_multiple_series_{index}",
                 tags=["simvue_client_unit_tests", "test_multi_run_series"],
                 folder="/simvue_unit_testing",
+                retention_period="1 hour",
             )
             run_ids.append(run._id)
             for _ in range(10):
@@ -236,7 +245,7 @@ def test_runs_multiple_series() -> None:
             metric_names=[f"var_{i}"],
             xaxis="step",
             output_format="dict",
-            aggregate=False
+            aggregate=False,
         )
 
     with contextlib.suppress(RuntimeError):
@@ -245,19 +254,27 @@ def test_runs_multiple_series() -> None:
 
 
 @pytest.mark.run
-@pytest.mark.parametrize(
-    "post_init", (True, False),
-    ids=("pre-init", "post-init")
-)
-def test_suppressed_errors(setup_logging: "CountingLogHandler", post_init: bool) -> None:
+@pytest.mark.parametrize("post_init", (True, False), ids=("pre-init", "post-init"))
+def test_suppressed_errors(
+    setup_logging: "CountingLogHandler", post_init: bool
+) -> None:
     setup_logging.captures = ["Skipping call to"]
 
-    with sv_run.Run(mode="offline") as run:            
-        decorated_funcs = [name for name, method in inspect.getmembers(run, inspect.ismethod) if method.__name__.endswith("__fail_safe")]
+    with sv_run.Run(mode="offline") as run:
+        decorated_funcs = [
+            name
+            for name, method in inspect.getmembers(run, inspect.ismethod)
+            if method.__name__.endswith("__fail_safe")
+        ]
 
         if post_init:
             decorated_funcs.remove("init")
-            run.init(name="test_suppressed_errors", folder="/simvue_unit_testing", tags=["simvue_client_unit_tests"])
+            run.init(
+                name="test_suppressed_errors",
+                folder="/simvue_unit_testing",
+                tags=["simvue_client_unit_tests"],
+                retention_period="1 hour"
+            )
 
         run.config(suppress_errors=True)
         run._error("Oh dear this error happened :(")

@@ -258,10 +258,12 @@ class Client:
         alerts: bool = False,
         metadata: bool = False,
         format: typing.Literal["dict", "dataframe"] = "dict",
+        count: int = 100,
+        start_index: int = 0,
     ) -> typing.Union[
         "DataFrame", list[dict[str, typing.Union[int, str, float, None]]], None
     ]:
-        """Retrieve all runs matching filters
+        """Retrieve all runs matching filters.
 
         Parameters
         ----------
@@ -280,6 +282,10 @@ class Client:
         format : str ('dict' | 'dataframe'), optional
             the structure of the response, either a dictionary or a dataframe.
             Default is 'dict'. Pandas must be installed for 'dataframe'.
+        count : int, optional
+            maximum number of entries to return. Default is 100.
+        start_index : int, optional
+            the index from which to count entries. Default is 0.
 
         Returns
         -------
@@ -301,6 +307,8 @@ class Client:
             "return_alerts": alerts,
             "return_system": system,
             "return_metadata": metadata,
+            "count": count,
+            "start": start_index,
         }
 
         response = requests.get(
@@ -778,7 +786,10 @@ class Client:
         return _folders[0]
 
     def get_folders(
-        self, filters: typing.Optional[list[str]] = None
+        self,
+        filters: typing.Optional[list[str]] = None,
+        count: int = 100,
+        start_index: int = 0,
     ) -> list[dict[str, typing.Any]]:
         """Retrieve folders from the server
 
@@ -786,6 +797,10 @@ class Client:
         ----------
         filters : list[str] | None
             set of filters to apply to the search
+        count : int, optional
+            maximum number of entries to return. Default is 100.
+        start_index : int, optional
+            the index from which to count entries. Default is 0.
 
         Returns
         -------
@@ -797,7 +812,11 @@ class Client:
         RuntimeError
             if there was a failure retrieving data from the server
         """
-        params: dict[str, str] = {"filters": json.dumps(filters or [])}
+        params: dict[str, typing.Union[str, int]] = {
+            "filters": json.dumps(filters or []),
+            "count": count,
+            "start": start_index,
+        }
 
         response: requests.Response = requests.get(
             f"{self._url}/api/folders", headers=self._headers, params=params
@@ -873,7 +892,7 @@ class Client:
             "xaxis": xaxis,
             "max_points": max_points,
         }
-        print(params)
+
         metrics_response: requests.Response = requests.get(
             f"{self._url}/api/metrics", headers=self._headers, params=params
         )
