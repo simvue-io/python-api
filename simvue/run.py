@@ -544,7 +544,7 @@ class Run:
         return True
 
     @skip_if_failed("_aborted", "_suppress_errors", None)
-    @pydantic.validate_call
+    @pydantic.validate_call(config={"arbitrary_types_allowed": True})
     def add_process(
         self,
         identifier: str,
