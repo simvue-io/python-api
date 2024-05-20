@@ -1893,9 +1893,9 @@ testing = ["big-O", "jaraco.functools", "jaraco.itertools", "jaraco.test", "more
 
 [extras]
 plot = ["matplotlib", "plotly"]
-torch = []
+torch = ["torch", "torch", "torch"]
 
 [metadata]
 lock-version = "2.0"
 python-versions = "^3.9"
-content-hash = "e716bb009b42d8608c67cc5f07d276888f52bd3535b65b08cd228c5d0e54effa"
+content-hash = "8985b4ce9305e4a0b38f0e8ed2fbcb12002d082c874154de829fe0834d9552df"
