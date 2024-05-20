@@ -1,5 +1,6 @@
 import pytest
 import tempfile
+import os.path
 
 import simvue.utilities as sv_util
 
@@ -12,9 +13,9 @@ import simvue.utilities as sv_util
 )
 def test_calculate_hash(is_file: bool, hash: str) -> None:
     if is_file:
-        with tempfile.NamedTemporaryFile(suffix=".txt") as temp_f:
-            with open(temp_f.name, "w") as out_f:
+        with tempfile.TemporaryDirectory() as tempd:
+            with open(out_file := os.path.join(tempd, "temp.txt"), "w") as out_f:
                 out_f.write("This is a test")
-            assert sv_util.calculate_sha256(filename=temp_f.name, is_file=is_file) == hash
+            assert sv_util.calculate_sha256(filename=out_file, is_file=is_file) == hash
     else:
         assert sv_util.calculate_sha256(filename="temp.txt", is_file=is_file) == hash
