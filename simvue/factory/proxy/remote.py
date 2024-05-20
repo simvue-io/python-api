@@ -18,8 +18,11 @@ class Remote(SimvueBaseClass):
     Class which interacts with Simvue REST API
     """
 
-    def __init__(self, name: str, uniq_id: str, suppress_errors: bool = True) -> None:
+    def __init__(
+        self, name: typing.Optional[str], uniq_id: str, suppress_errors: bool = True
+    ) -> None:
         self._url, self._token = get_auth()
+
         self._headers: dict[str, str] = {
             "Authorization": f"Bearer {self._token}",
             "User-Agent": f"Simvue Python client {__version__}",
@@ -28,6 +31,8 @@ class Remote(SimvueBaseClass):
             "Content-Type": "application/msgpack"
         }
         super().__init__(name, uniq_id, suppress_errors)
+        self.check_token()
+
         self._id = uniq_id
 
     @skip_if_failed("_aborted", "_suppress_errors", (None, None))
@@ -425,7 +430,11 @@ class Remote(SimvueBaseClass):
         """
         Check token
         """
-        if time.time() - get_expiry(self._token) > 0:
+        if not (expiry := get_expiry(self._token)):
+            self._error("Failed to parse user token")
+            return False
+
+        if time.time() - expiry > 0:
             self._error("Token has expired")
             return False
         return True

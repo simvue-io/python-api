@@ -50,3 +50,12 @@ class DirectDispatcher(DispatcherBaseClass):
     def purge(self) -> None:
         """Purge does not execute anything in this context"""
         pass
+
+    def is_alive(self) -> bool:
+        """As unthreaded, state as not alive always"""
+        return False
+
+    @property
+    def empty(self) -> bool:
+        """No queue so always empty"""
+        return True
