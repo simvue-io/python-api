@@ -2,6 +2,9 @@ import configparser
 import datetime
 import hashlib
 import logging
+import json
+import tabulate
+import pydantic
 import importlib.util
 import contextlib
 import os
@@ -80,7 +83,25 @@ def skip_if_failed(
                     f"client in fail state (see logs)."
                 )
                 return on_failure_return
-            return class_func(self, *args, **kwargs)
+
+            # Handle case where Pydantic validates the inputs
+            try:
+                return class_func(self, *args, **kwargs)
+            except pydantic.ValidationError as e:
+                out_table: list[str] = []
+                for data in json.loads(e.json()):
+                    out_table.append([data["loc"], data["type"], data["msg"]])
+                err_table = tabulate.tabulate(
+                    out_table,
+                    headers=["Location", "Type", "Message"],
+                    tablefmt="fancy_grid",
+                )
+                err_str = f"`{class_func.__name__}` Validation:\n{err_table}"
+                if getattr(self, ignore_exc_attr, True):
+                    setattr(self, failure_attr, True)
+                    logger.error(err_str)
+                    return on_failure_return
+                raise RuntimeError(err_str)
 
         wrapper.__name__ = f"{class_func.__name__}__fail_safe"
         return wrapper
@@ -109,6 +130,11 @@ def get_auth():
     # Try environment variables
     token = os.getenv("SIMVUE_TOKEN", token)
     url = os.getenv("SIMVUE_URL", url)
+
+    if not token:
+        raise ValueError("No Simvue server token was specified")
+    if not url:
+        raise ValueError("No Simvue server URL was specified")
 
     return url, token
 
@@ -156,11 +182,11 @@ def remove_file(filename):
             logger.error("Unable to remove file %s due to: %s", filename, str(err))
 
 
-def get_expiry(token):
+def get_expiry(token) -> typing.Optional[int]:
     """
     Get expiry date from a JWT token
     """
-    expiry = 0
+    expiry: typing.Optional[int] = None
     with contextlib.suppress(jwt.DecodeError):
         expiry = jwt.decode(token, options={"verify_signature": False})["exp"]
 
