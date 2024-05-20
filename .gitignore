@@ -135,6 +135,7 @@ dmypy.json
 # Simvue files
 simvue.ini
 simvue.toml
+offline/
 
 # Pyenv
 .python-version

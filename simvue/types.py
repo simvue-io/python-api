@@ -1,5 +1,10 @@
 import typing
 
+try:
+    from typing import TypeAlias
+except ImportError:
+    from typing_extensions import TypeAlias
+
 if typing.TYPE_CHECKING:
     from numpy import ndarray
     from pandas import DataFrame
@@ -8,6 +13,6 @@ if typing.TYPE_CHECKING:
     from typing_extensions import Buffer
 
 
-DeserializedContent: typing.TypeAlias = typing.Union[
+DeserializedContent: TypeAlias = typing.Union[
     "DataFrame", "ndarray", "Tensor", "Figure", "FigureWidget", "Buffer"
 ]
