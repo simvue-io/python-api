@@ -7,7 +7,7 @@ import time
 
 import msgpack
 
-from .factory.remote import Remote
+from .factory.proxy.remote import Remote
 from .utilities import create_file, get_offline_directory, remove_file
 
 logger = logging.getLogger(__name__)

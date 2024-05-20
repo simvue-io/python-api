@@ -3,7 +3,7 @@ import time
 import typing
 
 from simvue.api import get, post, put
-from simvue.factory.base import SimvueBaseClass
+from simvue.factory.proxy.base import SimvueBaseClass
 from simvue.utilities import get_auth, get_expiry, prepare_for_api, skip_if_failed
 from simvue.version import __version__
 
@@ -18,8 +18,12 @@ class Remote(SimvueBaseClass):
     Class which interacts with Simvue REST API
     """
 
-    def __init__(self, name: str, uniq_id: str, suppress_errors: bool = True) -> None:
+    def __init__(
+        self, name: typing.Optional[str], uniq_id: str, suppress_errors: bool = True
+    ) -> None:
         self._url, self._token = get_auth()
+        self.check_token()
+
         self._headers: dict[str, str] = {
             "Authorization": f"Bearer {self._token}",
             "User-Agent": f"Simvue Python client {__version__}",
@@ -334,8 +338,16 @@ class Remote(SimvueBaseClass):
             self._error(f"Got exception when listing alerts: {str(err)}")
             return []
 
+        if not (response_data := response.json()) or not (
+            data := response_data.get("data")
+        ):
+            self._error(
+                "Expected key 'data' in response from server during alert retrieval"
+            )
+            return []
+
         if response.status_code == 200:
-            return response.json()
+            return data
 
         return []
 
@@ -417,7 +429,11 @@ class Remote(SimvueBaseClass):
         """
         Check token
         """
-        if time.time() - get_expiry(self._token) > 0:
+        if not (expiry := get_expiry(self._token)):
+            self._error("Failed to parse user token")
+            return False
+
+        if time.time() - expiry > 0:
             self._error("Token has expired")
             return False
         return True
