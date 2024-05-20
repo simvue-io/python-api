@@ -68,6 +68,7 @@ ruff = ">=0.3.2,<0.5.0"
 pytest-cov = ">=4.1,<6.0"
 pytest-mock = "^3.14.0"
 pytest-sugar = "^1.0.0"
+pytest-xdist = "^3.6.1"
 
 [build-system]
 requires = ["poetry-core"]
@@ -89,7 +90,7 @@ lint.extend-select = ["C901"]
 lint.mccabe.max-complexity = 11
 
 [tool.pytest.ini_options]
-addopts = "-p no:warnings --cov=simvue"
+addopts = "-p no:warnings --cov=simvue -n auto"
 testpaths = [
     "tests"
 ]
