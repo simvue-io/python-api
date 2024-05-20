@@ -1,3 +1,10 @@
+"""
+Proxy
+=====
+
+Selects whether to use offline or online processing depending on configuration.
+"""
+
 import typing
 
 if typing.TYPE_CHECKING:
@@ -8,7 +15,7 @@ from .remote import Remote
 
 
 def Simvue(
-    name: str, uniq_id: str, mode: str, suppress_errors: bool = True
+    name: typing.Optional[str], uniq_id: str, mode: str, suppress_errors: bool = True
 ) -> "SimvueBaseClass":
     if mode == "offline":
         return Offline(name, uniq_id, suppress_errors)

@@ -16,6 +16,7 @@ def test_time_multi_run_create_threshold() -> None:
                 f"test run {i}",
                 tags=["test_benchmarking"],
                 folder="/simvue_benchmark_testing",
+                retention_period="1 hour"
             )
     end = time.time()
     client = simvue.Client()
@@ -40,6 +41,13 @@ def run_deleter(request):
     request.addfinalizer(delete_run)
     return ident_dict
 
+def upload(name: str, values_per_run: int, shared_dict) -> None:
+    run = simvue.Run()
+    run.init(name=name, tags=["simvue_client_tests"])
+    shared_dict["ident"] = run._id
+    for i in range(values_per_run):
+        run.log_metrics({"increment": i})
+    run.close()
 
 @pytest.mark.scenario
 @pytest.mark.parametrize("values_per_run", (1, 2, 100, 1500))
@@ -47,14 +55,6 @@ def run_deleter(request):
 def test_uploaded_data_immediately_accessible(
     values_per_run: int, processing: str, run_deleter
 ) -> None:
-    def upload(name: str, values_per_run: int, shared_dict) -> None:
-        run = simvue.Run()
-        run.init(name=name, tags=["simvue_client_tests"])
-        shared_dict["ident"] = run._id
-        for i in range(values_per_run):
-            run.log_metrics({"increment": i})
-        run.close()
-
     name = "Test-" + str(random.randint(0, 1000000000))
     manager = Manager()
     shared_dict = manager.dict()

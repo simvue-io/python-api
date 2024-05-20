@@ -140,7 +140,7 @@ def test_get_folder(create_test_run: tuple[sv_run.Run, dict]) -> None:
 
 
 @pytest.mark.dependency
-@pytest.mark.client
+@pytest.mark.client 
 def test_get_metrics_names(create_test_run: tuple[sv_run.Run, dict]) -> None:
     client = svc.Client()
     time.sleep(1)
