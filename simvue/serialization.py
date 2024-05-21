@@ -1,4 +1,7 @@
 import pickle
+import pandas
+import numpy
+
 from io import BytesIO
 
 from .utilities import check_extra
@@ -98,23 +101,15 @@ def _serialize_matplotlib_figure(data):
     return data, mimetype
 
 
-@check_extra("dataset")
 def _serialize_numpy_array(data):
-    try:
-        import numpy as np
-    except ImportError:
-        np = None
-        return None
-
     mimetype = "application/vnd.simvue.numpy.v1"
     mfile = BytesIO()
-    np.save(mfile, data, allow_pickle=False)
+    numpy.save(mfile, data, allow_pickle=False)
     mfile.seek(0)
     data = mfile.read()
     return data, mimetype
 
 
-@check_extra("dataset")
 def _serialize_dataframe(data):
     mimetype = "application/vnd.simvue.df.v1"
     mfile = BytesIO()
@@ -193,31 +188,17 @@ def _deserialize_matplotlib_figure(data):
     return data
 
 
-@check_extra("dataset")
 def _deserialize_numpy_array(data):
-    try:
-        import numpy as np
-    except ImportError:
-        np = None
-        return None
-
     mfile = BytesIO(data)
     mfile.seek(0)
-    data = np.load(mfile, allow_pickle=False)
+    data = numpy.load(mfile, allow_pickle=False)
     return data
 
 
-@check_extra("dataset")
 def _deserialize_dataframe(data):
-    try:
-        import pandas as pd
-    except ImportError:
-        pd = None
-        return None
-
     mfile = BytesIO(data)
     mfile.seek(0)
-    data = pd.read_csv(mfile, index_col=0)
+    data = pandas.read_csv(mfile, index_col=0)
     return data
 
 
