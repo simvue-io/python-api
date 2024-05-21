@@ -13,7 +13,7 @@ import typing
 import jwt
 
 CHECKSUM_BLOCK_SIZE = 4096
-EXTRAS: tuple[str, ...] = ("plot", "torch", "dataset")
+EXTRAS: tuple[str, ...] = ("plot", "torch")
 
 logger = logging.getLogger(__name__)
 
@@ -90,15 +90,6 @@ def check_extra(extra_name: str) -> typing.Callable:
             elif extra_name == "torch" and not importlib.util.find_spec("torch"):
                 raise RuntimeError(
                     "PyTorch features require the 'torch' module to be installed"
-                )
-            elif extra_name == "dataset" and not all(
-                [
-                    importlib.util.find_spec("numpy"),
-                    importlib.util.find_spec("pandas"),
-                ]
-            ):
-                raise RuntimeError(
-                    f"Dataset features require the '{extra_name}' extension to Simvue"
                 )
             elif extra_name not in EXTRAS:
                 raise RuntimeError(f"Unrecognised extra '{extra_name}'")
