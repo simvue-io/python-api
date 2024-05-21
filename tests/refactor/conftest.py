@@ -7,7 +7,6 @@ import tempfile
 import os
 import json
 import logging
-import os
 import simvue.run as sv_run
 import simvue.utilities
 
@@ -86,6 +85,8 @@ def setup_test_run(run: sv_run.Run, create_objects: bool):
         name=f"test_run_{TEST_DATA['metadata']['test_identifier']}",
         tags=["simvue_client_unit_tests"],
         folder=TEST_DATA["folder"],
+        visibility="tenant",
+        retention_period="1 hour"
     )
     run._dispatcher._max_buffer_size = MAX_BUFFER_SIZE
 
@@ -122,7 +123,7 @@ def setup_test_run(run: sv_run.Run, create_objects: bool):
             run.save(test_json, category="output", name="test_attributes")
             TEST_DATA["file_2"] = "test_attributes"
 
-            with open((test_script := os.path.join(tempd, f"test_script.py")), "w") as out_f:
+            with open((test_script := os.path.join(tempd, "test_script.py")), "w") as out_f:
                 out_f.write(
                     "print('Hello World!')"
                 )

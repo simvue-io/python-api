@@ -434,6 +434,9 @@ class Run:
         running: bool = True,
         retention_period: typing.Optional[str] = None,
         resources_metrics_interval: typing.Optional[int] = HEARTBEAT_INTERVAL,
+        visibility: typing.Union[
+            typing.Literal["public", "tenant"], list[str], None
+        ] = None,
     ) -> bool:
         """Initialise a Simvue run
 
@@ -458,12 +461,22 @@ class Run:
             removes this constraint.
         resources_metrics_interval : int, optional
             how often to publish resource metrics, if None these will not be published
+        visibility : Literal['public', 'tenant'] | list[str], optional
+            set visibility options for this run, either:
+                * public: run viewable to all.
+                * tenant: run viewable to all within the current tenant.
+                * A list of usernames with which to share this run
 
         Returns
         -------
         bool
             whether the initialisation was successful
         """
+
+        if isinstance(visibility, str) and visibility not in ("public", "tenant"):
+            self._error(
+                "invalid visibility option, must be either None, 'public', 'tenant' or a list of users"
+            )
 
         if self._mode not in ("online", "offline", "disabled"):
             self._error("invalid mode specified, must be online, offline or disabled")
@@ -511,6 +524,11 @@ class Run:
             "system": get_system()
             if self._status == "running"
             else {"cpu": {}, "gpu": {}, "platform": {}},
+            "visibility": {
+                "users": [] if not isinstance(visibility, list) else visibility,
+                "tenant": visibility == "tenant",
+                "public": visibility == "public",
+            },
         }
 
         # Check against the expected run input
