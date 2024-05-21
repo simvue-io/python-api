@@ -101,7 +101,8 @@ markers = [
     "run: test the simvue Run class",
     "utilities: test simvue utilities module",
     "scenario: test scenarios",
-    "executor: tests of executors"
+    "executor: tests of executors",
+    "api: tests of RestAPI functionality"
 ]
 
 [tool.interrogate]

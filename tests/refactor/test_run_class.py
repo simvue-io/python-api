@@ -304,6 +304,12 @@ def test_suppressed_errors(
     
 
 @pytest.mark.run
+def test_bad_run_arguments() -> None:
+    with sv_run.Run() as run:
+        with pytest.raises(RuntimeError):
+            run.init("sdas", [34])
+
+
 def test_set_folder_details() -> None:
     with sv_run.Run() as run:
         folder_name: str ="/simvue_unit_test_folder"

@@ -562,6 +562,7 @@ class Run:
         return True
 
     @skip_if_failed("_aborted", "_suppress_errors", None)
+    @pydantic.validate_call(config={"arbitrary_types_allowed": True})
     def add_process(
         self,
         identifier: str,
@@ -681,6 +682,7 @@ class Run:
             **cmd_kwargs,
         )
 
+    @pydantic.validate_call
     def kill_process(self, process_id: str) -> None:
         """Kill a running process by ID
 
@@ -715,6 +717,7 @@ class Run:
         """Return the unique id of the run"""
         return self._id
 
+    @pydantic.validate_call
     @skip_if_failed("_aborted", "_suppress_errors", False)
     @pydantic.validate_call
     def reconnect(self, run_id: str) -> bool:
@@ -755,6 +758,7 @@ class Run:
         """
         self._pid = pid
 
+    @pydantic.validate_call
     @skip_if_failed("_aborted", "_suppress_errors", False)
     @pydantic.validate_call
     def config(
@@ -832,7 +836,7 @@ class Run:
 
         data: dict[str, dict[str, typing.Any]] = {"metadata": metadata}
 
-        if self._simvue.update(data):
+        if self._simvue and self._simvue.update(data):
             return True
 
         return False
@@ -852,11 +856,12 @@ class Run:
 
         data: dict[str, list[str]] = {"tags": tags}
 
-        if self._simvue.update(data):
+        if self._simvue and self._simvue.update(data):
             return True
 
         return False
 
+    @pydantic.validate_call
     @skip_if_failed("_aborted", "_suppress_errors", False)
     @pydantic.validate_call
     def log_event(self, message, timestamp: typing.Optional[str] = None) -> bool:
@@ -928,6 +933,7 @@ class Run:
 
         return True
 
+    @pydantic.validate_call
     @skip_if_failed("_aborted", "_suppress_errors", False)
     @pydantic.validate_call
     def log_metrics(
@@ -1062,6 +1068,7 @@ class Run:
 
         return True
 
+    @pydantic.validate_call
     @skip_if_failed("_aborted", "_suppress_errors", False)
     @pydantic.validate_call
     def save_directory(
@@ -1098,6 +1105,7 @@ class Run:
 
         return True
 
+    @pydantic.validate_call
     @skip_if_failed("_aborted", "_suppress_errors", False)
     @pydantic.validate_call
     def save_all(
@@ -1110,8 +1118,10 @@ class Run:
         """
         Save the list of files and/or directories
         """
+        success: bool = True
+
         if self._mode == "disabled":
-            return True
+            return success
 
         for item in items:
             if item.is_file():
@@ -1132,10 +1142,6 @@ class Run:
         self, status: typing.Literal["completed", "failed", "terminated"]
     ) -> bool:
         """Set run status
-
-        Parameters
-        ----------
-        status : Literal['completed', 'failed', 'terminated']
             status to assign to this run
 
         Returns
@@ -1146,7 +1152,6 @@ class Run:
         if self._mode == "disabled":
             return True
 
-        if not self._simvue or not self._name:
             self._error("Cannot update run status, run is not initialised.")
             return False
 
@@ -1254,6 +1259,7 @@ class Run:
 
         return False
 
+    @pydantic.validate_call
     @skip_if_failed("_aborted", "_suppress_errors", False)
     @pydantic.validate_call
     def add_alerts(
@@ -1301,6 +1307,7 @@ class Run:
 
         return False
 
+    @pydantic.validate_call
     @skip_if_failed("_aborted", "_suppress_errors", False)
     @pydantic.validate_call
     def create_alert(
@@ -1463,6 +1470,7 @@ class Run:
 
         return False
 
+    @pydantic.validate_call
     @skip_if_failed("_aborted", "_suppress_errors", False)
     @pydantic.validate_call
     def log_alert(
