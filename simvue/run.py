@@ -39,6 +39,7 @@ from .metrics import get_gpu_metrics, get_process_cpu, get_process_memory
 from .models import RunInput
 from .serialization import Serializer
 from .system import get_system
+from .metadata import git_info
 from .utilities import (
     calculate_sha256,
     compare_alerts,
@@ -514,7 +515,7 @@ class Run:
             return False
 
         data: dict[str, typing.Any] = {
-            "metadata": metadata or {},
+            "metadata": (metadata or {}) | git_info(os.getcwd()),
             "tags": tags or [],
             "status": self._status,
             "ttl": retention_secs,
