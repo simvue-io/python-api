@@ -1196,7 +1196,6 @@ class Run:
         elif self._dispatcher:
             self._dispatcher.purge()
             self._dispatcher.join()
-        return True
 
         if _non_zero := self.executor.exit_status:
             logger.error(

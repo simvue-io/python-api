@@ -306,7 +306,8 @@ def test_suppressed_errors(
 @pytest.mark.run
 def test_bad_run_arguments() -> None:
     with sv_run.Run() as run:
-        run.init("sdas", [34])
+        with pytest.raises(RuntimeError):
+            run.init("sdas", [34])
 
 
 def test_set_folder_details() -> None:
