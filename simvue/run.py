@@ -1309,7 +1309,7 @@ class Run:
         return False
 
     @pydantic.validate_call
-    @skip_if_failed("_aborted", "_suppress_errors", False)
+    @skip_if_failed("_aborted", "_suppress_errors", None)
     @pydantic.validate_call
     def create_alert(
         self,
@@ -1332,7 +1332,7 @@ class Run:
         ] = "average",
         notification: typing.Literal["email", "none"] = "none",
         pattern: typing.Optional[str] = None,
-    ) -> bool:
+    ) -> typing.Optional[str]:
         """Creates an alert with the specified name (if it doesn't exist)
         and applies it to the current run. If alert already exists it will
         not be duplicated.
@@ -1394,19 +1394,19 @@ class Run:
 
         Returns
         -------
-        bool
-            returns True on success
+        str | None
+            returns the created alert ID if successful
         """
         if self._mode == "disabled":
-            return True
+            return None
 
         if not self._simvue:
             self._error("Cannot add alert, run not initialised")
-            return False
+            return None
 
         if rule in ("is below", "is above") and threshold is None:
             self._error("threshold must be defined for the specified alert type")
-            return False
+            return None
 
         if rule in ("is outside range", "is inside range") and (
             range_low is None or range_high is None
@@ -1414,7 +1414,7 @@ class Run:
             self._error(
                 "range_low and range_high must be defined for the specified alert type"
             )
-            return False
+            return None
 
         alert_definition = {}
 
@@ -1461,15 +1461,14 @@ class Run:
                     alert_id = response["id"]
             else:
                 self._error("unable to create alert")
-                return False
+                return None
 
         if alert_id:
             # TODO: What if we keep existing alerts/add a new one later?
             data = {"id": self._id, "alerts": [alert_id]}
-            if self._simvue.update(data):
-                return True
+            self._simvue.update(data)
 
-        return False
+        return alert_id
 
     @pydantic.validate_call
     @skip_if_failed("_aborted", "_suppress_errors", False)
