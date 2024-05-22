@@ -120,9 +120,13 @@ def test_get_artifacts_as_files(create_test_run: tuple[sv_run.Run, dict]) -> Non
 @pytest.mark.dependency
 @pytest.mark.client
 @pytest.mark.parametrize(
-    "filters", (None, "list", "object"), ids=("no_filters", "filter_list", "filter_object")
+    "filters",
+    (None, "list", "object"),
+    ids=("no_filters", "filter_list", "filter_object"),
 )
-def test_get_runs(create_test_run: tuple[sv_run.Run, dict], filters: typing.Optional[str]) -> None:
+def test_get_runs(
+    create_test_run: tuple[sv_run.Run, dict], filters: typing.Optional[str]
+) -> None:
     client = svc.Client()
 
     if filters == "list":
@@ -145,15 +149,30 @@ def test_get_run(create_test_run: tuple[sv_run.Run, dict]) -> None:
 
 @pytest.mark.dependency
 @pytest.mark.client
-def test_get_folder(create_test_run: tuple[sv_run.Run, dict]) -> None:
+@pytest.mark.parametrize(
+    "filters",
+    (None, "list", "object"),
+    ids=("no_filters", "filters_list", "filters_object"),
+)
+def test_get_folder(
+    create_test_run: tuple[sv_run.Run, dict],
+    filters: typing.Optional[str]
+) -> None:
+    if filters == "list":
+        filter_object = ["path == /simvue_unit_test_folder"]
+    elif filters == "object":
+        filter_object = sv_filter.FoldersFilter()
+        filter_object.has_path("/simvue_unit_test_folder")
+    else:
+        filter_object = None
     client = svc.Client()
-    assert (folders := client.get_folders())
+    assert (folders := client.get_folders(filters=filter_object))
     assert (folder_id := folders[0].get("id"))
     assert client.get_folder(folder_id)
 
 
 @pytest.mark.dependency
-@pytest.mark.client 
+@pytest.mark.client
 def test_get_metrics_names(create_test_run: tuple[sv_run.Run, dict]) -> None:
     client = svc.Client()
     time.sleep(1)

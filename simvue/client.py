@@ -14,7 +14,7 @@ from concurrent.futures import ThreadPoolExecutor, as_completed
 
 import requests
 
-from .filter import RunsFilter
+from .filter import RunsFilter, FoldersFilter
 from .converters import (
     aggregated_metrics_to_dataframe,
     to_dataframe,
@@ -268,7 +268,7 @@ class Client:
 
         Parameters
         ----------
-        filters: list[str] | None
+        filters: list[str] | RunsFilter | None
             set of filters to apply to query results. If None is specified
             return all results without filtering.
         metadata : bool, optional
@@ -791,7 +791,7 @@ class Client:
 
     def get_folders(
         self,
-        filters: typing.Optional[list[str]] = None,
+        filters: typing.Optional[typing.Union[list[str], FoldersFilter]] = None,
         count: int = 100,
         start_index: int = 0,
     ) -> list[dict[str, typing.Any]]:
@@ -799,7 +799,7 @@ class Client:
 
         Parameters
         ----------
-        filters : list[str] | None
+        filters : list[str] | FoldersFilter | None
             set of filters to apply to the search
         count : int, optional
             maximum number of entries to return. Default is 100.
@@ -816,6 +816,9 @@ class Client:
         RuntimeError
             if there was a failure retrieving data from the server
         """
+        if isinstance(filters, FoldersFilter):
+            filters = filters.as_list()
+
         params: dict[str, typing.Union[str, int]] = {
             "filters": json.dumps(filters or []),
             "count": count,
