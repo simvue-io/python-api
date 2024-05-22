@@ -6,8 +6,6 @@ def test_run_init_metadata():
     """
     Check that run.init throws an exception if tuples are passed into metadata dictionary
     """
-    os.environ["SIMVUE_TOKEN"] = "test"
-    os.environ["SIMVUE_URL"] = "https://simvue.io"
 
     x1_lower = 2,
     x1_upper = 6,
@@ -16,7 +14,8 @@ def test_run_init_metadata():
 
     with pytest.raises(RuntimeError) as exc_info:
         run.init(metadata={'dataset.x1_lower': x1_lower, 'dataset.x1_upper': x1_upper},
-                description="A test to validate inputs passed into metadata dictionary"
+                description="A test to validate inputs passed into metadata dictionary",
+                retention_period="1 hour"
         )
 
-    assert exc_info.match(r"value is not a valid integer")
+    assert "Input should be a valid integer" in str(exc_info.value)

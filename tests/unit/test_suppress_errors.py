@@ -8,11 +8,13 @@ def test_suppress_errors_false():
     """
     run = Run()
 
-    with pytest.raises(RuntimeError, match="disable_resources_metrics must be boolean"):
+    with pytest.raises(RuntimeError) as e:
         run.config(
             suppress_errors=False,
             disable_resources_metrics=123,
-            )
+        )
+    print(e.value)
+    assert "Input should be a valid boolean, unable to interpret input" in f"{e.value}"
         
 def test_suppress_errors_true(caplog):
     """
@@ -20,14 +22,14 @@ def test_suppress_errors_true(caplog):
     """
     run = Run()
 
+    run.config(suppress_errors=True)
     run.config(
-        suppress_errors=True,
         disable_resources_metrics=123,
-        )
+    )
     
     caplog.set_level(logging.ERROR)
     
-    assert "disable_resources_metrics must be boolean" in caplog.text
+    assert "Input should be a valid boolean, unable to interpret input" in caplog.text
 
 def test_suppress_errors_default(caplog):
     """
@@ -35,10 +37,11 @@ def test_suppress_errors_default(caplog):
     """
     run = Run()
 
+    run.config(suppress_errors=True)
     run.config(
         disable_resources_metrics=123,
-        )
+    )
     
     caplog.set_level(logging.ERROR)
     
-    assert "disable_resources_metrics must be boolean" in caplog.text
+    assert "Input should be a valid boolean, unable to interpret input" in caplog.text

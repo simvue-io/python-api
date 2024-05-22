@@ -1,6 +1,7 @@
 import unittest
 import uuid
 import time
+import sys
 import tempfile
 from simvue import Run
 
@@ -9,7 +10,7 @@ class TestRunMetrics(unittest.TestCase):
         with Run(mode='offline') as _run:
             _run.init(f"test_exec_monitor_{uuid.uuid4()}")
             _run.add_process("process_1", "Hello world!", executable="echo", n=True)
-            _run.add_process("process_2", "bash", debug=True, c="'return 1'")
+            _run.add_process("process_2", "bash" if sys.platform != "win32" else "powershell", debug=True, c="exit 0")
             _run.add_process("process_3", "ls", "-ltr")
     def test_abort_all_processes(self):
         start_time = time.time()

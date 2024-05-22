@@ -1,0 +1,31 @@
+name: Simvue Client (macOS)
+
+on:
+  push:
+    branches: [ "main", "dev", "hotfix/update-ci" ]
+  pull_request:
+    branches: [ "main", "dev", "hotfix/update-ci" ]
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    timeout-minutes: 20
+    runs-on: macos-latest
+    steps:
+    - uses: actions/checkout@v3
+    - name: Set up Python 3.12
+      uses: actions/setup-python@v3
+      with:
+        python-version: "3.12"
+    - name: Install dependencies
+      run: |
+        rm poetry.lock
+        python -m pip install poetry
+    - name: Test with pytest
+      run: |
+        export SIMVUE_URL=${{ secrets.SIMVUE_URL }}
+        export SIMVUE_TOKEN=${{ secrets.SIMVUE_TOKEN }}
+        poetry install --all-extras
+        poetry run pytest tests/unit/ tests/refactor/

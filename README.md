@@ -4,17 +4,21 @@
 
 <p align="center">
   <img src="simvue-black.png" width="500" alt="Simvue" />
-</p>  
- 
-<p align="center"> 
+</p>
+
+<p align="center">
 Collect metadata, metrics and artifacts from simulations, processing and AI/ML training tasks running on any platform, in real time.
 </p>
 
 <div align="center">
 <a href="https://github.com/simvue-io/client/blob/main/LICENSE" target="_blank"><img src="https://img.shields.io/github/license/simvue-io/client"/></a>
+<img src="https://img.shields.io/badge/python-3.9%20%7C%203.10%20%7C%203.11%20%7C%203.12-blue">
 <a href="https://pypi.org/project/simvue/" target="_blank"><img src="https://img.shields.io/pypi/v/simvue.svg"/></a>
 <a href="https://pepy.tech/project/simvue"><img src="https://static.pepy.tech/badge/simvue"/></a>
-<a href="https://github.com/simvue-io/client/actions/workflows/python-app.yml"><img src="https://github.com/simvue-io/client/actions/workflows/python-app.yml/badge.svg"/></a>
+<p></p>
+<a href="https://github.com/simvue-io/client/actions/workflows/test_client_ubuntu.yml"><img src="https://github.com/simvue-io/client/actions/workflows/test_client_ubuntu.yml/badge.svg"/></a>
+<a href="https://github.com/simvue-io/client/actions/workflows/test_client_windows.yml"><img src="https://github.com/simvue-io/client/actions/workflows/test_client_windows.yml/badge.svg"/></a>
+<a href="https://github.com/simvue-io/client/actions/workflows/test_client_macos.yml"><img src="https://github.com/simvue-io/client/actions/workflows/test_client_macos.yml/badge.svg"/></a>
 </div>
 
 <h3 align="center">
@@ -25,12 +29,12 @@ Collect metadata, metrics and artifacts from simulations, processing and AI/ML t
 
 ## Configuration
 The service URL and token can be defined as environment variables:
-```
+```sh
 export SIMVUE_URL=...
 export SIMVUE_TOKEN=...
 ```
 or a file `simvue.ini` can be created containing:
-```
+```ini
 [server]
 url = ...
 token = ...
@@ -38,7 +42,7 @@ token = ...
 The exact contents of both of the above options can be obtained directly by clicking the **Create new run** button on the web UI. Note that the environment variables have preference over the config file.
 
 ## Usage example
-```
+```python
 from simvue import Run
 
 ...
