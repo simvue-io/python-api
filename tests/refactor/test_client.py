@@ -6,6 +6,7 @@ import time
 import tempfile
 import simvue.client as svc
 import simvue.run as sv_run
+import simvue.filter as sv_filter
 
 
 @pytest.mark.dependency
@@ -118,9 +119,21 @@ def test_get_artifacts_as_files(create_test_run: tuple[sv_run.Run, dict]) -> Non
 
 @pytest.mark.dependency
 @pytest.mark.client
-def test_get_runs(create_test_run: tuple[sv_run.Run, dict]) -> None:
+@pytest.mark.parametrize(
+    "filters", (None, "list", "object"), ids=("no_filters", "filter_list", "filter_object")
+)
+def test_get_runs(create_test_run: tuple[sv_run.Run, dict], filters: typing.Optional[str]) -> None:
     client = svc.Client()
-    assert client.get_runs(filters=None)
+
+    if filters == "list":
+        filter_obj = ["has tag.simvue_client_unit_tests"]
+    elif filters == "object":
+        filter_obj = sv_filter.RunsFilter()
+        filter_obj.has_tag("simvue_client_unit_tests")
+    else:
+        filter_obj = None
+
+    assert client.get_runs(filters=filter_obj)
 
 
 @pytest.mark.dependency

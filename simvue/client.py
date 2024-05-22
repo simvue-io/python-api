@@ -253,7 +253,7 @@ class Client:
 
     def get_runs(
         self,
-        filters: typing.Optional[list[str]],
+        filters: typing.Optional[typing.Union[list[str], RunsFilter]],
         system: bool = False,
         metrics: bool = False,
         alerts: bool = False,
