@@ -39,6 +39,7 @@ from .metrics import get_gpu_metrics, get_process_cpu, get_process_memory
 from .models import RunInput
 from .serialization import serialize_object
 from .system import get_system
+from .metadata import git_info
 from .utilities import (
     calculate_sha256,
     compare_alerts,
@@ -435,6 +436,9 @@ class Run:
         running: bool = True,
         retention_period: typing.Optional[str] = None,
         resources_metrics_interval: typing.Optional[int] = HEARTBEAT_INTERVAL,
+        visibility: typing.Union[
+            typing.Literal["public", "tenant"], list[str], None
+        ] = None,
     ) -> bool:
         """Initialise a Simvue run
 
@@ -459,12 +463,22 @@ class Run:
             removes this constraint.
         resources_metrics_interval : int, optional
             how often to publish resource metrics, if None these will not be published
+        visibility : Literal['public', 'tenant'] | list[str], optional
+            set visibility options for this run, either:
+                * public: run viewable to all.
+                * tenant: run viewable to all within the current tenant.
+                * A list of usernames with which to share this run
 
         Returns
         -------
         bool
             whether the initialisation was successful
         """
+
+        if isinstance(visibility, str) and visibility not in ("public", "tenant"):
+            self._error(
+                "invalid visibility option, must be either None, 'public', 'tenant' or a list of users"
+            )
 
         if self._mode not in ("online", "offline", "disabled"):
             self._error("invalid mode specified, must be online, offline or disabled")
@@ -502,7 +516,7 @@ class Run:
             return False
 
         data: dict[str, typing.Any] = {
-            "metadata": metadata or {},
+            "metadata": (metadata or {}) | git_info(os.getcwd()),
             "tags": tags or [],
             "status": self._status,
             "ttl": retention_secs,
@@ -512,6 +526,11 @@ class Run:
             "system": get_system()
             if self._status == "running"
             else {"cpu": {}, "gpu": {}, "platform": {}},
+            "visibility": {
+                "users": [] if not isinstance(visibility, list) else visibility,
+                "tenant": visibility == "tenant",
+                "public": visibility == "public",
+            },
         }
 
         # Check against the expected run input
@@ -545,6 +564,7 @@ class Run:
         return True
 
     @skip_if_failed("_aborted", "_suppress_errors", None)
+    @pydantic.validate_call(config={"arbitrary_types_allowed": True})
     def add_process(
         self,
         identifier: str,
@@ -664,6 +684,7 @@ class Run:
             **cmd_kwargs,
         )
 
+    @pydantic.validate_call
     def kill_process(self, process_id: str) -> None:
         """Kill a running process by ID
 
@@ -698,6 +719,7 @@ class Run:
         """Return the unique id of the run"""
         return self._id
 
+    @pydantic.validate_call
     @skip_if_failed("_aborted", "_suppress_errors", False)
     @pydantic.validate_call
     def reconnect(self, run_id: str) -> bool:
@@ -738,6 +760,7 @@ class Run:
         """
         self._pid = pid
 
+    @pydantic.validate_call
     @skip_if_failed("_aborted", "_suppress_errors", False)
     @pydantic.validate_call
     def config(
@@ -815,7 +838,7 @@ class Run:
 
         data: dict[str, dict[str, typing.Any]] = {"metadata": metadata}
 
-        if self._simvue.update(data):
+        if self._simvue and self._simvue.update(data):
             return True
 
         return False
@@ -835,11 +858,12 @@ class Run:
 
         data: dict[str, list[str]] = {"tags": tags}
 
-        if self._simvue.update(data):
+        if self._simvue and self._simvue.update(data):
             return True
 
         return False
 
+    @pydantic.validate_call
     @skip_if_failed("_aborted", "_suppress_errors", False)
     @pydantic.validate_call
     def log_event(self, message, timestamp: typing.Optional[str] = None) -> bool:
@@ -911,6 +935,7 @@ class Run:
 
         return True
 
+    @pydantic.validate_call
     @skip_if_failed("_aborted", "_suppress_errors", False)
     @pydantic.validate_call
     def log_metrics(
@@ -1050,6 +1075,7 @@ class Run:
         # Register file
         return self._simvue.save_file(data) is not None
 
+    @pydantic.validate_call
     @skip_if_failed("_aborted", "_suppress_errors", False)
     @pydantic.validate_call
     def save_directory(
@@ -1086,6 +1112,7 @@ class Run:
 
         return True
 
+    @pydantic.validate_call
     @skip_if_failed("_aborted", "_suppress_errors", False)
     @pydantic.validate_call
     def save_all(
@@ -1098,8 +1125,10 @@ class Run:
         """
         Save the list of files and/or directories
         """
+        success: bool = True
+
         if self._mode == "disabled":
-            return True
+            return success
 
         for item in items:
             if item.is_file():
@@ -1120,10 +1149,6 @@ class Run:
         self, status: typing.Literal["completed", "failed", "terminated"]
     ) -> bool:
         """Set run status
-
-        Parameters
-        ----------
-        status : Literal['completed', 'failed', 'terminated']
             status to assign to this run
 
         Returns
@@ -1134,7 +1159,6 @@ class Run:
         if self._mode == "disabled":
             return True
 
-        if not self._simvue or not self._name:
             self._error("Cannot update run status, run is not initialised.")
             return False
 
@@ -1242,6 +1266,7 @@ class Run:
 
         return False
 
+    @pydantic.validate_call
     @skip_if_failed("_aborted", "_suppress_errors", False)
     @pydantic.validate_call
     def add_alerts(
@@ -1289,6 +1314,7 @@ class Run:
 
         return False
 
+    @pydantic.validate_call
     @skip_if_failed("_aborted", "_suppress_errors", False)
     @pydantic.validate_call
     def create_alert(
@@ -1451,6 +1477,7 @@ class Run:
 
         return False
 
+    @pydantic.validate_call
     @skip_if_failed("_aborted", "_suppress_errors", False)
     @pydantic.validate_call
     def log_alert(

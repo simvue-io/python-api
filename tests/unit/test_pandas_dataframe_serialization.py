@@ -1,6 +1,13 @@
 from simvue.serialization import serialize_object, deserialize_data
 import pandas as pd
+import pytest
 
+try:
+    import pandas as pd
+except ImportError:
+    pd = None
+
+@pytest.mark.skipif(not pd, reason="Pandas is not installed")
 def test_pandas_dataframe_serialization():
     """
     Check that a Pandas dataframe can be serialized then deserialized successfully
