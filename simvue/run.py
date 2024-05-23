@@ -237,7 +237,9 @@ class Run:
                     and (res_time := time.time()) - last_res_metric_call
                     > self._resources_metrics_interval
                 ):
-                    self._add_metrics_to_dispatch(self._get_sysinfo())
+                    self._add_metrics_to_dispatch(
+                        self._get_sysinfo(), join_on_fail=False
+                    )
                     last_res_metric_call = res_time
 
                 if time.time() - last_heartbeat < HEARTBEAT_INTERVAL:
@@ -384,7 +386,7 @@ class Run:
 
         return True
 
-    def _error(self, message: str) -> None:
+    def _error(self, message: str, join_threads: bool = True) -> None:
         """Raise an exception if necessary and log error
 
         Parameters
@@ -400,7 +402,8 @@ class Run:
         # Stop heartbeat
         if self._heartbeat_termination_trigger and self._heartbeat_thread:
             self._heartbeat_termination_trigger.set()
-            self._heartbeat_thread.join()
+            if join_threads:
+                self._heartbeat_thread.join()
 
         # Finish stopping all threads
         if self._shutdown_event:
@@ -409,7 +412,8 @@ class Run:
         # Purge the queue as we can no longer send metrics
         if self._dispatcher and self._dispatcher.is_alive():
             self._dispatcher.purge()
-            self._dispatcher.join()
+            if join_threads:
+                self._dispatcher.join()
 
         if not self._suppress_errors:
             raise RuntimeError(message)
@@ -900,6 +904,7 @@ class Run:
         step: typing.Optional[int] = None,
         time: typing.Optional[int] = None,
         timestamp: typing.Optional[str] = None,
+        join_on_fail: bool = True,
     ) -> bool:
         if self._mode == "disabled":
             return True
@@ -909,7 +914,7 @@ class Run:
             return True
 
         if not self._simvue or not self._dispatcher:
-            self._error("Cannot log metrics, run not initialised")
+            self._error("Cannot log metrics, run not initialised", join_on_fail)
             return False
 
         if not self._active:
@@ -917,11 +922,13 @@ class Run:
             return False
 
         if self._status != "running":
-            self._error("Cannot log metrics when not in the running state")
+            self._error(
+                "Cannot log metrics when not in the running state", join_on_fail
+            )
             return False
 
         if timestamp and not validate_timestamp(timestamp):
-            self._error("Invalid timestamp format")
+            self._error("Invalid timestamp format", join_on_fail)
             return False
 
         _data: dict[str, typing.Any] = {
