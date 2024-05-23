@@ -223,7 +223,7 @@ class Run:
             last_heartbeat = time.time()
             last_res_metric_call = time.time()
 
-            self._add_metrics_to_dispatch(self._get_sysinfo())
+            self._add_metrics_to_dispatch(self._get_sysinfo(), join_on_fail=False)
 
             while not heartbeat_trigger.is_set():
                 time.sleep(0.1)
