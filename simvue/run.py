@@ -379,10 +379,10 @@ class Run:
             self._error(e.args[0])
             return False
 
+        self._active = True
+
         self._dispatcher.start()
         self._heartbeat_thread.start()
-
-        self._active = True
 
         return True
 
