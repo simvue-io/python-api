@@ -38,8 +38,9 @@ def test_log_metrics(
                 name=f"test_run_{str(uuid.uuid4()).split('-', 1)[0]}",
                 tags=["simvue_client_unit_tests"],
                 folder="/simvue_unit_testing",
-                ttl=60 * 60,
-                visibility=visibility
+                retention_period="1 hour",
+                visibility=visibility,
+                resources_metrics_interval=1
             )
         return
 
@@ -48,6 +49,7 @@ def test_log_metrics(
         tags=["simvue_client_unit_tests"],
         folder="/simvue_unit_testing",
         visibility=visibility,
+        resources_metrics_interval=1,
         retention_period="1 hour",
     )
 

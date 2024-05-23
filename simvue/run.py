@@ -101,6 +101,7 @@ class Run:
         self._simvue: typing.Optional[SimvueBaseClass] = None
         self._pid: typing.Optional[int] = 0
         self._shutdown_event: typing.Optional[threading.Event] = None
+        self._configuration_lock = threading.Lock()
         self._heartbeat_termination_trigger: typing.Optional[threading.Event] = None
         self._storage_id: typing.Optional[str] = None
         self._heartbeat_thread: typing.Optional[threading.Thread] = None
@@ -226,18 +227,19 @@ class Run:
             while not heartbeat_trigger.is_set():
                 time.sleep(0.1)
 
-                if (
-                    self._resources_metrics_interval
-                    and (res_time := time.time()) - last_res_metric_call
-                    > self._resources_metrics_interval
-                ):
-                    # Set join on fail to false as if an error is thrown
-                    # join would be called on this thread and a thread cannot
-                    # join itself!
-                    self._add_metrics_to_dispatch(
-                        self._get_sysinfo(), join_on_fail=False
-                    )
-                    last_res_metric_call = res_time
+                with self._configuration_lock:
+                    if (
+                        self._resources_metrics_interval
+                        and (res_time := time.time()) - last_res_metric_call
+                        > self._resources_metrics_interval
+                    ):
+                        # Set join on fail to false as if an error is thrown
+                        # join would be called on this thread and a thread cannot
+                        # join itself!
+                        self._add_metrics_to_dispatch(
+                            self._get_sysinfo(), join_on_fail=False
+                        )
+                        last_res_metric_call = res_time
 
                 if time.time() - last_heartbeat < HEARTBEAT_INTERVAL:
                     continue
@@ -797,27 +799,28 @@ class Run:
             _description_
         """
 
-        if suppress_errors is not None:
-            self._suppress_errors = suppress_errors
+        with self._configuration_lock:
+            if suppress_errors is not None:
+                self._suppress_errors = suppress_errors
 
-        if queue_blocking is not None:
-            self._queue_blocking = queue_blocking
+            if queue_blocking is not None:
+                self._queue_blocking = queue_blocking
 
-        if resources_metrics_interval and disable_resources_metrics:
-            self._error(
-                "Setting of resource metric interval and disabling resource metrics is ambiguous"
-            )
-            return False
+            if resources_metrics_interval and disable_resources_metrics:
+                self._error(
+                    "Setting of resource metric interval and disabling resource metrics is ambiguous"
+                )
+                return False
 
-        if disable_resources_metrics:
-            self._pid = None
-            self._resources_metrics_interval = None
+            if disable_resources_metrics:
+                self._pid = None
+                self._resources_metrics_interval = None
 
-        if resources_metrics_interval:
-            self._resources_metrics_interval = resources_metrics_interval
+            if resources_metrics_interval:
+                self._resources_metrics_interval = resources_metrics_interval
 
-        if storage_id:
-            self._storage_id = storage_id
+            if storage_id:
+                self._storage_id = storage_id
 
         return True
 
