@@ -920,7 +920,7 @@ class Run:
             return False
 
         if not self._active:
-            self._error("Run is not active")
+            self._error("Run is not active", join_on_fail)
             return False
 
         if self._status != "running":
