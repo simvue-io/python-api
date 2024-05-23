@@ -218,10 +218,6 @@ class Run:
             raise RuntimeError("Could not commence heartbeat, run not initialised")
 
         def _heartbeat(
-            url: typing.Optional[str] = self._url,
-            headers: dict[str, str] = self._headers,
-            run_id: typing.Optional[str] = self._id,
-            online: bool = self._mode == "online",
             heartbeat_trigger: threading.Event = self._heartbeat_termination_trigger,
         ) -> None:
             last_heartbeat = time.time()
@@ -237,6 +233,9 @@ class Run:
                     and (res_time := time.time()) - last_res_metric_call
                     > self._resources_metrics_interval
                 ):
+                    # Set join on fail to false as if an error is thrown
+                    # join would be called on this thread and a thread cannot
+                    # join itself!
                     self._add_metrics_to_dispatch(
                         self._get_sysinfo(), join_on_fail=False
                     )
@@ -393,6 +392,9 @@ class Run:
         ----------
         message : str
             message to display in exception or logger message
+        join_threads : bool
+            whether to join the threads on failure. This option exists to
+            prevent join being called in nested thread calls to this function.
 
         Raises
         ------
