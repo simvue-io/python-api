@@ -3,8 +3,6 @@ import matplotlib.pyplot as plt
 import plotly
 import pytest
 
-from simvue.serialization import Serializer, Deserializer
-
 try:
     import matplotlib.pyplot as plt
 except ImportError:
