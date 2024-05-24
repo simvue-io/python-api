@@ -1,10 +1,7 @@
-<<<<<<< HEAD
 from simvue.serialization import serialize_object
 import torch
-=======
 import pytest
-from simvue.serialization import Serializer, Deserializer
->>>>>>> dev
+
 
 try:
     import torch
