@@ -98,7 +98,7 @@ def _serialize_plotly_figure(data: typing.Any) -> typing.Optional[tuple[str, str
     except ImportError:
         return None
     mimetype = "application/vnd.plotly.v1+json"
-    data = plotly.io.to_json(data, "json")
+    data = plotly.io.to_json(data, engine="json")
     return data, mimetype
 
 
@@ -109,7 +109,7 @@ def _serialize_matplotlib(data: typing.Any) -> typing.Optional[tuple[str, str]]:
     except ImportError:
         return None
     mimetype = "application/vnd.plotly.v1+json"
-    data = plotly.io.to_json(plotly.tools.mpl_to_plotly(data.gcf()), "json")
+    data = plotly.io.to_json(plotly.tools.mpl_to_plotly(data.gcf()), engine="json")
     return data, mimetype
 
 
@@ -120,7 +120,7 @@ def _serialize_matplotlib_figure(data: typing.Any) -> typing.Optional[tuple[str,
     except ImportError:
         return None
     mimetype = "application/vnd.plotly.v1+json"
-    data = plotly.io.to_json(plotly.tools.mpl_to_plotly(data), "json")
+    data = plotly.io.to_json(plotly.tools.mpl_to_plotly(data), engine="json")
     return data, mimetype
 
 
