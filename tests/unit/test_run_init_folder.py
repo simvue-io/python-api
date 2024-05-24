@@ -14,7 +14,7 @@ def test_run_init_folder():
     with pytest.raises(RuntimeError) as exc_info:
         run.init(
             metadata={"dataset.x1_lower": x1_lower, "dataset.x1_upper": x1_upper},
-            tags=["tag_1", "tag_2"],
+            tags=["tag_1", "tag_2", "test_run_init_folder"],
             folder="test_folder",
             description="A test to validate folder input passed into run.init",
             retention_period="1 hour",

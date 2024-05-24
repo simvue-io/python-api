@@ -14,7 +14,9 @@ def test_run_init_metadata():
     with pytest.raises(RuntimeError) as exc_info:
         run.init(metadata={'dataset.x1_lower': x1_lower, 'dataset.x1_upper': x1_upper},
                 description="A test to validate inputs passed into metadata dictionary",
-                retention_period="1 hour"
+                retention_period="1 hour",
+                folder="/simvue_unit_testing",
+                tags=["simvue_client_unit_tests", "test_run_init_metadata"]
         )
 
     assert "Input should be a valid integer" in str(exc_info.value)

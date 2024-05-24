@@ -42,35 +42,35 @@ def log_messages(caplog):
 
 
 @pytest.fixture
-def create_test_run() -> typing.Generator[typing.Tuple[sv_run.Run, dict], None, None]:
+def create_test_run(request) -> typing.Generator[typing.Tuple[sv_run.Run, dict], None, None]:
     with sv_run.Run() as run:
-        yield run, setup_test_run(run, True)
+        yield run, setup_test_run(run, True, request)
 
 
 @pytest.fixture
-def create_test_run_offline(mocker: pytest_mock.MockerFixture) -> typing.Generator[typing.Tuple[sv_run.Run, dict], None, None]:
+def create_test_run_offline(mocker: pytest_mock.MockerFixture, request) -> typing.Generator[typing.Tuple[sv_run.Run, dict], None, None]:
     with tempfile.TemporaryDirectory() as temp_d:
         mocker.patch.object(simvue.utilities, "get_offline_directory", lambda *_: temp_d)
         with sv_run.Run("offline") as run:
-            yield run, setup_test_run(run, True)
+            yield run, setup_test_run(run, True, request)
 
 
 @pytest.fixture
-def create_plain_run() -> typing.Generator[typing.Tuple[sv_run.Run, dict], None, None]:
+def create_plain_run(request) -> typing.Generator[typing.Tuple[sv_run.Run, dict], None, None]:
     with sv_run.Run() as run:
-        yield run, setup_test_run(run, False)
+        yield run, setup_test_run(run, False, request)
 
 
 @pytest.fixture
-def create_plain_run_offline(mocker: pytest_mock.MockerFixture) -> typing.Generator[typing.Tuple[sv_run.Run, dict], None, None]:
+def create_plain_run_offline(mocker: pytest_mock.MockerFixture, request) -> typing.Generator[typing.Tuple[sv_run.Run, dict], None, None]:
     with tempfile.TemporaryDirectory() as temp_d:
         mocker.patch.object(simvue.utilities, "get_offline_directory", lambda *_: temp_d)
         with sv_run.Run("offline") as run:
             
-            yield run, setup_test_run(run, False)
+            yield run, setup_test_run(run, False, request)
 
 
-def setup_test_run(run: sv_run.Run, create_objects: bool):
+def setup_test_run(run: sv_run.Run, create_objects: bool, request: pytest.FixtureRequest):
     fix_use_id: str = str(uuid.uuid4()).split('-', 1)[0]
     TEST_DATA = {
         "event_contains": "sent event",
@@ -78,12 +78,17 @@ def setup_test_run(run: sv_run.Run, create_objects: bool):
             "test_engine": "pytest",
             "test_identifier": fix_use_id
         },
-        "folder": f"/simvue_unit_testing/{fix_use_id}"
+        "folder": f"/simvue_unit_testing/{fix_use_id}",
+        "tags": ["simvue_client_unit_tests", request.node.name]
     }
+
+    if os.environ.get("CI"):
+        TEST_DATA["tags"].append("ci")
+
     run.config(suppress_errors=False)
     run.init(
         name=f"test_run_{TEST_DATA['metadata']['test_identifier']}",
-        tags=["simvue_client_unit_tests"],
+        tags=TEST_DATA["tags"],
         folder=TEST_DATA["folder"],
         visibility="tenant",
         retention_period="1 hour"

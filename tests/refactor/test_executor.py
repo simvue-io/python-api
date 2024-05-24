@@ -8,14 +8,15 @@ import multiprocessing
 @pytest.mark.executor
 @pytest.mark.parametrize("successful", (True, False), ids=("successful", "failing"))
 def test_executor_add_process(
-    successful: bool
+    successful: bool,
+    request: pytest.FixtureRequest
 ) -> None:
     run = simvue.Run()
     completion_trigger = multiprocessing.Event()
     run.init(
         f"test_executor_{'success' if successful else 'fail'}",
-        tags=["simvue_client_unit_tests"],
-        folder="/simvue_unit_test_folder"
+        tags=["simvue_client_unit_tests", request.node.name],
+        folder="/simvue_unit_testing"
     )
 
     run.add_process(
