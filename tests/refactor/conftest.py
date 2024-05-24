@@ -79,7 +79,7 @@ def setup_test_run(run: sv_run.Run, create_objects: bool, request: pytest.Fixtur
             "test_identifier": fix_use_id
         },
         "folder": f"/simvue_unit_testing/{fix_use_id}",
-        "tags": ["simvue_client_unit_tests", request.node.name]
+        "tags": ["simvue_client_unit_tests", request.node.name.replace("[", "_").replace("]", "_")]
     }
 
     if os.environ.get("CI"):

@@ -52,7 +52,6 @@ from .utilities import (
 if typing.TYPE_CHECKING:
     from .factory.proxy import SimvueBaseClass
     from .factory.dispatch import DispatcherBaseClass
-    from .types import DeserializedContent
 
 UPLOAD_TIMEOUT: int = 30
 HEARTBEAT_INTERVAL: int = 60
@@ -990,7 +989,24 @@ class Run:
         name: typing.Optional[str] = None,
         allow_pickle: bool = False,
     ) -> bool:
-        obj: DeserializedContent
+        """Save an object to the Simvue server
+
+        Parameters
+        ----------
+        obj : typing.Any
+            object to serialize and send to the server
+        category : Literal['input', 'output', 'code']
+            category of file with respect to this run
+        name : str, optional
+            name to associate with this object, by default None
+        allow_pickle : bool, optional
+            whether to allow pickling if all other serialization types fail, by default False
+
+        Returns
+        -------
+        bool
+            whether object upload was successful
+        """
         serialized = serialize_object(obj, allow_pickle)
 
         if not serialized or not (pickled := serialized[0]):
@@ -1022,7 +1038,7 @@ class Run:
     @pydantic.validate_call
     def save_file(
         self,
-        filename: pydantic.FilePath,
+        file_path: pydantic.FilePath,
         category: typing.Literal["input", "output", "code"],
         filetype: typing.Optional[str] = None,
         preserve_path: bool = False,
@@ -1032,7 +1048,7 @@ class Run:
 
         Parameters
         ----------
-        filename : pydantic.FilePath
+        file_path : pydantic.FilePath
             path to the file to upload
         category : Literal['input', 'output', 'code']
             category of file with respect to this run
@@ -1067,16 +1083,16 @@ class Run:
             self._error(f"Invalid MIME type '{filetype}' specified")
             return False
 
-        stored_file_name: str = f"{filename}"
+        stored_file_name: str = f"{file_path}"
 
         if preserve_path and stored_file_name.startswith("./"):
             stored_file_name = stored_file_name[2:]
         elif not preserve_path:
-            stored_file_name = os.path.basename(filename)
+            stored_file_name = os.path.basename(file_path)
 
         # Determine mimetype
         if not (mimetype := filetype):
-            mimetype = mimetypes.guess_type(filename)[0] or "application/octet-stream"
+            mimetype = mimetypes.guess_type(file_path)[0] or "application/octet-stream"
 
         data: dict[str, typing.Any] = {
             "name": name or stored_file_name,
@@ -1084,11 +1100,11 @@ class Run:
             "type": mimetype,
             "storage": self._storage_id,
             "category": category,
-            "size": (file_size := os.path.getsize(filename)),
+            "size": (file_size := os.path.getsize(file_path)),
             "originalPath": os.path.abspath(
-                os.path.expanduser(os.path.expandvars(filename))
+                os.path.expanduser(os.path.expandvars(file_path))
             ),
-            "checksum": calculate_sha256(f"{filename}", True),
+            "checksum": calculate_sha256(f"{file_path}", True),
         }
 
         if not file_size:

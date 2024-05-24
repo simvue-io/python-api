@@ -60,7 +60,7 @@ def serialize_object(
     Returns
     -------
     Callable[[typing.Any], tuple[str, str]]
-        the serializer to user
+        the serializer to use
     """
     module_name = data.__class__.__module__
     class_name = data.__class__.__name__
