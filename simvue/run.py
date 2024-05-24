@@ -724,7 +724,6 @@ class Run:
         """Return the unique id of the run"""
         return self._id
 
-    @pydantic.validate_call
     @skip_if_failed("_aborted", "_suppress_errors", False)
     @pydantic.validate_call
     def reconnect(self, run_id: str) -> bool:
@@ -765,7 +764,6 @@ class Run:
         """
         self._pid = pid
 
-    @pydantic.validate_call
     @skip_if_failed("_aborted", "_suppress_errors", False)
     @pydantic.validate_call
     def config(
@@ -869,7 +867,6 @@ class Run:
 
         return False
 
-    @pydantic.validate_call
     @skip_if_failed("_aborted", "_suppress_errors", False)
     @pydantic.validate_call
     def log_event(self, message, timestamp: typing.Optional[str] = None) -> bool:
@@ -944,7 +941,6 @@ class Run:
 
         return True
 
-    @pydantic.validate_call
     @skip_if_failed("_aborted", "_suppress_errors", False)
     @pydantic.validate_call
     def log_metrics(
@@ -1079,7 +1075,6 @@ class Run:
 
         return True
 
-    @pydantic.validate_call
     @skip_if_failed("_aborted", "_suppress_errors", False)
     @pydantic.validate_call
     def save_directory(
@@ -1116,7 +1111,6 @@ class Run:
 
         return True
 
-    @pydantic.validate_call
     @skip_if_failed("_aborted", "_suppress_errors", False)
     @pydantic.validate_call
     def save_all(
@@ -1270,7 +1264,6 @@ class Run:
 
         return False
 
-    @pydantic.validate_call
     @skip_if_failed("_aborted", "_suppress_errors", False)
     @pydantic.validate_call
     def add_alerts(
@@ -1318,7 +1311,6 @@ class Run:
 
         return False
 
-    @pydantic.validate_call
     @skip_if_failed("_aborted", "_suppress_errors", None)
     @pydantic.validate_call
     def create_alert(
@@ -1480,7 +1472,6 @@ class Run:
 
         return alert_id
 
-    @pydantic.validate_call
     @skip_if_failed("_aborted", "_suppress_errors", False)
     @pydantic.validate_call
     def log_alert(
