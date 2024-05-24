@@ -60,6 +60,22 @@ RESOURCES_METRIC_PREFIX: str = "resources"
 logger = logging.getLogger(__name__)
 
 
+def check_run_initialised(
+    function: typing.Callable[..., typing.Any],
+) -> typing.Callable[..., typing.Any]:
+    def _wrapper(self: "Run", *args: typing.Any, **kwargs: typing.Any) -> typing.Any:
+        if not self._simvue:
+            raise RuntimeError(
+                "Simvue Run must be initialised before calling "
+                f"'{function.__name__}'"
+            )
+        return function(self, *args, **kwargs)
+
+    _wrapper.__name__ = f"{function.__name__}__init_locked"
+
+    return _wrapper
+
+
 class Run:
     """Track simulation details based on token and URL
 
@@ -822,6 +838,7 @@ class Run:
 
         return True
 
+    @check_run_initialised
     @skip_if_failed("_aborted", "_suppress_errors", False)
     @pydantic.validate_call
     def update_metadata(self, metadata: dict[str, typing.Any]) -> bool:
@@ -847,6 +864,7 @@ class Run:
 
         return False
 
+    @check_run_initialised
     @skip_if_failed("_aborted", "_suppress_errors", False)
     @pydantic.validate_call
     def update_tags(self, tags: list[str]) -> bool:
@@ -867,6 +885,7 @@ class Run:
 
         return False
 
+    @check_run_initialised
     @skip_if_failed("_aborted", "_suppress_errors", False)
     @pydantic.validate_call
     def log_event(self, message, timestamp: typing.Optional[str] = None) -> bool:
@@ -941,6 +960,7 @@ class Run:
 
         return True
 
+    @check_run_initialised
     @skip_if_failed("_aborted", "_suppress_errors", False)
     @pydantic.validate_call
     def log_metrics(
@@ -959,6 +979,7 @@ class Run:
         self._step += 1
         return add_dispatch
 
+    @check_run_initialised
     @skip_if_failed("_aborted", "_suppress_errors", False)
     @pydantic.validate_call
     def save(
@@ -1075,6 +1096,7 @@ class Run:
 
         return True
 
+    @check_run_initialised
     @skip_if_failed("_aborted", "_suppress_errors", False)
     @pydantic.validate_call
     def save_directory(
@@ -1111,6 +1133,7 @@ class Run:
 
         return True
 
+    @check_run_initialised
     @skip_if_failed("_aborted", "_suppress_errors", False)
     @pydantic.validate_call
     def save_all(
@@ -1141,6 +1164,7 @@ class Run:
 
         return True
 
+    @check_run_initialised
     @skip_if_failed("_aborted", "_suppress_errors", False)
     @pydantic.validate_call
     def set_status(
@@ -1210,6 +1234,7 @@ class Run:
 
         return True
 
+    @check_run_initialised
     @skip_if_failed("_aborted", "_suppress_errors", False)
     @pydantic.validate_call
     def set_folder_details(
@@ -1264,6 +1289,7 @@ class Run:
 
         return False
 
+    @check_run_initialised
     @skip_if_failed("_aborted", "_suppress_errors", False)
     @pydantic.validate_call
     def add_alerts(
@@ -1311,6 +1337,7 @@ class Run:
 
         return False
 
+    @check_run_initialised
     @skip_if_failed("_aborted", "_suppress_errors", None)
     @pydantic.validate_call
     def create_alert(
@@ -1472,6 +1499,7 @@ class Run:
 
         return alert_id
 
+    @check_run_initialised
     @skip_if_failed("_aborted", "_suppress_errors", False)
     @pydantic.validate_call
     def log_alert(
