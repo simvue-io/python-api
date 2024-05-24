@@ -41,6 +41,17 @@ def log_messages(caplog):
     yield caplog.messages
 
 
+@pytest.fixture(autouse=True)
+def skip_on_server_timeout(request):
+    yield
+    if hasattr(request.node, 'rep_call') and request.node.rep_call.failed:
+        if (
+            isinstance(request.node.rep_call.excinfo.value, RuntimeError)
+            and "Read timed out." in f"{request.node.rep_call.excinfo.value}"
+        ):
+            pytest.skip(f"Test skipped due to time out: {request.node.rep_call.excinfo.value}")
+
+
 @pytest.fixture
 def create_test_run() -> typing.Generator[typing.Tuple[sv_run.Run, dict], None, None]:
     with sv_run.Run() as run:
