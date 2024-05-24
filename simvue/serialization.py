@@ -8,6 +8,7 @@ Contains serializers for storage of objects on the Simvue server
 import typing
 import pickle
 import pandas
+import json
 import numpy
 
 from io import BytesIO
@@ -82,6 +83,8 @@ def serialize_object(
                 return _serialize_matplotlib(data)
         except ImportError:
             pass
+    elif serialized := _serialize_json(data):
+        return serialized
 
     if allow_pickle:
         return _serialize_pickle(data)
@@ -152,6 +155,15 @@ def _serialize_torch_tensor(data: typing.Any) -> typing.Optional[tuple[str, str]
     torch.save(data, mfile)
     mfile.seek(0)
     data = mfile.read()
+    return data, mimetype
+
+
+def _serialize_json(data: typing.Any) -> typing.Optional[tuple[str, str]]:
+    mimetype = "application/json"
+    try:
+        data = json.dumps(data)
+    except TypeError:
+        return None
     return data, mimetype
 
 

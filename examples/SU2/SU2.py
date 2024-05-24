@@ -56,7 +56,7 @@ if __name__ == "__main__":
         filetype = None
         if input_file.endswith(".cfg"):
             filetype = "text/plain"
-        run.save(input_file, "input", filetype)
+        run.save_file(input_file, "input", filetype)
 
     running = True
     latest = []
@@ -106,6 +106,6 @@ if __name__ == "__main__":
 
     # Save output files
     for output_file in OUTPUT_FILES:
-        run.save(output_file, "output")
+        run.save_file(output_file, "output")
 
     run.close()

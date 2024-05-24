@@ -1142,7 +1142,7 @@ class Run:
 
         for item in items:
             if item.is_file():
-                save_file = self.save(f"{item}", category, filetype, preserve_path)
+                save_file = self.save_file(item, category, filetype, preserve_path)
             elif item.is_dir():
                 save_file = self.save_directory(item, category, filetype, preserve_path)
             else:

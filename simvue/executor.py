@@ -167,10 +167,10 @@ class Executor:
             )
 
         if script:
-            self._runner.save(filename=script, category="code")
+            self._runner.save_file(filename=script, category="code")
 
         if input_file:
-            self._runner.save(filename=input_file, category="input")
+            self._runner.save_file(filename=input_file, category="input")
 
         _command: typing.List[str] = []
 
@@ -284,11 +284,11 @@ class Executor:
         for proc_id in self._exit_codes.keys():
             # Only save the file if the contents are not empty
             if self._std_err[proc_id]:
-                self._runner.save(
+                self._runner.save_file(
                     f"{self._runner.name}_{proc_id}.err", category="output"
                 )
             if self._std_out[proc_id]:
-                self._runner.save(
+                self._runner.save_file(
                     f"{self._runner.name}_{proc_id}.out", category="output"
                 )
 
