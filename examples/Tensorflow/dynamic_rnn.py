@@ -45,7 +45,7 @@ if __name__ == "__main__":
             "computation over sequences with variable length. This example is using a toy dataset to "
             "classify linear sequences. The generated sequences have variable length.",
         )
-        run.save("dynamic_rnn.py", "code")
+        run.save_file("dynamic_rnn.py", "code")
 
         # ====================
         #  TOY DATA GENERATOR

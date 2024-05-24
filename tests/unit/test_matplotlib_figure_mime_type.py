@@ -1,5 +1,6 @@
+from simvue.serialization import serialize_object
+import matplotlib.pyplot as plt
 import pytest
-from simvue.serialization import Serializer
 
 try:
     import matplotlib.pyplot as plt
@@ -14,6 +15,6 @@ def test_matplotlib_figure_mime_type():
     plt.plot([1, 2, 3, 4])
     figure = plt.gcf()
 
-    _, mime_type = Serializer().serialize(figure)
+    _, mime_type = serialize_object(figure, False)
 
     assert (mime_type == 'application/vnd.plotly.v1+json')

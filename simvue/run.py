@@ -37,7 +37,7 @@ from .executor import Executor
 from .factory.proxy import Simvue
 from .metrics import get_gpu_metrics, get_process_cpu, get_process_memory
 from .models import RunInput
-from .serialization import Serializer
+from .serialization import serialize_object
 from .system import get_system
 from .metadata import git_info
 from .utilities import (
@@ -159,7 +159,7 @@ class Run:
             else:
                 if self._active:
                     self.log_event(f"{exc_type.__name__}: {value}")
-                if exc_type.__name__ in ("KeyboardInterrupt") and self._active:
+                if exc_type.__name__ in ("KeyboardInterrupt",) and self._active:
                     self.set_status("terminated")
                 else:
                     if traceback and self._active:
@@ -982,17 +982,87 @@ class Run:
     @check_run_initialised
     @skip_if_failed("_aborted", "_suppress_errors", False)
     @pydantic.validate_call
-    def save(
+    def save_object(
         self,
-        filename: str,
+        obj: typing.Any,
+        category: typing.Literal["input", "output", "code"],
+        name: typing.Optional[str] = None,
+        allow_pickle: bool = False,
+    ) -> bool:
+        """Save an object to the Simvue server
+
+        Parameters
+        ----------
+        obj : typing.Any
+            object to serialize and send to the server
+        category : Literal['input', 'output', 'code']
+            category of file with respect to this run
+        name : str, optional
+            name to associate with this object, by default None
+        allow_pickle : bool, optional
+            whether to allow pickling if all other serialization types fail, by default False
+
+        Returns
+        -------
+        bool
+            whether object upload was successful
+        """
+        serialized = serialize_object(obj, allow_pickle)
+
+        if not serialized or not (pickled := serialized[0]):
+            self._error(f"Failed to serialize '{obj}'")
+            return False
+
+        data_type = serialized[1]
+
+        if not data_type and not allow_pickle:
+            self._error("Unable to save Python object, set allow_pickle to True")
+            return False
+
+        data: dict[str, typing.Any] = {
+            "pickled": pickled,
+            "type": data_type,
+            "checksum": calculate_sha256(pickled, False),
+            "originalPath": "",
+            "size": sys.getsizeof(pickled),
+            "name": name,
+            "run": self._name,
+            "category": category,
+            "storage": self._storage_id,
+        }
+
+        # Register file
+        return self._simvue is not None and self._simvue.save_file(data) is not None
+
+    @skip_if_failed("_aborted", "_suppress_errors", False)
+    @pydantic.validate_call
+    def save_file(
+        self,
+        file_path: pydantic.FilePath,
         category: typing.Literal["input", "output", "code"],
         filetype: typing.Optional[str] = None,
         preserve_path: bool = False,
         name: typing.Optional[str] = None,
-        allow_pickle: bool = False,
     ) -> bool:
-        """
-        Upload file or object
+        """Upload file to the server
+
+        Parameters
+        ----------
+        file_path : pydantic.FilePath
+            path to the file to upload
+        category : Literal['input', 'output', 'code']
+            category of file with respect to this run
+        filetype : str, optional
+            the MIME file type else this is deduced, by default None
+        preserve_path : bool, optional
+            whether to preserve the path during storage, by default False
+        name : str, optional
+            name to associate with this file, by default None
+
+        Returns
+        -------
+        bool
+            whether the upload was successful
         """
         if self._mode == "disabled":
             return True
@@ -1005,96 +1075,48 @@ class Run:
             self._error("Cannot upload output files for runs in the created state")
             return False
 
-        is_file: bool = False
+        mimetypes.init()
+        mimetypes_valid = ["application/vnd.plotly.v1+json"]
+        mimetypes_valid += list(mimetypes.types_map.values())
 
-        if isinstance(filename, str):
-            if not os.path.isfile(filename):
-                self._error(f"File {filename} does not exist")
-                return False
-            else:
-                is_file = True
-
-        if filetype:
-            mimetypes_valid = ["application/vnd.plotly.v1+json"]
-            mimetypes.init()
-            for _, value in mimetypes.types_map.items():
-                mimetypes_valid.append(value)
-
-            if filetype not in mimetypes_valid:
-                self._error("Invalid MIME type specified")
-                return False
-
-        data: dict[str, typing.Any] = {}
-
-        if preserve_path:
-            data["name"] = filename
-            if data["name"].startswith("./"):
-                data["name"] = data["name"][2:]
-        elif is_file:
-            data["name"] = os.path.basename(filename)
-
-        if name:
-            data["name"] = name
-
-        data["run"] = self._name
-        data["category"] = category
-
-        if is_file:
-            data["size"] = os.path.getsize(filename)
-            data["originalPath"] = os.path.abspath(
-                os.path.expanduser(os.path.expandvars(filename))
-            )
-            data["checksum"] = calculate_sha256(filename, is_file)
-
-            if data["size"] == 0:
-                click.secho(
-                    "WARNING: saving zero-sized files not currently supported",
-                    bold=True,
-                    fg="yellow",
-                )
-                return True
-
-        # Determine mimetype
-        mimetype = None
-        if not filetype and is_file:
-            mimetypes.init()
-            mimetype = mimetypes.guess_type(filename)[0]
-            if not mimetype:
-                mimetype = "application/octet-stream"
-        elif is_file:
-            mimetype = filetype
-
-        if mimetype:
-            data["type"] = mimetype
-
-        if not is_file:
-            serialized = Serializer().serialize(filename, allow_pickle)
-
-            if not serialized or not (pickled := serialized[0]):
-                self._error(f"Failed to serialize '{filename}'")
-                return False
-
-            data_type = serialized[1]
-
-            data["pickled"] = pickled
-            data["type"] = data_type
-
-            if not data["type"] and not allow_pickle:
-                self._error("Unable to save Python object, set allow_pickle to True")
-                return False
-
-            data["checksum"] = calculate_sha256(pickled, False)
-            data["originalPath"] = ""
-            data["size"] = sys.getsizeof(pickled)
-
-        if self._storage_id:
-            data["storage"] = self._storage_id
-
-        # Register file
-        if not self._simvue.save_file(data):
+        if filetype and filetype not in mimetypes_valid:
+            self._error(f"Invalid MIME type '{filetype}' specified")
             return False
 
-        return True
+        stored_file_name: str = f"{file_path}"
+
+        if preserve_path and stored_file_name.startswith("./"):
+            stored_file_name = stored_file_name[2:]
+        elif not preserve_path:
+            stored_file_name = os.path.basename(file_path)
+
+        # Determine mimetype
+        if not (mimetype := filetype):
+            mimetype = mimetypes.guess_type(file_path)[0] or "application/octet-stream"
+
+        data: dict[str, typing.Any] = {
+            "name": name or stored_file_name,
+            "run": self._name,
+            "type": mimetype,
+            "storage": self._storage_id,
+            "category": category,
+            "size": (file_size := os.path.getsize(file_path)),
+            "originalPath": os.path.abspath(
+                os.path.expanduser(os.path.expandvars(file_path))
+            ),
+            "checksum": calculate_sha256(f"{file_path}", True),
+        }
+
+        if not file_size:
+            click.secho(
+                "WARNING: saving zero-sized files not currently supported",
+                bold=True,
+                fg="yellow",
+            )
+            return True
+
+        # Register file
+        return self._simvue.save_file(data) is not None
 
     @check_run_initialised
     @skip_if_failed("_aborted", "_suppress_errors", False)
@@ -1129,7 +1151,7 @@ class Run:
         for dirpath, _, filenames in directory.walk():
             for filename in filenames:
                 if (full_path := dirpath.joinpath(filename)).is_file():
-                    self.save(f"{full_path}", category, filetype, preserve_path)
+                    self.save_file(full_path, category, filetype, preserve_path)
 
         return True
 
@@ -1153,7 +1175,7 @@ class Run:
 
         for item in items:
             if item.is_file():
-                save_file = self.save(f"{item}", category, filetype, preserve_path)
+                save_file = self.save_file(item, category, filetype, preserve_path)
             elif item.is_dir():
                 save_file = self.save_directory(item, category, filetype, preserve_path)
             else:
