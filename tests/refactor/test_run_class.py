@@ -377,3 +377,23 @@ def test_save_file(
                 assert variable.out == "WARNING: saving zero-sized files not currently supported\n"
 
 
+@pytest.mark.run
+@pytest.mark.parametrize("object_type", ("DataFrame", "ndarray"))
+def test_save_object(
+    create_plain_run: typing.Tuple[sv_run.Run, dict], object_type: str
+) -> None:
+    simvue_run, _ = create_plain_run
+
+    if object_type == "DataFrame":
+        try:
+            from pandas import DataFrame
+        except ImportError:
+            pytest.skip("Pandas is not installed")
+        save_obj = DataFrame({"x": [1, 2, 3, 4], "y": [2, 4, 6, 8]})
+    elif object_type == "ndarray":
+        try:
+            from numpy import array
+        except ImportError:
+            pytest.skip("Numpy is not installed")
+        save_obj = array([1, 2, 3, 4])
+    simvue_run.save_object(save_obj, "input", f"test_object_{object_type}")
