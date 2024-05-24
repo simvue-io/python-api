@@ -189,6 +189,8 @@ def deserialize_data(
         return _deserialize_dataframe(data)
     elif mimetype == "application/vnd.simvue.torch.v1":
         return _deserialize_torch_tensor(data)
+    elif mimetype == "application/json":
+        return _deserialize_json(data)
     elif mimetype == "application/octet-stream" and allow_pickle:
         return _deserialize_pickle(data)
     return None
@@ -240,6 +242,11 @@ def _deserialize_torch_tensor(data: "Buffer") -> typing.Optional["Tensor"]:
     return torch.load(mfile)
 
 
-def _deserialize_pickle(data):
+def _deserialize_pickle(data) -> typing.Optional[typing.Any]:
     data = pickle.loads(data)
+    return data
+
+
+def _deserialize_json(data) -> typing.Optional[typing.Any]:
+    data = json.loads(data)
     return data
