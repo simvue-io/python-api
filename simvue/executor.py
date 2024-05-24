@@ -167,10 +167,10 @@ class Executor:
             )
 
         if script:
-            self._runner.save_file(filename=script, category="code")
+            self._runner.save_file(file_path=script, category="code")
 
         if input_file:
-            self._runner.save_file(filename=input_file, category="input")
+            self._runner.save_file(file_path=input_file, category="input")
 
         _command: typing.List[str] = []
 
