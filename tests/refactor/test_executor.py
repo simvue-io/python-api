@@ -16,7 +16,7 @@ def test_executor_add_process(
     run.init(
         f"test_executor_{'success' if successful else 'fail'}",
         tags=["simvue_client_unit_tests", request.node.name],
-        folder="/simvue_unit_test_folder"
+        folder="/simvue_unit_testing"
     )
 
     run.add_process(
