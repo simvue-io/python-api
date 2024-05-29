@@ -921,7 +921,7 @@ class Run:
         self,
         metrics: dict[str, typing.Union[int, float]],
         step: typing.Optional[int] = None,
-        time: typing.Optional[int] = None,
+        time: typing.Optional[float] = None,
         timestamp: typing.Optional[str] = None,
         join_on_fail: bool = True,
     ) -> bool:
@@ -967,7 +967,7 @@ class Run:
         self,
         metrics: dict[str, typing.Union[int, float]],
         step: typing.Optional[int] = None,
-        time: typing.Optional[int] = None,
+        time: typing.Optional[float] = None,
         timestamp: typing.Optional[str] = None,
     ) -> bool:
         """
