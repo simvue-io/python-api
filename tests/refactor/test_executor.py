@@ -15,7 +15,7 @@ def test_executor_add_process(
     completion_trigger = multiprocessing.Event()
     run.init(
         f"test_executor_{'success' if successful else 'fail'}",
-        tags=["simvue_client_unit_tests", request.node.name],
+        tags=["simvue_client_unit_tests", request.node.name.replace("[", "_").replace("]", "_")],
         folder="/simvue_unit_testing"
     )
 

@@ -6,6 +6,7 @@ import json
 import tabulate
 import pydantic
 import importlib.util
+import functools
 import contextlib
 import os
 import typing
@@ -77,6 +78,7 @@ def check_extra(extra_name: str) -> typing.Callable:
     def decorator(
         class_func: typing.Optional[typing.Callable] = None,
     ) -> typing.Optional[typing.Callable]:
+        @functools.wraps(class_func)
         def wrapper(self, *args, **kwargs) -> typing.Any:
             if extra_name == "plot" and not all(
                 [
@@ -129,6 +131,7 @@ def skip_if_failed(
     """
 
     def decorator(class_func: typing.Callable) -> typing.Callable:
+        @functools.wraps(class_func)
         def wrapper(self, *args, **kwargs) -> typing.Any:
             if getattr(self, failure_attr, None) and getattr(
                 self, ignore_exc_attr, None
@@ -158,7 +161,7 @@ def skip_if_failed(
                     return on_failure_return
                 raise RuntimeError(err_str)
 
-        wrapper.__name__ = f"{class_func.__name__}__fail_safe"
+        setattr(wrapper, "__fail_safe", True)
         return wrapper
 
     return decorator

@@ -50,7 +50,7 @@ def test_log_metrics(
         with pytest.raises(RuntimeError):
             run.init(
                 name=f"test_run_{str(uuid.uuid4()).split('-', 1)[0]}",
-                tags=["simvue_client_unit_tests", request.node.name],
+                tags=["simvue_client_unit_tests", request.node.name.replace("[", "_").replace("]", "_")],
                 folder="/simvue_unit_testing",
                 retention_period="1 hour",
                 visibility=visibility,
@@ -60,7 +60,7 @@ def test_log_metrics(
 
     run.init(
         name=f"test_run_{str(uuid.uuid4()).split('-', 1)[0]}",
-        tags=["simvue_client_unit_tests", request.node.name],
+        tags=["simvue_client_unit_tests", request.node.name.replace("[", "_").replace("]", "_")],
         folder="/simvue_unit_testing",
         visibility=visibility,
         resources_metrics_interval=1,
@@ -155,7 +155,7 @@ def test_runs_multiple_parallel(multi_threaded: bool, request: pytest.FixtureReq
                 run.config(suppress_errors=False)
                 run.init(
                     name=f"test_runs_multiple_{index + 1}",
-                    tags=["simvue_client_unit_tests", request.node.name],
+                    tags=["simvue_client_unit_tests", request.node.name.replace("[", "_").replace("]", "_")],
                     folder="/simvue_unit_testing",
                     retention_period="1 hour",
                 )
@@ -192,7 +192,7 @@ def test_runs_multiple_parallel(multi_threaded: bool, request: pytest.FixtureReq
                 run_1.config(suppress_errors=False)
                 run_1.init(
                     name="test_runs_multiple_unthreaded_1",
-                    tags=["simvue_client_unit_tests", request.node.name],
+                    tags=["simvue_client_unit_tests", request.node.name.replace("[", "_").replace("]", "_")],
                     folder="/simvue_unit_testing",
                     retention_period="1 hour",
                 )
@@ -246,7 +246,7 @@ def test_runs_multiple_series(request: pytest.FixtureRequest) -> None:
             run.config(suppress_errors=False)
             run.init(
                 name=f"test_runs_multiple_series_{index}",
-                tags=["simvue_client_unit_tests", request.node.name],
+                tags=["simvue_client_unit_tests", request.node.name.replace("[", "_").replace("]", "_")],
                 folder="/simvue_unit_testing",
                 retention_period="1 hour",
             )
@@ -288,7 +288,7 @@ def test_suppressed_errors(
         decorated_funcs = [
             name
             for name, method in inspect.getmembers(run, inspect.ismethod)
-            if method.__name__.endswith("__fail_safe")
+            if hasattr(method, "__fail_safe")
         ]
 
         if post_init:
@@ -296,7 +296,7 @@ def test_suppressed_errors(
             run.init(
                 name="test_suppressed_errors",
                 folder="/simvue_unit_testing",
-                tags=["simvue_client_unit_tests", request.node.name],
+                tags=["simvue_client_unit_tests", request.node.name.replace("[", "_").replace("]", "_")],
                 retention_period="1 hour"
             )
 
@@ -323,7 +323,7 @@ def test_set_folder_details(request: pytest.FixtureRequest) -> None:
     with sv_run.Run() as run:
         folder_name: str ="/simvue_unit_tests"
         description: str = "test description"
-        tags: list[str] = ["simvue_client_unit_tests", request.node.name]
+        tags: list[str] = ["simvue_client_unit_tests", request.node.name.replace("[", "_").replace("]", "_")]
         run.init(folder=folder_name)
         run.set_folder_details(path=folder_name, tags=tags, description=description)
 
