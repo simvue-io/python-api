@@ -20,6 +20,7 @@ import pydantic
 import re
 import sys
 import time
+import functools
 import platform
 import typing
 import uuid
@@ -63,6 +64,7 @@ logger = logging.getLogger(__name__)
 def check_run_initialised(
     function: typing.Callable[..., typing.Any],
 ) -> typing.Callable[..., typing.Any]:
+    @functools.wraps(function)
     def _wrapper(self: "Run", *args: typing.Any, **kwargs: typing.Any) -> typing.Any:
         if not self._simvue:
             raise RuntimeError(
@@ -70,8 +72,6 @@ def check_run_initialised(
                 f"'{function.__name__}'"
             )
         return function(self, *args, **kwargs)
-
-    _wrapper.__name__ = f"{function.__name__}__init_locked"
 
     return _wrapper
 
@@ -838,8 +838,8 @@ class Run:
 
         return True
 
-    @check_run_initialised
     @skip_if_failed("_aborted", "_suppress_errors", False)
+    @check_run_initialised
     @pydantic.validate_call
     def update_metadata(self, metadata: dict[str, typing.Any]) -> bool:
         """
@@ -864,8 +864,8 @@ class Run:
 
         return False
 
-    @check_run_initialised
     @skip_if_failed("_aborted", "_suppress_errors", False)
+    @check_run_initialised
     @pydantic.validate_call
     def update_tags(self, tags: list[str]) -> bool:
         """
@@ -885,8 +885,8 @@ class Run:
 
         return False
 
-    @check_run_initialised
     @skip_if_failed("_aborted", "_suppress_errors", False)
+    @check_run_initialised
     @pydantic.validate_call
     def log_event(self, message, timestamp: typing.Optional[str] = None) -> bool:
         """
@@ -960,8 +960,8 @@ class Run:
 
         return True
 
-    @check_run_initialised
     @skip_if_failed("_aborted", "_suppress_errors", False)
+    @check_run_initialised
     @pydantic.validate_call
     def log_metrics(
         self,
@@ -979,8 +979,8 @@ class Run:
         self._step += 1
         return add_dispatch
 
-    @check_run_initialised
     @skip_if_failed("_aborted", "_suppress_errors", False)
+    @check_run_initialised
     @pydantic.validate_call
     def save_object(
         self,
@@ -1035,6 +1035,7 @@ class Run:
         return self._simvue is not None and self._simvue.save_file(data) is not None
 
     @skip_if_failed("_aborted", "_suppress_errors", False)
+    @check_run_initialised
     @pydantic.validate_call
     def save_file(
         self,
@@ -1118,8 +1119,8 @@ class Run:
         # Register file
         return self._simvue.save_file(data) is not None
 
-    @check_run_initialised
     @skip_if_failed("_aborted", "_suppress_errors", False)
+    @check_run_initialised
     @pydantic.validate_call
     def save_directory(
         self,
@@ -1155,8 +1156,8 @@ class Run:
 
         return True
 
-    @check_run_initialised
     @skip_if_failed("_aborted", "_suppress_errors", False)
+    @check_run_initialised
     @pydantic.validate_call
     def save_all(
         self,
@@ -1186,8 +1187,8 @@ class Run:
 
         return True
 
-    @check_run_initialised
     @skip_if_failed("_aborted", "_suppress_errors", False)
+    @check_run_initialised
     @pydantic.validate_call
     def set_status(
         self, status: typing.Literal["completed", "failed", "terminated"]
@@ -1256,8 +1257,8 @@ class Run:
 
         return True
 
-    @check_run_initialised
     @skip_if_failed("_aborted", "_suppress_errors", False)
+    @check_run_initialised
     @pydantic.validate_call
     def set_folder_details(
         self,
@@ -1311,8 +1312,8 @@ class Run:
 
         return False
 
-    @check_run_initialised
     @skip_if_failed("_aborted", "_suppress_errors", False)
+    @check_run_initialised
     @pydantic.validate_call
     def add_alerts(
         self,
@@ -1359,8 +1360,8 @@ class Run:
 
         return False
 
-    @check_run_initialised
     @skip_if_failed("_aborted", "_suppress_errors", None)
+    @check_run_initialised
     @pydantic.validate_call
     def create_alert(
         self,
@@ -1521,8 +1522,8 @@ class Run:
 
         return alert_id
 
-    @check_run_initialised
     @skip_if_failed("_aborted", "_suppress_errors", False)
+    @check_run_initialised
     @pydantic.validate_call
     def log_alert(
         self, identifier: str, state: typing.Literal["ok", "critical"]

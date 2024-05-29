@@ -279,7 +279,7 @@ class Client:
         alerts : bool, optional
             whether to include alert information in the response.
             Default False.
-        format : str ('dict' | 'dataframe'), optional
+        format : Literal['dict', 'dataframe'], optional
             the structure of the response, either a dictionary or a dataframe.
             Default is 'dict'. Pandas must be installed for 'dataframe'.
         count : int, optional
@@ -932,9 +932,9 @@ class Client:
         ----------
         metric_names : list[str]
             the names of metrics to return values for
-        xaxis : str ('step' | 'time' | 'timestamp')
+        xaxis : Literal['step', 'time', 'timestamp']
             the xaxis type
-        output_format : str ('dataframe' | 'list')
+        output_format : Literal['dataframe', 'list']
             the format of the output, either a list or a Pandas dataframe
         run_ids : list[str], optional
             list of runs by id to include within metric retrieval
