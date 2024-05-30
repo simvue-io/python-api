@@ -639,7 +639,7 @@ class Run:
         executable : str | None, optional
             the main executable for the command, if not specified this is taken to be the first
             positional argument, by default None
-        *positional_arguments
+        *positional_arguments : Any, ..., optional
             all other positional arguments are taken to be part of the command to execute
         script : str | None, optional
             the script to run, note this only work if the script is not an option, if this is the case
