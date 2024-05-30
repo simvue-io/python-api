@@ -140,7 +140,7 @@ def test_get_folder(create_test_run: tuple[sv_run.Run, dict]) -> None:
 
 
 @pytest.mark.dependency
-@pytest.mark.client
+@pytest.mark.client 
 def test_get_metrics_names(create_test_run: tuple[sv_run.Run, dict]) -> None:
     client = svc.Client()
     time.sleep(1)
@@ -175,7 +175,6 @@ def test_run_deletion(create_test_run: tuple[sv_run.Run, dict]) -> None:
 @pytest.mark.client(depends=PRE_DELETION_TESTS)
 def test_runs_deletion(create_test_run: tuple[sv_run.Run, dict]) -> None:
     run, run_data = create_test_run
-    run.update_tags(["simvue_client_unit_tests", "test_runs_deletion"])
     run.close()
     client = svc.Client()
     assert len(client.delete_runs(run_data["folder"])) > 0
@@ -185,7 +184,6 @@ def test_runs_deletion(create_test_run: tuple[sv_run.Run, dict]) -> None:
 @pytest.mark.client(depends=PRE_DELETION_TESTS + ["test_runs_deletion"])
 def test_folder_deletion(create_test_run: tuple[sv_run.Run, dict]) -> None:
     run, run_data = create_test_run
-    run.update_tags(["simvue_client_unit_tests", "test_folder_deletion"])
     run.close()
     client = svc.Client()
     # This test is called last, one run created so expect length 1

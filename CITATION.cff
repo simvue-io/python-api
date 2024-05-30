@@ -1,0 +1,44 @@
+# This CITATION.cff file was generated with cffinit.
+# Visit https://bit.ly/cffinit to generate yours today!
+
+cff-version: 1.2.0
+title: Simvue
+message: >-
+  If you use this software, please cite it using the
+  metadata from this file.
+type: software
+authors:
+  - given-names: Andrew
+    family-names: Lahiff
+    affiliation: United Kingdom Atomic Energy Authority
+    orcid: 'https://orcid.org/0000-0002-2785-4116'
+  - given-names: Aby
+    family-names: Abraham
+    affiliation: United Kingdom Atomic Energy Authority
+  - given-names: Vignesh
+    family-names: Gopakumar
+    orcid: 'https://orcid.org/0000-0002-6773-1049'
+    affiliation: United Kingdom Atomic Energy Authority
+  - given-names: Kristian
+    family-names: Zarebski
+    affiliation: United Kingdom Atomic Energy Authority
+    orcid: 'https://orcid.org/0000-0002-6773-1049'
+  - given-names: Matthew
+    family-names: Field
+    affiliation: United Kingdom Atomic Energy Authority
+  - given-names: James
+    family-names: Panayis
+    affiliation: United Kingdom Atomic Energy Authority
+repository-code: 'https://github.com/simvue-io/client'
+url: 'https://simvue.io/'
+abstract: >-
+  Simvue allows users to organise and gain insights in simulations,
+  processing tasks and AI/ML training by capturing metadata and
+  data combined with real-time monitoring, logging and alerting.
+keywords:
+  - tracking
+  - monitoring
+  - metrics
+  - alerting
+  - simulation
+license: Apache-2.0

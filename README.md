@@ -12,6 +12,7 @@ Collect metadata, metrics and artifacts from simulations, processing and AI/ML t
 
 <div align="center">
 <a href="https://github.com/simvue-io/client/blob/main/LICENSE" target="_blank"><img src="https://img.shields.io/github/license/simvue-io/client"/></a>
+<img src="https://img.shields.io/badge/python-3.9%20%7C%203.10%20%7C%203.11%20%7C%203.12-blue">
 <a href="https://pypi.org/project/simvue/" target="_blank"><img src="https://img.shields.io/pypi/v/simvue.svg"/></a>
 <a href="https://pepy.tech/project/simvue"><img src="https://static.pepy.tech/badge/simvue"/></a>
 <p></p>
@@ -68,13 +69,13 @@ if __name__ == "__main__":
                                description='This is part 1 of a test') # Description
 
         # Upload the code
-        run.save('training.py', 'code')
+        run.save_file('training.py', 'code')
 
         # Upload an input file
-        run.save('params.in', 'input')
+        run.save_file('params.in', 'input')
 
         # Add an alert (the alert definition will be created if necessary)
-        run.add_alert(name='loss-too-high',   # Name
+        run.create_alert(name='loss-too-high',   # Name
                       source='metrics',       # Source
                       rule='is above',        # Rule
                       metric='loss',          # Metric
@@ -95,7 +96,7 @@ if __name__ == "__main__":
             ...
 
         # Upload an output file
-        run.save('output.cdf', 'output')
+        run.save_file('output.cdf', 'output')
 
         # If we weren't using a context manager we'd need to end the run
         # run.close()

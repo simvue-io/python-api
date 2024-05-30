@@ -2,7 +2,11 @@ import configparser
 import datetime
 import hashlib
 import logging
+import json
+import tabulate
+import pydantic
 import importlib.util
+import functools
 import contextlib
 import os
 import typing
@@ -10,15 +14,71 @@ import typing
 import jwt
 
 CHECKSUM_BLOCK_SIZE = 4096
-EXTRAS: tuple[str, ...] = ("plot", "torch", "dataset")
+EXTRAS: tuple[str, ...] = ("plot", "torch")
 
 logger = logging.getLogger(__name__)
+
+
+def parse_validation_response(
+    response: dict[str, list[dict[str, str]]],
+) -> str:
+    """Parse ValidationError response from server
+
+    Reformats the error information from a validation error into a human
+    readable table. Checks if 'body' exists within response to determine
+    whether or not the output can contain the original input.
+
+    Parameters
+    ----------
+    response : dict[str, list[dict[str, str]]]
+        response from Simvue server
+
+    Returns
+    -------
+    str
+        return the validation information
+    """
+    if not (issues := response.get("detail")):
+        raise RuntimeError(
+            "Expected key 'detail' in server response during validation failure"
+        )
+
+    out: list[list[str]] = []
+
+    for issue in issues:
+        obj_type: str = issue["type"]
+        location: list[str] = issue["loc"]
+        location.remove("body")
+        location_addr: str = ""
+        for i, loc in enumerate(location):
+            if isinstance(loc, int):
+                location_addr += f"[{loc}]"
+            else:
+                location_addr += f"{'.' if i > 0 else ''}{loc}"
+        headers = ["Type", "Location", "Message"]
+        information = [obj_type, location_addr]
+
+        # Check if server response contains 'body'
+        if body := response.get("body"):
+            headers = ["Type", "Location", "Input", "Message"]
+            input_arg = body
+            for loc in location:
+                input_arg = input_arg[loc]
+            information.append(input_arg)
+
+        msg: str = issue["msg"]
+        information.append(msg)
+        out.append(information)
+
+    _table = tabulate.tabulate(out, headers=headers, tablefmt="fancy_grid")
+    return str(_table)
 
 
 def check_extra(extra_name: str) -> typing.Callable:
     def decorator(
         class_func: typing.Optional[typing.Callable] = None,
     ) -> typing.Optional[typing.Callable]:
+        @functools.wraps(class_func)
         def wrapper(self, *args, **kwargs) -> typing.Any:
             if extra_name == "plot" and not all(
                 [
@@ -32,15 +92,6 @@ def check_extra(extra_name: str) -> typing.Callable:
             elif extra_name == "torch" and not importlib.util.find_spec("torch"):
                 raise RuntimeError(
                     "PyTorch features require the 'torch' module to be installed"
-                )
-            elif extra_name == "dataset" and not all(
-                [
-                    importlib.util.find_spec("numpy"),
-                    importlib.util.find_spec("pandas"),
-                ]
-            ):
-                raise RuntimeError(
-                    f"Dataset features require the '{extra_name}' extension to Simvue"
                 )
             elif extra_name not in EXTRAS:
                 raise RuntimeError(f"Unrecognised extra '{extra_name}'")
@@ -80,6 +131,7 @@ def skip_if_failed(
     """
 
     def decorator(class_func: typing.Callable) -> typing.Callable:
+        @functools.wraps(class_func)
         def wrapper(self, *args, **kwargs) -> typing.Any:
             if getattr(self, failure_attr, None) and getattr(
                 self, ignore_exc_attr, None
@@ -89,9 +141,27 @@ def skip_if_failed(
                     f"client in fail state (see logs)."
                 )
                 return on_failure_return
-            return class_func(self, *args, **kwargs)
 
-        wrapper.__name__ = f"{class_func.__name__}__fail_safe"
+            # Handle case where Pydantic validates the inputs
+            try:
+                return class_func(self, *args, **kwargs)
+            except pydantic.ValidationError as e:
+                out_table: list[str] = []
+                for data in json.loads(e.json()):
+                    out_table.append([data["loc"], data["type"], data["msg"]])
+                err_table = tabulate.tabulate(
+                    out_table,
+                    headers=["Location", "Type", "Message"],
+                    tablefmt="fancy_grid",
+                )
+                err_str = f"`{class_func.__name__}` Validation:\n{err_table}"
+                if getattr(self, ignore_exc_attr, True):
+                    setattr(self, failure_attr, True)
+                    logger.error(err_str)
+                    return on_failure_return
+                raise RuntimeError(err_str)
+
+        setattr(wrapper, "__fail_safe", True)
         return wrapper
 
     return decorator
@@ -118,6 +188,11 @@ def get_auth():
     # Try environment variables
     token = os.getenv("SIMVUE_TOKEN", token)
     url = os.getenv("SIMVUE_URL", url)
+
+    if not token:
+        raise ValueError("No Simvue server token was specified")
+    if not url:
+        raise ValueError("No Simvue server URL was specified")
 
     return url, token
 
@@ -165,11 +240,11 @@ def remove_file(filename):
             logger.error("Unable to remove file %s due to: %s", filename, str(err))
 
 
-def get_expiry(token):
+def get_expiry(token) -> typing.Optional[int]:
     """
     Get expiry date from a JWT token
     """
-    expiry = 0
+    expiry: typing.Optional[int] = None
     with contextlib.suppress(jwt.DecodeError):
         expiry = jwt.decode(token, options={"verify_signature": False})["exp"]
 

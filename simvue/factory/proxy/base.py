@@ -1,16 +1,20 @@
 import abc
 import logging
 import typing
-import uuid
 
 
 class SimvueBaseClass(abc.ABC):
     @abc.abstractmethod
-    def __init__(self, name: str, uniq_id: uuid.UUID, suppress_errors: bool) -> None:
+    def __init__(
+        self,
+        name: typing.Optional[str],
+        uniq_id: str,
+        suppress_errors: bool,
+    ) -> None:
         self._logger = logging.getLogger(f"simvue.{self.__class__.__name__}")
         self._suppress_errors: bool = suppress_errors
         self._uuid: str = uniq_id
-        self._name: str = name
+        self._name: typing.Optional[str] = name
         self._id: typing.Optional[int] = None
         self._aborted: bool = False
 
@@ -27,7 +31,7 @@ class SimvueBaseClass(abc.ABC):
     @abc.abstractmethod
     def create_run(
         self, data: dict[str, typing.Any]
-    ) -> typing.Optional[dict[str, typing.Any]]:
+    ) -> tuple[typing.Optional[str], typing.Optional[str]]:
         pass
 
     @abc.abstractmethod

@@ -5,6 +5,30 @@ description = "Simulation tracking and monitoring"
 authors = ["Simvue Development Team <info@simvue.io>"]
 license = "Apache v2"
 readme = "README.md"
+classifiers = [
+    "Development Status :: 5 - Production/Stable",
+    "Intended Audience :: Science/Research",
+    "License :: OSI Approved :: Apache Software License",
+    "Natural Language :: English",
+    "Operating System :: Unix",
+    "Operating System :: Microsoft :: Windows",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Topic :: Scientific/Engineering",
+    "Topic :: System :: Monitoring",
+    "Topic :: Utilities",
+    "Typing :: Typed"
+]
+
+keywords = [
+    "tracking",
+    "monitoring",
+    "metrics",
+    "alerting",
+    "metrics-gathering"
+]
 
 [tool.poetry.dependencies]
 python = "^3.9"
@@ -15,16 +39,25 @@ tenacity = "^8.2.3"
 PyJWT = "^2.8.0"
 psutil = "^5.9.8"
 pydantic = "^2.5.3"
-pandas = {version = "^2.2.0", optional = true}
+pandas = "^2.2.0"
 plotly = {version = "^5.18.0", optional = true}
-numpy = {version = "^1.26.3", optional = true}
+numpy = "^1.26.3"
 matplotlib = {version = "^3.8.2", optional = true}
+typing_extensions = { version = "^4.11.0", python = "<3.10" }
 toml = "^0.10.2"
 click = "^8.1.7"
+gitpython = "^3.1.43"
+humanfriendly = "^10.0"
+tabulate = "^0.9.0"
+torch = [
+    {platform = "linux", version = "^2.0.0+cpu", source = "pytorch-cpu", optional=true},
+    {platform = "darwin", version="^2.0.0", source="PyPI", optional=true},
+    {platform = "win32", version="^2.0.0", source="PyPI", optional=true},
+]
 
 [tool.poetry.extras]
-dataset = ["pandas", "numpy"]
 plot = ["matplotlib", "plotly"]
+torch = ["torch"]
 
 [tool.poetry.scripts]
 simvue_sender = "simvue.bin.sender:run"
@@ -36,11 +69,8 @@ ruff = ">=0.3.2,<0.5.0"
 pytest-cov = ">=4.1,<6.0"
 pytest-mock = "^3.14.0"
 pytest-sugar = "^1.0.0"
-torch = [
-    {platform = "linux", version = "^2.0.0+cpu", source = "pytorch-cpu"},
-    {platform = "darwin", version="^2.0.0", source="PyPI"},
-    {platform = "win32", version="^2.0.0", source="PyPI"},
-]
+pytest-xdist = "^3.6.1"
+jinja2 = "^3.1.4"
 
 [build-system]
 requires = ["poetry-core"]
@@ -62,7 +92,7 @@ lint.extend-select = ["C901"]
 lint.mccabe.max-complexity = 11
 
 [tool.pytest.ini_options]
-addopts = "-p no:warnings --cov=simvue"
+addopts = "-p no:warnings --cov=simvue -n auto"
 testpaths = [
     "tests"
 ]
@@ -73,7 +103,8 @@ markers = [
     "run: test the simvue Run class",
     "utilities: test simvue utilities module",
     "scenario: test scenarios",
-    "executor: tests of executors"
+    "executor: tests of executors",
+    "api: tests of RestAPI functionality"
 ]
 
 [tool.interrogate]

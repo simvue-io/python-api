@@ -4,6 +4,7 @@ import typing
 import uuid
 import time
 import tempfile
+import os
 import json
 import logging
 import simvue.run as sv_run
@@ -25,8 +26,9 @@ class CountingLogHandler(logging.Handler):
             if capture in record.msg:
                 self.counts[i] += 1
 
+
 @pytest.fixture(autouse=True)
-def setup_logging() -> logging.Handler:
+def setup_logging() -> CountingLogHandler:
     logging.basicConfig(level=logging.DEBUG)
     handler = CountingLogHandler()
     logging.getLogger().setLevel(logging.DEBUG)
@@ -40,36 +42,35 @@ def log_messages(caplog):
 
 
 @pytest.fixture
-def create_test_run() -> typing.Generator[typing.Tuple[sv_run.Run, dict], None, None]:
+def create_test_run(request) -> typing.Generator[typing.Tuple[sv_run.Run, dict], None, None]:
     with sv_run.Run() as run:
-        
-        yield run, setup_test_run(run, True)
+        yield run, setup_test_run(run, True, request)
 
 
 @pytest.fixture
-def create_test_run_offline(mocker: pytest_mock.MockerFixture) -> typing.Generator[typing.Tuple[sv_run.Run, dict], None, None]:
+def create_test_run_offline(mocker: pytest_mock.MockerFixture, request) -> typing.Generator[typing.Tuple[sv_run.Run, dict], None, None]:
     with tempfile.TemporaryDirectory() as temp_d:
         mocker.patch.object(simvue.utilities, "get_offline_directory", lambda *_: temp_d)
         with sv_run.Run("offline") as run:
-            yield run, setup_test_run(run, True)
+            yield run, setup_test_run(run, True, request)
 
 
 @pytest.fixture
-def create_plain_run() -> typing.Generator[typing.Tuple[sv_run.Run, dict], None, None]:
+def create_plain_run(request) -> typing.Generator[typing.Tuple[sv_run.Run, dict], None, None]:
     with sv_run.Run() as run:
-        yield run, setup_test_run(run, False)
+        yield run, setup_test_run(run, False, request)
 
 
 @pytest.fixture
-def create_plain_run_offline(mocker: pytest_mock.MockerFixture) -> typing.Generator[typing.Tuple[sv_run.Run, dict], None, None]:
+def create_plain_run_offline(mocker: pytest_mock.MockerFixture, request) -> typing.Generator[typing.Tuple[sv_run.Run, dict], None, None]:
     with tempfile.TemporaryDirectory() as temp_d:
         mocker.patch.object(simvue.utilities, "get_offline_directory", lambda *_: temp_d)
         with sv_run.Run("offline") as run:
             
-            yield run, setup_test_run(run, False)
+            yield run, setup_test_run(run, False, request)
 
 
-def setup_test_run(run: sv_run.Run, create_objects: bool):
+def setup_test_run(run: sv_run.Run, create_objects: bool, request: pytest.FixtureRequest):
     fix_use_id: str = str(uuid.uuid4()).split('-', 1)[0]
     TEST_DATA = {
         "event_contains": "sent event",
@@ -77,13 +78,20 @@ def setup_test_run(run: sv_run.Run, create_objects: bool):
             "test_engine": "pytest",
             "test_identifier": fix_use_id
         },
-        "folder": f"/simvue_unit_testing/{fix_use_id}"
+        "folder": f"/simvue_unit_testing/{fix_use_id}",
+        "tags": ["simvue_client_unit_tests", request.node.name.replace("[", "_").replace("]", "_")]
     }
+
+    if os.environ.get("CI"):
+        TEST_DATA["tags"].append("ci")
+
     run.config(suppress_errors=False)
     run.init(
         name=f"test_run_{TEST_DATA['metadata']['test_identifier']}",
-        tags=["simvue_client_unit_tests"],
-        folder=TEST_DATA["folder"]
+        tags=TEST_DATA["tags"],
+        folder=TEST_DATA["folder"],
+        visibility="tenant",
+        retention_period="1 hour"
     )
     run._dispatcher._max_buffer_size = MAX_BUFFER_SIZE
 
@@ -92,7 +100,7 @@ def setup_test_run(run: sv_run.Run, create_objects: bool):
             run.log_event(f"{TEST_DATA['event_contains']} {i}")
 
         for i in range(5):
-            run.add_alert(name=f"alert_{i}", source="events", frequency=1, pattern=TEST_DATA['event_contains'])
+            run.create_alert(name=f"alert_{i}", source="events", frequency=1, pattern=TEST_DATA['event_contains'])
 
         for i in range(5):
             run.log_metrics({"metric_counter": i, "metric_val": i*i - 1})
@@ -109,23 +117,22 @@ def setup_test_run(run: sv_run.Run, create_objects: bool):
     TEST_DATA["resources_metrics_interval"] = run._resources_metrics_interval
 
     if create_objects:
-        with tempfile.NamedTemporaryFile(suffix=".txt") as temp_f:
-            with open(temp_f.name, "w") as out_f:
+        with tempfile.TemporaryDirectory() as tempd:
+            with open((test_file := os.path.join(tempd, "test_file.txt")), "w") as out_f:
                 out_f.write("This is a test file")
-            run.save(temp_f.name, category="input", name="test_file")
+            run.save_file(test_file, category="input", name="test_file")
             TEST_DATA["file_1"] = "test_file"
 
-        with tempfile.NamedTemporaryFile(suffix=".json") as temp_f: 
-            json.dump(TEST_DATA, open(f"test_attrs_{fix_use_id}.json", "w"), indent=2)
-            run.save(f"test_attrs_{fix_use_id}.json", category="output", name="test_attributes")
+            with open((test_json := os.path.join(tempd, f"test_attrs_{fix_use_id}.json")), "w") as out_f:
+                json.dump(TEST_DATA, out_f, indent=2)
+            run.save_file(test_json, category="output", name="test_attributes")
             TEST_DATA["file_2"] = "test_attributes"
 
-        with tempfile.NamedTemporaryFile(suffix=".py") as temp_f:
-            with open(temp_f.name, "w") as out_f:
+            with open((test_script := os.path.join(tempd, "test_script.py")), "w") as out_f:
                 out_f.write(
                     "print('Hello World!')"
                 )
-            run.save(temp_f.name, category="code", name="test_empty_file")
+            run.save_file(test_script, category="code", name="test_empty_file")
             TEST_DATA["file_3"] = "test_empty_file"
 
     time.sleep(1.)

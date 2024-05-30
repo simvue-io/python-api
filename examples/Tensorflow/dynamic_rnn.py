@@ -66,11 +66,11 @@ def run_tensorflow_example(
             description="TensorFlow 2.0 implementation of a Recurrent Neural Network (LSTM) that performs dynamic "
             "computation over sequences with variable length. This example is using a toy dataset to "
             "classify linear sequences. The generated sequences have variable length.",
-            ttl=60 * 60 if ci else -1,
+            retention_period="1 hour" if ci else None,
             tags=["tensorflow"],
             folder="/simvue_client_demos",
         )
-        run.save(__file__, "code")
+        run.save_file(__file__, "code")
 
         # ====================
         #  TOY DATA GENERATOR

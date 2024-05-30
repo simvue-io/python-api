@@ -172,5 +172,5 @@ my_problem.optimise()
 
 # Here we're minimising the length, within the bounds of our PrincetonD parameterisation,
 # so we'd expect that x1 goes to its upper bound, and x2 goes to its lower bound.
-run.save("bluemira_simvue_geometry_optimisation.py", "code")
+run.save_file("bluemira_simvue_geometry_optimisation.py", "code")
 run.close()

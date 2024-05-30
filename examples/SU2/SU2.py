@@ -101,7 +101,7 @@ def run_su2_example(
                 os.path.splitext(os.path.basename(mesh_filename))[0],
             ],
             description="SU2 tutorial https://su2code.github.io/tutorials/Inviscid_ONERAM6/",
-            ttl=60 * 60 if ci else -1,
+            retention_period="1 hour" if ci else None,
         )
         run.add_process(
             identifier="SU2_simulation",
@@ -130,7 +130,7 @@ def run_su2_example(
             )
             monitor.track(
                 path_glob_exprs=OUTPUT_FILES,
-                callback=lambda *_, meta: run.save(meta["file_name"], "output"),
+                callback=lambda *_, meta: run.save_file(meta["file_name"], "output"),
                 parser_func=lambda *_, **__: ({}, {}),
             )
             monitor.run()

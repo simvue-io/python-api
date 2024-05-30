@@ -227,7 +227,7 @@ def simvue_pytorch_example(
         run.init(
             tags=["PyTorch"],
             folder="/simvue_client_demos",
-            ttl=60 * 60 if ci else -1,
+            retention_period="1 hour" if ci else None,
         )
 
         for epoch in range(1, epochs + 1):
@@ -245,7 +245,7 @@ def simvue_pytorch_example(
             scheduler.step()
 
         if save_model:
-            run.save(model.state_dict(), "output", name="mnist_cnn.pt")
+            run.save_file(model.state_dict(), "output", name="mnist_cnn.pt")
 
 
 if __name__ == "__main__":

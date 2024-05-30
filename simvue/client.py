@@ -19,7 +19,7 @@ from .converters import (
     to_dataframe,
     parse_run_set_metrics,
 )
-from .serialization import Deserializer
+from .serialization import deserialize_data
 from .types import DeserializedContent
 from .utilities import check_extra, get_auth
 
@@ -258,10 +258,12 @@ class Client:
         alerts: bool = False,
         metadata: bool = False,
         format: typing.Literal["dict", "dataframe"] = "dict",
+        count: int = 100,
+        start_index: int = 0,
     ) -> typing.Union[
         "DataFrame", list[dict[str, typing.Union[int, str, float, None]]], None
     ]:
-        """Retrieve all runs matching filters
+        """Retrieve all runs matching filters.
 
         Parameters
         ----------
@@ -277,9 +279,13 @@ class Client:
         alerts : bool, optional
             whether to include alert information in the response.
             Default False.
-        format : str ('dict' | 'dataframe'), optional
+        format : Literal['dict', 'dataframe'], optional
             the structure of the response, either a dictionary or a dataframe.
             Default is 'dict'. Pandas must be installed for 'dataframe'.
+        count : int, optional
+            maximum number of entries to return. Default is 100.
+        start_index : int, optional
+            the index from which to count entries. Default is 0.
 
         Returns
         -------
@@ -301,6 +307,8 @@ class Client:
             "return_alerts": alerts,
             "return_system": system,
             "return_metadata": metadata,
+            "count": count,
+            "start": start_index,
         }
 
         response = requests.get(
@@ -600,7 +608,7 @@ class Client:
         response = requests.get(url, timeout=DOWNLOAD_TIMEOUT)
         response.raise_for_status()
 
-        content: typing.Optional[DeserializedContent] = Deserializer().deserialize(
+        content: typing.Optional[DeserializedContent] = deserialize_data(
             response.content, mimetype, allow_pickle
         )
 
@@ -713,11 +721,11 @@ class Client:
         path : str | None, optional
             location to download files to, the default of None will download
             them to the current working directory
-        startswith : typing.Optional[str], optional
+        startswith : str, optional
             only download artifacts with this prefix in their name, by default None
-        contains : typing.Optional[str], optional
+        contains : str, optional
             only download artifacts containing this term in their name, by default None
-        endswith : typing.Optional[str], optional
+        endswith : str, optional
             only download artifacts ending in this term in their name, by default None
 
         Raises
@@ -778,7 +786,10 @@ class Client:
         return _folders[0]
 
     def get_folders(
-        self, filters: typing.Optional[list[str]] = None
+        self,
+        filters: typing.Optional[list[str]] = None,
+        count: int = 100,
+        start_index: int = 0,
     ) -> list[dict[str, typing.Any]]:
         """Retrieve folders from the server
 
@@ -786,6 +797,10 @@ class Client:
         ----------
         filters : list[str] | None
             set of filters to apply to the search
+        count : int, optional
+            maximum number of entries to return. Default is 100.
+        start_index : int, optional
+            the index from which to count entries. Default is 0.
 
         Returns
         -------
@@ -797,7 +812,11 @@ class Client:
         RuntimeError
             if there was a failure retrieving data from the server
         """
-        params: dict[str, str] = {"filters": json.dumps(filters or [])}
+        params: dict[str, typing.Union[str, int]] = {
+            "filters": json.dumps(filters or []),
+            "count": count,
+            "start": start_index,
+        }
 
         response: requests.Response = requests.get(
             f"{self._url}/api/folders", headers=self._headers, params=params
@@ -873,7 +892,7 @@ class Client:
             "xaxis": xaxis,
             "max_points": max_points,
         }
-        print(params)
+
         metrics_response: requests.Response = requests.get(
             f"{self._url}/api/metrics", headers=self._headers, params=params
         )
@@ -913,9 +932,9 @@ class Client:
         ----------
         metric_names : list[str]
             the names of metrics to return values for
-        xaxis : str ('step' | 'time' | 'timestamp')
+        xaxis : Literal['step', 'time', 'timestamp']
             the xaxis type
-        output_format : str ('dataframe' | 'list')
+        output_format : Literal['dataframe', 'list']
             the format of the output, either a list or a Pandas dataframe
         run_ids : list[str], optional
             list of runs by id to include within metric retrieval
@@ -996,7 +1015,6 @@ class Client:
             )
 
     @check_extra("plot")
-    @check_extra("dataset")
     def plot_metrics(
         self,
         run_ids: list[str],
@@ -1086,11 +1104,11 @@ class Client:
         ----------
         run_id : str
             the unique identifier of the run to query
-        message_contains : typing.Optional[str], optional
+        message_contains : str, optional
             filter to events with message containing this expression, by default None
-        start_index : typing.Optional[int], optional
+        start_index : typing.int, optional
             slice results returning only those above this index, by default None
-        count_limit : typing.Optional[int], optional
+        count_limit : typing.int, optional
             limit number of returned results, by default None
 
         Returns
@@ -1105,7 +1123,7 @@ class Client:
         """
 
         msg_filter: str = (
-            json.dumps([{"operator": "contains", "value": message_contains}])
+            json.dumps([f"event.message contains {message_contains}"])
             if message_contains
             else ""
         )
@@ -1141,7 +1159,7 @@ class Client:
 
         Parameters
         ----------
-        run : str
+        run_id : str
             The ID of the run to find alerts for
         critical_only : bool, optional
             Whether to only return details about alerts which are currently critical, by default True
