@@ -749,8 +749,6 @@ class Run:
         ----------
         run_id : str
             identifier of run to connect to
-        uid : str, optional
-            unique identifier for this run, by default None
 
         Returns
         -------
@@ -800,7 +798,7 @@ class Run:
             dormant state if an error occurs
         queue_blocking : bool, optional
             block thread queues during metric/event recording
-        resource_metrics_interval : int, optional
+        resources_metrics_interval : int, optional
             frequency at which to collect resource metrics
         disable_resources_metrics : bool, optional
             disable monitoring of resource metrics

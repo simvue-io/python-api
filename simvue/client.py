@@ -1159,7 +1159,7 @@ class Client:
 
         Parameters
         ----------
-        run : str
+        run_id : str
             The ID of the run to find alerts for
         critical_only : bool, optional
             Whether to only return details about alerts which are currently critical, by default True
