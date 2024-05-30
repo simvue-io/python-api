@@ -755,7 +755,7 @@ class Run:
         Returns
         -------
         bool
-            _description_
+            whether reconnection succeeded
         """
         if self._mode == "disabled":
             return True
@@ -842,10 +842,18 @@ class Run:
     @check_run_initialised
     @pydantic.validate_call
     def update_metadata(self, metadata: dict[str, typing.Any]) -> bool:
-        """
-        Add/update metadata
-        """
+        """Update metadata for this run
 
+        Parameters
+        ----------
+        metadata : dict[str, typing.Any]
+            set run metadata
+
+        Returns
+        -------
+        bool
+            if the update was successful
+        """
         if self._mode == "disabled":
             return True
 
@@ -868,8 +876,17 @@ class Run:
     @check_run_initialised
     @pydantic.validate_call
     def update_tags(self, tags: list[str]) -> bool:
-        """
-        Add/update tags
+        """Update tags for this run
+
+        Parameters
+        ----------
+        tags : list[str]
+            new set of tags to assign
+
+        Returns
+        -------
+        bool
+            whether the update was successful
         """
         if self._mode == "disabled":
             return True
@@ -888,9 +905,20 @@ class Run:
     @skip_if_failed("_aborted", "_suppress_errors", False)
     @check_run_initialised
     @pydantic.validate_call
-    def log_event(self, message, timestamp: typing.Optional[str] = None) -> bool:
-        """
-        Write event
+    def log_event(self, message: str, timestamp: typing.Optional[str] = None) -> bool:
+        """Log event to the server
+
+        Parameters
+        ----------
+        message : str
+            event message to log
+        timestamp : str, optional
+            manually specify the time stamp for this log, by default None
+
+        Returns
+        -------
+        bool
+            whether event log was successful
         """
         if self._mode == "disabled":
             self._error("Cannot log events in 'disabled' state")
@@ -970,8 +998,23 @@ class Run:
         time: typing.Optional[int] = None,
         timestamp: typing.Optional[str] = None,
     ) -> bool:
-        """
-        Write metrics
+        """Log metrics to Simvue server
+
+        Parameters
+        ----------
+        metrics : dict[str, typing.Union[int, float]]
+            set of metrics to upload to server for this run
+        step : int, optional
+            manually specify the step index for this log, by default None
+        time : int, optional
+            manually specify the time for this log, by default None
+        timestamp : str, optional
+            manually specify the timestamp for this log, by default None
+
+        Returns
+        -------
+        bool
+            if the metric log was succcessful
         """
         add_dispatch = self._add_metrics_to_dispatch(
             metrics, step=step, time=time, timestamp=timestamp
@@ -1129,8 +1172,23 @@ class Run:
         filetype: typing.Optional[str] = None,
         preserve_path: bool = False,
     ) -> bool:
-        """
-        Upload a whole directory
+        """Upload files from a whole directory
+
+        Parameters
+        ----------
+        directory : pydantic.DirectoryPath
+            the directory to save to the run
+        category : Literal[['output', 'input', 'code']
+            the category to assign to the saved objects within this directory
+        filetype : str, optional
+            manually specify the MIME type for items in the directory, by default None
+        preserve_path : bool, optional
+            preserve the full path, by default False
+
+        Returns
+        -------
+        bool
+            if the directory save was successful
         """
         if self._mode == "disabled":
             return True
@@ -1166,8 +1224,23 @@ class Run:
         filetype: typing.Optional[str] = None,
         preserve_path: bool = False,
     ) -> bool:
-        """
-        Save the list of files and/or directories
+        """Save a set of files and directories
+
+        Parameters
+        ----------
+        items : list[pydantic.FilePath | pydantic.DirectoryPath]
+            list of file paths and directories to save
+        category : Literal['input', 'output', 'code']
+            the category to assign to the saved objects
+        filetype : str, optional
+            manually specify the MIME type for all items, by default None
+        preserve_path : bool, optional
+            _preserve the full path, by default False
+
+        Returns
+        -------
+        bool
+            whether the save was successful
         """
         success: bool = True
 
@@ -1194,7 +1267,13 @@ class Run:
         self, status: typing.Literal["completed", "failed", "terminated"]
     ) -> bool:
         """Set run status
-            status to assign to this run
+
+        status to assign to this run
+
+        Parameters
+        ----------
+        status : Literal['completed', 'failed', 'terminated']
+            status to set the run to
 
         Returns
         -------
@@ -1221,7 +1300,13 @@ class Run:
 
     @skip_if_failed("_aborted", "_suppress_errors", False)
     def close(self) -> bool:
-        """Close the run"""
+        """Close the run
+
+        Returns
+        -------
+        bool
+            whether close was successful
+        """
         self._executor.wait_for_completion()
         if self._mode == "disabled":
             return True
