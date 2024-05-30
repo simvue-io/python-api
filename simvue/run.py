@@ -486,8 +486,8 @@ class Run:
             how often to publish resource metrics, if None these will not be published
         visibility : Literal['public', 'tenant'] | list[str], optional
             set visibility options for this run, either:
-                * public: run viewable to all.
-                * tenant: run viewable to all within the current tenant.
+                * public - run viewable to all.
+                * tenant - run viewable to all within the current tenant.
                 * A list of usernames with which to share this run
 
         Returns
