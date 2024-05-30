@@ -721,11 +721,11 @@ class Client:
         path : str | None, optional
             location to download files to, the default of None will download
             them to the current working directory
-        startswith : typing.Optional[str], optional
+        startswith : str, optional
             only download artifacts with this prefix in their name, by default None
-        contains : typing.Optional[str], optional
+        contains : str, optional
             only download artifacts containing this term in their name, by default None
-        endswith : typing.Optional[str], optional
+        endswith : str, optional
             only download artifacts ending in this term in their name, by default None
 
         Raises
@@ -1104,11 +1104,11 @@ class Client:
         ----------
         run_id : str
             the unique identifier of the run to query
-        message_contains : typing.Optional[str], optional
+        message_contains : str, optional
             filter to events with message containing this expression, by default None
-        start_index : typing.Optional[int], optional
+        start_index : typing.int, optional
             slice results returning only those above this index, by default None
-        count_limit : typing.Optional[int], optional
+        count_limit : typing.int, optional
             limit number of returned results, by default None
 
         Returns

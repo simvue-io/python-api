@@ -465,21 +465,21 @@ class Run:
 
         Parameters
         ----------
-        name : typing.Optional[str], optional
+        name : str, optional
             the name to allocate this run, if not specified a name will be
             selected at random, by default None
-        metadata : typing.Optional[dict[str, typing.Any]], optional
+        metadata : typing.dict[str, typing.Any], optional
             any metadata relating to the run as key-value pairs, by default None
-        tags : typing.Optional[list[str]], optional
+        tags : typing.list[str], optional
             a list of tags for this run, by default None
-        description : typing.Optional[str], optional
+        description : str, optional
             description of the run, by default None
         folder : str, optional
             folder within which to store the run, by default "/"
         running : bool, optional
             whether to set the status as running or created, the latter implying
             the run will be commenced at a later time. Default is True.
-        retention_period : typing.Optional[str], optional
+        retention_period : str, optional
             describer for time period to retain run, the default of None
             removes this constraint.
         resources_metrics_interval : int, optional
@@ -749,7 +749,7 @@ class Run:
         ----------
         run_id : str
             identifier of run to connect to
-        uid : typing.Optional[str], optional
+        uid : str, optional
             unique identifier for this run, by default None
 
         Returns
@@ -1324,9 +1324,9 @@ class Run:
 
         Parameters
         ----------
-        ids : typing.Optional[list[str]], optional
+        ids : typing.list[str], optional
             unique identifiers of the alerts to attach, by default None
-        names : typing.Optional[list[str]], optional
+        names : typing.list[str], optional
             names of alerts to attach, by default None
 
         Returns
