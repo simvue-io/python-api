@@ -810,7 +810,7 @@ class Run:
         Returns
         -------
         bool
-            _description_
+            if configuration was successful
         """
 
         with self._configuration_lock:
