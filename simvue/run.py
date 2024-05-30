@@ -653,7 +653,7 @@ class Run:
             this trigger event is set when the processes completes
         env : typing.Dict[str, str], optional
             environment variables for process
-        **kwargs
+        **kwargs : Any, ..., optional
             all other keyword arguments are interpreted as options to the command
         """
         if platform.system() == "Windows" and completion_callback:
