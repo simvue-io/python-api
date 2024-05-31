@@ -203,16 +203,16 @@ def test_folder_deletion(create_test_run: tuple[sv_run.Run, dict]) -> None:
 @pytest.mark.dependency
 @pytest.mark.client
 @pytest.mark.parametrize("aggregate", (True, False), ids=("aggregated", "normal"))
-@pytest.mark.parametrize("format", ("dict", "dataframe"))
+@pytest.mark.parametrize("output_format", ("dict", "dataframe"))
 @pytest.mark.parametrize("xaxis", ("step", "time", "timestamp"))
 def test_multiple_metric_retrieval(
     create_test_run: tuple[sv_run.Run, dict],
     aggregate: bool,
-    format: typing.Literal["dict", "dataframe"],
+    output_format: typing.Literal["dict", "dataframe"],
     xaxis: typing.Literal["step", "time", "timestamp"],
 ) -> None:
     client = svc.Client()
-    if format == "dataframe":
+    if output_format == "dataframe":
         try:
             import pandas
         except ImportError:

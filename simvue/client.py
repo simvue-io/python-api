@@ -269,7 +269,7 @@ class Client:
         metrics: bool = False,
         alerts: bool = False,
         metadata: bool = False,
-        format: typing.Literal["dict", "dataframe"] = "dict",
+        output_format: typing.Literal["dict", "dataframe"] = "dict",
         count: int = 100,
         start_index: int = 0,
     ) -> typing.Union[
@@ -291,7 +291,7 @@ class Client:
         alerts : bool, optional
             whether to include alert information in the response.
             Default False.
-        format : Literal['dict', 'dataframe'], optional
+        output_format : Literal['dict', 'dataframe'], optional
             the structure of the response, either a dictionary or a dataframe.
             Default is 'dict'. Pandas must be installed for 'dataframe'.
         count : int, optional
@@ -329,7 +329,7 @@ class Client:
 
         response.raise_for_status()
 
-        if format not in ("dict", "dataframe"):
+        if output_format not in ("dict", "dataframe"):
             raise ValueError("Invalid format specified")
 
         json_response = self._get_json_from_response(
@@ -344,7 +344,7 @@ class Client:
 
         if response_data := json_response.get("data"):
             return response_data
-        elif format == "dataframe":
+        elif output_format == "dataframe":
             return to_dataframe(response.json())
         else:
             raise RuntimeError("Failed to retrieve runs data")
