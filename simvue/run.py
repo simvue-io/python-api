@@ -85,12 +85,14 @@ class Run:
     """
 
     @pydantic.validate_call
-    def __init__(self, mode: typing.Literal["online", "offline"] = "online") -> None:
+    def __init__(
+        self, mode: typing.Literal["online", "offline", "disabled"] = "online"
+    ) -> None:
         """Initialise a new Simvue run
 
         Parameters
         ----------
-        mode : Literal['online', 'offline'], optional
+        mode : Literal['online', 'offline', 'disabled'], optional
             mode of running, by default "online"
         """
         self._uuid: str = f"{uuid.uuid4()}"
