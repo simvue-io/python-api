@@ -35,6 +35,34 @@ class Remote(SimvueBaseClass):
 
         self._id = uniq_id
 
+    @skip_if_failed("_aborted", "_suppress_errors", None)
+    def list_tags(self) -> list[str]:
+        logger.debug("Retrieving existing tags")
+        try:
+            response = get(f"{self._url}/api/runs/{self._id}", self._headers)
+        except Exception as err:
+            self._error(f"Exception retrieving tags: {str(err)}")
+            return []
+
+        logger.debug(
+            'Got status code %d when retrieving tags: "%s"',
+            response.status_code,
+            response.text,
+        )
+
+        if not (response_data := response.json()) or (
+            (data := response_data.get("tags")) is None
+        ):
+            self._error(
+                "Expected key 'tags' in response from server during alert retrieval"
+            )
+            return []
+
+        if response.status_code == 200:
+            return data
+
+        return []
+
     @skip_if_failed("_aborted", "_suppress_errors", (None, None))
     def create_run(self, data) -> tuple[typing.Optional[str], typing.Optional[int]]:
         """
@@ -342,8 +370,9 @@ class Remote(SimvueBaseClass):
         if not (response_data := response.json()) or (
             (data := response_data.get("data")) is None
         ):
+            print(response_data)
             self._error(
-                "Expected key 'data' in response from server during alert retrieval"
+                "Expected key 'alerts' in response from server during alert retrieval"
             )
             return []
 

@@ -880,8 +880,8 @@ class Run:
     @skip_if_failed("_aborted", "_suppress_errors", False)
     @check_run_initialised
     @pydantic.validate_call
-    def update_tags(self, tags: list[str]) -> bool:
-        """Update tags for this run
+    def set_tags(self, tags: list[str]) -> bool:
+        """Set tags for this run
 
         Parameters
         ----------
@@ -906,6 +906,37 @@ class Run:
             return True
 
         return False
+
+    @skip_if_failed("_aborted", "_suppress_errors", False)
+    @check_run_initialised
+    @pydantic.validate_call
+    def update_tags(self, tags: list[str]) -> bool:
+        """Add additional tags to this run without duplication
+
+        Parameters
+        ----------
+        tags : list[str]
+            new set of tags to attach
+
+        Returns
+        -------
+        bool
+            whether the update was successful
+        """
+        if self._mode == "disabled":
+            return True
+
+        if not self._simvue:
+            return False
+        current_tags: list[str] = self._simvue.list_tags() or []
+
+        try:
+            self.set_tags(list(set(current_tags + tags)))
+        except Exception as err:
+            self._error(f"Failed to update tags: {err}")
+            return False
+
+        return True
 
     @skip_if_failed("_aborted", "_suppress_errors", False)
     @check_run_initialised
