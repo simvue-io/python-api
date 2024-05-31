@@ -37,7 +37,7 @@ from .factory.dispatch import Dispatcher
 from .executor import Executor
 from .factory.proxy import Simvue
 from .metrics import get_gpu_metrics, get_process_cpu, get_process_memory
-from .models import RunInput
+from .models import RunInput, FOLDER_REGEX, NAME_REGEX
 from .serialization import serialize_object
 from .system import get_system
 from .metadata import git_info
@@ -449,11 +449,13 @@ class Run:
     @pydantic.validate_call
     def init(
         self,
-        name: typing.Optional[str] = None,
+        name: typing.Optional[
+            typing.Annotated[str, pydantic.Field(pattern=NAME_REGEX)]
+        ] = None,
         metadata: typing.Optional[dict[str, typing.Any]] = None,
         tags: typing.Optional[list[str]] = None,
         description: typing.Optional[str] = None,
-        folder: str = "/",
+        folder: typing.Annotated[str, pydantic.Field(pattern=FOLDER_REGEX)] = "/",
         running: bool = True,
         retention_period: typing.Optional[str] = None,
         resources_metrics_interval: typing.Optional[int] = HEARTBEAT_INTERVAL,
@@ -1027,7 +1029,9 @@ class Run:
         self,
         obj: typing.Any,
         category: typing.Literal["input", "output", "code"],
-        name: typing.Optional[str] = None,
+        name: typing.Optional[
+            typing.Annotated[str, pydantic.Field(pattern=NAME_REGEX)]
+        ] = None,
         allow_pickle: bool = False,
     ) -> bool:
         """Save an object to the Simvue server
@@ -1084,7 +1088,9 @@ class Run:
         category: typing.Literal["input", "output", "code"],
         filetype: typing.Optional[str] = None,
         preserve_path: bool = False,
-        name: typing.Optional[str] = None,
+        name: typing.Optional[
+            typing.Annotated[str, pydantic.Field(pattern=NAME_REGEX)]
+        ] = None,
     ) -> bool:
         """Upload file to the server
 
@@ -1345,7 +1351,7 @@ class Run:
     @pydantic.validate_call
     def set_folder_details(
         self,
-        path: str,
+        path: typing.Annotated[str, pydantic.Field(pattern=FOLDER_REGEX)],
         metadata: typing.Optional[dict[str, typing.Union[int, str, float]]] = None,
         tags: typing.Optional[list[str]] = None,
         description: typing.Optional[str] = None,
@@ -1448,7 +1454,7 @@ class Run:
     @pydantic.validate_call
     def create_alert(
         self,
-        name: str,
+        name: typing.Annotated[str, pydantic.Field(pattern=NAME_REGEX)],
         source: typing.Literal["events", "metrics", "user"] = "metrics",
         description: typing.Optional[str] = None,
         frequency: typing.Optional[pydantic.PositiveInt] = None,
