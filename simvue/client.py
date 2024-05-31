@@ -547,8 +547,12 @@ class Client:
             )
         return json_response
 
-    def _retrieve_artifact_from_server(self, run_id: str, name: str):
-        params: dict[str, str] = {"name": name}
+    def _retrieve_artifact_from_server(
+        self,
+        run_id: str,
+        name: str,
+    ) -> typing.Union[dict, list]:
+        params: dict[str, str | None] = {"name": name}
 
         response = requests.get(
             f"{self._url}/api/runs/{run_id}/artifacts",
@@ -707,6 +711,7 @@ class Client:
     def get_artifacts_as_files(
         self,
         run_id: str,
+        category: typing.Optional[typing.Literal["input", "output", "code"]] = None,
         path: typing.Optional[str] = None,
         startswith: typing.Optional[str] = None,
         contains: typing.Optional[str] = None,
@@ -733,9 +738,12 @@ class Client:
         RuntimeError
             if there was a failure retrieving artifacts from the server
         """
+        params: dict[str, typing.Optional[str]] = {"category": category}
 
         response: requests.Response = requests.get(
-            f"{self._url}/api/runs/{run_id}/artifacts", headers=self._headers
+            f"{self._url}/api/runs/{run_id}/artifacts",
+            headers=self._headers,
+            params=params,
         )
 
         self._get_json_from_response(

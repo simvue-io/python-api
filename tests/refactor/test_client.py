@@ -107,13 +107,23 @@ def test_get_artifact_as_file(
 
 @pytest.mark.dependency
 @pytest.mark.client
-def test_get_artifacts_as_files(create_test_run: tuple[sv_run.Run, dict]) -> None:
+@pytest.mark.parametrize("category", (None, "code", "input", "output"))
+def test_get_artifacts_as_files(
+    create_test_run: tuple[sv_run.Run, dict],
+    category: typing.Literal["code", "input", "output"],
+) -> None:
     with tempfile.TemporaryDirectory() as tempd:
         client = svc.Client()
-        client.get_artifacts_as_files(create_test_run[1]["run_id"], path=tempd)
+        client.get_artifacts_as_files(
+            create_test_run[1]["run_id"], category=category, path=tempd
+        )
         files = [os.path.basename(i) for i in glob.glob(os.path.join(tempd, "*"))]
-        assert create_test_run[1]["file_1"] in files
-        assert create_test_run[1]["file_2"] in files
+        if not category or category == "input":
+            assert create_test_run[1]["file_1"] in files
+        if not category or category == "output":
+            assert create_test_run[1]["file_2"] in files
+        if not category or category == "code":
+            assert create_test_run[1]["file_3"] in files
 
 
 @pytest.mark.dependency
@@ -140,7 +150,7 @@ def test_get_folder(create_test_run: tuple[sv_run.Run, dict]) -> None:
 
 
 @pytest.mark.dependency
-@pytest.mark.client 
+@pytest.mark.client
 def test_get_metrics_names(create_test_run: tuple[sv_run.Run, dict]) -> None:
     client = svc.Client()
     time.sleep(1)
