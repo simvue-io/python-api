@@ -225,7 +225,7 @@ def test_multiple_metric_retrieval(
                 metric_names=list(create_test_run[1]["metrics"]),
                 xaxis=xaxis,
                 aggregate=aggregate,
-                output_format=format,
+                output_format=output_format,
             )
         return
 
@@ -234,5 +234,5 @@ def test_multiple_metric_retrieval(
         metric_names=list(create_test_run[1]["metrics"]),
         xaxis=xaxis,
         aggregate=aggregate,
-        output_format=format,
+        output_format=output_format,
     )

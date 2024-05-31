@@ -27,15 +27,18 @@ def test_check_run_initialised_decorator() -> None:
                 getattr(run, method_name)()
             assert "Simvue Run must be initialised" in str(e.value)
 
+
 @pytest.mark.run
 @pytest.mark.parametrize("overload_buffer", (True, False), ids=("overload", "normal"))
-@pytest.mark.parametrize("visibility", ("bad_option", "tenant", "public", ["ciuser01"], None))
+@pytest.mark.parametrize(
+    "visibility", ("bad_option", "tenant", "public", ["ciuser01"], None)
+)
 def test_log_metrics(
     overload_buffer: bool,
     setup_logging: "CountingLogHandler",
     mocker,
     request: pytest.FixtureRequest,
-    visibility: typing.Union[typing.Literal["public", "tenant"], list[str], None]
+    visibility: typing.Union[typing.Literal["public", "tenant"], list[str], None],
 ) -> None:
     METRICS = {"a": 10, "b": 1.2}
 
@@ -50,17 +53,23 @@ def test_log_metrics(
         with pytest.raises(RuntimeError):
             run.init(
                 name=f"test_run_{str(uuid.uuid4()).split('-', 1)[0]}",
-                tags=["simvue_client_unit_tests", request.node.name.replace("[", "_").replace("]", "_")],
+                tags=[
+                    "simvue_client_unit_tests",
+                    request.node.name.replace("[", "_").replace("]", "_"),
+                ],
                 folder="/simvue_unit_testing",
                 retention_period="1 hour",
                 visibility=visibility,
-                resources_metrics_interval=1
+                resources_metrics_interval=1,
             )
         return
 
     run.init(
         name=f"test_run_{str(uuid.uuid4()).split('-', 1)[0]}",
-        tags=["simvue_client_unit_tests", request.node.name.replace("[", "_").replace("]", "_")],
+        tags=[
+            "simvue_client_unit_tests",
+            request.node.name.replace("[", "_").replace("]", "_"),
+        ],
         folder="/simvue_unit_testing",
         visibility=visibility,
         resources_metrics_interval=1,
@@ -146,7 +155,9 @@ def test_update_metadata_offline(
 
 @pytest.mark.run
 @pytest.mark.parametrize("multi_threaded", (True, False), ids=("multi", "single"))
-def test_runs_multiple_parallel(multi_threaded: bool, request: pytest.FixtureRequest) -> None:
+def test_runs_multiple_parallel(
+    multi_threaded: bool, request: pytest.FixtureRequest
+) -> None:
     N_RUNS: int = 2
     if multi_threaded:
 
@@ -155,7 +166,10 @@ def test_runs_multiple_parallel(multi_threaded: bool, request: pytest.FixtureReq
                 run.config(suppress_errors=False)
                 run.init(
                     name=f"test_runs_multiple_{index + 1}",
-                    tags=["simvue_client_unit_tests", request.node.name.replace("[", "_").replace("]", "_")],
+                    tags=[
+                        "simvue_client_unit_tests",
+                        request.node.name.replace("[", "_").replace("]", "_"),
+                    ],
                     folder="/simvue_unit_testing",
                     retention_period="1 hour",
                 )
@@ -192,7 +206,10 @@ def test_runs_multiple_parallel(multi_threaded: bool, request: pytest.FixtureReq
                 run_1.config(suppress_errors=False)
                 run_1.init(
                     name="test_runs_multiple_unthreaded_1",
-                    tags=["simvue_client_unit_tests", request.node.name.replace("[", "_").replace("]", "_")],
+                    tags=[
+                        "simvue_client_unit_tests",
+                        request.node.name.replace("[", "_").replace("]", "_"),
+                    ],
                     folder="/simvue_unit_testing",
                     retention_period="1 hour",
                 )
@@ -246,7 +263,10 @@ def test_runs_multiple_series(request: pytest.FixtureRequest) -> None:
             run.config(suppress_errors=False)
             run.init(
                 name=f"test_runs_multiple_series_{index}",
-                tags=["simvue_client_unit_tests", request.node.name.replace("[", "_").replace("]", "_")],
+                tags=[
+                    "simvue_client_unit_tests",
+                    request.node.name.replace("[", "_").replace("]", "_"),
+                ],
                 folder="/simvue_unit_testing",
                 retention_period="1 hour",
             )
@@ -296,8 +316,11 @@ def test_suppressed_errors(
             run.init(
                 name="test_suppressed_errors",
                 folder="/simvue_unit_testing",
-                tags=["simvue_client_unit_tests", request.node.name.replace("[", "_").replace("]", "_")],
-                retention_period="1 hour"
+                tags=[
+                    "simvue_client_unit_tests",
+                    request.node.name.replace("[", "_").replace("]", "_"),
+                ],
+                retention_period="1 hour",
             )
 
         run.config(suppress_errors=True)
@@ -321,9 +344,12 @@ def test_bad_run_arguments() -> None:
 
 def test_set_folder_details(request: pytest.FixtureRequest) -> None:
     with sv_run.Run() as run:
-        folder_name: str ="/simvue_unit_tests"
+        folder_name: str = "/simvue_unit_tests"
         description: str = "test description"
-        tags: list[str] = ["simvue_client_unit_tests", request.node.name.replace("[", "_").replace("]", "_")]
+        tags: list[str] = [
+            "simvue_client_unit_tests",
+            request.node.name.replace("[", "_").replace("]", "_"),
+        ]
         run.init(folder=folder_name)
         run.set_folder_details(path=folder_name, tags=tags, description=description)
 
@@ -333,8 +359,12 @@ def test_set_folder_details(request: pytest.FixtureRequest) -> None:
 
 
 @pytest.mark.run
-@pytest.mark.parametrize("valid_mimetype", (True, False), ids=("valid_mime", "invalid_mime"))
-@pytest.mark.parametrize("preserve_path", (True, False), ids=("preserve_path", "modified_path"))
+@pytest.mark.parametrize(
+    "valid_mimetype", (True, False), ids=("valid_mime", "invalid_mime")
+)
+@pytest.mark.parametrize(
+    "preserve_path", (True, False), ids=("preserve_path", "modified_path")
+)
 @pytest.mark.parametrize("name", ("test_file", None), ids=("named", "nameless"))
 @pytest.mark.parametrize("allow_pickle", (True, False), ids=("pickled", "unpickled"))
 @pytest.mark.parametrize("empty_file", (True, False), ids=("empty", "content"))
@@ -345,19 +375,17 @@ def test_save_file(
     name: typing.Optional[str],
     allow_pickle: bool,
     empty_file: bool,
-    capfd
+    capfd,
 ) -> None:
     simvue_run, _ = create_plain_run
-    file_type: str = 'text/plain' if valid_mimetype else 'text/text'
+    file_type: str = "text/plain" if valid_mimetype else "text/text"
     with tempfile.TemporaryDirectory() as tempd:
         with open(
-            (
-                out_name := pathlib.Path(tempd).joinpath("test_file.txt")
-            ),
+            (out_name := pathlib.Path(tempd).joinpath("test_file.txt")),
             "w",
         ) as out_f:
             out_f.write("test data entry" if not empty_file else "")
-        
+
         if valid_mimetype:
             simvue_run.save_file(
                 out_name,
@@ -372,14 +400,43 @@ def test_save_file(
                     out_name,
                     category="input",
                     filetype=file_type,
-                    preserve_path=preserve_path
+                    preserve_path=preserve_path,
                 )
             return
-        
+
         variable = capfd.readouterr()
         with capfd.disabled():
             if empty_file:
-                assert variable.out == "WARNING: saving zero-sized files not currently supported\n"
+                assert (
+                    variable.out
+                    == "WARNING: saving zero-sized files not currently supported\n"
+                )
+
+
+@pytest.mark.run
+def test_update_tags(
+    create_plain_run: typing.Tuple[sv_run.Run, dict],
+    request: pytest.FixtureRequest,
+) -> None:
+    simvue_run, _ = create_plain_run
+
+    tags = [
+        "simvue_client_unit_tests",
+        request.node.name.replace("[", "_").replace("]", "_"),
+    ]
+
+    simvue_run.set_tags(tags)
+
+    time.sleep(1)
+    client = sv_cl.Client()
+    run_data = client.get_run(simvue_run._id)
+    assert run_data["tags"] == tags
+
+    simvue_run.update_tags(["additional"])
+
+    time.sleep(1)
+    run_data = client.get_run(simvue_run._id)
+    assert sorted(run_data["tags"]) == sorted(tags + ["additional"])
 
 
 @pytest.mark.run

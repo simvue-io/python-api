@@ -170,6 +170,12 @@ class Offline(SimvueBaseClass):
         return _alert_data
 
     @skip_if_failed("_aborted", "_suppress_errors", [])
+    def list_tags(self) -> list[dict[str, typing.Any]]:
+        raise NotImplementedError(
+            "Retrieval of current tags is not implemented for offline running"
+        )
+
+    @skip_if_failed("_aborted", "_suppress_errors", [])
     def list_alerts(self) -> list[dict[str, typing.Any]]:
         return [
             json.load(open(alert_file))
