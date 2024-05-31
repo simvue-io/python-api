@@ -145,7 +145,7 @@ def test_get_run(create_test_run: tuple[sv_run.Run, dict]) -> None:
 def test_get_folder(create_test_run: tuple[sv_run.Run, dict]) -> None:
     client = svc.Client()
     assert (folders := client.get_folders())
-    assert (folder_id := folders[0].get("id"))
+    assert (folder_id := folders[1].get("path"))
     assert client.get_folder(folder_id)
 
 
