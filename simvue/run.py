@@ -93,7 +93,10 @@ class Run:
         Parameters
         ----------
         mode : Literal['online', 'offline', 'disabled'], optional
-            mode of running, by default "online"
+            mode of running
+                online - objects sent directly to Simvue server
+                offline - everything is written to disk for later dispatch
+                disabled - disable monitoring completely
         """
         self._uuid: str = f"{uuid.uuid4()}"
         self._mode: typing.Literal["online", "offline", "disabled"] = mode
