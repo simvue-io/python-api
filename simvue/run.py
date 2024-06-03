@@ -178,8 +178,15 @@ class Run:
                 self._dispatcher.join()
 
         if _non_zero := self.executor.exit_status:
+            _error_msgs: dict[str, typing.Optional[str]] = (
+                self.executor.get_error_summary()
+            )
+            _error_msg = "\n".join(
+                f"{identifier}:\n{msg}" for identifier, msg in _error_msgs.items()
+            )
             logger.error(
-                f"Simvue process executor terminated with non-zero exit status {_non_zero}"
+                "Simvue process executor terminated with non-zero exit status "
+                f"{_non_zero}{(':\n' + _error_msg) if _error_msg else ''}"
             )
             sys.exit(_non_zero)
 
@@ -1375,8 +1382,15 @@ class Run:
             self._dispatcher.join()
 
         if _non_zero := self.executor.exit_status:
+            _error_msgs: dict[str, typing.Optional[str]] = (
+                self.executor.get_error_summary()
+            )
+            _error_msg = "\n".join(
+                f"{identifier}:\n{msg}" for identifier, msg in _error_msgs.items()
+            )
             logger.error(
-                f"Simvue process executor terminated with non-zero exit status {_non_zero}"
+                "Simvue process executor terminated with non-zero exit status "
+                f"{_non_zero}{(':\n' + _error_msg) if _error_msg else ''}"
             )
             sys.exit(_non_zero)
 
