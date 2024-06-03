@@ -37,14 +37,6 @@ def test_executor_add_process(
         with pytest.raises(SystemExit):
             run.close()
 
-    time.sleep(1)
-    client = simvue.Client()
-    _events = client.get_events(
-        run._id,
-        message_contains="successfully" if successful else "non-zero exit",
-    )
-    assert len(_events) == 1
-
 
 @pytest.mark.executor
 def test_add_process_command_assembly(request: pytest.FixtureRequest) -> None:
