@@ -92,6 +92,7 @@ class Executor:
         self._exit_codes = self._manager.dict()
         self._std_err = self._manager.dict()
         self._std_out = self._manager.dict()
+        self._alert_ids: dict[str, str] = {}
         self._command_str: typing.Dict[str, str] = {}
         self._processes: typing.Dict[str, multiprocessing.Process] = {}
 
@@ -221,6 +222,9 @@ class Executor:
                 env,
             ),
         )
+        self._alert_ids[identifier] = self._runner.create_alert(
+            name=f"{identifier}_exit_status", source="user"
+        )
         logger.debug(f"Executing process: {' '.join(_command)}")
         self._processes[identifier].start()
 
@@ -239,6 +243,14 @@ class Executor:
 
         return 0
 
+    def get_error_summary(self) -> dict[str, typing.Optional[str]]:
+        """Returns the summary messages of all errors"""
+        return {
+            identifier: self._get_error_status(identifier)
+            for identifier, value in self._exit_codes.items()
+            if value
+        }
+
     def get_command(self, process_id: str) -> str:
         """Returns the command executed within the given process.
 
@@ -256,7 +268,19 @@ class Executor:
             raise KeyError(f"Failed to retrieve '{process_id}', no such process")
         return self._command_str[process_id]
 
-    def _log_events(self) -> None:
+    def _get_error_status(self, process_id: str) -> typing.Optional[str]:
+        err_msg: typing.Optional[str] = None
+
+        # Return last 10 lines of stdout if stderr empty
+        if not (err_msg := self._std_err[process_id]) and (
+            std_out := self._std_out[process_id]
+        ):
+            err_msg = "  Tail STDOUT:\n\n"
+            start_index = -10 if len(lines := std_out.split("\n")) > 10 else 0
+            err_msg += "\n".join(lines[start_index:])
+        return err_msg
+
+    def _update_alerts(self) -> None:
         """Send log events for the result of each process"""
         for proc_id, code in self._exit_codes.items():
             if code != 0:
@@ -265,11 +289,9 @@ class Executor:
                 if self._runner._dispatcher:
                     self._runner._dispatcher.purge()
 
-                _err = self._std_err[proc_id]
-                _msg = f"Process {proc_id} returned non-zero exit status {code} with:\n{_err}"
+                self._runner.log_alert(self._alert_ids[proc_id], "critical")
             else:
-                _msg = f"Process {proc_id} completed successfully."
-            self._runner.log_event(_msg)
+                self._runner.log_alert(self._alert_ids[proc_id], "ok")
 
             # Wait for the dispatcher to send the latest information before
             # allowing the executor to finish (and as such the run instance to exit)
@@ -321,7 +343,7 @@ class Executor:
         for process in self._processes.values():
             if process.is_alive():
                 process.join()
-        self._log_events()
+        self._update_alerts()
         self._save_output()
 
         if not self.success:
