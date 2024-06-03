@@ -64,7 +64,7 @@ jobs:
         run: |
           add-apt-repository ppa:deadsnakes/ppa -y
           apt-get update && \
-          apt-get install -y python3.11-full
+          apt-get install -y git wget curl python3.11-full
 
       - name: Install dependencies
         run: |
