@@ -137,7 +137,7 @@ def run_optuna_example(
             run.init(
                 folder="/optuna/tests/%s" % FOLDER_NAME,
                 metadata=config,
-                ttl=60 * 60 if ci else -1,
+                retention_period="1 hour" if ci else None,
             )
 
             # Training of the model.

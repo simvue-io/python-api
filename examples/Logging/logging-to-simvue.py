@@ -12,7 +12,7 @@ def simvue_logger_demo(ci: bool) -> None:
             tags=["logging"],
             folder="/simvue_client_demos",
             description="Logging test",
-            ttl=60 * 60 if ci else -1,
+            retention_period="1 hour" if ci else None,
         )
 
         logger = logging.getLogger(__name__)
