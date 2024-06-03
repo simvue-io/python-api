@@ -184,9 +184,13 @@ class Run:
             _error_msg = "\n".join(
                 f"{identifier}:\n{msg}" for identifier, msg in _error_msgs.items()
             )
-            logger.error(
+            if _error_msg:
+                _error_msg = f":\n{_error_msg}"
+            click.secho(
                 "Simvue process executor terminated with non-zero exit status "
-                f"{_non_zero}{(':\n' + _error_msg) if _error_msg else ''}"
+                f"{_non_zero}{_error_msg}",
+                fg="red",
+                bold=True,
             )
             sys.exit(_non_zero)
 
@@ -1388,9 +1392,13 @@ class Run:
             _error_msg = "\n".join(
                 f"{identifier}:\n{msg}" for identifier, msg in _error_msgs.items()
             )
-            logger.error(
+            if _error_msg:
+                _error_msg = f":\n{_error_msg}"
+            click.secho(
                 "Simvue process executor terminated with non-zero exit status "
-                f"{_non_zero}{(':\n' + _error_msg) if _error_msg else ''}"
+                f"{_non_zero}{_error_msg}",
+                fg="red",
+                bold=True,
             )
             sys.exit(_non_zero)
 
