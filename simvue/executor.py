@@ -189,6 +189,9 @@ class Executor:
         for arg, value in kwargs.items():
             if arg.startswith("__"):
                 continue
+
+            arg = arg.replace("_", "-")
+
             if len(arg) == 1:
                 if isinstance(value, bool) and value:
                     _command += [f"-{arg}"]
