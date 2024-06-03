@@ -35,9 +35,7 @@ def run_su2_example(
     config_filename: str = (
         os.path.basename(config_url) if "http" in config_url else config_url
     )
-    mesh_filename: str = (
-        os.path.basename(config_url) if "http" in mesh_url else mesh_url
-    )
+    mesh_filename: str = os.path.basename(mesh_url) if "http" in mesh_url else mesh_url
 
     for url, file_name in zip((config_url, mesh_url), (config_filename, mesh_filename)):
         if "http" not in url:
