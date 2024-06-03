@@ -203,7 +203,7 @@ class Offline(SimvueBaseClass):
         logger.debug(
             f"Creating heartbeat file: {os.path.join(self._directory, 'heartbeat')}"
         )
-        pathlib.Path(os.path.join(self._directory, "heartbeat"), "a").touch()
+        pathlib.Path(os.path.join(self._directory, "heartbeat")).touch()
         return {"success": True}
 
     @skip_if_failed("_aborted", "_suppress_errors", False)
