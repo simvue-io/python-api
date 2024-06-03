@@ -99,6 +99,10 @@ def _serialize_plotly_figure(data: typing.Any) -> typing.Optional[tuple[str, str
         return None
     mimetype = "application/vnd.plotly.v1+json"
     data = plotly.io.to_json(data, engine="json")
+    mfile = BytesIO()
+    mfile.write(data.encode())
+    mfile.seek(0)
+    data = mfile.read()
     return data, mimetype
 
 
@@ -111,7 +115,7 @@ def _serialize_matplotlib(data: typing.Any) -> typing.Optional[tuple[str, str]]:
     mimetype = "application/vnd.plotly.v1+json"
     data = plotly.io.to_json(plotly.tools.mpl_to_plotly(data.gcf()), engine="json")
     mfile = BytesIO()
-    mfile.write(data)
+    mfile.write(data.encode())
     mfile.seek(0)
     data = mfile.read()
     return data, mimetype
@@ -126,7 +130,7 @@ def _serialize_matplotlib_figure(data: typing.Any) -> typing.Optional[tuple[str,
     mimetype = "application/vnd.plotly.v1+json"
     data = plotly.io.to_json(plotly.tools.mpl_to_plotly(data), engine="json")
     mfile = BytesIO()
-    mfile.write(data)
+    mfile.write(data.encode())
     mfile.seek(0)
     data = mfile.read()
     return data, mimetype
