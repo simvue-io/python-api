@@ -37,7 +37,7 @@ from .factory.dispatch import Dispatcher
 from .executor import Executor
 from .factory.proxy import Simvue
 from .metrics import get_gpu_metrics, get_process_cpu, get_process_memory
-from .models import RunInput
+from .models import RunInput, FOLDER_REGEX, NAME_REGEX
 from .serialization import serialize_object
 from .system import get_system
 from .metadata import git_info
@@ -85,13 +85,18 @@ class Run:
     """
 
     @pydantic.validate_call
-    def __init__(self, mode: typing.Literal["online", "offline"] = "online") -> None:
+    def __init__(
+        self, mode: typing.Literal["online", "offline", "disabled"] = "online"
+    ) -> None:
         """Initialise a new Simvue run
 
         Parameters
         ----------
-        mode : Literal['online', 'offline'], optional
-            mode of running, by default "online"
+        mode : Literal['online', 'offline', 'disabled'], optional
+            mode of running
+                online - objects sent directly to Simvue server
+                offline - everything is written to disk for later dispatch
+                disabled - disable monitoring completely
         """
         self._uuid: str = f"{uuid.uuid4()}"
         self._mode: typing.Literal["online", "offline", "disabled"] = mode
@@ -449,11 +454,13 @@ class Run:
     @pydantic.validate_call
     def init(
         self,
-        name: typing.Optional[str] = None,
+        name: typing.Optional[
+            typing.Annotated[str, pydantic.Field(pattern=NAME_REGEX)]
+        ] = None,
         metadata: typing.Optional[dict[str, typing.Any]] = None,
         tags: typing.Optional[list[str]] = None,
         description: typing.Optional[str] = None,
-        folder: str = "/",
+        folder: typing.Annotated[str, pydantic.Field(pattern=FOLDER_REGEX)] = "/",
         running: bool = True,
         retention_period: typing.Optional[str] = None,
         resources_metrics_interval: typing.Optional[int] = HEARTBEAT_INTERVAL,
@@ -639,7 +646,7 @@ class Run:
         executable : str | None, optional
             the main executable for the command, if not specified this is taken to be the first
             positional argument, by default None
-        *positional_arguments
+        *positional_arguments : Any, ..., optional
             all other positional arguments are taken to be part of the command to execute
         script : str | None, optional
             the script to run, note this only work if the script is not an option, if this is the case
@@ -653,7 +660,7 @@ class Run:
             this trigger event is set when the processes completes
         env : typing.Dict[str, str], optional
             environment variables for process
-        **kwargs
+        **kwargs : Any, ..., optional
             all other keyword arguments are interpreted as options to the command
         """
         if platform.system() == "Windows" and completion_callback:
@@ -873,8 +880,8 @@ class Run:
     @skip_if_failed("_aborted", "_suppress_errors", False)
     @check_run_initialised
     @pydantic.validate_call
-    def update_tags(self, tags: list[str]) -> bool:
-        """Update tags for this run
+    def set_tags(self, tags: list[str]) -> bool:
+        """Set tags for this run
 
         Parameters
         ----------
@@ -899,6 +906,37 @@ class Run:
             return True
 
         return False
+
+    @skip_if_failed("_aborted", "_suppress_errors", False)
+    @check_run_initialised
+    @pydantic.validate_call
+    def update_tags(self, tags: list[str]) -> bool:
+        """Add additional tags to this run without duplication
+
+        Parameters
+        ----------
+        tags : list[str]
+            new set of tags to attach
+
+        Returns
+        -------
+        bool
+            whether the update was successful
+        """
+        if self._mode == "disabled":
+            return True
+
+        if not self._simvue:
+            return False
+        current_tags: list[str] = self._simvue.list_tags() or []
+
+        try:
+            self.set_tags(list(set(current_tags + tags)))
+        except Exception as err:
+            self._error(f"Failed to update tags: {err}")
+            return False
+
+        return True
 
     @skip_if_failed("_aborted", "_suppress_errors", False)
     @check_run_initialised
@@ -1027,7 +1065,9 @@ class Run:
         self,
         obj: typing.Any,
         category: typing.Literal["input", "output", "code"],
-        name: typing.Optional[str] = None,
+        name: typing.Optional[
+            typing.Annotated[str, pydantic.Field(pattern=NAME_REGEX)]
+        ] = None,
         allow_pickle: bool = False,
     ) -> bool:
         """Save an object to the Simvue server
@@ -1084,7 +1124,9 @@ class Run:
         category: typing.Literal["input", "output", "code"],
         filetype: typing.Optional[str] = None,
         preserve_path: bool = False,
-        name: typing.Optional[str] = None,
+        name: typing.Optional[
+            typing.Annotated[str, pydantic.Field(pattern=NAME_REGEX)]
+        ] = None,
     ) -> bool:
         """Upload file to the server
 
@@ -1345,7 +1387,7 @@ class Run:
     @pydantic.validate_call
     def set_folder_details(
         self,
-        path: str,
+        path: typing.Annotated[str, pydantic.Field(pattern=FOLDER_REGEX)],
         metadata: typing.Optional[dict[str, typing.Union[int, str, float]]] = None,
         tags: typing.Optional[list[str]] = None,
         description: typing.Optional[str] = None,
@@ -1448,7 +1490,7 @@ class Run:
     @pydantic.validate_call
     def create_alert(
         self,
-        name: str,
+        name: typing.Annotated[str, pydantic.Field(pattern=NAME_REGEX)],
         source: typing.Literal["events", "metrics", "user"] = "metrics",
         description: typing.Optional[str] = None,
         frequency: typing.Optional[pydantic.PositiveInt] = None,

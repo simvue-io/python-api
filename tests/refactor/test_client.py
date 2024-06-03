@@ -107,13 +107,23 @@ def test_get_artifact_as_file(
 
 @pytest.mark.dependency
 @pytest.mark.client
-def test_get_artifacts_as_files(create_test_run: tuple[sv_run.Run, dict]) -> None:
+@pytest.mark.parametrize("category", (None, "code", "input", "output"))
+def test_get_artifacts_as_files(
+    create_test_run: tuple[sv_run.Run, dict],
+    category: typing.Literal["code", "input", "output"],
+) -> None:
     with tempfile.TemporaryDirectory() as tempd:
         client = svc.Client()
-        client.get_artifacts_as_files(create_test_run[1]["run_id"], path=tempd)
+        client.get_artifacts_as_files(
+            create_test_run[1]["run_id"], category=category, path=tempd
+        )
         files = [os.path.basename(i) for i in glob.glob(os.path.join(tempd, "*"))]
-        assert create_test_run[1]["file_1"] in files
-        assert create_test_run[1]["file_2"] in files
+        if not category or category == "input":
+            assert create_test_run[1]["file_1"] in files
+        if not category or category == "output":
+            assert create_test_run[1]["file_2"] in files
+        if not category or category == "code":
+            assert create_test_run[1]["file_3"] in files
 
 
 @pytest.mark.dependency
@@ -135,12 +145,12 @@ def test_get_run(create_test_run: tuple[sv_run.Run, dict]) -> None:
 def test_get_folder(create_test_run: tuple[sv_run.Run, dict]) -> None:
     client = svc.Client()
     assert (folders := client.get_folders())
-    assert (folder_id := folders[0].get("id"))
+    assert (folder_id := folders[1].get("path"))
     assert client.get_folder(folder_id)
 
 
 @pytest.mark.dependency
-@pytest.mark.client 
+@pytest.mark.client
 def test_get_metrics_names(create_test_run: tuple[sv_run.Run, dict]) -> None:
     client = svc.Client()
     time.sleep(1)
@@ -193,16 +203,16 @@ def test_folder_deletion(create_test_run: tuple[sv_run.Run, dict]) -> None:
 @pytest.mark.dependency
 @pytest.mark.client
 @pytest.mark.parametrize("aggregate", (True, False), ids=("aggregated", "normal"))
-@pytest.mark.parametrize("format", ("dict", "dataframe"))
+@pytest.mark.parametrize("output_format", ("dict", "dataframe"))
 @pytest.mark.parametrize("xaxis", ("step", "time", "timestamp"))
 def test_multiple_metric_retrieval(
     create_test_run: tuple[sv_run.Run, dict],
     aggregate: bool,
-    format: typing.Literal["dict", "dataframe"],
+    output_format: typing.Literal["dict", "dataframe"],
     xaxis: typing.Literal["step", "time", "timestamp"],
 ) -> None:
     client = svc.Client()
-    if format == "dataframe":
+    if output_format == "dataframe":
         try:
             import pandas
         except ImportError:
@@ -215,7 +225,7 @@ def test_multiple_metric_retrieval(
                 metric_names=list(create_test_run[1]["metrics"]),
                 xaxis=xaxis,
                 aggregate=aggregate,
-                output_format=format,
+                output_format=output_format,
             )
         return
 
@@ -224,5 +234,5 @@ def test_multiple_metric_retrieval(
         metric_names=list(create_test_run[1]["metrics"]),
         xaxis=xaxis,
         aggregate=aggregate,
-        output_format=format,
+        output_format=output_format,
     )
