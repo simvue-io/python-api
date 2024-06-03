@@ -9,10 +9,11 @@ from simvue import Handler, Run
 def simvue_logger_demo(ci: bool) -> None:
     with Run() as run:
         run.init(
-            tags=["logging"],
+            tags=["logging", "simvue_client_examples"],
             folder="/simvue_client_demos",
             description="Logging test",
             retention_period="1 hour" if ci else None,
+            visibility="tenant" if ci else None,
         )
 
         logger = logging.getLogger(__name__)

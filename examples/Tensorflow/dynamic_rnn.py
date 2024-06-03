@@ -67,8 +67,9 @@ def run_tensorflow_example(
             "computation over sequences with variable length. This example is using a toy dataset to "
             "classify linear sequences. The generated sequences have variable length.",
             retention_period="1 hour" if ci else None,
-            tags=["tensorflow"],
+            tags=["tensorflow", "simvue_client_examples"],
             folder="/simvue_client_demos",
+            visibility="tenant" if ci else None,
         )
         run.save_file(__file__, "code")
 

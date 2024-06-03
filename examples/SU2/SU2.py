@@ -99,9 +99,11 @@ def run_su2_example(
                 "SU2",
                 os.path.splitext(os.path.basename(config_filename))[0],
                 os.path.splitext(os.path.basename(mesh_filename))[0],
+                "simvue_client_examples",
             ],
             description="SU2 tutorial https://su2code.github.io/tutorials/Inviscid_ONERAM6/",
             retention_period="1 hour" if ci else None,
+            visibility="tenant" if ci else None,
         )
         run.add_process(
             identifier="SU2_simulation",

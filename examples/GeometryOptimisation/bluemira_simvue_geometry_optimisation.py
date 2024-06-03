@@ -22,6 +22,7 @@
 A quick tutorial on the optimisation of geometry in bluemira
 """
 
+import os
 import logging
 
 from bluemira.geometry.optimisation import GeometryOptimisationProblem
@@ -69,6 +70,8 @@ run.init(
         "optimiser.ftol_rel": ftol_rel,
     },
     folder="/simvue_client_demos",
+    visibility="tenant" if os.environ.get("CI") else None,
+    tags=["bluemira", "simvue_client_examples"],
     description="A simple GeometryOptimisationProblem, where we minimise the length of parameterised geometry using gradient-based optimisation algorithm.",
 )
 

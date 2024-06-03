@@ -137,7 +137,9 @@ def run_optuna_example(
             run.init(
                 folder="/optuna/tests/%s" % FOLDER_NAME,
                 metadata=config,
+                tags=["pytorch", "simvue_client_examples"],
                 retention_period="1 hour" if ci else None,
+                visibility="tenant" if ci else None,
             )
 
             # Training of the model.

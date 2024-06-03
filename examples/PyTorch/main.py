@@ -225,9 +225,10 @@ def simvue_pytorch_example(
 
     with Run() as run:
         run.init(
-            tags=["PyTorch"],
+            tags=["PyTorch", "simvue_client_examples"],
             folder="/simvue_client_demos",
             retention_period="1 hour" if ci else None,
+            visibility="tenant" if ci else None,
         )
 
         for epoch in range(1, epochs + 1):

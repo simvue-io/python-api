@@ -71,8 +71,9 @@ def open_foam_simvue_demo(all_run_script: str, ci: bool) -> None:
         run.init(
             f"open_foam_demo_{uniq_id}",
             folder="/simvue_client_demos",
-            tags=["OpenFOAM"],
+            tags=["OpenFOAM", "simvue_client_examples"],
             retention_period="1 hour" if ci else None,
+            visibility="tenant" if ci else None,
         )
         run.add_process(
             identifier="OpenFOAM",
