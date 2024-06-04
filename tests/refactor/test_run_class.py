@@ -459,3 +459,32 @@ def test_save_object(
             pytest.skip("Numpy is not installed")
         save_obj = array([1, 2, 3, 4])
     simvue_run.save_object(save_obj, "input", f"test_object_{object_type}")
+
+
+@pytest.mark.run
+def test_abort_on_fail(create_plain_run: typing.Tuple[sv_run.Run, dict]) -> None:
+    run, _ = create_plain_run
+    alert_id = run.create_alert("forever_fails", source="user")
+    run.config(resources_metrics_interval=1)
+    run._heartbeat_interval = 1
+    run.add_process(
+        identifier="forever_long",
+        executable="bash",
+        c="sleep 10000"
+    )
+    time.sleep(2)
+    run.log_alert(alert_id, "critical")
+    time.sleep(4)
+    
+
+@pytest.mark.run
+def test_kill_all_processes(create_plain_run: typing.Tuple[sv_run.Run, dict]) -> None:
+    run, _ = create_plain_run
+    run.config(resources_metrics_interval=1)
+    run.add_process(
+        identifier="forever_long",
+        executable="bash",
+        c="sleep 10000"
+    )
+    time.sleep(2)
+    run.kill_all_processes()

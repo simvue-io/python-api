@@ -171,9 +171,15 @@ class Offline(SimvueBaseClass):
 
     @skip_if_failed("_aborted", "_suppress_errors", [])
     def list_tags(self) -> list[dict[str, typing.Any]]:
+        #TODO: Tag retrieval not implemented for offline running
         raise NotImplementedError(
             "Retrieval of current tags is not implemented for offline running"
         )
+    
+    @skip_if_failed("_aborted", "_suppress_errors", True)
+    def get_abort_status(self) -> bool:
+        #TODO: Abort on failure not implemented for offline running
+        return True
 
     @skip_if_failed("_aborted", "_suppress_errors", [])
     def list_alerts(self) -> list[dict[str, typing.Any]]:

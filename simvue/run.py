@@ -101,6 +101,7 @@ class Run:
         self._uuid: str = f"{uuid.uuid4()}"
         self._mode: typing.Literal["online", "offline", "disabled"] = mode
         self._name: typing.Optional[str] = None
+        self._abort_on_fail: bool = True
         self._dispatch_mode: typing.Literal["direct", "queued"] = "queued"
         self._executor = Executor(self)
         self._dispatcher: typing.Optional[DispatcherBaseClass] = None
@@ -124,8 +125,10 @@ class Run:
         self._shutdown_event: typing.Optional[threading.Event] = None
         self._configuration_lock = threading.Lock()
         self._heartbeat_termination_trigger: typing.Optional[threading.Event] = None
+        self._alert_raised_trigger: typing.Optional[threading.Event] = None
         self._storage_id: typing.Optional[str] = None
         self._heartbeat_thread: typing.Optional[threading.Thread] = None
+        self._heartbeat_interval: int = HEARTBEAT_INTERVAL
 
     def __enter__(self) -> "Run":
         return self
@@ -138,9 +141,6 @@ class Run:
             typing.Union[typing.Type[BaseException], BaseException]
         ],
     ) -> None:
-        # Wait for the executor to finish with currently running processes
-        self._executor.wait_for_completion()
-
         identifier = self._id
         logger.debug(
             "Automatically closing run '%s' in status %s",
@@ -152,6 +152,18 @@ class Run:
         if self._heartbeat_thread and self._heartbeat_termination_trigger:
             self._heartbeat_termination_trigger.set()
             self._heartbeat_thread.join()
+
+        # Wait for the executor to finish with currently running processes
+        if (
+            self._abort_on_fail
+            and self._alert_raised_trigger
+            and self._alert_raised_trigger.is_set()
+        ):
+            if self._shutdown_event:
+                self._shutdown_event.set()
+            self.kill_all_processes()
+
+        self._executor.wait_for_completion()
 
         # Handle case where run is aborted by user KeyboardInterrupt
         if (self._id or self._mode == "offline") and self._status == "running":
@@ -273,10 +285,19 @@ class Run:
                         )
                         last_res_metric_call = res_time
 
-                if time.time() - last_heartbeat < HEARTBEAT_INTERVAL:
+                if time.time() - last_heartbeat < self._heartbeat_interval:
                     continue
 
                 last_heartbeat = time.time()
+
+                with self._configuration_lock:
+                    if (
+                        self._simvue
+                        and self._simvue.get_abort_status()
+                        and self._alert_raised_trigger
+                    ):
+                        self._alert_raised_trigger.set()
+                        break
 
                 if self._simvue:
                     self._simvue.send_heartbeat()
@@ -393,6 +414,7 @@ class Run:
 
         self._shutdown_event = threading.Event()
         self._heartbeat_termination_trigger = threading.Event()
+        self._alert_raised_trigger = threading.Event()
 
         try:
             self._dispatcher = Dispatcher(
@@ -438,6 +460,12 @@ class Run:
             self._heartbeat_termination_trigger.set()
             if join_threads:
                 self._heartbeat_thread.join()
+            if (
+                self._abort_on_fail
+                and self._alert_raised_trigger
+                and self._alert_raised_trigger.is_set()
+            ):
+                self.kill_all_processes()
 
         # Finish stopping all threads
         if self._shutdown_event:
@@ -474,7 +502,6 @@ class Run:
         folder: typing.Annotated[str, pydantic.Field(pattern=FOLDER_REGEX)] = "/",
         running: bool = True,
         retention_period: typing.Optional[str] = None,
-        resources_metrics_interval: typing.Optional[int] = HEARTBEAT_INTERVAL,
         visibility: typing.Union[
             typing.Literal["public", "tenant"], list[str], None
         ] = None,
@@ -500,8 +527,6 @@ class Run:
         retention_period : str, optional
             describer for time period to retain run, the default of None
             removes this constraint.
-        resources_metrics_interval : int, optional
-            how often to publish resource metrics, if None these will not be published
         visibility : Literal['public', 'tenant'] | list[str], optional
             set visibility options for this run, either:
                 * public - run viewable to all.
@@ -535,8 +560,6 @@ class Run:
         if name and not re.match(r"^[a-zA-Z0-9\-\_\s\/\.:]+$", name):
             self._error("specified name is invalid")
             return False
-
-        self._resources_metrics_interval = resources_metrics_interval
 
         self._name = name
 
@@ -806,6 +829,7 @@ class Run:
         resources_metrics_interval: typing.Optional[int] = None,
         disable_resources_metrics: typing.Optional[bool] = None,
         storage_id: typing.Optional[str] = None,
+        abort_on_fail: typing.Optional[bool] = None,
     ) -> bool:
         """Optional configuration
 
@@ -822,6 +846,8 @@ class Run:
             disable monitoring of resource metrics
         storage_id : str, optional
             identifier of storage to use, by default None
+        abort_on_fail : bool, optional
+            whether to abort the run if an alert is triggered
 
         Returns
         -------
@@ -848,6 +874,9 @@ class Run:
 
             if resources_metrics_interval:
                 self._resources_metrics_interval = resources_metrics_interval
+
+            if abort_on_fail:
+                self._abort_on_fail = abort_on_fail
 
             if storage_id:
                 self._storage_id = storage_id
