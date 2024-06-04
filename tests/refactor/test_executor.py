@@ -4,6 +4,7 @@ import time
 import sys
 import tempfile
 import pathlib
+import os
 import multiprocessing
     
 
@@ -36,6 +37,32 @@ def test_executor_add_process(
     else:
         with pytest.raises(SystemExit):
             run.close()
+
+
+@pytest.mark.executor
+def test_executor_multiprocess(request: pytest.FixtureRequest) -> None:
+    with tempfile.TemporaryDirectory() as tempd:
+        with simvue.Run() as run:
+            run.init(
+                "test_executor_multiprocess",
+                folder="/simvue_unit_testing",
+                tags=["simvue_client_tests", request.node.name]
+            )
+
+            for i in range(10):
+                out_file = pathlib.Path(tempd).joinpath(f"out_file_{i}.dat")
+                run.add_process(
+                    f"cmd_{i}",
+                    executable="bash",
+                    c="for i in {0..10}; do sleep 0.5; echo $i >> "+ f"{out_file}; done"
+                )
+            time.sleep(1)
+            for i in range(10):
+                out_file = pathlib.Path(tempd).joinpath(f"out_file_{i}.dat")
+                assert out_file.exists()
+    for i in range(10):
+        os.remove(f"test_executor_multiprocess_cmd_{i}.err")
+        os.remove(f"test_executor_multiprocess_cmd_{i}.out")
 
 
 @pytest.mark.executor
