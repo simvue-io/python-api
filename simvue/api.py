@@ -83,19 +83,22 @@ def post(
     if response.status_code == 422:
         _parsed_response = parse_validation_response(response.json())
         raise ValueError(
-            f"Validation error [{response.status_code}]:\n{_parsed_response}"
+            f"Validation error for '{url}' [{response.status_code}]:\n{_parsed_response}"
         )
 
     if response.status_code not in (200, 201, 409):
-        raise RuntimeError(f"HTTP error [{response.status_code}]: {response.text}")
+        raise RuntimeError(
+            f"HTTP error for '{url}' [{response.status_code}]: {response.text}"
+        )
 
     return response
 
 
 @retry(
     wait=wait_exponential(multiplier=RETRY_MULTIPLIER, min=RETRY_MIN, max=RETRY_MAX),
-    # retry=retry_if_not_exception_message(match="Validation error"), # if validation failed no point in retrying
+    retry=retry_if_exception_type(RuntimeError),
     stop=stop_after_attempt(RETRY_STOP),
+    reraise=True,
 )
 def put(
     url: str,
@@ -104,7 +107,7 @@ def put(
     is_json: bool = True,
     timeout: int = DEFAULT_API_TIMEOUT,
 ) -> requests.Response:
-    """HTTP POST with retries
+    """HTTP PUT with retries
 
     Parameters
     ----------
