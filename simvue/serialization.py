@@ -99,6 +99,10 @@ def _serialize_plotly_figure(data: typing.Any) -> typing.Optional[tuple[str, str
         return None
     mimetype = "application/vnd.plotly.v1+json"
     data = plotly.io.to_json(data, engine="json")
+    mfile = BytesIO()
+    mfile.write(data.encode())
+    mfile.seek(0)
+    data = mfile.read()
     return data, mimetype
 
 
@@ -110,6 +114,10 @@ def _serialize_matplotlib(data: typing.Any) -> typing.Optional[tuple[str, str]]:
         return None
     mimetype = "application/vnd.plotly.v1+json"
     data = plotly.io.to_json(plotly.tools.mpl_to_plotly(data.gcf()), engine="json")
+    mfile = BytesIO()
+    mfile.write(data.encode())
+    mfile.seek(0)
+    data = mfile.read()
     return data, mimetype
 
 
@@ -121,6 +129,10 @@ def _serialize_matplotlib_figure(data: typing.Any) -> typing.Optional[tuple[str,
         return None
     mimetype = "application/vnd.plotly.v1+json"
     data = plotly.io.to_json(plotly.tools.mpl_to_plotly(data), engine="json")
+    mfile = BytesIO()
+    mfile.write(data.encode())
+    mfile.seek(0)
+    data = mfile.read()
     return data, mimetype
 
 
@@ -161,8 +173,11 @@ def _serialize_torch_tensor(data: typing.Any) -> typing.Optional[tuple[str, str]
 def _serialize_json(data: typing.Any) -> typing.Optional[tuple[str, str]]:
     mimetype = "application/json"
     try:
-        data = json.dumps(data)
-    except TypeError:
+        mfile = BytesIO()
+        mfile.write(json.dumps(data).encode())
+        mfile.seek(0)
+        data = mfile.read()
+    except (TypeError, json.JSONDecodeError):
         return None
     return data, mimetype
 

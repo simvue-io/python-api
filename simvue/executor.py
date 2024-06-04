@@ -47,7 +47,6 @@ def _execute_process(
             )
 
     _status_code = _result.wait()
-
     with open(f"{runner_name}_{proc_id}.err") as err:
         std_err[proc_id] = err.read()
 
