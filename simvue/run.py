@@ -11,7 +11,6 @@ import datetime
 import json
 import logging
 import mimetypes
-import pathlib
 import multiprocessing.synchronize
 import threading
 import humanfriendly
@@ -610,8 +609,8 @@ class Run:
         identifier: str,
         *cmd_args,
         executable: typing.Optional[str] = None,
-        script: typing.Optional[typing.Union[str, pathlib.Path]] = None,
-        input_file: typing.Optional[typing.Union[str, pathlib.Path]] = None,
+        script: typing.Optional[pydantic.FilePath] = None,
+        input_file: typing.Optional[pydantic.FilePath] = None,
         completion_callback: typing.Optional[
             typing.Callable[[int, str, str], None]
         ] = None,
@@ -683,18 +682,6 @@ class Run:
 
         _cmd_list: typing.List[str] = []
         _pos_args = list(cmd_args)
-
-        if script:
-            if isinstance(script, str):
-                script = pathlib.Path(script)
-            if not script.exists():
-                self._error(f"Script '{script}' not found.")
-
-        if input_file:
-            if isinstance(input_file, str):
-                input_file = pathlib.Path(input_file)
-            if not input_file.exists():
-                self._error(f"Script '{input_file}' not found.")
 
         # Assemble the command for saving to metadata as string
         if executable:
