@@ -464,22 +464,15 @@ def test_save_object(
 @pytest.mark.run
 def test_abort_on_alert(create_plain_run: typing.Tuple[sv_run.Run, dict]) -> None:
     run, _ = create_plain_run
-    run.create_alert(
+    alert_id = run.create_alert(
         "forever_fails",
-        source="metrics",
-        metric="x",
-        frequency=1,
-        window=1,
-        rule="is below",
-        threshold=0,
+        source="user"
     )
     run.config(resources_metrics_interval=1)
     run._heartbeat_interval = 1
     run.add_process(identifier="forever_long", executable="bash", c="sleep 10000")
     time.sleep(2)
-    run.log_metrics({"x": -1})
-    time.sleep(1)
-    run.log_metrics({"x": -1})
+    run.log_alert(alert_id, "critical")
     time.sleep(4)
     if not run._aborted:
         run.kill_all_processes()
