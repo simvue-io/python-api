@@ -157,7 +157,7 @@ jobs:
   GEANT4:
     runs-on: ubuntu-latest
     container:
-      image: artemisbeta/geant4
+      image: artemisbeta/geant4:4.11.2
     steps:
       - uses: actions/checkout@v4
       - name: Setup Python
@@ -170,7 +170,7 @@ jobs:
         run: python3 -m pip install -r examples/Geant4/requirements.txt
       - name: Build Example
         run: |
-          g4_cmake -Bbuild examples/Geant4/FixedTarget/
+          cmake -DCMAKE_PREFIX_PATH=/usr/local/share/geant4/install/4.11.2/ -Bbuild examples/Geant4/FixedTarget/
           cmake --build build
       - name: Run Example
         run: python examples/Geant4/geant4_simvue.py build/MaterialTesting --ci --events 10

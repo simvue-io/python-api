@@ -13,7 +13,6 @@ import uproot
 import multiprocessing
 import typing
 import click
-import time
 import pathlib
 import os
 import tempfile
@@ -106,9 +105,6 @@ def geant4_simvue_example(
                         else None,
                         **kwargs,
                     )
-
-                while not running_simulation.is_set():
-                    time.sleep(1)
 
                 termination_trigger.set()
 
