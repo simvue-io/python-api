@@ -148,23 +148,12 @@ class Run:
             self._status,
         )
 
+        self._executor.wait_for_completion()
+
         # Stop the run heartbeat
         if self._heartbeat_thread and self._heartbeat_termination_trigger:
             self._heartbeat_termination_trigger.set()
             self._heartbeat_thread.join()
-
-        # Wait for the executor to finish with currently running processes
-        if (
-            self._abort_on_fail
-            and self._alert_raised_trigger
-            and self._alert_raised_trigger.is_set()
-        ):
-            self._aborted = True
-            if self._shutdown_event:
-                self._shutdown_event.set()
-            self.kill_all_processes()
-
-        self._executor.wait_for_completion()
 
         # Handle case where run is aborted by user KeyboardInterrupt
         if (self._id or self._mode == "offline") and self._status == "running":
@@ -291,6 +280,7 @@ class Run:
 
                 last_heartbeat = time.time()
 
+                # Check if the user has aborted the run
                 with self._configuration_lock:
                     if (
                         self._simvue
@@ -298,8 +288,13 @@ class Run:
                         and self._alert_raised_trigger
                     ):
                         self._alert_raised_trigger.set()
-                        self._close_session(False)
-                        break
+                        self.kill_all_processes()
+                        if self._dispatcher and self._shutdown_event:
+                            self._shutdown_event.set()
+                            self._dispatcher.purge()
+                            self._dispatcher.join()
+                        self.set_status("terminated")
+                        raise RuntimeError("Run was aborted")
 
                 if self._simvue:
                     self._simvue.send_heartbeat()
@@ -1379,7 +1374,15 @@ class Run:
 
         return False
 
-    def _close_session(self, join_heartbeat: bool) -> bool:
+    @skip_if_failed("_aborted", "_suppress_errors", False)
+    def close(self) -> bool:
+        """Close the run
+
+        Returns
+        -------
+        bool
+            whether close was successful
+        """
         self._executor.wait_for_completion()
         if self._mode == "disabled":
             return True
@@ -1394,8 +1397,7 @@ class Run:
 
         if self._heartbeat_thread and self._heartbeat_termination_trigger:
             self._heartbeat_termination_trigger.set()
-            if join_heartbeat:
-                self._heartbeat_thread.join()
+            self._heartbeat_thread.join()
 
         if self._shutdown_event:
             self._shutdown_event.set()
@@ -1426,17 +1428,6 @@ class Run:
             sys.exit(_non_zero)
 
         return True
-
-    @skip_if_failed("_aborted", "_suppress_errors", False)
-    def close(self) -> bool:
-        """Close the run
-
-        Returns
-        -------
-        bool
-            whether close was successful
-        """
-        return self._close_session(True)
 
     @skip_if_failed("_aborted", "_suppress_errors", False)
     @check_run_initialised
