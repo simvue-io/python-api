@@ -106,7 +106,7 @@ class Executor:
         completion_callback: typing.Optional[
             typing.Callable[[int, str, str], None]
         ] = None,
-        completion_trigger: multiprocessing.synchronize.Event,
+        completion_trigger: typing.Optional[multiprocessing.synchronize.Event] = None,
         **kwargs,
     ) -> None:
         """Add a process to be executed to the executor.
