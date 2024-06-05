@@ -641,7 +641,9 @@ class Client:
             response.content, mimetype, allow_pickle
         )
 
-        return content or response.content
+        # Numpy array return means just 'if content' will be ambiguous
+        # so must explicitly check if None
+        return response.content if content is None else content
 
     @prettify_pydantic
     @pydantic.validate_call
