@@ -157,7 +157,7 @@ jobs:
   GEANT4:
     runs-on: ubuntu-latest
     container:
-      image: artemisbeta/geant4:4.11.2
+      image: artemisbeta/geant4:11.2.1
     steps:
       - uses: actions/checkout@v4
       - name: Setup Python
