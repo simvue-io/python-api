@@ -612,6 +612,7 @@ class Run:
 
         if not name:
             return False
+
         elif name is not True:
             self._name = name
 
@@ -1365,9 +1366,6 @@ class Run:
         """
         if self._mode == "disabled":
             return True
-
-            self._error("Cannot update run status, run is not initialised.")
-            return False
 
         if not self._active:
             self._error("Run is not active")

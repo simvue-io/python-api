@@ -6,6 +6,7 @@ import pathlib
 import time
 import typing
 import uuid
+import randomname
 
 from simvue.factory.proxy.base import SimvueBaseClass
 from simvue.utilities import (
@@ -65,6 +66,10 @@ class Offline(SimvueBaseClass):
         if not self._directory:
             self._logger.error("No directory specified")
             return (None, None)
+
+        if not self._name:
+            self._name = randomname.get_name()
+
         try:
             os.makedirs(self._directory, exist_ok=True)
         except Exception as err:
