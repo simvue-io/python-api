@@ -159,6 +159,7 @@ class Run:
             and self._alert_raised_trigger
             and self._alert_raised_trigger.is_set()
         ):
+            self._aborted = True
             if self._shutdown_event:
                 self._shutdown_event.set()
             self.kill_all_processes()
@@ -297,6 +298,7 @@ class Run:
                         and self._alert_raised_trigger
                     ):
                         self._alert_raised_trigger.set()
+                        self.close(False)
                         break
 
                 if self._simvue:
@@ -465,6 +467,7 @@ class Run:
                 and self._alert_raised_trigger
                 and self._alert_raised_trigger.is_set()
             ):
+                self._aborted = True
                 self.kill_all_processes()
 
         # Finish stopping all threads
@@ -1378,15 +1381,7 @@ class Run:
 
         return False
 
-    @skip_if_failed("_aborted", "_suppress_errors", False)
-    def close(self) -> bool:
-        """Close the run
-
-        Returns
-        -------
-        bool
-            whether close was successful
-        """
+    def _close_session(self, join_heartbeat: bool) -> bool:
         self._executor.wait_for_completion()
         if self._mode == "disabled":
             return True
@@ -1401,7 +1396,8 @@ class Run:
 
         if self._heartbeat_thread and self._heartbeat_termination_trigger:
             self._heartbeat_termination_trigger.set()
-            self._heartbeat_thread.join()
+            if join_heartbeat:
+                self._heartbeat_thread.join()
 
         if self._shutdown_event:
             self._shutdown_event.set()
@@ -1432,6 +1428,17 @@ class Run:
             sys.exit(_non_zero)
 
         return True
+
+    @skip_if_failed("_aborted", "_suppress_errors", False)
+    def close(self) -> bool:
+        """Close the run
+
+        Returns
+        -------
+        bool
+            whether close was successful
+        """
+        return self._close_session(True)
 
     @skip_if_failed("_aborted", "_suppress_errors", False)
     @check_run_initialised
