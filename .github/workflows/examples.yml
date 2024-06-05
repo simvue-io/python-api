@@ -153,3 +153,24 @@ jobs:
           export SIMVUE_URL=${{ secrets.SIMVUE_URL }}
           export SIMVUE_TOKEN=${{ secrets.SIMVUE_TOKEN }}
           python3.11 ./examples/Tensorflow/dynamic_rnn.py --ci
+
+  GEANT4:
+    runs-on: ubuntu-latest
+    container:
+      image: artemisbeta/geant4
+    steps:
+      - uses: actions/checkout@v4
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Install Simvue
+        run: python3 -m pip install .
+      - name: Install Dependencies
+        run: python3 -m pip install -r examples/Geant4/requirements.txt
+      - name: Build Example
+        run: |
+          g4_cmake -Bbuild examples/Geant4/FixedTarget/
+          cmake --build build
+      - name: Run Example
+        run: python examples/Geant4/geant4_simvue.py build/MaterialTesting --ci --events 10
