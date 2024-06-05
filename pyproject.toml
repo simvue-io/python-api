@@ -54,6 +54,7 @@ torch = [
     {platform = "darwin", version="^2.0.0", source="PyPI", optional=true},
     {platform = "win32", version="^2.0.0", source="PyPI", optional=true},
 ]
+randomname = "^0.2.1"
 
 [tool.poetry.extras]
 plot = ["matplotlib", "plotly"]
