@@ -298,7 +298,7 @@ class Run:
                         and self._alert_raised_trigger
                     ):
                         self._alert_raised_trigger.set()
-                        self.close(False)
+                        self._close_session(False)
                         break
 
                 if self._simvue:
