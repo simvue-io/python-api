@@ -2,9 +2,8 @@ name: Simvue Examples
 
 on:
   push:
-    branches: [ "main", "dev", "hotfix/update-ci", "296-*", "examples/*" ]
-  pull_request:
-    branches: [ "main", "dev", "hotfix/update-ci" ]
+    tags:
+      - 'v*-*-rc*'
 
 permissions:
   contents: read
