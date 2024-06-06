@@ -2,7 +2,7 @@ name: Simvue Examples
 
 on:
   push:
-    branches: [ "main", "dev", "hotfix/update-ci", "296-*" ]
+    branches: [ "main", "dev", "hotfix/update-ci", "296-*", "examples/*" ]
   pull_request:
     branches: [ "main", "dev", "hotfix/update-ci" ]
 
@@ -153,3 +153,29 @@ jobs:
           export SIMVUE_URL=${{ secrets.SIMVUE_URL }}
           export SIMVUE_TOKEN=${{ secrets.SIMVUE_TOKEN }}
           python3.11 ./examples/Tensorflow/dynamic_rnn.py --ci
+
+  GEANT4:
+    runs-on: ubuntu-latest
+    container:
+      image: artemisbeta/geant4:11.2.1
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: recursive
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Install Simvue
+        run: python3 -m pip install .
+      - name: Install Dependencies
+        run: python3 -m pip install -r examples/Geant4/requirements.txt
+      - name: Build Example
+        run: |
+          cmake -DCMAKE_PREFIX_PATH=/usr/local/share/geant4/install/4.11.2/ -Bbuild examples/Geant4/FixedTarget/
+          cmake --build build
+      - name: Run Example
+        run: |
+          export SIMVUE_URL=${{ secrets.SIMVUE_URL }}
+          export SIMVUE_TOKEN=${{ secrets.SIMVUE_TOKEN }}
+          python examples/Geant4/geant4_simvue.py build/MaterialTesting --ci --events 10
