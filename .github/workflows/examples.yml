@@ -175,4 +175,7 @@ jobs:
           cmake -DCMAKE_PREFIX_PATH=/usr/local/share/geant4/install/4.11.2/ -Bbuild examples/Geant4/FixedTarget/
           cmake --build build
       - name: Run Example
-        run: python examples/Geant4/geant4_simvue.py build/MaterialTesting --ci --events 10
+        run: |
+          export SIMVUE_URL=${{ secrets.SIMVUE_URL }}
+          export SIMVUE_TOKEN=${{ secrets.SIMVUE_TOKEN }}
+          python examples/Geant4/geant4_simvue.py build/MaterialTesting --ci --events 10
