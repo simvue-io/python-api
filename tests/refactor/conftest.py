@@ -90,7 +90,7 @@ def setup_test_run(run: sv_run.Run, create_objects: bool, request: pytest.Fixtur
         name=f"test_run_{TEST_DATA['metadata']['test_identifier']}",
         tags=TEST_DATA["tags"],
         folder=TEST_DATA["folder"],
-        visibility="tenant",
+        visibility="tenant" if os.environ.get("CI") else None,
         retention_period="1 hour"
     )
     run._dispatcher._max_buffer_size = MAX_BUFFER_SIZE
