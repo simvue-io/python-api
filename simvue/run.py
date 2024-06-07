@@ -105,6 +105,7 @@ class Run:
         self._executor = Executor(self)
         self._dispatcher: typing.Optional[DispatcherBaseClass] = None
         self._id: typing.Optional[str] = None
+        self._term_color: bool = True
         self._suppress_errors: bool = False
         self._queue_blocking: bool = False
         self._status: typing.Optional[
@@ -187,10 +188,10 @@ class Run:
             if _error_msg:
                 _error_msg = f":\n{_error_msg}"
             click.secho(
-                "Simvue process executor terminated with non-zero exit status "
+                "[simvue] Process executor terminated with non-zero exit status "
                 f"{_non_zero}{_error_msg}",
-                fg="red",
-                bold=True,
+                fg="red" if self._term_color else None,
+                bold=self._term_color,
             )
             sys.exit(_non_zero)
 
@@ -478,6 +479,7 @@ class Run:
         visibility: typing.Union[
             typing.Literal["public", "tenant"], list[str], None
         ] = None,
+        no_color: bool = False,
     ) -> bool:
         """Initialise a Simvue run
 
@@ -507,12 +509,15 @@ class Run:
                 * public - run viewable to all.
                 * tenant - run viewable to all within the current tenant.
                 * A list of usernames with which to share this run
+        no_color : bool, optional
+            disable terminal colors. Default False.
 
         Returns
         -------
         bool
             whether the initialisation was successful
         """
+        self._term_color = not no_color
 
         if isinstance(visibility, str) and visibility not in ("public", "tenant"):
             self._error(
@@ -594,11 +599,15 @@ class Run:
             self._start()
 
         if self._mode == "online":
-            click.secho(f"[simvue] Run {self._name} created", bold=True, fg="green")
+            click.secho(
+                f"[simvue] Run {self._name} created",
+                bold=self._term_color,
+                fg="green" if self._term_color else None,
+            )
             click.secho(
                 f"[simvue] Monitor in the UI at {self._url}/dashboard/runs/run/{self._id}",
-                bold=True,
-                fg="green",
+                bold=self._term_color,
+                fg="green" if self._term_color else None,
             )
 
         return True
@@ -1205,9 +1214,9 @@ class Run:
 
         if not file_size:
             click.secho(
-                "WARNING: saving zero-sized files not currently supported",
-                bold=True,
-                fg="yellow",
+                "[simvue] WARNING: saving zero-sized files not currently supported",
+                bold=self._term_color,
+                fg="yellow" if self._term_color else None,
             )
             return True
 
@@ -1393,10 +1402,10 @@ class Run:
             if _error_msg:
                 _error_msg = f":\n{_error_msg}"
             click.secho(
-                "Simvue process executor terminated with non-zero exit status "
+                "[simvue] Process executor terminated with non-zero exit status "
                 f"{_non_zero}{_error_msg}",
-                fg="red",
-                bold=True,
+                fg="red" if self._term_color else None,
+                bold=self._term_color,
             )
             sys.exit(_non_zero)
 
