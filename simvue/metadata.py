@@ -65,10 +65,3 @@ def git_info(repository: str) -> dict[str, typing.Any]:
         "git.url": git_repo.remote().url,
         "git.dirty": dirty,
     }
-
-
-if __name__ in "__main__":
-    import os.path
-    import json
-
-    print(json.dumps(git_info(os.path.dirname(__file__)), indent=2))
