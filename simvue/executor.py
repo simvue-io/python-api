@@ -182,10 +182,10 @@ class Executor:
             _pos_args.pop(0)
 
         if script:
-            _command += [script]
+            _command += [f"{script}"]
 
         if input_file:
-            _command += [input_file]
+            _command += [f"{input_file}"]
 
         for arg, value in kwargs.items():
             if arg.startswith("__"):
