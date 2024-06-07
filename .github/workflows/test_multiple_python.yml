@@ -5,9 +5,8 @@ name: Simvue Client (Python Versions)
 
 on:
   push:
-    branches: [ "main", "dev", "hotfix/update-ci" ]
-  pull_request:
-    branches: [ "main", "dev", "hotfix/update-ci" ]
+    tags:
+      - 'v*-*-rc*'
 
 permissions:
   contents: read
