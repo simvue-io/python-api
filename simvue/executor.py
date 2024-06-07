@@ -271,8 +271,8 @@ class Executor:
         err_msg: typing.Optional[str] = None
 
         # Return last 10 lines of stdout if stderr empty
-        if not (err_msg := self._std_err[process_id]) and (
-            std_out := self._std_out[process_id]
+        if not (err_msg := self._std_err.get(process_id)) and (
+            std_out := self._std_out.get(process_id)
         ):
             err_msg = "  Tail STDOUT:\n\n"
             start_index = -10 if len(lines := std_out.split("\n")) > 10 else 0
@@ -307,11 +307,11 @@ class Executor:
         """Save the output to Simvue"""
         for proc_id in self._exit_codes.keys():
             # Only save the file if the contents are not empty
-            if self._std_err[proc_id]:
+            if self._std_err.get(proc_id):
                 self._runner.save_file(
                     f"{self._runner.name}_{proc_id}.err", category="output"
                 )
-            if self._std_out[proc_id]:
+            if self._std_out.get(proc_id):
                 self._runner.save_file(
                     f"{self._runner.name}_{proc_id}.out", category="output"
                 )

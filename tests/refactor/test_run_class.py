@@ -8,7 +8,6 @@ import uuid
 import pathlib
 import concurrent.futures
 import random
-import inspect
 
 import simvue.run as sv_run
 import simvue.client as sv_cl
@@ -464,19 +463,16 @@ def test_save_object(
 @pytest.mark.run
 def test_abort_on_alert(create_plain_run: typing.Tuple[sv_run.Run, dict]) -> None:
     run, _ = create_plain_run
-    alert_id = run.create_alert(
-        "forever_fails",
-        source="user"
-    )
     run.config(resources_metrics_interval=1)
     run._heartbeat_interval = 1
     run.add_process(identifier="forever_long", executable="bash", c="sleep 10000")
     time.sleep(2)
-    run.log_alert(alert_id, "critical")
+    client = sv_cl.Client()
+    client.abort_run(run._id, reason="testing abort")
     time.sleep(4)
-    if not run._aborted:
+    if not run._status == "terminated":
         run.kill_all_processes()
-        raise AssertionError("Run was not aborted")
+        raise AssertionError("Run was not terminated")
 
 
 @pytest.mark.run
