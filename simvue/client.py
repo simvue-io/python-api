@@ -272,6 +272,7 @@ class Client:
         output_format: typing.Literal["dict", "dataframe"] = "dict",
         count: int = 100,
         start_index: int = 0,
+        show_shared: bool = False,
     ) -> typing.Union[
         DataFrame, list[dict[str, typing.Union[int, str, float, None]]], None
     ]:
@@ -298,6 +299,8 @@ class Client:
             maximum number of entries to return. Default is 100.
         start_index : int, optional
             the index from which to count entries. Default is 0.
+        show_shared : bool, optional
+            whether to include runs shared with the current user. Default is False.
 
         Returns
         -------
@@ -312,6 +315,9 @@ class Client:
         RuntimeError
             if there was a failure in data retrieval from the server
         """
+        if not show_shared:
+            filters = (filters or []) + ["user == self"]
+
         params = {
             "filters": json.dumps(filters),
             "return_basic": True,
