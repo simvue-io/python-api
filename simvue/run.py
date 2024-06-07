@@ -618,9 +618,9 @@ class Run:
         self,
         identifier: str,
         *cmd_args,
-        executable: typing.Optional[str] = None,
-        script: typing.Optional[str] = None,
-        input_file: typing.Optional[str] = None,
+        executable: typing.Optional[typing.Union[str]] = None,
+        script: typing.Optional[pydantic.FilePath] = None,
+        input_file: typing.Optional[pydantic.FilePath] = None,
         completion_callback: typing.Optional[
             typing.Callable[[int, str, str], None]
         ] = None,
