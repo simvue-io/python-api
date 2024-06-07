@@ -1538,6 +1538,7 @@ class Run:
         ] = "average",
         notification: typing.Literal["email", "none"] = "none",
         pattern: typing.Optional[str] = None,
+        trigger_abort: bool = False,
     ) -> typing.Optional[str]:
         """Creates an alert with the specified name (if it doesn't exist)
         and applies it to the current run. If alert already exists it will
@@ -1597,6 +1598,8 @@ class Run:
             whether to notify on trigger, by default "none"
         pattern : str, optional
             for event based alerts pattern to look for, by default None
+        trigger_abort : bool, optional
+            whether this alert can trigger a run abort
 
         Returns
         -------
@@ -1671,7 +1674,7 @@ class Run:
 
         if alert_id:
             # TODO: What if we keep existing alerts/add a new one later?
-            data = {"id": self._id, "alerts": [alert_id]}
+            data = {"id": self._id, "alerts": [alert_id], "abort": trigger_abort}
             self._simvue.update(data)
 
         return alert_id
