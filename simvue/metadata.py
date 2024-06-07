@@ -30,7 +30,6 @@ def git_info(repository: str) -> dict[str, typing.Any]:
     """
     try:
         git_repo = git.Repo(repository, search_parent_directories=True)
-    except (git.InvalidGitRepositoryError, ValueError):
         current_commit: git.Commit = git_repo.head.commit
         author_list: set[str] = set(
             email
@@ -64,4 +63,5 @@ def git_info(repository: str) -> dict[str, typing.Any]:
             "git.url": git_repo.remote().url,
             "git.dirty": dirty,
         }
-    return {}
+    except (git.InvalidGitRepositoryError, ValueError):
+        return {}
