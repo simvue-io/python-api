@@ -461,7 +461,7 @@ def test_save_object(
 
 
 @pytest.mark.run
-def test_abort_on_alert(create_plain_run: typing.Tuple[sv_run.Run, dict]) -> None:
+def test_abort_on_alert_process(create_plain_run: typing.Tuple[sv_run.Run, dict]) -> None:
     run, _ = create_plain_run
     run.config(resources_metrics_interval=1)
     run._heartbeat_interval = 1
@@ -473,6 +473,26 @@ def test_abort_on_alert(create_plain_run: typing.Tuple[sv_run.Run, dict]) -> Non
     if not run._status == "terminated":
         run.kill_all_processes()
         raise AssertionError("Run was not terminated")
+    
+
+@pytest.mark.run
+def test_abort_on_alert_python(create_plain_run: typing.Tuple[sv_run.Run, dict]) -> None:
+    run, _ = create_plain_run
+    run.config(resources_metrics_interval=1)
+    run._heartbeat_interval = 1
+    client = sv_cl.Client()
+    i = 0
+
+    while True:
+        time.sleep(1)
+        if i == 4:
+            client.abort_run(run._id, reason="testing abort")
+        i += 1
+        if i == 10:
+            break
+
+    assert i == 4
+    assert run._status == "terminated"
 
 
 @pytest.mark.run

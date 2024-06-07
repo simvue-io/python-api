@@ -189,7 +189,7 @@ class Run:
             if _error_msg:
                 _error_msg = f":\n{_error_msg}"
             click.secho(
-                "Simvue process executor terminated with non-zero exit status "
+                "[simvue] Process executor terminated with non-zero exit status "
                 f"{_non_zero}{_error_msg}",
                 fg="red",
                 bold=True,
@@ -294,7 +294,8 @@ class Run:
                             self._dispatcher.purge()
                             self._dispatcher.join()
                         self.set_status("terminated")
-                        raise RuntimeError("Run was aborted")
+                        click.secho("[simvue] Run was aborted.", fg="red", bold=True)
+                        os._exit(1)
 
                 if self._simvue:
                     self._simvue.send_heartbeat()
@@ -1232,7 +1233,7 @@ class Run:
 
         if not file_size:
             click.secho(
-                "WARNING: saving zero-sized files not currently supported",
+                "[simvue] WARNING: saving zero-sized files not currently supported",
                 bold=True,
                 fg="yellow",
             )
@@ -1420,7 +1421,7 @@ class Run:
             if _error_msg:
                 _error_msg = f":\n{_error_msg}"
             click.secho(
-                "Simvue process executor terminated with non-zero exit status "
+                "[simvue] Process executor terminated with non-zero exit status "
                 f"{_non_zero}{_error_msg}",
                 fg="red",
                 bold=True,
