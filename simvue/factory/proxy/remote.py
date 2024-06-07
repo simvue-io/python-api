@@ -370,7 +370,6 @@ class Remote(SimvueBaseClass):
         if not (response_data := response.json()) or (
             (data := response_data.get("data")) is None
         ):
-            print(response_data)
             self._error(
                 "Expected key 'alerts' in response from server during alert retrieval"
             )
