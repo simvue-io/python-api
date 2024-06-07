@@ -78,7 +78,7 @@ def setup_test_run(run: sv_run.Run, create_objects: bool, request: pytest.Fixtur
             "test_engine": "pytest",
             "test_identifier": fix_use_id
         },
-        "folder": f"/simvue_unit_testing/{fix_use_id}",
+        "folder": "/simvue_unit_testing",
         "tags": ["simvue_client_unit_tests", request.node.name.replace("[", "_").replace("]", "_")]
     }
 
