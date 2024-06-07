@@ -101,7 +101,7 @@ class Run:
         self._uuid: str = f"{uuid.uuid4()}"
         self._mode: typing.Literal["online", "offline", "disabled"] = mode
         self._name: typing.Optional[str] = None
-        self._abort_on_fail: bool = True
+        self._abort_on_alert: bool = True
         self._dispatch_mode: typing.Literal["direct", "queued"] = "queued"
         self._executor = Executor(self)
         self._dispatcher: typing.Optional[DispatcherBaseClass] = None
@@ -126,7 +126,6 @@ class Run:
         self._shutdown_event: typing.Optional[threading.Event] = None
         self._configuration_lock = threading.Lock()
         self._heartbeat_termination_trigger: typing.Optional[threading.Event] = None
-        self._alert_raised_trigger: typing.Optional[threading.Event] = None
         self._storage_id: typing.Optional[str] = None
         self._heartbeat_thread: typing.Optional[threading.Thread] = None
         self._heartbeat_interval: int = HEARTBEAT_INTERVAL
@@ -285,8 +284,8 @@ class Run:
                 with self._configuration_lock:
                     if (
                         self._simvue
+                        and self._abort_on_alert
                         and self._simvue.get_abort_status()
-                        and self._alert_raised_trigger
                     ):
                         self._alert_raised_trigger.set()
                         self.kill_all_processes()
@@ -463,13 +462,6 @@ class Run:
             self._heartbeat_termination_trigger.set()
             if join_threads:
                 self._heartbeat_thread.join()
-            if (
-                self._abort_on_fail
-                and self._alert_raised_trigger
-                and self._alert_raised_trigger.is_set()
-            ):
-                self._aborted = True
-                self.kill_all_processes()
 
         # Finish stopping all threads
         if self._shutdown_event:
@@ -842,7 +834,7 @@ class Run:
         resources_metrics_interval: typing.Optional[int] = None,
         disable_resources_metrics: typing.Optional[bool] = None,
         storage_id: typing.Optional[str] = None,
-        abort_on_fail: typing.Optional[bool] = None,
+        abort_on_alert: typing.Optional[bool] = None,
     ) -> bool:
         """Optional configuration
 
@@ -859,7 +851,7 @@ class Run:
             disable monitoring of resource metrics
         storage_id : str, optional
             identifier of storage to use, by default None
-        abort_on_fail : bool, optional
+        abort_on_alert : bool, optional
             whether to abort the run if an alert is triggered
 
         Returns
@@ -888,8 +880,8 @@ class Run:
             if resources_metrics_interval:
                 self._resources_metrics_interval = resources_metrics_interval
 
-            if abort_on_fail:
-                self._abort_on_fail = abort_on_fail
+            if abort_on_alert:
+                self._abort_on_alert = abort_on_alert
 
             if storage_id:
                 self._storage_id = storage_id
