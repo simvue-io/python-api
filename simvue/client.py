@@ -342,7 +342,7 @@ class Client:
                 f"but got '{type(json_response)}'"
             )
 
-        if response_data := json_response.get("data"):
+        if (response_data := json_response.get("data")) is not None:
             return response_data
         elif output_format == "dataframe":
             return to_dataframe(response.json())
@@ -877,7 +877,7 @@ class Client:
                 f"but got '{type(json_response)}'"
             )
 
-        if not (data := json_response.get("data")):
+        if (data := json_response.get("data")) is None:
             raise RuntimeError(
                 "Expected key 'data' in response during folder retrieval"
             )
