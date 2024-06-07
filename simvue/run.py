@@ -295,7 +295,11 @@ class Run:
                             self._dispatcher.purge()
                             self._dispatcher.join()
                         self.set_status("terminated")
-                        click.secho("[simvue] Run was aborted.", fg="red", bold=True)
+                        click.secho(
+                            "[simvue] Run was aborted.",
+                            fg="red" if self._term_color else None,
+                            bold=self._term_color,
+                        )
                         os._exit(1)
 
                 if self._simvue:
