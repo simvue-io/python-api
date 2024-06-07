@@ -176,7 +176,7 @@ class Executor:
         _command: typing.List[str] = []
 
         if executable:
-            _command += [executable]
+            _command += [f"{executable}"]
         else:
             _command += [_pos_args[0]]
             _pos_args.pop(0)
