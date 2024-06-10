@@ -308,8 +308,12 @@ class Executor:
             logger.debug(f"Terminating child process {child.pid}: {child.name()}")
             child.kill()
 
+        for child in parent.children(recursive=True):
+            child.wait()
+
         logger.debug(f"Terminating child process {process.pid}: {process.args}")
-        process.terminate()
+        process.kill()
+        process.wait()
 
         self._execute_callback(process_id)
 

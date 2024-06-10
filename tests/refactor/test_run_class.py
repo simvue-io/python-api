@@ -517,6 +517,15 @@ def test_abort_on_alert_python(create_plain_run: typing.Tuple[sv_run.Run, dict],
 def test_kill_all_processes(create_plain_run: typing.Tuple[sv_run.Run, dict]) -> None:
     run, _ = create_plain_run
     run.config(resources_metrics_interval=1)
-    run.add_process(identifier="forever_long", executable="bash", c="sleep 10000")
+    run.add_process(identifier="forever_long_1", executable="bash", c="sleep 10000")
+    run.add_process(identifier="forever_long_2", executable="bash", c="sleep 10000")
+    processes = [
+        psutil.Process(process.pid)
+        for process in run._executor._processes.values()
+    ]
     time.sleep(2)
     run.kill_all_processes()
+    time.sleep(4)
+    for process in processes:
+        assert not process.is_running()
+        assert all(not child.is_running() for child in process.children(recursive=True))
