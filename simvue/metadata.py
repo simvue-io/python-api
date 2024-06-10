@@ -7,7 +7,6 @@ Contains functions for extracting additional metadata about the current project
 """
 
 import typing
-import git
 import json
 
 
@@ -28,6 +27,11 @@ def git_info(repository: str) -> dict[str, typing.Any]:
     dict[str, typing.Any]
         metadata for the target repository
     """
+    try:
+        import git
+    except ImportError:
+        return {}
+
     try:
         git_repo = git.Repo(repository, search_parent_directories=True)
         current_commit: git.Commit = git_repo.head.commit
