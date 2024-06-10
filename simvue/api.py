@@ -44,7 +44,7 @@ def set_json_header(headers: dict[str, str]) -> dict[str, str]:
     reraise=True,
 )
 def post(
-    url: str, headers: dict[str, str], data: dict[str, typing.Any], is_json: bool = True
+    url: str, headers: dict[str, str], data: typing.Any, is_json: bool = True
 ) -> requests.Response:
     """HTTP POST with retries
 

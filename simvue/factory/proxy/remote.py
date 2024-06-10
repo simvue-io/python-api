@@ -466,3 +466,26 @@ class Remote(SimvueBaseClass):
             self._error("Token has expired")
             return False
         return True
+    
+    @skip_if_failed("_aborted", "_suppress_errors", False)
+    def get_abort_status(self) -> bool:
+        logger.debug("Retrieving alert status")
+
+        try:
+            response = get(
+                f"{self._url}/api/runs/{self._id}/abort", self._headers_mp
+            )
+        except Exception as err:
+            self._error(f"Exception retrieving abort status: {str(err)}")
+            return False
+
+        logger.debug("Got status code %d when checking abort status", response.status_code)
+
+        if response.status_code == 200:
+            if (status := response.json().get("status")) is None:
+                self._error(f"Expected key 'status' when retrieving abort status {response.json()}")
+                return False
+            return status
+
+        self._error(f"Got status code {response.status_code} when checking abort status")
+        return False
