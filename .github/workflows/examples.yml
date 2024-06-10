@@ -4,6 +4,8 @@ on:
   push:
     tags:
       - 'v*-*-rc*'
+    branches:
+      - "296-*"
 
 permissions:
   contents: read
