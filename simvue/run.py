@@ -10,6 +10,7 @@ import contextlib
 import datetime
 import json
 import logging
+import pathlib
 import mimetypes
 import multiprocessing.synchronize
 import threading
@@ -49,6 +50,7 @@ from .utilities import (
     get_offline_directory,
     validate_timestamp,
 )
+
 
 if typing.TYPE_CHECKING:
     from .factory.proxy import SimvueBaseClass
@@ -101,6 +103,7 @@ class Run:
         self._uuid: str = f"{uuid.uuid4()}"
         self._mode: typing.Literal["online", "offline", "disabled"] = mode
         self._name: typing.Optional[str] = None
+        self._testing: bool = False
         self._abort_on_alert: bool = True
         self._dispatch_mode: typing.Literal["direct", "queued"] = "queued"
         self._executor = Executor(self)
@@ -246,7 +249,7 @@ class Run:
 
     def _create_heartbeat_callback(
         self,
-    ) -> typing.Callable[[str, dict, str, bool], None]:
+    ) -> typing.Callable[[threading.Event], None]:
         if (
             self._mode == "online" and (not self._url or not self._id)
         ) or not self._heartbeat_termination_trigger:
@@ -354,7 +357,7 @@ class Run:
             buffer: list[typing.Any],
             category: str,
             url: str = self._url,
-            run_id: str = self._id,
+            run_id: typing.Optional[str] = self._id,
             headers: dict[str, str] = self._headers,
         ) -> None:
             if not buffer:
@@ -636,7 +639,7 @@ class Run:
         self,
         identifier: str,
         *cmd_args,
-        executable: typing.Optional[typing.Union[str]] = None,
+        executable: typing.Optional[typing.Union[str, pathlib.Path]] = None,
         script: typing.Optional[pydantic.FilePath] = None,
         input_file: typing.Optional[pydantic.FilePath] = None,
         completion_callback: typing.Optional[
@@ -708,12 +711,20 @@ class Run:
                 "due to function pickling restrictions for multiprocessing"
             )
 
+        if isinstance(executable, pathlib.Path):
+            if not executable.is_file():
+                raise FileNotFoundError(
+                    f"Executable '{executable}' is not a valid file"
+                )
+
+        executable_str = f"{executable}"
+
         _cmd_list: typing.List[str] = []
         _pos_args = list(cmd_args)
 
         # Assemble the command for saving to metadata as string
         if executable:
-            _cmd_list += [executable]
+            _cmd_list += [executable_str]
         else:
             _cmd_list += [_pos_args[0]]
             executable = _pos_args[0]
@@ -742,10 +753,10 @@ class Run:
         self._executor.add_process(
             identifier,
             *_pos_args,
-            executable=executable,
+            executable=executable_str,
             script=script,
             input_file=input_file,
-            completion_callback=completion_callback,
+            completion_callback=completion_callback,  # type: ignore
             completion_trigger=completion_trigger,
             env=env,
             **cmd_kwargs,
@@ -1368,14 +1379,14 @@ class Run:
         if self._mode == "disabled":
             return True
 
-        if not self._active:
+        if not self._active or not self._name:
             self._error("Run is not active")
             return False
 
         data: dict[str, str] = {"name": self._name, "status": status}
         self._status = status
 
-        if self._simvue.update(data):
+        if self._simvue and self._simvue.update(data):
             return True
 
         return False

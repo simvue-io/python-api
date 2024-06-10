@@ -1,10 +1,13 @@
 import pytest
+import pytest_mock
 import time
 import typing
 import contextlib
 import inspect
 import tempfile
+import threading
 import uuid
+import psutil
 import pathlib
 import concurrent.futures
 import random
@@ -461,22 +464,37 @@ def test_save_object(
 
 
 @pytest.mark.run
-def test_abort_on_alert_process(create_plain_run: typing.Tuple[sv_run.Run, dict]) -> None:
+def test_abort_on_alert_process(create_plain_run: typing.Tuple[sv_run.Run, dict], mocker: pytest_mock.MockerFixture) -> None:
+    def testing_exit(status: int) -> None:
+        raise SystemExit(status)
+    mocker.patch("os._exit", testing_exit)
+    N_PROCESSES: int = 3
     run, _ = create_plain_run
     run.config(resources_metrics_interval=1)
     run._heartbeat_interval = 1
-    run.add_process(identifier="forever_long", executable="bash", c="sleep 10000")
+    run._testing = True
+    run.add_process(identifier="forever_long", executable="bash", c="&".join(["sleep 10"] * N_PROCESSES))
+    process_id = list(run._executor._processes.values())[0].pid
+    process = psutil.Process(process_id)
+    assert len(child_processes := process.children(recursive=True)) == 3
     time.sleep(2)
     client = sv_cl.Client()
     client.abort_run(run._id, reason="testing abort")
     time.sleep(4)
+    for child in child_processes:
+        assert not child.is_running()
     if not run._status == "terminated":
         run.kill_all_processes()
         raise AssertionError("Run was not terminated")
     
 
 @pytest.mark.run
-def test_abort_on_alert_python(create_plain_run: typing.Tuple[sv_run.Run, dict]) -> None:
+def test_abort_on_alert_python(create_plain_run: typing.Tuple[sv_run.Run, dict], mocker: pytest_mock.MockerFixture) -> None:
+    abort_set = threading.Event()
+    def testing_exit(status: int) -> None:
+        abort_set.set()
+        raise SystemExit(status)
+    mocker.patch("os._exit", testing_exit)
     run, _ = create_plain_run
     run.config(resources_metrics_interval=1)
     run._heartbeat_interval = 1
@@ -488,10 +506,10 @@ def test_abort_on_alert_python(create_plain_run: typing.Tuple[sv_run.Run, dict])
         if i == 4:
             client.abort_run(run._id, reason="testing abort")
         i += 1
-        if i == 10:
+        if abort_set.is_set() or i > 9:
             break
 
-    assert i == 4
+    assert i < 7
     assert run._status == "terminated"
 
 

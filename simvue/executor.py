@@ -27,6 +27,10 @@ if typing.TYPE_CHECKING:
 logger = logging.getLogger(__name__)
 
 
+class CompletionCallback(typing.Protocol):
+    def __call__(self, *, status_code: int, std_out: str, std_err: str) -> None: ...
+
+
 def _execute_process(
     proc_id: str,
     command: typing.List[str],
@@ -67,11 +71,13 @@ class Executor:
         """
         self._runner = simvue_runner
         self._keep_logs = keep_logs
-        self._completion_callbacks = {}
-        self._completion_triggers = {}
-        self._exit_codes = {}
-        self._std_err = {}
-        self._std_out = {}
+        self._completion_callbacks: dict[str, typing.Optional[CompletionCallback]] = {}
+        self._completion_triggers: dict[
+            str, typing.Optional[multiprocessing.synchronize.Event]
+        ] = {}
+        self._exit_codes: dict[str, int] = {}
+        self._std_err: dict[str, str] = {}
+        self._std_out: dict[str, str] = {}
         self._alert_ids: dict[str, str] = {}
         self._command_str: dict[str, str] = {}
         self._processes: dict[str, subprocess.Popen] = {}
@@ -84,9 +90,7 @@ class Executor:
         script: typing.Optional[pathlib.Path] = None,
         input_file: typing.Optional[pathlib.Path] = None,
         env: typing.Optional[typing.Dict[str, str]] = None,
-        completion_callback: typing.Optional[
-            typing.Callable[[int, str, str], None]
-        ] = None,
+        completion_callback: typing.Optional[CompletionCallback] = None,
         completion_trigger: typing.Optional[multiprocessing.synchronize.Event] = None,
         **kwargs,
     ) -> None:
@@ -140,6 +144,9 @@ class Executor:
             this trigger event is set when the processes completes
         """
         _pos_args = list(args)
+
+        if not self._runner.name:
+            raise RuntimeError("Cannot add process, expected Run instance to have name")
 
         if sys.platform == "win32" and completion_callback:
             logger.warning(
@@ -289,20 +296,20 @@ class Executor:
 
     def kill_process(self, process_id: str) -> None:
         """Kill a running process by ID"""
-        if not (_process := self._processes.get(process_id)):
+        if not (process := self._processes.get(process_id)):
             logger.error(
                 f"Failed to terminate process '{process_id}', no such identifier."
             )
             return
 
-        _parent = psutil.Process(_process.pid)
+        parent = psutil.Process(process.pid)
 
-        for child in _parent.children(recursive=True):
+        for child in parent.children(recursive=True):
             logger.debug(f"Terminating child process {child.pid}: {child.name()}")
             child.kill()
 
-        logger.debug(f"Terminating child process {_process.pid}: {_process.args}")
-        _process.terminate()
+        logger.debug(f"Terminating child process {process.pid}: {process.args}")
+        process.terminate()
 
         self._execute_callback(process_id)
 
@@ -325,14 +332,14 @@ class Executor:
         with open(f"{self._runner.name}_{identifier}.out") as out:
             std_out = out.read()
 
-        if self._completion_callbacks[identifier]:
-            self._completion_callbacks[identifier](
+        if callback := self._completion_callbacks.get(identifier):
+            callback(
                 status_code=self._processes[identifier].returncode,
                 std_out=std_out,
                 std_err=std_err,
             )
-        if self._completion_triggers[identifier]:
-            self._completion_triggers[identifier].set()
+        if completion_trigger := self._completion_triggers.get(identifier):
+            completion_trigger.set()
 
     def wait_for_completion(self) -> None:
         """Wait for all processes to finish then perform tidy up and upload"""
