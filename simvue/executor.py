@@ -16,6 +16,7 @@ import sys
 import multiprocessing
 import os
 import subprocess
+import pathlib
 import time
 import typing
 
@@ -100,13 +101,13 @@ class Executor:
         identifier: str,
         *args,
         executable: typing.Optional[str] = None,
-        script: typing.Optional[str] = None,
-        input_file: typing.Optional[str] = None,
+        script: typing.Optional[pathlib.Path] = None,
+        input_file: typing.Optional[pathlib.Path] = None,
         env: typing.Optional[typing.Dict[str, str]] = None,
         completion_callback: typing.Optional[
             typing.Callable[[int, str, str], None]
         ] = None,
-        completion_trigger: multiprocessing.synchronize.Event,
+        completion_trigger: typing.Optional[multiprocessing.synchronize.Event] = None,
         **kwargs,
     ) -> None:
         """Add a process to be executed to the executor.
@@ -175,16 +176,16 @@ class Executor:
         _command: typing.List[str] = []
 
         if executable:
-            _command += [executable]
+            _command += [f"{executable}"]
         else:
             _command += [_pos_args[0]]
             _pos_args.pop(0)
 
         if script:
-            _command += [script]
+            _command += [f"{script}"]
 
         if input_file:
-            _command += [input_file]
+            _command += [f"{input_file}"]
 
         for arg, value in kwargs.items():
             if arg.startswith("__"):

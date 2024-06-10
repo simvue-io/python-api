@@ -89,8 +89,13 @@ priority = "primary"
 
 
 [tool.ruff]
-lint.extend-select = ["C901"]
+lint.extend-select = ["C901", "T201"]
 lint.mccabe.max-complexity = 11
+
+[tool.ruff.lint.per-file-ignores]
+"tests/*" = ["T201"]
+"examples/*" = ["T201"]
+"notebooks/*" = ["T201"]
 
 [tool.pytest.ini_options]
 addopts = "-p no:warnings --cov=simvue -n auto"
