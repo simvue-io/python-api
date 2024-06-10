@@ -1099,6 +1099,9 @@ class Client:
             max_points=max_points or -1,
         )
 
+        if not run_metrics:
+            return None
+
         if aggregate:
             return aggregated_metrics_to_dataframe(
                 run_metrics, xaxis=xaxis, parse_to=output_format
@@ -1155,6 +1158,12 @@ class Client:
             output_format="dataframe",
             aggregate=False,
         )
+
+        if data is None:
+            raise RuntimeError(
+                f"Cannot plot metrics {metric_names}, "
+                f"no data found for runs {run_ids}."
+            )
 
         # Undo multi-indexing
         flattened_df = data.reset_index()
