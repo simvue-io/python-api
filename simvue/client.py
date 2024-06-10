@@ -605,6 +605,45 @@ class Client:
 
     @prettify_pydantic
     @pydantic.validate_call
+    def abort_run(self, run_id: str, reason: str) -> typing.Union[dict, list]:
+        """Abort a currently active run on the server
+
+        Parameters
+        ----------
+        run_id : str
+            the unique identifier for the run
+        reason : str
+            reason for abort
+
+        Returns
+        -------
+        dict | list
+            response from server
+        """
+        body: dict[str, str | None] = {"id": run_id, "reason": reason}
+
+        response = requests.put(
+            f"{self._url}/api/runs/abort",
+            headers=self._headers,
+            json=body,
+        )
+
+        json_response = self._get_json_from_response(
+            expected_status=[200, 400],
+            scenario=f"Abort of run '{run_id}'",
+            response=response,
+        )
+
+        if not isinstance(json_response, dict):
+            raise RuntimeError(
+                "Expected list from JSON response during retrieval of "
+                f"artifact but got '{type(json_response)}'"
+            )
+
+        return json_response
+
+    @prettify_pydantic
+    @pydantic.validate_call
     def get_artifact(
         self, run_id: str, name: str, allow_pickle: bool = False
     ) -> typing.Any:

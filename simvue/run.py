@@ -10,6 +10,7 @@ import contextlib
 import datetime
 import json
 import logging
+import pathlib
 import mimetypes
 import multiprocessing.synchronize
 import threading
@@ -49,6 +50,7 @@ from .utilities import (
     get_offline_directory,
     validate_timestamp,
 )
+
 
 if typing.TYPE_CHECKING:
     from .factory.proxy import SimvueBaseClass
@@ -101,6 +103,8 @@ class Run:
         self._uuid: str = f"{uuid.uuid4()}"
         self._mode: typing.Literal["online", "offline", "disabled"] = mode
         self._name: typing.Optional[str] = None
+        self._testing: bool = False
+        self._abort_on_alert: bool = True
         self._dispatch_mode: typing.Literal["direct", "queued"] = "queued"
         self._executor = Executor(self)
         self._dispatcher: typing.Optional[DispatcherBaseClass] = None
@@ -127,6 +131,7 @@ class Run:
         self._heartbeat_termination_trigger: typing.Optional[threading.Event] = None
         self._storage_id: typing.Optional[str] = None
         self._heartbeat_thread: typing.Optional[threading.Thread] = None
+        self._heartbeat_interval: int = HEARTBEAT_INTERVAL
 
     def __enter__(self) -> "Run":
         return self
@@ -139,15 +144,14 @@ class Run:
             typing.Union[typing.Type[BaseException], BaseException]
         ],
     ) -> None:
-        # Wait for the executor to finish with currently running processes
-        self._executor.wait_for_completion()
-
         identifier = self._id
         logger.debug(
             "Automatically closing run '%s' in status %s",
             identifier if self._mode == "online" else "unregistered",
             self._status,
         )
+
+        self._executor.wait_for_completion()
 
         # Stop the run heartbeat
         if self._heartbeat_thread and self._heartbeat_termination_trigger:
@@ -245,7 +249,7 @@ class Run:
 
     def _create_heartbeat_callback(
         self,
-    ) -> typing.Callable[[str, dict, str, bool], None]:
+    ) -> typing.Callable[[threading.Event], None]:
         if (
             self._mode == "online" and (not self._url or not self._id)
         ) or not self._heartbeat_termination_trigger:
@@ -274,10 +278,31 @@ class Run:
                         )
                         last_res_metric_call = res_time
 
-                if time.time() - last_heartbeat < HEARTBEAT_INTERVAL:
+                if time.time() - last_heartbeat < self._heartbeat_interval:
                     continue
 
                 last_heartbeat = time.time()
+
+                # Check if the user has aborted the run
+                with self._configuration_lock:
+                    if (
+                        self._simvue
+                        and self._abort_on_alert
+                        and self._simvue.get_abort_status()
+                    ):
+                        self._alert_raised_trigger.set()
+                        self.kill_all_processes()
+                        if self._dispatcher and self._shutdown_event:
+                            self._shutdown_event.set()
+                            self._dispatcher.purge()
+                            self._dispatcher.join()
+                        self.set_status("terminated")
+                        click.secho(
+                            "[simvue] Run was aborted.",
+                            fg="red" if self._term_color else None,
+                            bold=self._term_color,
+                        )
+                        os._exit(1)
 
                 if self._simvue:
                     self._simvue.send_heartbeat()
@@ -332,7 +357,7 @@ class Run:
             buffer: list[typing.Any],
             category: str,
             url: str = self._url,
-            run_id: str = self._id,
+            run_id: typing.Optional[str] = self._id,
             headers: dict[str, str] = self._headers,
         ) -> None:
             if not buffer:
@@ -394,6 +419,7 @@ class Run:
 
         self._shutdown_event = threading.Event()
         self._heartbeat_termination_trigger = threading.Event()
+        self._alert_raised_trigger = threading.Event()
 
         try:
             self._dispatcher = Dispatcher(
@@ -475,7 +501,6 @@ class Run:
         folder: typing.Annotated[str, pydantic.Field(pattern=FOLDER_REGEX)] = "/",
         running: bool = True,
         retention_period: typing.Optional[str] = None,
-        resources_metrics_interval: typing.Optional[int] = HEARTBEAT_INTERVAL,
         visibility: typing.Union[
             typing.Literal["public", "tenant"], list[str], None
         ] = None,
@@ -502,8 +527,6 @@ class Run:
         retention_period : str, optional
             describer for time period to retain run, the default of None
             removes this constraint.
-        resources_metrics_interval : int, optional
-            how often to publish resource metrics, if None these will not be published
         visibility : Literal['public', 'tenant'] | list[str], optional
             set visibility options for this run, either:
                 * public - run viewable to all.
@@ -540,8 +563,6 @@ class Run:
         if name and not re.match(r"^[a-zA-Z0-9\-\_\s\/\.:]+$", name):
             self._error("specified name is invalid")
             return False
-
-        self._resources_metrics_interval = resources_metrics_interval
 
         self._name = name
 
@@ -618,7 +639,7 @@ class Run:
         self,
         identifier: str,
         *cmd_args,
-        executable: typing.Optional[typing.Union[str]] = None,
+        executable: typing.Optional[typing.Union[str, pathlib.Path]] = None,
         script: typing.Optional[pydantic.FilePath] = None,
         input_file: typing.Optional[pydantic.FilePath] = None,
         completion_callback: typing.Optional[
@@ -690,12 +711,20 @@ class Run:
                 "due to function pickling restrictions for multiprocessing"
             )
 
+        if isinstance(executable, pathlib.Path):
+            if not executable.is_file():
+                raise FileNotFoundError(
+                    f"Executable '{executable}' is not a valid file"
+                )
+
+        executable_str = f"{executable}"
+
         _cmd_list: typing.List[str] = []
         _pos_args = list(cmd_args)
 
         # Assemble the command for saving to metadata as string
         if executable:
-            _cmd_list += [executable]
+            _cmd_list += [executable_str]
         else:
             _cmd_list += [_pos_args[0]]
             executable = _pos_args[0]
@@ -724,10 +753,10 @@ class Run:
         self._executor.add_process(
             identifier,
             *_pos_args,
-            executable=executable,
+            executable=executable_str,
             script=script,
             input_file=input_file,
-            completion_callback=completion_callback,
+            completion_callback=completion_callback,  # type: ignore
             completion_trigger=completion_trigger,
             env=env,
             **cmd_kwargs,
@@ -816,6 +845,7 @@ class Run:
         resources_metrics_interval: typing.Optional[int] = None,
         disable_resources_metrics: typing.Optional[bool] = None,
         storage_id: typing.Optional[str] = None,
+        abort_on_alert: typing.Optional[bool] = None,
     ) -> bool:
         """Optional configuration
 
@@ -832,6 +862,8 @@ class Run:
             disable monitoring of resource metrics
         storage_id : str, optional
             identifier of storage to use, by default None
+        abort_on_alert : bool, optional
+            whether to abort the run if an alert is triggered
 
         Returns
         -------
@@ -858,6 +890,9 @@ class Run:
 
             if resources_metrics_interval:
                 self._resources_metrics_interval = resources_metrics_interval
+
+            if abort_on_alert:
+                self._abort_on_alert = abort_on_alert
 
             if storage_id:
                 self._storage_id = storage_id
@@ -1344,14 +1379,14 @@ class Run:
         if self._mode == "disabled":
             return True
 
-        if not self._active:
+        if not self._active or not self._name:
             self._error("Run is not active")
             return False
 
         data: dict[str, str] = {"name": self._name, "status": status}
         self._status = status
 
-        if self._simvue.update(data):
+        if self._simvue and self._simvue.update(data):
             return True
 
         return False
