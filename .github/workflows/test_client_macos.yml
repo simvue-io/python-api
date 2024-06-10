@@ -11,7 +11,7 @@ permissions:
 
 jobs:
   build:
-    timeout-minutes: 20
+    timeout-minutes: 30
     runs-on: macos-latest
     steps:
     - uses: actions/checkout@v3
@@ -28,4 +28,4 @@ jobs:
         export SIMVUE_URL=${{ secrets.SIMVUE_URL }}
         export SIMVUE_TOKEN=${{ secrets.SIMVUE_TOKEN }}
         poetry install --all-extras
-        poetry run pytest tests/unit/ tests/refactor/
+        poetry run pytest tests/unit/ tests/refactor/ -m 'not scenario'

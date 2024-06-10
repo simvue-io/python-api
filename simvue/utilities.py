@@ -6,6 +6,7 @@ import json
 import tabulate
 import pydantic
 import importlib.util
+import functools
 import contextlib
 import os
 import typing
@@ -77,6 +78,7 @@ def check_extra(extra_name: str) -> typing.Callable:
     def decorator(
         class_func: typing.Optional[typing.Callable] = None,
     ) -> typing.Optional[typing.Callable]:
+        @functools.wraps(class_func)
         def wrapper(self, *args, **kwargs) -> typing.Any:
             if extra_name == "plot" and not all(
                 [
@@ -98,6 +100,18 @@ def check_extra(extra_name: str) -> typing.Callable:
         return wrapper
 
     return decorator
+
+
+def parse_pydantic_error(class_name: str, error: pydantic.ValidationError) -> str:
+    out_table: list[str] = []
+    for data in json.loads(error.json()):
+        out_table.append([data["loc"], data["type"], data["msg"]])
+    err_table = tabulate.tabulate(
+        out_table,
+        headers=["Location", "Type", "Message"],
+        tablefmt="fancy_grid",
+    )
+    return f"`{class_name}` Validation:\n{err_table}"
 
 
 def skip_if_failed(
@@ -129,6 +143,7 @@ def skip_if_failed(
     """
 
     def decorator(class_func: typing.Callable) -> typing.Callable:
+        @functools.wraps(class_func)
         def wrapper(self, *args, **kwargs) -> typing.Any:
             if getattr(self, failure_attr, None) and getattr(
                 self, ignore_exc_attr, None
@@ -143,25 +158,47 @@ def skip_if_failed(
             try:
                 return class_func(self, *args, **kwargs)
             except pydantic.ValidationError as e:
-                out_table: list[str] = []
-                for data in json.loads(e.json()):
-                    out_table.append([data["loc"], data["type"], data["msg"]])
-                err_table = tabulate.tabulate(
-                    out_table,
-                    headers=["Location", "Type", "Message"],
-                    tablefmt="fancy_grid",
-                )
-                err_str = f"`{class_func.__name__}` Validation:\n{err_table}"
+                error_str = parse_pydantic_error(class_func.__name__, e)
                 if getattr(self, ignore_exc_attr, True):
                     setattr(self, failure_attr, True)
-                    logger.error(err_str)
+                    logger.error(error_str)
                     return on_failure_return
-                raise RuntimeError(err_str)
+                raise RuntimeError(error_str)
 
-        wrapper.__name__ = f"{class_func.__name__}__fail_safe"
+        setattr(wrapper, "__fail_safe", True)
         return wrapper
 
     return decorator
+
+
+def prettify_pydantic(class_func: typing.Callable) -> typing.Callable:
+    """Converts pydantic validation errors to a table
+
+    Parameters
+    ----------
+    class_func : typing.Callable
+        function to wrap
+
+    Returns
+    -------
+    typing.Callable
+        wrapped function
+
+    Raises
+    ------
+    RuntimeError
+        the formatted validation error
+    """
+
+    @functools.wraps(class_func)
+    def wrapper(self, *args, **kwargs) -> typing.Any:
+        try:
+            return class_func(self, *args, **kwargs)
+        except pydantic.ValidationError as e:
+            error_str = parse_pydantic_error(class_func.__name__, e)
+            raise RuntimeError(error_str)
+
+    return wrapper
 
 
 def get_auth():

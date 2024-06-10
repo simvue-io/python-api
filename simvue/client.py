@@ -10,7 +10,9 @@ import json
 import logging
 import os
 import typing
+import pydantic
 from concurrent.futures import ThreadPoolExecutor, as_completed
+from pandas import DataFrame
 
 import requests
 
@@ -20,13 +22,13 @@ from .converters import (
     to_dataframe,
     parse_run_set_metrics,
 )
-from .serialization import Deserializer
+from .serialization import deserialize_data
 from .types import DeserializedContent
-from .utilities import check_extra, get_auth
+from .utilities import check_extra, get_auth, prettify_pydantic
+from .models import FOLDER_REGEX, NAME_REGEX
 
 if typing.TYPE_CHECKING:
-    from matplotlib.figure import Figure
-    from pandas import DataFrame
+    pass
 
 CONCURRENT_DOWNLOADS = 10
 DOWNLOAD_CHUNK_SIZE = 8192
@@ -134,7 +136,11 @@ class Client:
 
         raise RuntimeError(error_str)
 
-    def get_run_id_from_name(self, name: str) -> str:
+    @prettify_pydantic
+    @pydantic.validate_call
+    def get_run_id_from_name(
+        self, name: typing.Annotated[str, pydantic.Field(pattern=NAME_REGEX)]
+    ) -> str:
         """Get Run ID from the server matching the specified name
 
         Assumes a unique name for this run. If multiple results are found this
@@ -187,6 +193,8 @@ class Client:
             raise RuntimeError("Failed to retrieve identifier for run.")
         return first_id
 
+    @prettify_pydantic
+    @pydantic.validate_call
     def get_run(self, run_id: str) -> typing.Optional[dict[str, typing.Any]]:
         """Retrieve a single run
 
@@ -226,6 +234,8 @@ class Client:
             )
         return json_response
 
+    @prettify_pydantic
+    @pydantic.validate_call
     def get_run_name_from_id(self, run_id: str) -> str:
         """Retrieve the name of a run from its identifier
 
@@ -251,6 +261,8 @@ class Client:
             raise RuntimeError("Expected key 'name' in server response")
         return _name
 
+    @prettify_pydantic
+    @pydantic.validate_call
     def get_runs(
         self,
         filters: typing.Optional[typing.Union[list[str], RunsFilter]],
@@ -258,11 +270,12 @@ class Client:
         metrics: bool = False,
         alerts: bool = False,
         metadata: bool = False,
-        format: typing.Literal["dict", "dataframe"] = "dict",
+        output_format: typing.Literal["dict", "dataframe"] = "dict",
         count: int = 100,
         start_index: int = 0,
+        show_shared: bool = False,
     ) -> typing.Union[
-        "DataFrame", list[dict[str, typing.Union[int, str, float, None]]], None
+        DataFrame, list[dict[str, typing.Union[int, str, float, None]]], None
     ]:
         """Retrieve all runs matching filters.
 
@@ -280,13 +293,15 @@ class Client:
         alerts : bool, optional
             whether to include alert information in the response.
             Default False.
-        format : str ('dict' | 'dataframe'), optional
+        output_format : Literal['dict', 'dataframe'], optional
             the structure of the response, either a dictionary or a dataframe.
             Default is 'dict'. Pandas must be installed for 'dataframe'.
         count : int, optional
             maximum number of entries to return. Default is 100.
         start_index : int, optional
             the index from which to count entries. Default is 0.
+        show_shared : bool, optional
+            whether to include runs shared with the current user. Default is False.
 
         Returns
         -------
@@ -303,6 +318,9 @@ class Client:
         """
         if isinstance(filters, RunsFilter):
             filters = filters.as_list()
+
+        if not show_shared:
+            filters = (filters or []) + ["user == self"]
 
         params = {
             "filters": json.dumps(filters),
@@ -321,7 +339,7 @@ class Client:
 
         response.raise_for_status()
 
-        if format not in ("dict", "dataframe"):
+        if output_format not in ("dict", "dataframe"):
             raise ValueError("Invalid format specified")
 
         json_response = self._get_json_from_response(
@@ -334,13 +352,15 @@ class Client:
                 f"but got '{type(json_response)}'"
             )
 
-        if response_data := json_response.get("data"):
+        if (response_data := json_response.get("data")) is not None:
             return response_data
-        elif format == "dataframe":
+        elif output_format == "dataframe":
             return to_dataframe(response.json())
         else:
             raise RuntimeError("Failed to retrieve runs data")
 
+    @prettify_pydantic
+    @pydantic.validate_call
     def delete_run(self, run_identifier: str) -> typing.Optional[dict]:
         """Delete run by identifier
 
@@ -408,13 +428,18 @@ class Client:
 
         return None
 
-    def delete_runs(self, folder_name: str) -> typing.Optional[list]:
+    @prettify_pydantic
+    @pydantic.validate_call
+    def delete_runs(
+        self, folder_path: typing.Annotated[str, pydantic.Field(pattern=FOLDER_REGEX)]
+    ) -> typing.Optional[list]:
         """Delete runs in a named folder
 
         Parameters
         ----------
-        folder_name : str
-            the name of the folder on which to perform deletion
+        folder_path : str
+            the path of the folder on which to perform deletion. All folder
+            paths are prefixed with `/`
 
         Returns
         -------
@@ -426,10 +451,10 @@ class Client:
         RuntimeError
             if deletion fails due to server request error
         """
-        folder_id = self._get_folder_id_from_path(folder_name)
+        folder_id = self._get_folder_id_from_path(folder_path)
 
         if not folder_id:
-            raise ValueError(f"Could not find a folder matching '{folder_name}'")
+            raise ValueError(f"Could not find a folder matching '{folder_path}'")
 
         params: dict[str, bool] = {"runs_only": True, "runs": True}
 
@@ -439,19 +464,21 @@ class Client:
 
         if response.status_code == 200:
             if runs := response.json().get("runs", []):
-                logger.debug(f"Runs from '{folder_name}' deleted successfully: {runs}")
+                logger.debug(f"Runs from '{folder_path}' deleted successfully: {runs}")
             else:
                 logger.debug("Folder empty, no runs deleted.")
             return runs
 
         raise RuntimeError(
-            f"Deletion of runs from folder '{folder_name}' failed"
+            f"Deletion of runs from folder '{folder_path}' failed"
             f"with code {response.status_code}: {response.text}"
         )
 
+    @prettify_pydantic
+    @pydantic.validate_call
     def delete_folder(
         self,
-        folder_name: str,
+        folder_path: typing.Annotated[str, pydantic.Field(pattern=FOLDER_REGEX)],
         recursive: bool = False,
         remove_runs: bool = False,
         allow_missing: bool = False,
@@ -460,8 +487,8 @@ class Client:
 
         Parameters
         ----------
-        folder_name : str
-            name of the folder to delete
+        folder_path : str
+            name of the folder to delete. All paths are prefixed with `/`
         recursive : bool, optional
             if folder contains additional folders remove these, else return an
             error. Default False.
@@ -481,14 +508,14 @@ class Client:
         RuntimeError
             if deletion of the folder from the server failed
         """
-        folder_id = self._get_folder_id_from_path(folder_name)
+        folder_id = self._get_folder_id_from_path(folder_path)
 
         if not folder_id:
             if allow_missing:
                 return None
             else:
                 raise RuntimeError(
-                    f"Deletion of folder '{folder_name}' failed, "
+                    f"Deletion of folder '{folder_path}' failed, "
                     "folder does not exist."
                 )
 
@@ -501,7 +528,7 @@ class Client:
 
         json_response = self._get_json_from_response(
             expected_status=[200, 404],
-            scenario=f"Deletion of folder '{folder_name}'",
+            scenario=f"Deletion of folder '{folder_path}'",
             response=response,
         )
 
@@ -514,6 +541,8 @@ class Client:
         runs: list[dict] = json_response.get("runs", [])
         return runs
 
+    @prettify_pydantic
+    @pydantic.validate_call
     def list_artifacts(self, run_id: str) -> list[dict[str, typing.Any]]:
         """Retrieve artifacts for a given run
 
@@ -551,8 +580,12 @@ class Client:
             )
         return json_response
 
-    def _retrieve_artifact_from_server(self, run_id: str, name: str):
-        params: dict[str, str] = {"name": name}
+    def _retrieve_artifact_from_server(
+        self,
+        run_id: str,
+        name: str,
+    ) -> typing.Union[dict, list]:
+        params: dict[str, str | None] = {"name": name}
 
         response = requests.get(
             f"{self._url}/api/runs/{run_id}/artifacts",
@@ -574,9 +607,50 @@ class Client:
 
         return json_response
 
+    @prettify_pydantic
+    @pydantic.validate_call
+    def abort_run(self, run_id: str, reason: str) -> typing.Union[dict, list]:
+        """Abort a currently active run on the server
+
+        Parameters
+        ----------
+        run_id : str
+            the unique identifier for the run
+        reason : str
+            reason for abort
+
+        Returns
+        -------
+        dict | list
+            response from server
+        """
+        body: dict[str, str | None] = {"id": run_id, "reason": reason}
+
+        response = requests.put(
+            f"{self._url}/api/runs/abort",
+            headers=self._headers,
+            json=body,
+        )
+
+        json_response = self._get_json_from_response(
+            expected_status=[200, 400],
+            scenario=f"Abort of run '{run_id}'",
+            response=response,
+        )
+
+        if not isinstance(json_response, dict):
+            raise RuntimeError(
+                "Expected list from JSON response during retrieval of "
+                f"artifact but got '{type(json_response)}'"
+            )
+
+        return json_response
+
+    @prettify_pydantic
+    @pydantic.validate_call
     def get_artifact(
         self, run_id: str, name: str, allow_pickle: bool = False
-    ) -> typing.Optional[DeserializedContent]:
+    ) -> typing.Any:
         """Return the contents of a specified artifact
 
         Parameters
@@ -612,12 +686,16 @@ class Client:
         response = requests.get(url, timeout=DOWNLOAD_TIMEOUT)
         response.raise_for_status()
 
-        content: typing.Optional[DeserializedContent] = Deserializer().deserialize(
+        content: typing.Optional[DeserializedContent] = deserialize_data(
             response.content, mimetype, allow_pickle
         )
 
-        return content or response.content
+        # Numpy array return means just 'if content' will be ambiguous
+        # so must explicitly check if None
+        return response.content if content is None else content
 
+    @prettify_pydantic
+    @pydantic.validate_call
     def get_artifact_as_file(
         self, run_id: str, name: str, path: typing.Optional[str] = None
     ) -> None:
@@ -708,9 +786,12 @@ class Client:
 
         return downloads
 
+    @prettify_pydantic
+    @pydantic.validate_call
     def get_artifacts_as_files(
         self,
         run_id: str,
+        category: typing.Optional[typing.Literal["input", "output", "code"]] = None,
         path: typing.Optional[str] = None,
         startswith: typing.Optional[str] = None,
         contains: typing.Optional[str] = None,
@@ -725,11 +806,11 @@ class Client:
         path : str | None, optional
             location to download files to, the default of None will download
             them to the current working directory
-        startswith : typing.Optional[str], optional
+        startswith : str, optional
             only download artifacts with this prefix in their name, by default None
-        contains : typing.Optional[str], optional
+        contains : str, optional
             only download artifacts containing this term in their name, by default None
-        endswith : typing.Optional[str], optional
+        endswith : str, optional
             only download artifacts ending in this term in their name, by default None
 
         Raises
@@ -737,9 +818,12 @@ class Client:
         RuntimeError
             if there was a failure retrieving artifacts from the server
         """
+        params: dict[str, typing.Optional[str]] = {"category": category}
 
         response: requests.Response = requests.get(
-            f"{self._url}/api/runs/{run_id}/artifacts", headers=self._headers
+            f"{self._url}/api/runs/{run_id}/artifacts",
+            headers=self._headers,
+            params=params,
         )
 
         self._get_json_from_response(
@@ -767,13 +851,18 @@ class Client:
                         f"failed with exception: {e}"
                     )
 
-    def get_folder(self, folder_id: str) -> typing.Optional[dict[str, typing.Any]]:
+    @prettify_pydantic
+    @pydantic.validate_call
+    def get_folder(
+        self, folder_path: typing.Annotated[str, pydantic.Field(pattern=FOLDER_REGEX)]
+    ) -> typing.Optional[dict[str, typing.Any]]:
         """Retrieve a folder by identifier
 
         Parameters
         ----------
-        folder_id : str
-            unique identifier for the folder
+        folder_path : str
+            the path of the folder to retrieve on the server.
+            Paths are prefixed with `/`
 
         Returns
         -------
@@ -785,15 +874,16 @@ class Client:
         RuntimeError
             if there was a failure when retrieving information from the server
         """
-        if not (_folders := self.get_folders(filters=[f"path == {folder_id}"])):
+        if not (_folders := self.get_folders(filters=[f"path == {folder_path}"])):
             return None
         return _folders[0]
 
+    @pydantic.validate_call
     def get_folders(
         self,
         filters: typing.Optional[typing.Union[list[str], FoldersFilter]] = None,
-        count: int = 100,
-        start_index: int = 0,
+        count: pydantic.PositiveInt = 100,
+        start_index: pydantic.NonNegativeInt = 0,
     ) -> list[dict[str, typing.Any]]:
         """Retrieve folders from the server
 
@@ -839,13 +929,15 @@ class Client:
                 f"but got '{type(json_response)}'"
             )
 
-        if not (data := json_response.get("data")):
+        if (data := json_response.get("data")) is None:
             raise RuntimeError(
                 "Expected key 'data' in response during folder retrieval"
             )
 
         return data
 
+    @prettify_pydantic
+    @pydantic.validate_call
     def get_metrics_names(self, run_id: str) -> list[str]:
         """Return information on all metrics within a run
 
@@ -917,6 +1009,8 @@ class Client:
 
         return json_response
 
+    @prettify_pydantic
+    @pydantic.validate_call
     def get_metric_values(
         self,
         metric_names: list[str],
@@ -926,8 +1020,8 @@ class Client:
         run_filters: typing.Optional[list[str]] = None,
         use_run_names: bool = False,
         aggregate: bool = False,
-        max_points: int = -1,
-    ) -> typing.Union[dict, "DataFrame", None]:
+        max_points: typing.Optional[pydantic.PositiveInt] = None,
+    ) -> typing.Union[dict, DataFrame, None]:
         """Retrieve the values for a given metric across multiple runs
 
         Uses filters to specify which runs should be retrieved.
@@ -939,9 +1033,9 @@ class Client:
         ----------
         metric_names : list[str]
             the names of metrics to return values for
-        xaxis : str ('step' | 'time' | 'timestamp')
+        xaxis : Literal['step', 'time', 'timestamp']
             the xaxis type
-        output_format : str ('dataframe' | 'list')
+        output_format : Literal['dataframe', 'list']
             the format of the output, either a list or a Pandas dataframe
         run_ids : list[str], optional
             list of runs by id to include within metric retrieval
@@ -954,7 +1048,7 @@ class Client:
             return results as averages (not compatible with xaxis=timestamp),
             default is False
         max_points : int, optional
-            maximum number of data points, by default -1 (all)
+            maximum number of data points, by default None (all)
 
         Returns
         -------
@@ -1009,7 +1103,7 @@ class Client:
             run_ids=run_ids,
             xaxis=xaxis,
             aggregate=aggregate,
-            max_points=max_points,
+            max_points=max_points or -1,
         )
 
         if aggregate:
@@ -1022,13 +1116,15 @@ class Client:
             )
 
     @check_extra("plot")
+    @prettify_pydantic
+    @pydantic.validate_call
     def plot_metrics(
         self,
         run_ids: list[str],
         metric_names: list[str],
         xaxis: typing.Literal["step", "time"],
-        max_points: int = -1,
-    ) -> "Figure":
+        max_points: typing.Optional[int] = None,
+    ) -> typing.Any:
         """Plt the time series values for multiple metrics/runs
 
         Parameters
@@ -1040,7 +1136,7 @@ class Client:
         xaxis : str, ('step' | 'time' | 'timestep')
             the x axis to plot against
         max_points : int, optional
-            maximum number of data points, by default -1 (all)
+            maximum number of data points, by default None (all)
 
         Returns
         -------
@@ -1058,7 +1154,7 @@ class Client:
         if not isinstance(metric_names, list):
             raise ValueError("Invalid names specified, must be a list of metric names.")
 
-        data: "DataFrame" = self.get_metric_values(  # type: ignore
+        data: DataFrame = self.get_metric_values(  # type: ignore
             run_ids=run_ids,
             metric_names=metric_names,
             xaxis=xaxis,
@@ -1098,12 +1194,14 @@ class Client:
 
         return plt.figure()
 
+    @prettify_pydantic
+    @pydantic.validate_call
     def get_events(
         self,
         run_id: str,
         message_contains: typing.Optional[str] = None,
-        start_index: typing.Optional[int] = None,
-        count_limit: typing.Optional[int] = None,
+        start_index: typing.Optional[pydantic.NonNegativeInt] = None,
+        count_limit: typing.Optional[pydantic.PositiveInt] = None,
     ) -> list[dict[str, str]]:
         """Return events for a specified run
 
@@ -1111,11 +1209,11 @@ class Client:
         ----------
         run_id : str
             the unique identifier of the run to query
-        message_contains : typing.Optional[str], optional
+        message_contains : str, optional
             filter to events with message containing this expression, by default None
-        start_index : typing.Optional[int], optional
+        start_index : typing.int, optional
             slice results returning only those above this index, by default None
-        count_limit : typing.Optional[int], optional
+        count_limit : typing.int, optional
             limit number of returned results, by default None
 
         Returns
@@ -1159,6 +1257,8 @@ class Client:
 
         return response.json().get("data", [])
 
+    @prettify_pydantic
+    @pydantic.validate_call
     def get_alerts(
         self, run_id: str, critical_only: bool = True, names_only: bool = True
     ) -> list[dict[str, typing.Any]]:
@@ -1166,7 +1266,7 @@ class Client:
 
         Parameters
         ----------
-        run : str
+        run_id : str
             The ID of the run to find alerts for
         critical_only : bool, optional
             Whether to only return details about alerts which are currently critical, by default True

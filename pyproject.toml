@@ -54,6 +54,7 @@ torch = [
     {platform = "darwin", version="^2.0.0", source="PyPI", optional=true},
     {platform = "win32", version="^2.0.0", source="PyPI", optional=true},
 ]
+randomname = "^0.2.1"
 
 [tool.poetry.extras]
 plot = ["matplotlib", "plotly"]
@@ -70,6 +71,7 @@ pytest-cov = ">=4.1,<6.0"
 pytest-mock = "^3.14.0"
 pytest-sugar = "^1.0.0"
 pytest-xdist = "^3.6.1"
+jinja2 = "^3.1.4"
 
 [build-system]
 requires = ["poetry-core"]
@@ -87,11 +89,16 @@ priority = "primary"
 
 
 [tool.ruff]
-lint.extend-select = ["C901"]
+lint.extend-select = ["C901", "T201"]
 lint.mccabe.max-complexity = 11
 
+[tool.ruff.lint.per-file-ignores]
+"tests/*" = ["T201"]
+"examples/*" = ["T201"]
+"notebooks/*" = ["T201"]
+
 [tool.pytest.ini_options]
-addopts = "-p no:warnings --cov=simvue -n auto"
+addopts = "-p no:warnings --cov=simvue -n 0"
 testpaths = [
     "tests"
 ]
