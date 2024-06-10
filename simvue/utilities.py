@@ -6,6 +6,7 @@ import json
 import tabulate
 import pydantic
 import importlib.util
+import functools
 import contextlib
 import os
 import pathlib
@@ -14,7 +15,7 @@ import typing
 import jwt
 
 CHECKSUM_BLOCK_SIZE = 4096
-EXTRAS: tuple[str, ...] = ("plot", "torch", "dataset")
+EXTRAS: tuple[str, ...] = ("plot", "torch")
 
 logger = logging.getLogger(__name__)
 
@@ -55,10 +56,66 @@ def find_first_instance_of_file(
     return None
 
 
+def parse_validation_response(
+    response: dict[str, list[dict[str, str]]],
+) -> str:
+    """Parse ValidationError response from server
+
+    Reformats the error information from a validation error into a human
+    readable table. Checks if 'body' exists within response to determine
+    whether or not the output can contain the original input.
+
+    Parameters
+    ----------
+    response : dict[str, list[dict[str, str]]]
+        response from Simvue server
+
+    Returns
+    -------
+    str
+        return the validation information
+    """
+    if not (issues := response.get("detail")):
+        raise RuntimeError(
+            "Expected key 'detail' in server response during validation failure"
+        )
+
+    out: list[list[str]] = []
+
+    for issue in issues:
+        obj_type: str = issue["type"]
+        location: list[str] = issue["loc"]
+        location.remove("body")
+        location_addr: str = ""
+        for i, loc in enumerate(location):
+            if isinstance(loc, int):
+                location_addr += f"[{loc}]"
+            else:
+                location_addr += f"{'.' if i > 0 else ''}{loc}"
+        headers = ["Type", "Location", "Message"]
+        information = [obj_type, location_addr]
+
+        # Check if server response contains 'body'
+        if body := response.get("body"):
+            headers = ["Type", "Location", "Input", "Message"]
+            input_arg = body
+            for loc in location:
+                input_arg = input_arg[loc]
+            information.append(input_arg)
+
+        msg: str = issue["msg"]
+        information.append(msg)
+        out.append(information)
+
+    _table = tabulate.tabulate(out, headers=headers, tablefmt="fancy_grid")
+    return str(_table)
+
+
 def check_extra(extra_name: str) -> typing.Callable:
     def decorator(
         class_func: typing.Optional[typing.Callable] = None,
     ) -> typing.Optional[typing.Callable]:
+        @functools.wraps(class_func)
         def wrapper(self, *args, **kwargs) -> typing.Any:
             if extra_name == "plot" and not all(
                 [
@@ -73,15 +130,6 @@ def check_extra(extra_name: str) -> typing.Callable:
                 raise RuntimeError(
                     "PyTorch features require the 'torch' module to be installed"
                 )
-            elif extra_name == "dataset" and not all(
-                [
-                    importlib.util.find_spec("numpy"),
-                    importlib.util.find_spec("pandas"),
-                ]
-            ):
-                raise RuntimeError(
-                    f"Dataset features require the '{extra_name}' extension to Simvue"
-                )
             elif extra_name not in EXTRAS:
                 raise RuntimeError(f"Unrecognised extra '{extra_name}'")
             return class_func(self, *args, **kwargs) if class_func else None
@@ -89,6 +137,18 @@ def check_extra(extra_name: str) -> typing.Callable:
         return wrapper
 
     return decorator
+
+
+def parse_pydantic_error(class_name: str, error: pydantic.ValidationError) -> str:
+    out_table: list[str] = []
+    for data in json.loads(error.json()):
+        out_table.append([data["loc"], data["type"], data["msg"]])
+    err_table = tabulate.tabulate(
+        out_table,
+        headers=["Location", "Type", "Message"],
+        tablefmt="fancy_grid",
+    )
+    return f"`{class_name}` Validation:\n{err_table}"
 
 
 def skip_if_failed(
@@ -120,6 +180,7 @@ def skip_if_failed(
     """
 
     def decorator(class_func: typing.Callable) -> typing.Callable:
+        @functools.wraps(class_func)
         def wrapper(self, *args, **kwargs) -> typing.Any:
             if getattr(self, failure_attr, None) and getattr(
                 self, ignore_exc_attr, None
@@ -134,25 +195,47 @@ def skip_if_failed(
             try:
                 return class_func(self, *args, **kwargs)
             except pydantic.ValidationError as e:
-                out_table: list[str] = []
-                for data in json.loads(e.json()):
-                    out_table.append([data["loc"], data["type"], data["msg"]])
-                err_table = tabulate.tabulate(
-                    out_table,
-                    headers=["Location", "Type", "Message"],
-                    tablefmt="fancy_grid",
-                )
-                err_str = f"`{class_func.__name__}` Validation:\n{err_table}"
+                error_str = parse_pydantic_error(class_func.__name__, e)
                 if getattr(self, ignore_exc_attr, True):
                     setattr(self, failure_attr, True)
-                    logger.error(err_str)
+                    logger.error(error_str)
                     return on_failure_return
-                raise RuntimeError(err_str)
+                raise RuntimeError(error_str)
 
-        wrapper.__name__ = f"{class_func.__name__}__fail_safe"
+        setattr(wrapper, "__fail_safe", True)
         return wrapper
 
     return decorator
+
+
+def prettify_pydantic(class_func: typing.Callable) -> typing.Callable:
+    """Converts pydantic validation errors to a table
+
+    Parameters
+    ----------
+    class_func : typing.Callable
+        function to wrap
+
+    Returns
+    -------
+    typing.Callable
+        wrapped function
+
+    Raises
+    ------
+    RuntimeError
+        the formatted validation error
+    """
+
+    @functools.wraps(class_func)
+    def wrapper(self, *args, **kwargs) -> typing.Any:
+        try:
+            return class_func(self, *args, **kwargs)
+        except pydantic.ValidationError as e:
+            error_str = parse_pydantic_error(class_func.__name__, e)
+            raise RuntimeError(error_str)
+
+    return wrapper
 
 
 def get_auth():

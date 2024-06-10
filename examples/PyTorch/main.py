@@ -205,7 +205,7 @@ def main():
         scheduler.step()
 
     if args.save_model:
-        run.save(model.state_dict(), "output", name="mnist_cnn.pt")
+        run.save_file(model.state_dict(), "output", name="mnist_cnn.pt")
 
     run.close()
 

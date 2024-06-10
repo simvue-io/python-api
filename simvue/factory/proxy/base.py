@@ -29,6 +29,10 @@ class SimvueBaseClass(abc.ABC):
             self._aborted = True
 
     @abc.abstractmethod
+    def list_tags(self) -> typing.Optional[list[str]]:
+        pass
+
+    @abc.abstractmethod
     def create_run(
         self, data: dict[str, typing.Any]
     ) -> tuple[typing.Optional[str], typing.Optional[str]]:
@@ -84,4 +88,8 @@ class SimvueBaseClass(abc.ABC):
 
     @abc.abstractmethod
     def check_token(self) -> bool:
+        pass
+
+    @abc.abstractmethod
+    def get_abort_status(self) -> bool:
         pass

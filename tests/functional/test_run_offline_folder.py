@@ -24,7 +24,7 @@ class TestRunOfflineFolder(unittest.TestCase):
             pass
 
         name = "test-%s" % str(uuid.uuid4())
-        folder = "/test-%s" % str(uuid.uuid4())
+        folder = "/simvue_unit_testing"
         metadata = {str(uuid.uuid4()): 100 * random.random()}
         run = Run("offline")
         run.init(name, folder=folder)

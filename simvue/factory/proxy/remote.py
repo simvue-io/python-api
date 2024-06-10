@@ -42,6 +42,34 @@ class Remote(SimvueBaseClass):
 
         self._id = uniq_id
 
+    @skip_if_failed("_aborted", "_suppress_errors", None)
+    def list_tags(self) -> list[str]:
+        logger.debug("Retrieving existing tags")
+        try:
+            response = get(f"{self._url}/api/runs/{self._id}", self._headers)
+        except Exception as err:
+            self._error(f"Exception retrieving tags: {str(err)}")
+            return []
+
+        logger.debug(
+            'Got status code %d when retrieving tags: "%s"',
+            response.status_code,
+            response.text,
+        )
+
+        if not (response_data := response.json()) or (
+            (data := response_data.get("tags")) is None
+        ):
+            self._error(
+                "Expected key 'tags' in response from server during alert retrieval"
+            )
+            return []
+
+        if response.status_code == 200:
+            return data
+
+        return []
+
     @skip_if_failed("_aborted", "_suppress_errors", (None, None))
     def create_run(self, data) -> tuple[typing.Optional[str], typing.Optional[int]]:
         """
@@ -356,11 +384,11 @@ class Remote(SimvueBaseClass):
             self._error(f"Got exception when listing alerts: {str(err)}")
             return []
 
-        if not (response_data := response.json()) or not (
-            data := response_data.get("data")
+        if not (response_data := response.json()) or (
+            (data := response_data.get("data")) is None
         ):
             self._error(
-                "Expected key 'data' in response from server during alert retrieval"
+                "Expected key 'alerts' in response from server during alert retrieval"
             )
             return []
 
@@ -463,3 +491,30 @@ class Remote(SimvueBaseClass):
             self._error("Token has expired")
             return False
         return True
+
+    @skip_if_failed("_aborted", "_suppress_errors", False)
+    def get_abort_status(self) -> bool:
+        logger.debug("Retrieving alert status")
+
+        try:
+            response = get(f"{self._url}/api/runs/{self._id}/abort", self._headers_mp)
+        except Exception as err:
+            self._error(f"Exception retrieving abort status: {str(err)}")
+            return False
+
+        logger.debug(
+            "Got status code %d when checking abort status", response.status_code
+        )
+
+        if response.status_code == 200:
+            if (status := response.json().get("status")) is None:
+                self._error(
+                    f"Expected key 'status' when retrieving abort status {response.json()}"
+                )
+                return False
+            return status
+
+        self._error(
+            f"Got status code {response.status_code} when checking abort status"
+        )
+        return False

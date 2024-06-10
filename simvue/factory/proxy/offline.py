@@ -6,6 +6,7 @@ import pathlib
 import time
 import typing
 import uuid
+import randomname
 
 from simvue.factory.proxy.base import SimvueBaseClass
 from simvue.utilities import (
@@ -65,6 +66,10 @@ class Offline(SimvueBaseClass):
         if not self._directory:
             self._logger.error("No directory specified")
             return (None, None)
+
+        if not self._name:
+            self._name = randomname.get_name()
+
         try:
             os.makedirs(self._directory, exist_ok=True)
         except Exception as err:
@@ -170,6 +175,18 @@ class Offline(SimvueBaseClass):
         return _alert_data
 
     @skip_if_failed("_aborted", "_suppress_errors", [])
+    def list_tags(self) -> list[dict[str, typing.Any]]:
+        # TODO: Tag retrieval not implemented for offline running
+        raise NotImplementedError(
+            "Retrieval of current tags is not implemented for offline running"
+        )
+
+    @skip_if_failed("_aborted", "_suppress_errors", True)
+    def get_abort_status(self) -> bool:
+        # TODO: Abort on failure not implemented for offline running
+        return True
+
+    @skip_if_failed("_aborted", "_suppress_errors", [])
     def list_alerts(self) -> list[dict[str, typing.Any]]:
         return [
             json.load(open(alert_file))
@@ -197,7 +214,7 @@ class Offline(SimvueBaseClass):
         logger.debug(
             f"Creating heartbeat file: {os.path.join(self._directory, 'heartbeat')}"
         )
-        pathlib.Path(os.path.join(self._directory, "heartbeat"), "a").touch()
+        pathlib.Path(os.path.join(self._directory, "heartbeat")).touch()
         return {"success": True}
 
     @skip_if_failed("_aborted", "_suppress_errors", False)
