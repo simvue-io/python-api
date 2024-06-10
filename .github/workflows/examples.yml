@@ -74,8 +74,8 @@ jobs:
       - name: Install Package
         run: python3.11 -m pip install .
       - name: Run Example
+        shell: bash
         run: |
-          . /opt/openfoam10/etc/bashrc
           export SIMVUE_URL=${{ secrets.SIMVUE_URL }}
           export SIMVUE_TOKEN=${{ secrets.SIMVUE_TOKEN }}
           python3.11 ./examples/OpenFOAM/simvue_openfoam.py /opt/openfoam10/tutorials/incompressible/pimpleFoam/laminar/movingCone/Allrun  --ci
