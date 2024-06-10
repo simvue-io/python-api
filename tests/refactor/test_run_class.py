@@ -409,7 +409,7 @@ def test_save_file(
             if empty_file:
                 assert (
                     variable.out
-                    == "WARNING: saving zero-sized files not currently supported\n"
+                    == "[simvue] WARNING: saving zero-sized files not currently supported\n"
                 )
 
 
