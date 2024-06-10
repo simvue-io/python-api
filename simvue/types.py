@@ -5,6 +5,7 @@ try:
 except ImportError:
     from typing_extensions import TypeAlias
 
+
 if typing.TYPE_CHECKING:
     from numpy import ndarray
     from pandas import DataFrame
