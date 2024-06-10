@@ -98,7 +98,7 @@ lint.mccabe.max-complexity = 11
 "notebooks/*" = ["T201"]
 
 [tool.pytest.ini_options]
-addopts = "-p no:warnings --cov=simvue -n auto"
+addopts = "-p no:warnings --cov=simvue -n 0"
 testpaths = [
     "tests"
 ]
