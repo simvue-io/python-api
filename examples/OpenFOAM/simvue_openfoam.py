@@ -41,7 +41,7 @@ def open_foam_simvue_demo(all_run_script: str, ci: bool) -> None:
     uniq_id: str = f"{uuid.uuid4()}".split("-")[0]
 
     @mp_tail_parse.log_parser
-    def custom_parser(file_content: str, **_) -> tuple[dict[str, Any], dict[str, Any]]:
+    def custom_parser(file_content: str, **__) -> tuple[dict[str, Any], dict[str, Any]]:
         exp1: re.Pattern[str] = re.compile(
             "^(.+):  Solving for (.+), Initial residual = (.+), Final residual = (.+), No Iterations (.+)$"
         )
@@ -82,7 +82,7 @@ def open_foam_simvue_demo(all_run_script: str, ci: bool) -> None:
             completion_callback=lambda *_, **__: termination_trigger.set(),
         )
         with multiparser.FileMonitor(
-            per_thread_callback=lambda metrics: run.log_metrics(metrics),
+            per_thread_callback=lambda metrics, *_: run.log_metrics(metrics),
             exception_callback=run.log_event,
             terminate_all_on_fail=True,
             plain_logging=True,
@@ -94,6 +94,7 @@ def open_foam_simvue_demo(all_run_script: str, ci: bool) -> None:
                 parser_func=custom_parser,
                 path_glob_exprs=[os.path.join(log_location, "log.pimpleFoam")],
             )
+            monitor.run()
 
 
 if __name__ in "__main__":

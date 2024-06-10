@@ -9,4 +9,3 @@ COPY . /simvue_client
 RUN python3.11 -m ensurepip --upgrade
 RUN python3.11 -m pip install /simvue_client
 RUN python3.11 -m pip install -r /simvue_client/examples/OpenFOAM/requirements.txt
-COPY $simvue_file simvue.ini
