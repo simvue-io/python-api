@@ -62,8 +62,8 @@ def test_log_metrics(
                 folder="/simvue_unit_testing",
                 retention_period="1 hour",
                 visibility=visibility,
-                resources_metrics_interval=1,
             )
+            run.config(resources_metrics_interval=1)
         return
 
     run.init(
@@ -74,9 +74,9 @@ def test_log_metrics(
         ],
         folder="/simvue_unit_testing",
         visibility=visibility,
-        resources_metrics_interval=1,
         retention_period="1 hour",
     )
+    run.config(resources_metrics_interval=1)
 
     # Speed up the read rate for this test
     run._dispatcher._max_buffer_size = 10
