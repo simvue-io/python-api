@@ -546,11 +546,6 @@ class Client:
         ----------
         alert_id : str
             the unique identifier for the alert
-
-        Returns
-        -------
-        typing.Optional[str]
-            server response
         """
         response = requests.delete(
             f"{self._url}/api/alerts/{alert_id}", headers=self._headers
