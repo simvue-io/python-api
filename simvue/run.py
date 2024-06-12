@@ -788,7 +788,8 @@ class Run:
         # default refers to its own processes but can also be used on a PID
         if self._parent_process:
             self._executor.kill_process(
-                self._parent_process.pid, self._parent_process == os.getpid()
+                process_id=self._parent_process.pid,
+                kill_children_only=self._parent_process.pid == os.getpid(),
             )
         self._executor.kill_all()
 
