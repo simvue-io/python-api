@@ -224,6 +224,7 @@ class Run:
 
         process_list += [self._parent_process]
 
+        # Attach child processes relating to the process set by set_pid
         with contextlib.suppress(psutil.NoSuchProcess, psutil.ZombieProcess):
             for child in self._parent_process.children(recursive=True):
                 if child not in process_list:

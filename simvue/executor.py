@@ -346,8 +346,8 @@ class Executor:
         for child in parent.children(recursive=True):
             child.wait()
 
-        logger.debug(f"Terminating process {process.pid}: {process.args}")
         if not kill_children_only:
+            logger.debug(f"Terminating process {process.pid}: {process.args}")
             process.kill()
             process.wait()
 
