@@ -5,6 +5,7 @@ on:
     branches: [ "main", "dev", "hotfix/update-ci" ]
   pull_request:
     branches: [ "main", "dev", "hotfix/update-ci" ]
+  workflow_dispatch:
 
 permissions:
   contents: read
