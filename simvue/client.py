@@ -539,6 +539,34 @@ class Client:
 
     @prettify_pydantic
     @pydantic.validate_call
+    def delete_alert(self, alert_id: str) -> None:
+        """Delete an alert from the server by ID
+
+        Parameters
+        ----------
+        alert_id : str
+            the unique identifier for the alert
+
+        Returns
+        -------
+        typing.Optional[str]
+            server response
+        """
+        response = requests.delete(
+            f"{self._url}/api/alerts/{alert_id}", headers=self._headers
+        )
+
+        if response.status_code == 200:
+            logger.debug(f"Alert '{alert_id}' deleted successfully")
+            return
+
+        raise RuntimeError(
+            f"Deletion of alert '{alert_id}' failed"
+            f"with code {response.status_code}: {response.text}"
+        )
+
+    @prettify_pydantic
+    @pydantic.validate_call
     def list_artifacts(self, run_id: str) -> list[dict[str, typing.Any]]:
         """Retrieve artifacts for a given run
 
