@@ -1182,12 +1182,10 @@ class Run:
 
         # Register file
         try:
-            file_save = self._simvue.save_file(data)
+            return self._simvue is not None and self._simvue.save_file(data) is not None
         except RuntimeError as e:
             self._error(f"{e.args[0]}")
             return False
-
-        return self._simvue is not None and file_save is not None
 
     @skip_if_failed("_aborted", "_suppress_errors", False)
     @check_run_initialised
@@ -1409,13 +1407,11 @@ class Run:
         self._status = status
 
         try:
-            updated = self._simvue.update(data)
+            if self._simvue and self._simvue.update(data):
+                return True
         except RuntimeError as e:
             self._error(f"{e.args[0]}")
             return False
-
-        if self._simvue and updated:
-            return True
 
         return False
 
@@ -1733,7 +1729,7 @@ class Run:
             alerts = self._simvue.list_alerts()
         except RuntimeError as e:
             self._error(f"{e.args[0]}")
-            return alerts
+            return None
 
         if alerts:
             for existing_alert in alerts:
@@ -1748,7 +1744,7 @@ class Run:
                 response = self._simvue.add_alert(alert)
             except RuntimeError as e:
                 self._error(f"{e.args[0]}")
-                return False
+                return None
             if response:
                 if "id" in response:
                     alert_id = response["id"]
@@ -1764,7 +1760,7 @@ class Run:
                 self._simvue.update(data)
             except RuntimeError as e:
                 self._error(f"{e.args[0]}")
-                return False
+                return None
 
         return alert_id
 
