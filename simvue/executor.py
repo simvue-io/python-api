@@ -335,9 +335,15 @@ class Executor:
                     f"Failed to terminate process '{process_id}', no such identifier."
                 )
                 return
-            parent = psutil.Process(process.pid)
+            try:
+                parent = psutil.Process(process.pid)
+            except psutil.NoSuchProcess:
+                return
         elif isinstance(process_id, int):
-            parent = psutil.Process(process_id)
+            try:
+                parent = psutil.Process(process_id)
+            except psutil.NoSuchProcess:
+                return
 
         for child in parent.children(recursive=True):
             logger.debug(f"Terminating child process {child.pid}: {child.name()}")
