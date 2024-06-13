@@ -216,17 +216,21 @@ class Run:
     @property
     def processes(self) -> list[psutil.Process]:
         """Create an array containing a list of processes"""
+
+        process_list = self._executor.processes
+
         if not self._parent_process:
-            return []
+            return process_list
 
-        _all_processes: list[psutil.Process] = [self._parent_process]
+        process_list += [self._parent_process]
 
+        # Attach child processes relating to the process set by set_pid
         with contextlib.suppress(psutil.NoSuchProcess, psutil.ZombieProcess):
             for child in self._parent_process.children(recursive=True):
-                if child not in _all_processes:
-                    _all_processes.append(child)
+                if child not in process_list:
+                    process_list.append(child)
 
-        return list(set(_all_processes))
+        return list(set(process_list))
 
     def _get_sysinfo(self) -> dict[str, typing.Any]:
         """Retrieve system administration
@@ -779,6 +783,14 @@ class Run:
 
     def kill_all_processes(self) -> None:
         """Kill all currently running processes."""
+        # Dont kill the manually attached process if it is the current script
+        # but do kill its children. The kill process method of executor by
+        # default refers to its own processes but can also be used on a PID
+        if self._parent_process:
+            self._executor.kill_process(
+                process_id=self._parent_process.pid,
+                kill_children_only=self._parent_process.pid == os.getpid(),
+            )
         self._executor.kill_all()
 
     @property
