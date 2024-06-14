@@ -11,7 +11,6 @@ __author__ = "Kristian Zarebski"
 __date__ = "2023-11-15"
 
 import logging
-import contextlib
 import multiprocessing.synchronize
 import sys
 import multiprocessing
@@ -36,8 +35,11 @@ def _execute_process(
     proc_id: str,
     command: typing.List[str],
     runner_name: str,
-    environment: typing.Optional[typing.Dict[str, str]],
-) -> subprocess.Popen:
+    completion_trigger: typing.Optional[multiprocessing.synchronize.Event] = None,
+    environment: typing.Optional[typing.Dict[str, str]] = None,
+) -> tuple[subprocess.Popen, typing.Optional[multiprocessing.Process]]:
+    process = None
+
     with open(f"{runner_name}_{proc_id}.err", "w") as err:
         with open(f"{runner_name}_{proc_id}.out", "w") as out:
             _result = subprocess.Popen(
@@ -48,7 +50,24 @@ def _execute_process(
                 env=environment,
             )
 
-    return _result
+    # If the user has requested a completion trigger we need to create a
+    # process which checks for when it has completed and then sets the trigger
+    # once polling returns an exit code
+    if completion_trigger:
+
+        def trigger_check(
+            trigger_to_set: multiprocessing.synchronize.Event, process: subprocess.Popen
+        ) -> None:
+            while process.poll() is None:
+                time.sleep(1)
+            trigger_to_set.set()
+
+        process = multiprocessing.Process(
+            target=trigger_check, args=(completion_trigger, _result)
+        )
+        process.start()
+
+    return _result, process
 
 
 class Executor:
@@ -76,7 +95,9 @@ class Executor:
         self._completion_triggers: dict[
             str, typing.Optional[multiprocessing.synchronize.Event]
         ] = {}
-        self._exit_codes: dict[str, int] = {}
+        self._completion_processes: dict[
+            str, typing.Optional[multiprocessing.Process]
+        ] = {}
         self._std_err: dict[str, str] = {}
         self._std_out: dict[str, str] = {}
         self._alert_ids: dict[str, str] = {}
@@ -198,8 +219,10 @@ class Executor:
         self._completion_callbacks[identifier] = completion_callback
         self._completion_triggers[identifier] = completion_trigger
 
-        self._processes[identifier] = _execute_process(
-            identifier, _command, self._runner.name, env
+        self._processes[identifier], self._completion_processes[identifier] = (
+            _execute_process(
+                identifier, _command, self._runner.name, completion_trigger, env
+            )
         )
 
         self._alert_ids[identifier] = self._runner.create_alert(
@@ -207,32 +230,16 @@ class Executor:
         )
 
     @property
-    def processes(self) -> list[psutil.Process]:
-        """Create an array containing a list of processes"""
-        if not self._processes:
-            return []
-
-        _all_processes: list[psutil.Process] = [
-            psutil.Process(process.pid) for process in self._processes.values()
-        ]
-
-        with contextlib.suppress(psutil.NoSuchProcess, psutil.ZombieProcess):
-            for process in _all_processes:
-                for child in process.children(recursive=True):
-                    if child not in _all_processes:
-                        _all_processes.append(child)
-
-        return list(set(_all_processes))
-
-    @property
     def success(self) -> int:
         """Return whether all attached processes completed successfully"""
-        return all(i == 0 for i in self._exit_codes.values())
+        return all(i.returncode == 0 for i in self._processes.values())
 
     @property
     def exit_status(self) -> int:
         """Returns the first non-zero exit status if applicable"""
-        _non_zero = [i for i in self._exit_codes.values() if i != 0]
+        _non_zero = [
+            i.returncode for i in self._processes.values() if i.returncode != 0
+        ]
 
         if _non_zero:
             return _non_zero[0]
@@ -243,8 +250,8 @@ class Executor:
         """Returns the summary messages of all errors"""
         return {
             identifier: self._get_error_status(identifier)
-            for identifier, value in self._exit_codes.items()
-            if value
+            for identifier, value in self._processes.items()
+            if value.returncode
         }
 
     def get_command(self, process_id: str) -> str:
@@ -278,8 +285,8 @@ class Executor:
 
     def _update_alerts(self) -> None:
         """Send log events for the result of each process"""
-        for proc_id, code in self._exit_codes.items():
-            if code != 0:
+        for proc_id, process in self._processes.items():
+            if process.returncode != 0:
                 # If the process fails then purge the dispatcher event queue
                 # and ensure that the stderr event is sent before the run closes
                 if self._runner._dispatcher:
@@ -302,7 +309,7 @@ class Executor:
 
     def _save_output(self) -> None:
         """Save the output to Simvue"""
-        for proc_id in self._exit_codes.keys():
+        for proc_id in self._processes.keys():
             # Only save the file if the contents are not empty
             if self._std_err.get(proc_id):
                 self._runner.save_file(
@@ -313,37 +320,15 @@ class Executor:
                     f"{self._runner.name}_{proc_id}.out", category="output"
                 )
 
-    def kill_process(
-        self, process_id: typing.Union[int, str], kill_children_only: bool = False
-    ) -> None:
-        """Kill a running process by ID
+    def kill_process(self, process_id: str) -> None:
+        """Kill a running process by ID"""
+        if not (process := self._processes.get(process_id)):
+            logger.error(
+                f"Failed to terminate process '{process_id}', no such identifier."
+            )
+            return
 
-        If argument is a string this is a process handled by the client,
-        else it is a PID of a external monitored process
-
-        Parameters
-        ----------
-        process_id : typing.Union[int, str]
-            either the identifier for a client created process or the PID
-            of an external process
-        kill_children_only : bool, optional
-            if process_id is an integer, whether to kill only its children
-        """
-        if isinstance(process_id, str):
-            if not (process := self._processes.get(process_id)):
-                logger.error(
-                    f"Failed to terminate process '{process_id}', no such identifier."
-                )
-                return
-            try:
-                parent = psutil.Process(process.pid)
-            except psutil.NoSuchProcess:
-                return
-        elif isinstance(process_id, int):
-            try:
-                parent = psutil.Process(process_id)
-            except psutil.NoSuchProcess:
-                return
+        parent = psutil.Process(process.pid)
 
         for child in parent.children(recursive=True):
             logger.debug(f"Terminating child process {child.pid}: {child.name()}")
@@ -352,13 +337,17 @@ class Executor:
         for child in parent.children(recursive=True):
             child.wait()
 
-        if not kill_children_only:
-            logger.debug(f"Terminating process {process.pid}: {process.args}")
-            process.kill()
-            process.wait()
+        logger.debug(f"Terminating child process {process.pid}: {process.args}")
+        process.kill()
+        process.wait()
 
-        if isinstance(process_id, str):
-            self._execute_callback(process_id)
+        if trigger := self._completion_triggers.get(process_id):
+            trigger.set()
+
+        if trigger_process := self._completion_processes.get(process_id):
+            trigger_process.join()
+
+        self._execute_callback(process_id)
 
     def kill_all(self) -> None:
         """Kill all running processes"""
@@ -368,7 +357,7 @@ class Executor:
     def _clear_cache_files(self) -> None:
         """Clear local log files if required"""
         if not self._keep_logs:
-            for proc_id in self._exit_codes.keys():
+            for proc_id in self._processes.keys():
                 os.remove(f"{self._runner.name}_{proc_id}.err")
                 os.remove(f"{self._runner.name}_{proc_id}.out")
 
@@ -385,8 +374,8 @@ class Executor:
                 std_out=std_out,
                 std_err=std_err,
             )
-        if completion_trigger := self._completion_triggers.get(identifier):
-            completion_trigger.set()
+        if completion_process := self._completion_processes.get(identifier):
+            completion_process.join()
 
     def wait_for_completion(self) -> None:
         """Wait for all processes to finish then perform tidy up and upload"""
