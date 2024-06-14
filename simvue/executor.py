@@ -236,9 +236,11 @@ class Executor:
         if not self._processes:
             return []
 
-        _all_processes: list[psutil.Process] = [
-            psutil.Process(process.pid) for process in self._processes.values()
-        ]
+        _all_processes: list[psutil.Process] = []
+
+        for process in self._processes.values():
+            with contextlib.suppress(psutil.NoSuchProcess):
+                _all_processes.append(psutil.Process(process.pid))
 
         with contextlib.suppress(psutil.NoSuchProcess, psutil.ZombieProcess):
             for process in _all_processes:
