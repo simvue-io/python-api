@@ -64,6 +64,7 @@ def geant4_simvue_example(
             ],
             description="Geant4 fixed target scenario",
             retention_period="1 hour" if ci else None,
+            visibility="tenant" if ci else None,
         )
 
         kwargs: dict[str, typing.Any] = {}
