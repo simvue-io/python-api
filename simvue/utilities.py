@@ -63,7 +63,10 @@ def parse_validation_response(
             headers = ["Type", "Location", "Input", "Message"]
             input_arg = body
             for loc in location:
-                input_arg = input_arg[loc]
+                try:
+                    input_arg = input_arg[loc]
+                except TypeError:
+                    break
             information.append(input_arg)
 
         msg: str = issue["msg"]
@@ -332,9 +335,9 @@ def validate_timestamp(timestamp):
 
 def compare_alerts(first, second):
     """ """
-    for key in ("name", "description", "source", "frequency", "notification", "abort"):
+    for key in ("name", "description", "source", "frequency", "notification"):
         if key in first and key in second:
-            if first[key] is None:
+            if not first[key]:
                 continue
 
             if first[key] != second[key]:
@@ -343,7 +346,7 @@ def compare_alerts(first, second):
     if "alerts" in first and "alerts" in second:
         for key in ("rule", "window", "metric", "threshold", "range_low", "range_high"):
             if key in first["alerts"] and key in second["alerts"]:
-                if first[key] is None:
+                if not first[key]:
                     continue
 
                 if first["alerts"][key] != second["alerts"]["key"]:
