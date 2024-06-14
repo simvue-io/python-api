@@ -382,7 +382,7 @@ class Run:
                     url=_url, headers=_msgpack_header, data=_data_bin, is_json=False
                 )
             except (ValueError, RuntimeError) as e:
-                self._error(f"{e}")
+                self._error(f"{e}", join_threads=False)
                 return
 
         return (
