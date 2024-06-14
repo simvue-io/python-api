@@ -1,6 +1,6 @@
 # Change log
 
-## Unreleased
+## [v1.0.0](https://github.com/simvue-io/client/releases/tag/v1.0.0) - 2024-06-14
 
 * Refactor and re-write of codebase to align with latest developments in version 2 of the Simvue server.
 * Added `Executor` to Simvue runs allowing users to start shell based processes as part of a run and handle termination of these.
