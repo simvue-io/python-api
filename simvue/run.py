@@ -377,9 +377,13 @@ class Run:
 
             _msgpack_header = headers | {"Content-Type": "application/msgpack"}
 
-            sv_api.post(
-                url=_url, headers=_msgpack_header, data=_data_bin, is_json=False
-            )
+            try:
+                sv_api.post(
+                    url=_url, headers=_msgpack_header, data=_data_bin, is_json=False
+                )
+            except (ValueError, RuntimeError) as e:
+                self._error(f"{e}")
+                return
 
         return (
             _online_dispatch_callback
