@@ -3,6 +3,7 @@ import multiprocessing
 import click
 import multiparser
 import requests
+
 import multiparser.parsing.tail as mp_tail_parse
 import multiparser.parsing.file as mp_file_parse
 
@@ -76,9 +77,7 @@ def run_su2_example(
         for line in file_content.splitlines():
             for attr in METADATA_ATTRS:
                 if line.startswith(attr):
-                    metadata[attr.replace("[", "_").replace("]", "")] = line.split(
-                        "%s= " % attr
-                    )[1].strip()
+                    metadata[attr] = line.split("%s= " % attr)[1].strip()
         return {}, metadata
 
     termination_trigger = multiprocessing.Event()
@@ -113,7 +112,14 @@ def run_su2_example(
             completion_callback=lambda *_, **__: termination_trigger.set(),
         )
         with multiparser.FileMonitor(
-            per_thread_callback=lambda metrics, *_: run.log_metrics(metrics),
+            # Metrics cannot have square brackets in their names so we remove
+            # these before passing them to log_metrics
+            per_thread_callback=lambda metrics, *_: run.log_metrics(
+                {
+                    key.replace("[", "_").replace("]", ""): value
+                    for key, value in metrics.items()
+                }
+            ),
             exception_callback=run.log_event,
             terminate_all_on_fail=True,
             plain_logging=True,
