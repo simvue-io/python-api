@@ -17,6 +17,7 @@ import multiprocessing
 import os
 import psutil
 import subprocess
+import contextlib
 import pathlib
 import time
 import typing
@@ -230,6 +231,24 @@ class Executor:
         )
 
     @property
+    def processes(self) -> list[psutil.Process]:
+        """Create an array containing a list of processes"""
+        if not self._processes:
+            return []
+
+        _all_processes: list[psutil.Process] = [
+            psutil.Process(process.pid) for process in self._processes.values()
+        ]
+
+        with contextlib.suppress(psutil.NoSuchProcess, psutil.ZombieProcess):
+            for process in _all_processes:
+                for child in process.children(recursive=True):
+                    if child not in _all_processes:
+                        _all_processes.append(child)
+
+        return list(set(_all_processes))
+
+    @property
     def success(self) -> int:
         """Return whether all attached processes completed successfully"""
         return all(i.returncode == 0 for i in self._processes.values())
@@ -320,15 +339,37 @@ class Executor:
                     f"{self._runner.name}_{proc_id}.out", category="output"
                 )
 
-    def kill_process(self, process_id: str) -> None:
-        """Kill a running process by ID"""
-        if not (process := self._processes.get(process_id)):
-            logger.error(
-                f"Failed to terminate process '{process_id}', no such identifier."
-            )
-            return
+    def kill_process(
+        self, process_id: typing.Union[int, str], kill_children_only: bool = False
+    ) -> None:
+        """Kill a running process by ID
 
-        parent = psutil.Process(process.pid)
+        If argument is a string this is a process handled by the client,
+        else it is a PID of a external monitored process
+
+        Parameters
+        ----------
+        process_id : typing.Union[int, str]
+            either the identifier for a client created process or the PID
+            of an external process
+        kill_children_only : bool, optional
+            if process_id is an integer, whether to kill only its children
+        """
+        if isinstance(process_id, str):
+            if not (process := self._processes.get(process_id)):
+                logger.error(
+                    f"Failed to terminate process '{process_id}', no such identifier."
+                )
+                return
+            try:
+                parent = psutil.Process(process.pid)
+            except psutil.NoSuchProcess:
+                return
+        elif isinstance(process_id, int):
+            try:
+                parent = psutil.Process(process_id)
+            except psutil.NoSuchProcess:
+                return
 
         for child in parent.children(recursive=True):
             logger.debug(f"Terminating child process {child.pid}: {child.name()}")
@@ -337,17 +378,13 @@ class Executor:
         for child in parent.children(recursive=True):
             child.wait()
 
-        logger.debug(f"Terminating child process {process.pid}: {process.args}")
-        process.kill()
-        process.wait()
+        if not kill_children_only:
+            logger.debug(f"Terminating process {process.pid}: {process.args}")
+            process.kill()
+            process.wait()
 
-        if trigger := self._completion_triggers.get(process_id):
-            trigger.set()
-
-        if trigger_process := self._completion_processes.get(process_id):
-            trigger_process.join()
-
-        self._execute_callback(process_id)
+        if isinstance(process_id, str):
+            self._execute_callback(process_id)
 
     def kill_all(self) -> None:
         """Kill all running processes"""

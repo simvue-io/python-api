@@ -298,6 +298,7 @@ class Run:
                         and self._abort_on_alert
                         and self._simvue.get_abort_status()
                     ):
+                        logger.debug("Received abort request from server")
                         self._alert_raised_trigger.set()
                         self.kill_all_processes()
                         if self._dispatcher and self._shutdown_event:
