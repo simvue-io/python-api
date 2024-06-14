@@ -1733,6 +1733,7 @@ class Run:
             "source": source,
             "alert": alert_definition,
             "description": description,
+            "abort": trigger_abort,
         }
 
         # Check if the alert already exists
@@ -1753,6 +1754,7 @@ class Run:
 
         if not alert_id:
             try:
+                logger.debug(f"Creating new alert with definition: {alert}")
                 response = self._simvue.add_alert(alert)
             except RuntimeError as e:
                 self._error(f"{e.args[0]}")
@@ -1766,7 +1768,8 @@ class Run:
 
         if alert_id:
             # TODO: What if we keep existing alerts/add a new one later?
-            data = {"id": self._id, "alerts": [alert_id], "abort": trigger_abort}
+            data = {"id": self._id, "alerts": [alert_id]}
+            logger.debug(f"Updating run with info: {data}")
 
             try:
                 self._simvue.update(data)
