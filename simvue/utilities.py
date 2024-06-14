@@ -18,6 +18,9 @@ EXTRAS: tuple[str, ...] = ("plot", "torch")
 
 logger = logging.getLogger(__name__)
 
+if typing.TYPE_CHECKING:
+    from simvue.run import Run
+
 
 def parse_validation_response(
     response: dict[str, list[dict[str, str]]],
@@ -147,7 +150,7 @@ def skip_if_failed(
 
     def decorator(class_func: typing.Callable) -> typing.Callable:
         @functools.wraps(class_func)
-        def wrapper(self, *args, **kwargs) -> typing.Any:
+        def wrapper(self: "Run", *args, **kwargs) -> typing.Any:
             if getattr(self, failure_attr, None) and getattr(
                 self, ignore_exc_attr, None
             ):
@@ -166,7 +169,7 @@ def skip_if_failed(
                     setattr(self, failure_attr, True)
                     logger.error(error_str)
                     return on_failure_return
-                raise RuntimeError(error_str)
+                self._error(error_str)
 
         setattr(wrapper, "__fail_safe", True)
         return wrapper
