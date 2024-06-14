@@ -120,6 +120,12 @@ def parse_run_set_metrics(
     ValueError
         if an unrecognised parse format is specified
     """
+    if not request_response_data:
+        if parse_to == "dataframe":
+            return pandas.DataFrame({})
+        else:
+            return {}
+
     _all_steps: list[float] = sorted(
         set(
             (

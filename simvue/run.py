@@ -168,12 +168,16 @@ class Run:
                 self.set_status("completed")
             else:
                 if self._active:
-                    self.log_event(f"{exc_type.__name__}: {value}")
+                    # If the dispatcher has already been aborted then this will
+                    # fail so just continue without the event
+                    with contextlib.suppress(RuntimeError):
+                        self.log_event(f"{exc_type.__name__}: {value}")
                 if exc_type.__name__ in ("KeyboardInterrupt",) and self._active:
                     self.set_status("terminated")
                 else:
                     if traceback and self._active:
-                        self.log_event(f"Traceback: {traceback}")
+                        with contextlib.suppress(RuntimeError):
+                            self.log_event(f"Traceback: {traceback}")
                         self.set_status("failed")
         else:
             if self._shutdown_event is not None:
@@ -212,17 +216,21 @@ class Run:
     @property
     def processes(self) -> list[psutil.Process]:
         """Create an array containing a list of processes"""
+
+        process_list = self._executor.processes
+
         if not self._parent_process:
-            return []
+            return process_list
 
-        _all_processes: list[psutil.Process] = [self._parent_process]
+        process_list += [self._parent_process]
 
+        # Attach child processes relating to the process set by set_pid
         with contextlib.suppress(psutil.NoSuchProcess, psutil.ZombieProcess):
             for child in self._parent_process.children(recursive=True):
-                if child not in _all_processes:
-                    _all_processes.append(child)
+                if child not in process_list:
+                    process_list.append(child)
 
-        return list(set(_all_processes))
+        return list(set(process_list))
 
     def _get_sysinfo(self) -> dict[str, typing.Any]:
         """Retrieve system administration
@@ -290,6 +298,7 @@ class Run:
                         and self._abort_on_alert
                         and self._simvue.get_abort_status()
                     ):
+                        logger.debug("Received abort request from server")
                         self._alert_raised_trigger.set()
                         self.kill_all_processes()
                         if self._dispatcher and self._shutdown_event:
@@ -775,6 +784,14 @@ class Run:
 
     def kill_all_processes(self) -> None:
         """Kill all currently running processes."""
+        # Dont kill the manually attached process if it is the current script
+        # but do kill its children. The kill process method of executor by
+        # default refers to its own processes but can also be used on a PID
+        if self._parent_process:
+            self._executor.kill_process(
+                process_id=self._parent_process.pid,
+                kill_children_only=self._parent_process.pid == os.getpid(),
+            )
         self._executor.kill_all()
 
     @property
@@ -984,7 +1001,12 @@ class Run:
 
         if not self._simvue:
             return False
-        current_tags: list[str] = self._simvue.list_tags() or []
+
+        try:
+            current_tags: list[str] = self._simvue.list_tags() or []
+        except RuntimeError as e:
+            self._error(f"{e.args[0]}")
+            return False
 
         try:
             self.set_tags(list(set(current_tags + tags)))
@@ -1012,6 +1034,9 @@ class Run:
         bool
             whether event log was successful
         """
+        if self._aborted:
+            return False
+
         if self._mode == "disabled":
             self._error("Cannot log events in 'disabled' state")
             return True
@@ -1169,7 +1194,11 @@ class Run:
         }
 
         # Register file
-        return self._simvue is not None and self._simvue.save_file(data) is not None
+        try:
+            return self._simvue is not None and self._simvue.save_file(data) is not None
+        except RuntimeError as e:
+            self._error(f"{e.args[0]}")
+            return False
 
     @skip_if_failed("_aborted", "_suppress_errors", False)
     @check_run_initialised
@@ -1256,7 +1285,11 @@ class Run:
             return True
 
         # Register file
-        return self._simvue.save_file(data) is not None
+        try:
+            return self._simvue.save_file(data) is not None
+        except RuntimeError as e:
+            self._error(f"{e.args[0]}")
+            return False
 
     @skip_if_failed("_aborted", "_suppress_errors", False)
     @check_run_initialised
@@ -1386,8 +1419,12 @@ class Run:
         data: dict[str, str] = {"name": self._name, "status": status}
         self._status = status
 
-        if self._simvue and self._simvue.update(data):
-            return True
+        try:
+            if self._simvue and self._simvue.update(data):
+                return True
+        except RuntimeError as e:
+            self._error(f"{e.args[0]}")
+            return False
 
         return False
 
@@ -1496,8 +1533,12 @@ class Run:
         if description:
             data["description"] = description
 
-        if self._simvue.set_folder_details(data):
-            return True
+        try:
+            if self._simvue.set_folder_details(data):
+                return True
+        except RuntimeError as e:
+            self._error(f"{e.args[0]}")
+            return False
 
         return False
 
@@ -1531,10 +1572,14 @@ class Run:
         names = names or []
 
         if names and not ids:
-            if alerts := self._simvue.list_alerts():
-                for alert in alerts:
-                    if alert["name"] in names:
-                        ids.append(alert["id"])
+            try:
+                if alerts := self._simvue.list_alerts():
+                    for alert in alerts:
+                        if alert["name"] in names:
+                            ids.append(alert["id"])
+            except RuntimeError as e:
+                self._error(f"{e.args[0]}")
+                return False
             else:
                 self._error("No existing alerts")
                 return False
@@ -1544,8 +1589,12 @@ class Run:
 
         data: dict[str, typing.Any] = {"id": self._id, "alerts": ids}
 
-        if self._simvue.update(data):
-            return True
+        try:
+            if self._simvue.update(data):
+                return True
+        except RuntimeError as e:
+            self._error(f"{e.args[0]}")
+            return False
 
         return False
 
@@ -1685,11 +1734,17 @@ class Run:
             "source": source,
             "alert": alert_definition,
             "description": description,
+            "abort": trigger_abort,
         }
 
         # Check if the alert already exists
         alert_id: typing.Optional[str] = None
-        alerts = self._simvue.list_alerts()
+        try:
+            alerts = self._simvue.list_alerts()
+        except RuntimeError as e:
+            self._error(f"{e.args[0]}")
+            return None
+
         if alerts:
             for existing_alert in alerts:
                 if existing_alert["name"] == alert["name"]:
@@ -1699,7 +1754,12 @@ class Run:
                         break
 
         if not alert_id:
-            response = self._simvue.add_alert(alert)
+            try:
+                logger.debug(f"Creating new alert with definition: {alert}")
+                response = self._simvue.add_alert(alert)
+            except RuntimeError as e:
+                self._error(f"{e.args[0]}")
+                return None
             if response:
                 if "id" in response:
                     alert_id = response["id"]
@@ -1709,8 +1769,14 @@ class Run:
 
         if alert_id:
             # TODO: What if we keep existing alerts/add a new one later?
-            data = {"id": self._id, "alerts": [alert_id], "abort": trigger_abort}
-            self._simvue.update(data)
+            data = {"id": self._id, "alerts": [alert_id]}
+            logger.debug(f"Updating run with info: {data}")
+
+            try:
+                self._simvue.update(data)
+            except RuntimeError as e:
+                self._error(f"{e.args[0]}")
+                return None
 
         return alert_id
 
@@ -1740,6 +1806,11 @@ class Run:
         if not self._simvue:
             self._error("Cannot log alert, run not initialised")
             return False
-        self._simvue.set_alert_state(identifier, state)
+
+        try:
+            self._simvue.set_alert_state(identifier, state)
+        except RuntimeError as e:
+            self._error(f"{e.args[0]}")
+            return False
 
         return True

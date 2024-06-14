@@ -14,6 +14,8 @@ def test_executor_add_process(
     successful: bool,
     request: pytest.FixtureRequest
 ) -> None:
+    import logging
+    logging.basicConfig(stream=sys.stdout, level=logging.DEBUG)
     run = simvue.Run()
     completion_trigger = multiprocessing.Event()
     run.init(
@@ -21,7 +23,6 @@ def test_executor_add_process(
         tags=["simvue_client_unit_tests", request.node.name.replace("[", "_").replace("]", "_")],
         folder="/simvue_unit_testing"
     )
-
     run.add_process(
         identifier=f"test_add_process_{'success' if successful else 'fail'}",
         c=f"exit {0 if successful else 1}",

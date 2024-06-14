@@ -332,9 +332,9 @@ def validate_timestamp(timestamp):
 
 def compare_alerts(first, second):
     """ """
-    for key in ("name", "description", "source", "frequency", "notification"):
+    for key in ("name", "description", "source", "frequency", "notification", "abort"):
         if key in first and key in second:
-            if not first[key]:
+            if first[key] is None:
                 continue
 
             if first[key] != second[key]:
@@ -343,7 +343,7 @@ def compare_alerts(first, second):
     if "alerts" in first and "alerts" in second:
         for key in ("rule", "window", "metric", "threshold", "range_low", "range_high"):
             if key in first["alerts"] and key in second["alerts"]:
-                if not first[key]:
+                if first[key] is None:
                     continue
 
                 if first["alerts"][key] != second["alerts"]["key"]:
