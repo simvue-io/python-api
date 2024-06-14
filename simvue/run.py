@@ -38,7 +38,7 @@ from .factory.dispatch import Dispatcher
 from .executor import Executor
 from .factory.proxy import Simvue
 from .metrics import get_gpu_metrics, get_process_cpu, get_process_memory
-from .models import RunInput, FOLDER_REGEX, NAME_REGEX
+from .models import RunInput, FOLDER_REGEX, NAME_REGEX, MetricKeyString
 from .serialization import serialize_object
 from .system import get_system
 from .metadata import git_info
@@ -1114,7 +1114,7 @@ class Run:
     @pydantic.validate_call
     def log_metrics(
         self,
-        metrics: dict[str, typing.Union[int, float]],
+        metrics: dict[MetricKeyString, typing.Union[int, float]],
         step: typing.Optional[int] = None,
         time: typing.Optional[float] = None,
         timestamp: typing.Optional[str] = None,
