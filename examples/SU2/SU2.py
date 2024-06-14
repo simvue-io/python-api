@@ -76,7 +76,9 @@ def run_su2_example(
         for line in file_content.splitlines():
             for attr in METADATA_ATTRS:
                 if line.startswith(attr):
-                    metadata[attr] = line.split("%s= " % attr)[1].strip()
+                    metadata[attr.replace("[", "_").replace("]", "")] = line.split(
+                        "%s= " % attr
+                    )[1].strip()
         return {}, metadata
 
     termination_trigger = multiprocessing.Event()

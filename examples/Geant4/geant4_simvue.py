@@ -43,9 +43,11 @@ def geant4_simvue_example(
         all_particles = hit_data["fID"].array(library="np").tolist()
 
         out_data = {
-            Particle.from_pdgid(abs(identifier)).name: [
-                abs(i) for i in all_particles
-            ].count(abs(identifier))
+            Particle.from_pdgid(abs(identifier))
+            .name.replace("+", "plus")
+            .replace("-", "minus"): [abs(i) for i in all_particles].count(
+                abs(identifier)
+            )
             for identifier in particles_of_interest
         }
 
