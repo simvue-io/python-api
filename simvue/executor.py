@@ -102,7 +102,7 @@ class Executor:
         self._std_err: dict[str, str] = {}
         self._std_out: dict[str, str] = {}
         self._alert_ids: dict[str, str] = {}
-        self._command_str: dict[str, str] = {}
+        self.command_str: dict[str, str] = {}
         self._processes: dict[str, subprocess.Popen] = {}
 
     def add_process(
@@ -166,7 +166,7 @@ class Executor:
         completion_trigger : multiprocessing.Event | None, optional
             this trigger event is set when the processes completes (not supported on Windows)
         """
-        _pos_args = list(args)
+        pos_args = list(args)
 
         if not self._runner.name:
             raise RuntimeError("Cannot add process, expected Run instance to have name")
@@ -183,19 +183,18 @@ class Executor:
         if input_file:
             self._runner.save_file(file_path=input_file, category="input")
 
-        _command: typing.List[str] = []
+        command: typing.List[str] = []
 
         if executable:
-            _command += [f"{executable}"]
+            command += [f"{executable}"]
         else:
-            _command += [_pos_args[0]]
-            _pos_args.pop(0)
-
+            command += [pos_args[0]]
+            pos_args.pop(0)
         if script:
-            _command += [f"{script}"]
+            command += [f"{script}"]
 
         if input_file:
-            _command += [f"{input_file}"]
+            command += [f"{input_file}"]
 
         for arg, value in kwargs.items():
             if arg.startswith("__"):
@@ -205,24 +204,24 @@ class Executor:
 
             if len(arg) == 1:
                 if isinstance(value, bool) and value:
-                    _command += [f"-{arg}"]
+                    command += [f"-{arg}"]
                 else:
-                    _command += [f"-{arg}", f"{value}"]
+                    command += [f"-{arg}", f"{value}"]
             else:
                 if isinstance(value, bool) and value:
-                    _command += [f"--{arg}"]
+                    command += [f"--{arg}"]
                 else:
-                    _command += [f"--{arg}", f"{value}"]
+                    command += [f"--{arg}", f"{value}"]
 
-        _command += _pos_args
+        command += pos_args
 
-        self._command_str[identifier] = " ".join(_command)
+        self.command_str[identifier] = " ".join(command)
         self._completion_callbacks[identifier] = completion_callback
         self._completion_triggers[identifier] = completion_trigger
 
         self._processes[identifier], self._completion_processes[identifier] = (
             _execute_process(
-                identifier, _command, self._runner.name, completion_trigger, env
+                identifier, command, self._runner.name, completion_trigger, env
             )
         )
 
@@ -275,7 +274,7 @@ class Executor:
             if value.returncode
         }
 
-    def get_command(self, process_id: str) -> str:
+    def getcommand(self, process_id: str) -> str:
         """Returns the command executed within the given process.
 
         Parameters
@@ -290,7 +289,7 @@ class Executor:
         """
         if process_id not in self._processes:
             raise KeyError(f"Failed to retrieve '{process_id}', no such process")
-        return self._command_str[process_id]
+        return self.command_str[process_id]
 
     def _get_error_status(self, process_id: str) -> typing.Optional[str]:
         err_msg: typing.Optional[str] = None
