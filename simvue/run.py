@@ -718,7 +718,7 @@ class Run:
         **kwargs : Any, ..., optional
             all other keyword arguments are interpreted as options to the command
         """
-        if platform.system() == "Windows" and completion_callback:
+        if platform.system() == "Windows" and completion_trigger:
             raise RuntimeError(
                 "Use of 'completion_callback' on Windows based operating systems is unsupported "
                 "due to function pickling restrictions for multiprocessing"

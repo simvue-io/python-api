@@ -144,7 +144,7 @@ class Executor:
             ...
         ```
 
-        Note `completion_callback` is not supported on Windows operating systems.
+        Note `completion_trigger` is not supported on Windows operating systems.
 
         Parameters
         ----------
@@ -162,9 +162,9 @@ class Executor:
         env : typing.Dict[str, str], optional
             environment variables for process
         completion_callback : typing.Callable | None, optional
-            callback to run when process terminates (not supported on Windows)
+            callback to run when process terminates
         completion_trigger : multiprocessing.Event | None, optional
-            this trigger event is set when the processes completes
+            this trigger event is set when the processes completes (not supported on Windows)
         """
         _pos_args = list(args)
 
