@@ -1340,9 +1340,9 @@ class Run:
                 self._error("Invalid MIME type specified")
                 return False
 
-        for dirpath, _, filenames in directory.walk():
+        for dirpath, _, filenames in os.walk(directory):
             for filename in filenames:
-                if (full_path := dirpath.joinpath(filename)).is_file():
+                if (full_path := pathlib.Path(dirpath).joinpath(filename)).is_file():
                     self.save_file(full_path, category, filetype, preserve_path)
 
         return True
