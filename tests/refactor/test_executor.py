@@ -107,4 +107,4 @@ with open(args.output_file, 'w') as out_f:
                 input_file=f"{in_file}",
                 output_file=out_file
             )
-            assert run._executor._command_str[exe_id] == expected_cmd
+            assert run._executor.command_str[exe_id] == expected_cmd
