@@ -14,6 +14,7 @@ import logging
 import multiprocessing.synchronize
 import sys
 import multiprocessing
+import threading
 import os
 import psutil
 import subprocess
@@ -36,10 +37,11 @@ def _execute_process(
     proc_id: str,
     command: typing.List[str],
     runner_name: str,
+    completion_callback: typing.Optional[CompletionCallback] = None,
     completion_trigger: typing.Optional[multiprocessing.synchronize.Event] = None,
     environment: typing.Optional[typing.Dict[str, str]] = None,
-) -> tuple[subprocess.Popen, typing.Optional[multiprocessing.Process]]:
-    process = None
+) -> tuple[subprocess.Popen, typing.Optional[threading.Thread]]:
+    thread_out = None
 
     with open(f"{runner_name}_{proc_id}.err", "w") as err:
         with open(f"{runner_name}_{proc_id}.out", "w") as out:
@@ -51,24 +53,35 @@ def _execute_process(
                 env=environment,
             )
 
-    # If the user has requested a completion trigger we need to create a
-    # process which checks for when it has completed and then sets the trigger
-    # once polling returns an exit code
-    if completion_trigger:
-
+    if completion_callback or completion_trigger:
         def trigger_check(
-            trigger_to_set: multiprocessing.synchronize.Event, process: subprocess.Popen
+            completion_callback: typing.Optional[CompletionCallback],
+            trigger_to_set: typing.Optional[multiprocessing.synchronize.Event],
+            process: subprocess.Popen,
         ) -> None:
             while process.poll() is None:
                 time.sleep(1)
-            trigger_to_set.set()
+            if trigger_to_set:
+                trigger_to_set.set()
+            if completion_callback:
+                with open(f"{runner_name}_{proc_id}.err") as err:
+                    std_err = err.read()
 
-        process = multiprocessing.Process(
-            target=trigger_check, args=(completion_trigger, _result)
+                with open(f"{runner_name}_{proc_id}.out") as out:
+                    std_out = out.read()
+
+                completion_callback(
+                    status_code=process.returncode,
+                    std_out=std_out,
+                    std_err=std_err,
+                )
+
+        thread_out = threading.Thread(
+            target=trigger_check, args=(completion_callback, completion_trigger, _result)
         )
-        process.start()
+        thread_out.start()
 
-    return _result, process
+    return _result, thread_out
 
 
 class Executor:
@@ -97,13 +110,25 @@ class Executor:
             str, typing.Optional[multiprocessing.synchronize.Event]
         ] = {}
         self._completion_processes: dict[
-            str, typing.Optional[multiprocessing.Process]
+            str, typing.Optional[threading.Thread]
         ] = {}
-        self._std_err: dict[str, str] = {}
-        self._std_out: dict[str, str] = {}
         self._alert_ids: dict[str, str] = {}
         self._command_str: dict[str, str] = {}
         self._processes: dict[str, subprocess.Popen] = {}
+
+    def std_out(self, process_id: str) -> typing.Optional[str]:
+        if not os.path.exists(out_file := f"{self._runner.name}_{process_id}.out"):
+            return None
+
+        with open(out_file) as out:
+            return out.read() or None
+
+    def std_err(self, process_id: str) -> typing.Optional[str]:
+        if not os.path.exists(err_file := f"{self._runner.name}_{process_id}.err"):
+            return None
+
+        with open(err_file) as err:
+            return err.read() or None
 
     def add_process(
         self,
@@ -222,7 +247,7 @@ class Executor:
 
         self._processes[identifier], self._completion_processes[identifier] = (
             _execute_process(
-                identifier, _command, self._runner.name, completion_trigger, env
+                identifier, _command, self._runner.name, completion_callback, completion_trigger, env
             )
         )
 
@@ -296,8 +321,8 @@ class Executor:
         err_msg: typing.Optional[str] = None
 
         # Return last 10 lines of stdout if stderr empty
-        if not (err_msg := self._std_err.get(process_id)) and (
-            std_out := self._std_out.get(process_id)
+        if not (err_msg := self.std_err(process_id)) and (
+            std_out := self.std_out(process_id)
         ):
             err_msg = "  Tail STDOUT:\n\n"
             start_index = -10 if len(lines := std_out.split("\n")) > 10 else 0
@@ -332,11 +357,11 @@ class Executor:
         """Save the output to Simvue"""
         for proc_id in self._processes.keys():
             # Only save the file if the contents are not empty
-            if self._std_err.get(proc_id):
+            if self.std_err(proc_id):
                 self._runner.save_file(
                     f"{self._runner.name}_{proc_id}.err", category="output"
                 )
-            if self._std_out.get(proc_id):
+            if self.std_out(proc_id):
                 self._runner.save_file(
                     f"{self._runner.name}_{proc_id}.out", category="output"
                 )
@@ -380,13 +405,11 @@ class Executor:
         for child in parent.children(recursive=True):
             child.wait()
 
-        if not kill_children_only:
+        if not kill_children_only and process:
             logger.debug(f"Terminating process {process.pid}: {process.args}")
             process.kill()
             process.wait()
 
-        if isinstance(process_id, str):
-            self._execute_callback(process_id)
 
     def kill_all(self) -> None:
         """Kill all running processes"""
@@ -400,27 +423,10 @@ class Executor:
                 os.remove(f"{self._runner.name}_{proc_id}.err")
                 os.remove(f"{self._runner.name}_{proc_id}.out")
 
-    def _execute_callback(self, identifier: str) -> None:
-        with open(f"{self._runner.name}_{identifier}.err") as err:
-            std_err = err.read()
-
-        with open(f"{self._runner.name}_{identifier}.out") as out:
-            std_out = out.read()
-
-        if callback := self._completion_callbacks.get(identifier):
-            callback(
-                status_code=self._processes[identifier].returncode,
-                std_out=std_out,
-                std_err=std_err,
-            )
-        if completion_process := self._completion_processes.get(identifier):
-            completion_process.join()
-
     def wait_for_completion(self) -> None:
         """Wait for all processes to finish then perform tidy up and upload"""
         for identifier, process in self._processes.items():
             process.wait()
-            self._execute_callback(identifier)
 
         self._update_alerts()
         self._save_output()
