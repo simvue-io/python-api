@@ -246,14 +246,14 @@ def process(run):
 
         # Handle metrics
         if "/metrics-" in record:
-            logger.info("Sending metrics for run %s", run_init["name"])
+            logger.info("Gathering metrics for run %s", run_init["name"])
             data = get_json(record, run_id)
             metrics_gathered = metrics_gathered + data["metrics"]
             rename = True
 
         # Handle events
         if "/events-" in record:
-            logger.info("Sending events for run %s", run_init["name"])
+            logger.info("Gathering events for run %s", run_init["name"])
             data = get_json(record, run_id)
             events_gathered = events_gathered + data["events"]
             rename = True
