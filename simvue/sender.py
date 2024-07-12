@@ -207,6 +207,9 @@ def sender() -> str:
                 logger.info("Sending heartbeat for run with name %s", run_init["name"])
                 remote.send_heartbeat()
 
+        metrics_gathered = []
+        events_gathered = []
+
         # Upload metrics, events, files & metadata as necessary
         files = sorted(glob.glob(f"{current}/*"), key=os.path.getmtime)
         updates = 0
@@ -229,15 +232,15 @@ def sender() -> str:
             if "/metrics-" in record:
                 logger.info("Sending metrics for run %s", run_init["name"])
                 data = get_json(record, run_id)
-                if remote.send_metrics(msgpack.packb(data, use_bin_type=True)):
-                    rename = True
+                metrics_gathered = metrics_gathered + data["metrics"]
+                rename = True
 
             # Handle events
             if "/events-" in record:
                 logger.info("Sending events for run %s", run_init["name"])
                 data = get_json(record, run_id)
-                if remote.send_event(msgpack.packb(data, use_bin_type=True)):
-                    rename = True
+                events_gathered = events_gathered + data["events"]
+                rename = True
 
             # Handle updates
             if "/update-" in record:
@@ -276,6 +279,18 @@ def sender() -> str:
             if rename:
                 os.rename(record, f"{record}-proc")
                 updates += 1
+
+        # Send metrics if necessary
+        if metrics_gathered:
+            logger.info("Sending metrics for run %s", run_init["name"])
+            data = {"metrics": metrics_gathered, "run": run_id}
+            remote.send_metrics(msgpack.packb(data, use_bin_type=True))
+
+        # Send events if necessary
+        if events_gathered:
+            logger.info("Sending events for run %s", run_init["name"])
+            data = {"events": events_gathered, "run": run_id}
+            remote.send_event(msgpack.packb(data, use_bin_type=True))
 
         # If the status is completed and there were no updates, the run must have completely finished
         if updates == 0 and status in ("completed", "failed", "terminated"):
