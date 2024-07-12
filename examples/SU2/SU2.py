@@ -25,7 +25,7 @@ def run_su2_example(
 
     config_url = (
         config
-        or "https://raw.githubusercontent.com/su2code/Tutorials/master/compressible_flow/Inviscid_Bump/inv_channel.cfg"
+        or "https://raw.githubusercontent.com/su2code/Tutorials/master/compressible_flow/Inviscid_ONERAM6/inv_ONERAM6.cfg"
     )
 
     mesh_url = (
@@ -109,7 +109,7 @@ def run_su2_example(
             executable="SU2_CFD",
             script=config_filename,
             env=environment,
-            completion_callback=lambda *_, **__: termination_trigger.set(),
+            completion_callback=lambda *_, **__: termination_trigger.set()
         )
         with multiparser.FileMonitor(
             # Metrics cannot have square brackets in their names so we remove
