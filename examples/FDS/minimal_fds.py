@@ -2,7 +2,6 @@ import os.path
 import os
 import logging
 import datetime
-import argparse
 import multiprocessing
 import click
 
@@ -17,11 +16,6 @@ from simvue import Run
 @click.option("--ci", is_flag=True, default=False)
 def run_fds_example(input_file: str, tracking_directory: str, ci: bool) -> None:
     logging.getLogger().setLevel(logging.DEBUG)
-    parser = argparse.ArgumentParser()
-    parser.add_argument("input_file")
-    parser.add_argument("tracking_dir")
-    args = parser.parse_args()
-
     _trigger = multiprocessing.Event()
 
     with Run() as run:
@@ -59,7 +53,7 @@ def run_fds_example(input_file: str, tracking_directory: str, ci: bool) -> None:
             "simulation",
             executable="fds_unlim",
             ulimit="unlimited",
-            input_file=f"{args.input_file}",
+            input_file=f"{input_file}",
             completion_trigger=_trigger,
             print_stdout=True,
             env=os.environ
@@ -76,13 +70,13 @@ def run_fds_example(input_file: str, tracking_directory: str, ci: bool) -> None:
             termination_trigger=_trigger,
         ) as monitor:
             monitor.track(
-                path_glob_exprs=args.input_file,
+                path_glob_exprs=input_file,
                 callback=meta_update,
                 file_type="fortran",
                 static=True,
             )
             monitor.tail(
-                path_glob_exprs=os.path.join(args.tracking_dir, "*_devc*.csv"),
+                path_glob_exprs=os.path.join(tracking_directory, "*_devc*.csv"),
                 parser_func=mp_tail_parse.record_csv,
                 parser_kwargs={"header_pattern": "Time"},
             )

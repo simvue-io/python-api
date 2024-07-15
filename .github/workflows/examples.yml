@@ -180,7 +180,7 @@ jobs:
         run: |
           export SIMVUE_URL=${{ secrets.SIMVUE_URL }}
           export SIMVUE_TOKEN=${{ secrets.SIMVUE_TOKEN }}
-          python3.11 ./examples/FDS/minimal_fds.py --ci examples/FDS/activate_vents.fds .
+          python3.11 ./examples/FDS/minimal_fds.py examples/FDS/activate_vents.fds . --ci
   GEANT4:
     if: false # deactivate for now
     runs-on: ubuntu-latest

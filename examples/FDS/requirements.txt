@@ -1,1 +1,2 @@
 ukaea-multiparser[fortran]
+click
