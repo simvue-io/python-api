@@ -4,8 +4,6 @@ on:
   push:
     tags:
       - 'v*-*-rc*'
-    branches:
-      - "296-*"
   workflow_dispatch:
 
 permissions:
