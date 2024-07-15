@@ -109,7 +109,7 @@ def run_su2_example(
             executable="SU2_CFD",
             script=config_filename,
             env=environment,
-            completion_callback=lambda *_, **__: termination_trigger.set()
+            completion_callback=lambda *_, **__: termination_trigger.set(),
         )
         with multiparser.FileMonitor(
             # Metrics cannot have square brackets in their names so we remove

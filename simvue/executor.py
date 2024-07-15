@@ -54,6 +54,7 @@ def _execute_process(
             )
 
     if completion_callback or completion_trigger:
+
         def trigger_check(
             completion_callback: typing.Optional[CompletionCallback],
             trigger_to_set: typing.Optional[multiprocessing.synchronize.Event],
@@ -77,7 +78,8 @@ def _execute_process(
                 )
 
         thread_out = threading.Thread(
-            target=trigger_check, args=(completion_callback, completion_trigger, _result)
+            target=trigger_check,
+            args=(completion_callback, completion_trigger, _result),
         )
         thread_out.start()
 
@@ -109,9 +111,7 @@ class Executor:
         self._completion_triggers: dict[
             str, typing.Optional[multiprocessing.synchronize.Event]
         ] = {}
-        self._completion_processes: dict[
-            str, typing.Optional[threading.Thread]
-        ] = {}
+        self._completion_processes: dict[str, typing.Optional[threading.Thread]] = {}
         self._alert_ids: dict[str, str] = {}
         self.command_str: dict[str, str] = {}
         self._processes: dict[str, subprocess.Popen] = {}
@@ -246,7 +246,12 @@ class Executor:
 
         self._processes[identifier], self._completion_processes[identifier] = (
             _execute_process(
-                identifier, command, self._runner.name, completion_callback, completion_trigger, env
+                identifier,
+                command,
+                self._runner.name,
+                completion_callback,
+                completion_trigger,
+                env,
             )
         )
 
@@ -408,7 +413,6 @@ class Executor:
             logger.debug(f"Terminating process {process.pid}: {process.args}")
             process.kill()
             process.wait()
-
 
     def kill_all(self) -> None:
         """Kill all running processes"""
