@@ -3,7 +3,7 @@
 <br/>
 
 <p align="center">
-  <img src="simvue-black.png" width="500" alt="Simvue" />
+  <img src="https://raw.githubusercontent.com/simvue-io/client/dev/simvue-black.png" width="500" alt="Simvue" />
 </p>
 
 <p align="center">
