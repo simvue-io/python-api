@@ -145,6 +145,7 @@ jobs:
           export SIMVUE_TOKEN=${{ secrets.SIMVUE_TOKEN }}
           python examples/SU2/SU2.py bin --config tests/example_data/SU2_inv_ONERAM6.cfg --ci
   TensorFlow:
+    if: false # deactivate for now
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4

@@ -14,7 +14,7 @@ from simvue import Run
 @click.command
 @click.argument("input_file")
 @click.argument("tracking_directory")
-@click.option("--ci", default=False)
+@click.option("--ci", is_flag=True, default=False)
 def run_fds_example(input_file: str, tracking_directory: str, ci: bool) -> None:
     logging.getLogger().setLevel(logging.DEBUG)
     parser = argparse.ArgumentParser()
