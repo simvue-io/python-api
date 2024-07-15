@@ -207,8 +207,8 @@ def simvue_pytorch_example(
     test_kwargs = {"batch_size": test_batch_size}
     if use_cuda:
         cuda_kwargs = {"num_workers": 1, "pin_memory": True, "shuffle": True}
-        train_kwupdate(cuda_kwargs)
-        test_kwupdate(cuda_kwargs)
+        train_kwargs.update(cuda_kwargs)
+        test_kwargs.update(cuda_kwargs)
 
     transform = transforms.Compose(
         [transforms.ToTensor(), transforms.Normalize((0.1307,), (0.3081,))]
