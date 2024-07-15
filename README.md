@@ -15,10 +15,6 @@ Collect metadata, metrics and artifacts from simulations, processing and AI/ML t
 <img src="https://img.shields.io/badge/python-3.9%20%7C%203.10%20%7C%203.11%20%7C%203.12-blue">
 <a href="https://pypi.org/project/simvue/" target="_blank"><img src="https://img.shields.io/pypi/v/simvue.svg"/></a>
 <a href="https://pepy.tech/project/simvue"><img src="https://static.pepy.tech/badge/simvue"/></a>
-<p></p>
-<a href="https://github.com/simvue-io/client/actions/workflows/test_client_ubuntu.yml"><img src="https://github.com/simvue-io/client/actions/workflows/test_client_ubuntu.yml/badge.svg"/></a>
-<a href="https://github.com/simvue-io/client/actions/workflows/test_client_windows.yml"><img src="https://github.com/simvue-io/client/actions/workflows/test_client_windows.yml/badge.svg"/></a>
-<a href="https://github.com/simvue-io/client/actions/workflows/test_client_macos.yml"><img src="https://github.com/simvue-io/client/actions/workflows/test_client_macos.yml/badge.svg"/></a>
 </div>
 
 <h3 align="center">
