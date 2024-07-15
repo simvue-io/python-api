@@ -89,7 +89,6 @@ def sender() -> str:
 
     # Clean up old runs after waiting 5 mins
     runs = glob.glob(f"{directory}/*/sent")
-    run_id = None
 
     for run in runs:
         id = run.split("/")[len(run.split("/")) - 2]
