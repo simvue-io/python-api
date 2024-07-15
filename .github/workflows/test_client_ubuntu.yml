@@ -4,7 +4,8 @@
 name: Simvue Client (Ubuntu)
 
 on:
-  push: ["hotfix/update-ci"]
+  push:
+    branches: ["hotfix/update-ci"]
   pull_request:
     branches: [ "main", "dev", "hotfix/update-ci" ]
   workflow_dispatch:
