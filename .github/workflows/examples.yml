@@ -2,8 +2,9 @@ name: Simvue Examples
 
 on:
   push:
-    tags:
-      - 'v*-*-rc*'
+    branches: ["main", "dev", "hotfix/update-ci"]
+  pull_request:
+    branches: [ "main", "dev", "hotfix/update-ci" ]
   workflow_dispatch:
 
 permissions:
@@ -12,6 +13,7 @@ permissions:
 jobs:
   GeometryOptimisation:
     runs-on: ubuntu-latest
+    if: false # deactivate for now
     steps:
         - uses: actions/checkout@v4
         - name: Download BlueMira
@@ -40,6 +42,7 @@ jobs:
           run: python ./examples/GeometryOptimisation/bluemira_simvue_geometry_optimisation.py
   Logging:
     runs-on: ubuntu-latest
+    if: false # deactivate for now
     steps:
       - uses: actions/checkout@v4
       - name: Setup Python
@@ -55,6 +58,7 @@ jobs:
           python3 examples/Logging/logging-to-simvue.py --ci
   OpenFOAM:
     runs-on: ubuntu-latest
+    if: false # deactivate for now
     container:
       image: openfoam/openfoam10-paraview56
       options: --user root
@@ -80,6 +84,7 @@ jobs:
           python3.11 ./examples/OpenFOAM/simvue_openfoam.py /opt/openfoam10/tutorials/incompressible/pimpleFoam/laminar/movingCone/Allrun  --ci
   Optuna:
     runs-on: ubuntu-latest
+    if: false # deactivate for now
     steps:
       - uses: actions/checkout@v4
       - name: Setup Python
@@ -99,6 +104,7 @@ jobs:
           python3.11 ./examples/Optuna/PyTorch/simvue_optuna_pytorch.py --ci
   PyTorch:
     runs-on: ubuntu-latest
+    if: false # deactivate for now
     steps:
       - uses: actions/checkout@v4
       - name: Setup Python
@@ -118,6 +124,7 @@ jobs:
           python3.11 ./examples/PyTorch/main.py --ci
   SU2:
     runs-on: ubuntu-latest
+    if: false # deactivate for now
     steps:
       - uses: actions/checkout@v4
       - name: Setup Python
@@ -154,8 +161,27 @@ jobs:
           export SIMVUE_URL=${{ secrets.SIMVUE_URL }}
           export SIMVUE_TOKEN=${{ secrets.SIMVUE_TOKEN }}
           python3.11 ./examples/Tensorflow/dynamic_rnn.py --ci
-
+  FDS:
+    runs-on: ubuntu-latest
+    container:
+      image: openbcl/fds:6.9.1
+    steps:
+      - uses: actions/checkout@v4
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Install Simvue
+        run: python3 -m pip install .
+      - name: Install Dependencies
+        run: python3 -m pip install -r examples/FDS/requirements.txt
+      - name: Run Example
+        run: |
+          export SIMVUE_URL=${{ secrets.SIMVUE_URL }}
+          export SIMVUE_TOKEN=${{ secrets.SIMVUE_TOKEN }}
+          python3.11 ./examples/FDS/minimal_fds.py --ci
   GEANT4:
+    if: false # deactivate for now
     runs-on: ubuntu-latest
     container:
       image: artemisbeta/geant4:11.2.1

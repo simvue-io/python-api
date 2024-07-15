@@ -751,6 +751,7 @@ class Run:
                 else:
                     cmd_list += [f"-{kwarg}{(' '+ _quoted_val) if val else ''}"]
             else:
+                kwarg = kwarg.replace("_", "-")
                 if isinstance(val, bool) and val:
                     cmd_list += [f"--{kwarg}"]
                 else:
