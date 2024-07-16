@@ -1,6 +1,6 @@
 # Change log
 
-## Unreleased
+## [v1.0.1](https://github.com/simvue-io/client/releases/tag/v1.0.1) - 2024-07-16
 
 * Fix to `add_process` with list of strings as arguments, the executable no longer returns the string `"None"`.
 * Fix callbacks and triggers for `add_process` being executed only on `Run` class termination, not on process completion.
