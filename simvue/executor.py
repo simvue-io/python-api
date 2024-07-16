@@ -14,6 +14,7 @@ import logging
 import multiprocessing.synchronize
 import sys
 import multiprocessing
+import threading
 import os
 import psutil
 import subprocess
@@ -36,10 +37,11 @@ def _execute_process(
     proc_id: str,
     command: typing.List[str],
     runner_name: str,
+    completion_callback: typing.Optional[CompletionCallback] = None,
     completion_trigger: typing.Optional[multiprocessing.synchronize.Event] = None,
     environment: typing.Optional[typing.Dict[str, str]] = None,
-) -> tuple[subprocess.Popen, typing.Optional[multiprocessing.Process]]:
-    process = None
+) -> tuple[subprocess.Popen, typing.Optional[threading.Thread]]:
+    thread_out = None
 
     with open(f"{runner_name}_{proc_id}.err", "w") as err:
         with open(f"{runner_name}_{proc_id}.out", "w") as out:
@@ -51,24 +53,37 @@ def _execute_process(
                 env=environment,
             )
 
-    # If the user has requested a completion trigger we need to create a
-    # process which checks for when it has completed and then sets the trigger
-    # once polling returns an exit code
-    if completion_trigger:
+    if completion_callback or completion_trigger:
 
         def trigger_check(
-            trigger_to_set: multiprocessing.synchronize.Event, process: subprocess.Popen
+            completion_callback: typing.Optional[CompletionCallback],
+            trigger_to_set: typing.Optional[multiprocessing.synchronize.Event],
+            process: subprocess.Popen,
         ) -> None:
             while process.poll() is None:
                 time.sleep(1)
-            trigger_to_set.set()
+            if trigger_to_set:
+                trigger_to_set.set()
+            if completion_callback:
+                with open(f"{runner_name}_{proc_id}.err") as err:
+                    std_err = err.read()
 
-        process = multiprocessing.Process(
-            target=trigger_check, args=(completion_trigger, _result)
+                with open(f"{runner_name}_{proc_id}.out") as out:
+                    std_out = out.read()
+
+                completion_callback(
+                    status_code=process.returncode,
+                    std_out=std_out,
+                    std_err=std_err,
+                )
+
+        thread_out = threading.Thread(
+            target=trigger_check,
+            args=(completion_callback, completion_trigger, _result),
         )
-        process.start()
+        thread_out.start()
 
-    return _result, process
+    return _result, thread_out
 
 
 class Executor:
@@ -96,14 +111,24 @@ class Executor:
         self._completion_triggers: dict[
             str, typing.Optional[multiprocessing.synchronize.Event]
         ] = {}
-        self._completion_processes: dict[
-            str, typing.Optional[multiprocessing.Process]
-        ] = {}
-        self._std_err: dict[str, str] = {}
-        self._std_out: dict[str, str] = {}
+        self._completion_processes: dict[str, typing.Optional[threading.Thread]] = {}
         self._alert_ids: dict[str, str] = {}
-        self._command_str: dict[str, str] = {}
+        self.command_str: dict[str, str] = {}
         self._processes: dict[str, subprocess.Popen] = {}
+
+    def std_out(self, process_id: str) -> typing.Optional[str]:
+        if not os.path.exists(out_file := f"{self._runner.name}_{process_id}.out"):
+            return None
+
+        with open(out_file) as out:
+            return out.read() or None
+
+    def std_err(self, process_id: str) -> typing.Optional[str]:
+        if not os.path.exists(err_file := f"{self._runner.name}_{process_id}.err"):
+            return None
+
+        with open(err_file) as err:
+            return err.read() or None
 
     def add_process(
         self,
@@ -144,7 +169,7 @@ class Executor:
             ...
         ```
 
-        Note `completion_callback` is not supported on Windows operating systems.
+        Note `completion_trigger` is not supported on Windows operating systems.
 
         Parameters
         ----------
@@ -162,11 +187,11 @@ class Executor:
         env : typing.Dict[str, str], optional
             environment variables for process
         completion_callback : typing.Callable | None, optional
-            callback to run when process terminates (not supported on Windows)
+            callback to run when process terminates
         completion_trigger : multiprocessing.Event | None, optional
-            this trigger event is set when the processes completes
+            this trigger event is set when the processes completes (not supported on Windows)
         """
-        _pos_args = list(args)
+        pos_args = list(args)
 
         if not self._runner.name:
             raise RuntimeError("Cannot add process, expected Run instance to have name")
@@ -183,19 +208,18 @@ class Executor:
         if input_file:
             self._runner.save_file(file_path=input_file, category="input")
 
-        _command: typing.List[str] = []
+        command: typing.List[str] = []
 
         if executable:
-            _command += [f"{executable}"]
+            command += [f"{executable}"]
         else:
-            _command += [_pos_args[0]]
-            _pos_args.pop(0)
-
+            command += [pos_args[0]]
+            pos_args.pop(0)
         if script:
-            _command += [f"{script}"]
+            command += [f"{script}"]
 
         if input_file:
-            _command += [f"{input_file}"]
+            command += [f"{input_file}"]
 
         for arg, value in kwargs.items():
             if arg.startswith("__"):
@@ -205,24 +229,29 @@ class Executor:
 
             if len(arg) == 1:
                 if isinstance(value, bool) and value:
-                    _command += [f"-{arg}"]
+                    command += [f"-{arg}"]
                 else:
-                    _command += [f"-{arg}", f"{value}"]
+                    command += [f"-{arg}", f"{value}"]
             else:
                 if isinstance(value, bool) and value:
-                    _command += [f"--{arg}"]
+                    command += [f"--{arg}"]
                 else:
-                    _command += [f"--{arg}", f"{value}"]
+                    command += [f"--{arg}", f"{value}"]
 
-        _command += _pos_args
+        command += pos_args
 
-        self._command_str[identifier] = " ".join(_command)
+        self.command_str[identifier] = " ".join(command)
         self._completion_callbacks[identifier] = completion_callback
         self._completion_triggers[identifier] = completion_trigger
 
         self._processes[identifier], self._completion_processes[identifier] = (
             _execute_process(
-                identifier, _command, self._runner.name, completion_trigger, env
+                identifier,
+                command,
+                self._runner.name,
+                completion_callback,
+                completion_trigger,
+                env,
             )
         )
 
@@ -275,7 +304,7 @@ class Executor:
             if value.returncode
         }
 
-    def get_command(self, process_id: str) -> str:
+    def getcommand(self, process_id: str) -> str:
         """Returns the command executed within the given process.
 
         Parameters
@@ -290,14 +319,14 @@ class Executor:
         """
         if process_id not in self._processes:
             raise KeyError(f"Failed to retrieve '{process_id}', no such process")
-        return self._command_str[process_id]
+        return self.command_str[process_id]
 
     def _get_error_status(self, process_id: str) -> typing.Optional[str]:
         err_msg: typing.Optional[str] = None
 
         # Return last 10 lines of stdout if stderr empty
-        if not (err_msg := self._std_err.get(process_id)) and (
-            std_out := self._std_out.get(process_id)
+        if not (err_msg := self.std_err(process_id)) and (
+            std_out := self.std_out(process_id)
         ):
             err_msg = "  Tail STDOUT:\n\n"
             start_index = -10 if len(lines := std_out.split("\n")) > 10 else 0
@@ -332,11 +361,11 @@ class Executor:
         """Save the output to Simvue"""
         for proc_id in self._processes.keys():
             # Only save the file if the contents are not empty
-            if self._std_err.get(proc_id):
+            if self.std_err(proc_id):
                 self._runner.save_file(
                     f"{self._runner.name}_{proc_id}.err", category="output"
                 )
-            if self._std_out.get(proc_id):
+            if self.std_out(proc_id):
                 self._runner.save_file(
                     f"{self._runner.name}_{proc_id}.out", category="output"
                 )
@@ -380,13 +409,10 @@ class Executor:
         for child in parent.children(recursive=True):
             child.wait()
 
-        if not kill_children_only:
+        if not kill_children_only and process:
             logger.debug(f"Terminating process {process.pid}: {process.args}")
             process.kill()
             process.wait()
-
-        if isinstance(process_id, str):
-            self._execute_callback(process_id)
 
     def kill_all(self) -> None:
         """Kill all running processes"""
@@ -400,27 +426,10 @@ class Executor:
                 os.remove(f"{self._runner.name}_{proc_id}.err")
                 os.remove(f"{self._runner.name}_{proc_id}.out")
 
-    def _execute_callback(self, identifier: str) -> None:
-        with open(f"{self._runner.name}_{identifier}.err") as err:
-            std_err = err.read()
-
-        with open(f"{self._runner.name}_{identifier}.out") as out:
-            std_out = out.read()
-
-        if callback := self._completion_callbacks.get(identifier):
-            callback(
-                status_code=self._processes[identifier].returncode,
-                std_out=std_out,
-                std_err=std_err,
-            )
-        if completion_process := self._completion_processes.get(identifier):
-            completion_process.join()
-
     def wait_for_completion(self) -> None:
         """Wait for all processes to finish then perform tidy up and upload"""
         for identifier, process in self._processes.items():
             process.wait()
-            self._execute_callback(identifier)
 
         self._update_alerts()
         self._save_output()

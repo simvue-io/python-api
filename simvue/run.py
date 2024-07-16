@@ -38,7 +38,7 @@ from .factory.dispatch import Dispatcher
 from .executor import Executor
 from .factory.proxy import Simvue
 from .metrics import get_gpu_metrics, get_process_cpu, get_process_memory
-from .models import RunInput, FOLDER_REGEX, NAME_REGEX
+from .models import RunInput, FOLDER_REGEX, NAME_REGEX, MetricKeyString
 from .serialization import serialize_object
 from .system import get_system
 from .metadata import git_info
@@ -377,9 +377,13 @@ class Run:
 
             _msgpack_header = headers | {"Content-Type": "application/msgpack"}
 
-            sv_api.post(
-                url=_url, headers=_msgpack_header, data=_data_bin, is_json=False
-            )
+            try:
+                sv_api.post(
+                    url=_url, headers=_msgpack_header, data=_data_bin, is_json=False
+                )
+            except (ValueError, RuntimeError) as e:
+                self._error(f"{e}", join_threads=False)
+                return
 
         return (
             _online_dispatch_callback
@@ -714,7 +718,7 @@ class Run:
         **kwargs : Any, ..., optional
             all other keyword arguments are interpreted as options to the command
         """
-        if platform.system() == "Windows" and completion_callback:
+        if platform.system() == "Windows" and completion_trigger:
             raise RuntimeError(
                 "Use of 'completion_callback' on Windows based operating systems is unsupported "
                 "due to function pickling restrictions for multiprocessing"
@@ -726,42 +730,43 @@ class Run:
                     f"Executable '{executable}' is not a valid file"
                 )
 
-        executable_str = f"{executable}"
-
-        _cmd_list: typing.List[str] = []
-        _pos_args = list(cmd_args)
+        cmd_list: typing.List[str] = []
+        pos_args = list(cmd_args)
+        executable_str: typing.Optional[str] = None
 
         # Assemble the command for saving to metadata as string
         if executable:
-            _cmd_list += [executable_str]
+            executable_str = f"{executable}"
+            cmd_list += [executable_str]
         else:
-            _cmd_list += [_pos_args[0]]
-            executable = _pos_args[0]
-            _pos_args.pop(0)
+            cmd_list += [pos_args[0]]
+            executable = pos_args[0]
+            pos_args.pop(0)
 
         for kwarg, val in cmd_kwargs.items():
             _quoted_val: str = f'"{val}"'
             if len(kwarg) == 1:
                 if isinstance(val, bool) and val:
-                    _cmd_list += [f"-{kwarg}"]
+                    cmd_list += [f"-{kwarg}"]
                 else:
-                    _cmd_list += [f"-{kwarg}{(' '+ _quoted_val) if val else ''}"]
+                    cmd_list += [f"-{kwarg}{(' '+ _quoted_val) if val else ''}"]
             else:
+                kwarg = kwarg.replace("_", "-")
                 if isinstance(val, bool) and val:
-                    _cmd_list += [f"--{kwarg}"]
+                    cmd_list += [f"--{kwarg}"]
                 else:
-                    _cmd_list += [f"--{kwarg}{(' '+_quoted_val) if val else ''}"]
+                    cmd_list += [f"--{kwarg}{(' '+_quoted_val) if val else ''}"]
 
-        _cmd_list += _pos_args
-        _cmd_str = " ".join(_cmd_list)
+        cmd_list += pos_args
+        cmd_str = " ".join(cmd_list)
 
         # Store the command executed in metadata
-        self.update_metadata({f"{identifier}_command": _cmd_str})
+        self.update_metadata({f"{identifier}_command": cmd_str})
 
         # Add the process to the executor
         self._executor.add_process(
             identifier,
-            *_pos_args,
+            *cmd_args,
             executable=executable_str,
             script=script,
             input_file=input_file,
@@ -1110,7 +1115,7 @@ class Run:
     @pydantic.validate_call
     def log_metrics(
         self,
-        metrics: dict[str, typing.Union[int, float]],
+        metrics: dict[MetricKeyString, typing.Union[int, float]],
         step: typing.Optional[int] = None,
         time: typing.Optional[float] = None,
         timestamp: typing.Optional[str] = None,
@@ -1336,9 +1341,9 @@ class Run:
                 self._error("Invalid MIME type specified")
                 return False
 
-        for dirpath, _, filenames in directory.walk():
+        for dirpath, _, filenames in os.walk(directory):
             for filename in filenames:
-                if (full_path := dirpath.joinpath(filename)).is_file():
+                if (full_path := pathlib.Path(dirpath).joinpath(filename)).is_file():
                     self.save_file(full_path, category, filetype, preserve_path)
 
         return True

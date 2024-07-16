@@ -1,0 +1,47 @@
+#!/usr/bin/bash
+
+ULIMIT_VALUE=""
+
+function help() {
+    echo "Usage: $0 [--ulimit value] [--help] FDS_INPUT_FILE"
+    echo "Options:"
+    echo "  --ulimit value    Set ulimit value"
+    echo "  --help            Display this message"
+}
+
+args=$(getopt -o '' --long ulimit:,help -n "$0" -- "$@")
+eval set -- "$args"
+
+while true; do
+    case "$1" in
+        --ulimit)
+            ULIMIT_VALUE=$2
+            shift 2
+            ;;
+        --help)
+            help
+            exit 0
+            ;;
+        --)
+            shift
+            break
+            ;;
+        *)
+            echo "Unrecognised option '$1'"
+            help
+            exit 1
+            ;;
+    esac
+done
+
+if [ $# -eq 0 ]; then
+    echo "No input file provided."
+    help
+    exit 1
+fi
+
+if [ -z "$ULIMIT_VALUE" ]; then
+    fds $1
+else
+    ulimit -s $ULIMIT_VALUE && fds $1
+fi
