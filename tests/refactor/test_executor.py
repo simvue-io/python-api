@@ -127,6 +127,7 @@ with open(args.output_file, 'w') as out_f:
 def test_completion_callbacks_var_change(request: pytest.FixtureRequest) -> None:
     success: dict[str, bool] = {"complete": False}
     def completion_callback(*_, success: dict[str, bool]=success, **__):
+        print("YH BOI")
         success["complete"] = True
 
     with simvue.Run() as run:
@@ -141,6 +142,9 @@ def test_completion_callbacks_var_change(request: pytest.FixtureRequest) -> None
             c="exit 0",
             completion_callback=completion_callback
         )
+
+    # Need a slight delay before checking
+    time.sleep(1)
 
     assert success["complete"]
 
@@ -160,6 +164,9 @@ def test_completion_trigger_set(request: pytest.FixtureRequest) -> None:
             c="exit 0",
             completion_trigger=trigger
         )
+
+    # Need a slight delay before checking
+    time.sleep(1)
 
     assert trigger.is_set()
 
@@ -182,6 +189,9 @@ def test_completion_callbacks_trigger_set(request: pytest.FixtureRequest) -> Non
             c="exit 0",
             completion_callback=completion_callback
         )
+
+    # Need a slight delay before checking
+    time.sleep(1)
 
     assert trigger.is_set()
 
