@@ -5,7 +5,7 @@ import simvue
 from simvue import Run
 import os
 import filecmp
-
+import time
 class TestRunProcess(unittest.TestCase):
     def test_processes_cwd(self):
         """Check that cwd argument works correctly in add_process.
@@ -18,10 +18,12 @@ class TestRunProcess(unittest.TestCase):
             with tempfile.NamedTemporaryFile(dir=temp_dir, suffix=".py") as temp_file:
                 with open(temp_file.name, "w") as out_f:
                     out_f.writelines([
-                        "import time\n",
-                        "time.sleep(10)\n"
+                        "import os\n",
+                        "f = open('new_file.txt', 'w')\n",
+                        "f.write('Test Line')\n",
+                        "f.close()"
                     ])
-                    file_name = os.path.basename(temp_file.name)
+                    import pdb; pdb.set_trace()
                     
                 with Run() as run:
                     run.init(
@@ -32,22 +34,23 @@ class TestRunProcess(unittest.TestCase):
                     run.add_process(
                         identifier="sleep_10_process",
                         executable="python",
-                        script=file_name,
+                        script=temp_file.name,
                         cwd=temp_dir
                     )
+                    time.sleep(1)
+                    run.save_file(os.path.join(temp_dir, "new_file.txt"), 'output')
 
                 client = simvue.Client()
 
-                # Check that run existed for more than 10s, meaning the process ran correctly
-                data = client.get_run(run_id)
-                runtime = data['runtime']
-                runtime_seconds = float(runtime.split(":")[-1])
-                self.assertGreater(runtime_seconds, 10.0)
-
                 # Check that the script was uploaded to the run correctly
                 os.makedirs(os.path.join(temp_dir, "downloaded"))
-                client.get_artifact_as_file(run_id, file_name, path=os.path.join(temp_dir, "downloaded"))
-                assert filecmp.cmp(os.path.join(temp_dir, "downloaded", file_name), temp_file.name)
+                client.get_artifact_as_file(run_id, os.path.basename(temp_file.name), path=os.path.join(temp_dir, "downloaded"))
+                assert filecmp.cmp(os.path.join(temp_dir, "downloaded", os.path.basename(temp_file.name)), temp_file.name)
+
+                client.get_artifact_as_file(run_id, "new_file.txt", path=os.path.join(temp_dir, "downloaded"))
+                new_file = open(os.path.join(temp_dir, "downloaded", "new_file.txt"), "r")
+                assert new_file.read() == "Test Line"
+                new_file.close()
 
 if __name__ == '__main__':
     unittest.main()

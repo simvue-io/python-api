@@ -653,8 +653,8 @@ class Run:
         identifier: str,
         *cmd_args,
         executable: typing.Optional[typing.Union[str, pathlib.Path]] = None,
-        script: typing.Optional[typing.Union[str, pathlib.Path]] = None,
-        input_file: typing.Optional[typing.Union[str, pathlib.Path]] = None,
+        script: typing.Optional[pydantic.FilePath] = None,
+        input_file: typing.Optional[pydantic.FilePath] = None,
         completion_callback: typing.Optional[
             typing.Callable[[int, str, str], None]
         ] = None,
@@ -704,10 +704,10 @@ class Run:
             positional argument, by default None
         *positional_arguments : Any, ..., optional
             all other positional arguments are taken to be part of the command to execute
-        script : str | None, optional
+        script : pydantic.FilePath | None, optional
             the script to run, note this only work if the script is not an option, if this is the case
             you should provide it as such and perform the upload manually, by default None
-        input_file : str | None, optional
+        input_file : pydantic.FilePath | None, optional
             the input file to run, note this only work if the input file is not an option, if this is the case
             you should provide it as such and perform the upload manually, by default None
         completion_callback : typing.Callable | None, optional
@@ -717,7 +717,8 @@ class Run:
         env : typing.Dict[str, str], optional
             environment variables for process
         cwd: typing.Optional[pathlib.Path], optional
-            working directory to execute the process within
+            working directory to execute the process within. Note that executable, input and script file paths should
+            be absolute or relative to the directory where this method is called, not relative to the new working directory.
         **kwargs : Any, ..., optional
             all other keyword arguments are interpreted as options to the command
         """
