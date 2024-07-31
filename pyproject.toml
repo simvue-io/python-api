@@ -5,6 +5,9 @@ description = "Simulation tracking and monitoring"
 authors = ["Simvue Development Team <info@simvue.io>"]
 license = "Apache v2"
 readme = "README.md"
+homepage = "https://simvue.io"
+repository = "https://github.com/simvue-io/python-api"
+documentation = "https://docs.simvue.io"
 classifiers = [
     "Development Status :: 5 - Production/Stable",
     "Intended Audience :: Science/Research",
