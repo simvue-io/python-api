@@ -19,6 +19,9 @@ EXTRAS: tuple[str, ...] = ("plot", "torch")
 
 logger = logging.getLogger(__name__)
 
+if typing.TYPE_CHECKING:
+    from simvue.run import Run
+
 
 def find_first_instance_of_file(
     file_names: typing.Union[list[str], str], check_user_space: bool = True
@@ -100,7 +103,10 @@ def parse_validation_response(
             headers = ["Type", "Location", "Input", "Message"]
             input_arg = body
             for loc in location:
-                input_arg = input_arg[loc]
+                try:
+                    input_arg = input_arg[loc]
+                except TypeError:
+                    break
             information.append(input_arg)
 
         msg: str = issue["msg"]
@@ -181,7 +187,7 @@ def skip_if_failed(
 
     def decorator(class_func: typing.Callable) -> typing.Callable:
         @functools.wraps(class_func)
-        def wrapper(self, *args, **kwargs) -> typing.Any:
+        def wrapper(self: "Run", *args, **kwargs) -> typing.Any:
             if getattr(self, failure_attr, None) and getattr(
                 self, ignore_exc_attr, None
             ):
@@ -200,7 +206,7 @@ def skip_if_failed(
                     setattr(self, failure_attr, True)
                     logger.error(error_str)
                     return on_failure_return
-                raise RuntimeError(error_str)
+                self._error(error_str)
 
         setattr(wrapper, "__fail_safe", True)
         return wrapper

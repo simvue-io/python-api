@@ -1,25 +1,64 @@
-import csv
 import os
-import sys
-import time
+import multiprocessing
+import click
+import multiparser
+import requests
 
-from simvue import Run
+import multiparser.parsing.tail as mp_tail_parse
+import multiparser.parsing.file as mp_file_parse
 
-if __name__ == "__main__":
+from typing import Any
+
+import simvue
+
+
+@click.command
+@click.argument("su2_binary_directory", type=click.Path(exists=True))
+@click.option("--config", help="URL or path of config file", default=None)
+@click.option("--mesh", help="URL or path of mesh file", default=None)
+@click.option("--ci", is_flag=True, default=False)
+def run_su2_example(
+    su2_binary_directory: str, config: str | None, mesh: str | None, ci: bool
+) -> None:
     # Name of history file to collect metrics from
-    HISTORY = "history.csv"
+    HISTORY: str = "history.csv"
 
-    # Check the history file for new entries at this interval (in secs)
-    POLLING_INTERVAL = 5
+    config_url = (
+        config
+        or "https://raw.githubusercontent.com/su2code/Tutorials/master/compressible_flow/Inviscid_ONERAM6/inv_ONERAM6.cfg"
+    )
 
-    # Store these input files
-    INPUT_FILES = ["inv_ONERAM6.cfg", "mesh_ONERAM6_inv_ffd.su2"]
+    mesh_url = (
+        mesh
+        or "https://raw.githubusercontent.com/su2code/Tutorials/master/compressible_flow/Inviscid_ONERAM6/mesh_ONERAM6_inv_ffd.su2"
+    )
+
+    config_filename: str = (
+        os.path.basename(config_url) if "http" in config_url else config_url
+    )
+    mesh_filename: str = os.path.basename(mesh_url) if "http" in mesh_url else mesh_url
+
+    for url, file_name in zip((config_url, mesh_url), (config_filename, mesh_filename)):
+        if "http" not in url:
+            continue
+
+        req_response = requests.get(url)
+
+        if req_response.status_code != 200:
+            raise RuntimeError(f"Failed to retrieve file '{url}'")
+
+        with open(file_name, "wb") as out_f:
+            out_f.write(req_response.content)
 
     # Store these output files
-    OUTPUT_FILES = ["flow.vtk", "surface_flow.vtk", "restart_flow.dat"]
+    OUTPUT_FILES: list[str] = ["flow.vtk", "surface_flow.vtk", "restart_flow.dat"]
+
+    for file_name in OUTPUT_FILES + [HISTORY]:
+        if os.path.exists(file_name):
+            os.remove(file_name)
 
     # Collect these metadata attributes from the config file
-    METADATA_ATTRS = [
+    METADATA_ATTRS: list[str] = [
         "SOLVER",
         "MATH_PROBLEM",
         "MACH_NUMBER",
@@ -29,83 +68,81 @@ if __name__ == "__main__":
         "FREESTREAM_TEMPERATURE",
     ]
 
-    # Get PID of SU2
-    with open(sys.argv[1], "r") as fh:
-        pid = int(fh.read())
+    @mp_file_parse.file_parser
+    def metadata_parser(file_name: str, **_) -> tuple[dict[str, Any], dict[str, Any]]:
+        metadata = {}
+        with open(file_name) as in_csv:
+            file_content = in_csv.read()
 
-    # Read metadata
-    metadata = {}
-    for filename in INPUT_FILES:
-        if filename.endswith(".cfg"):
-            with open(filename, "r") as cfg:
-                for line in cfg.readlines():
-                    for attr in METADATA_ATTRS:
-                        if line.startswith(attr):
-                            metadata[attr] = line.split("%s= " % attr)[1].strip()
+        for line in file_content.splitlines():
+            for attr in METADATA_ATTRS:
+                if line.startswith(attr):
+                    metadata[attr] = line.split("%s= " % attr)[1].strip()
+        return {}, metadata
 
-    run = Run()
-    run.set_pid(pid)
-    run.init(
-        metadata=metadata,
-        tags=["SU2"],
-        description="SU2 tutorial https://su2code.github.io/tutorials/Inviscid_ONERAM6/",
+    termination_trigger = multiprocessing.Event()
+
+    environment: dict[str, str] = os.environ.copy()
+    environment["PATH"] = (
+        f"{os.path.abspath(su2_binary_directory)}:{os.environ['PATH']}"
+    )
+    environment["PYTHONPATH"] = (
+        f"{os.path.abspath(su2_binary_directory)}{f':{pypath}' if (pypath := os.environ.get('PYTHONPATH')) else ''}"
     )
 
-    # Save input files
-    for input_file in INPUT_FILES:
-        filetype = None
-        if input_file.endswith(".cfg"):
-            filetype = "text/plain"
-        run.save_file(input_file, "input", filetype)
+    with simvue.Run() as run:
+        run.init(
+            "SU2_simvue_demo",
+            folder="/simvue_client_demos",
+            tags=[
+                "SU2",
+                os.path.splitext(os.path.basename(config_filename))[0],
+                os.path.splitext(os.path.basename(mesh_filename))[0],
+                "simvue_client_examples",
+            ],
+            description="SU2 tutorial https://su2code.github.io/tutorials/Inviscid_ONERAM6/",
+            retention_period="1 hour" if ci else None,
+            visibility="tenant" if ci else None,
+        )
+        run.add_process(
+            identifier="SU2_simulation",
+            executable="SU2_CFD",
+            script=config_filename,
+            env=environment,
+            completion_callback=lambda *_, **__: termination_trigger.set(),
+        )
+        with multiparser.FileMonitor(
+            # Metrics cannot have square brackets in their names so we remove
+            # these before passing them to log_metrics
+            per_thread_callback=lambda metrics, *_: run.log_metrics(
+                {
+                    key.replace("[", "_").replace("]", ""): value
+                    for key, value in metrics.items()
+                }
+            ),
+            exception_callback=run.log_event,
+            terminate_all_on_fail=True,
+            plain_logging=True,
+            flatten_data=True,
+            termination_trigger=termination_trigger,
+        ) as monitor:
+            monitor.track(
+                path_glob_exprs=[config_filename],
+                parser_func=metadata_parser,
+                callback=lambda meta, *_: run.update_metadata(meta),
+                static=True,
+            )
+            monitor.tail(
+                path_glob_exprs=[HISTORY],
+                parser_func=mp_tail_parse.record_csv,
+            )
+            monitor.track(
+                path_glob_exprs=OUTPUT_FILES,
+                callback=lambda *_, meta: run.save_file(meta["file_name"], "output"),
+                parser_func=lambda *_, **__: ({}, {}),
+            )
+            monitor.run()
 
-    running = True
-    latest = []
-    first = True
-    cols = []
 
-    while running:
-        # If history.csv doesn't exist yet, wait for it
-        if not os.path.isfile(HISTORY):
-            time.sleep(POLLING_INTERVAL)
-            continue
-
-        # Read history.csv and get the latest rows
-        header = []
-        with open(HISTORY, "r") as csv_file:
-            csv_reader = csv.reader(csv_file, delimiter=",")
-            new_rows = False
-            for row in csv_reader:
-                if not header:
-                    header = [item.strip().replace('"', "") for item in row]
-                    col = 0
-                    for item in header:
-                        item = item.strip().replace('"', "")
-                        if "rms" in item:
-                            cols.append(col)
-                        col += 1
-                else:
-                    if new_rows or not latest:
-                        metrics = {}
-                        for i in range(0, len(cols)):
-                            data = row[cols[i]].strip().replace('"', "")
-                            metrics[header[cols[i]]] = data
-                        run.log_metrics(metrics)
-
-                if row == latest:
-                    new_rows = True
-
-            latest = row
-
-        # Check if application is still running
-        try:
-            os.kill(pid, 0)
-        except OSError:
-            running = False
-        else:
-            time.sleep(POLLING_INTERVAL)
-
-    # Save output files
-    for output_file in OUTPUT_FILES:
-        run.save_file(output_file, "output")
-
-    run.close()
+if __name__ == "__main__":
+    run_su2_example()

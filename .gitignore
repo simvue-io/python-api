@@ -142,3 +142,6 @@ offline/
 
 # VSCode
 .vscode/
+
+# Vagrant
+Vagrantfile
