@@ -720,7 +720,7 @@ class Run:
         """
         if platform.system() == "Windows" and completion_trigger:
             raise RuntimeError(
-                "Use of 'completion_callback' on Windows based operating systems is unsupported "
+                "Use of 'completion_trigger' on Windows based operating systems is unsupported "
                 "due to function pickling restrictions for multiprocessing"
             )
 
