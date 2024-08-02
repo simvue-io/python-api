@@ -25,7 +25,7 @@ jobs:
       with:
         python-version: "3.12"
     - name: Setup Eco Measure
-      uses: green-coding-solutions/eco-ci-energy-estimation@v3
+      uses: green-coding-solutions/eco-ci-energy-estimation@pre-calculated
       with:
         task: start-measurement
     - name: Install dependencies
@@ -38,7 +38,7 @@ jobs:
         poetry run python -m pip install torch --index-url https://download.pytorch.org/whl/cpu
         poetry run pytest -x --cov --cov-report=xml tests/unit/ tests/refactor/ -m 'not scenario'
     - name: Retrieve Eco Measure
-      uses: green-coding-solutions/eco-ci-energy-estimation@v3
+      uses: green-coding-solutions/eco-ci-energy-estimation@pre-calculated
       with:
         task: get-measurement
         label: "test execution"
@@ -48,6 +48,6 @@ jobs:
         chmod +x codecov
         ./codecov -t ${CODECOV_TOKEN}
     - name: Display Test Eco Measure
-      uses: green-coding-solutions/eco-ci-energy-estimation@v3
+      uses: green-coding-solutions/eco-ci-energy-estimation@pre-calculated
       with:
         task: display-results
