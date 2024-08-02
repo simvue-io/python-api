@@ -196,9 +196,9 @@ class Executor:
         if not self._runner.name:
             raise RuntimeError("Cannot add process, expected Run instance to have name")
 
-        if sys.platform == "win32" and completion_callback:
+        if sys.platform == "win32" and completion_trigger:
             logger.warning(
-                "Completion callback for 'add_process' may fail on Windows due to "
+                "Completion trigger for 'add_process' may fail on Windows "
                 "due to function pickling restrictions"
             )
 

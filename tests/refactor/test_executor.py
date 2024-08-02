@@ -17,9 +17,12 @@ def test_executor_add_process(
     request: pytest.FixtureRequest
 ) -> None:
     import logging
+    trigger = multiprocessing.Event()
+
+    def completion_callback(*_, trigger=trigger, **__):
+        trigger.set()
     logging.basicConfig(stream=sys.stdout, level=logging.DEBUG)
     run = simvue.Run()
-    completion_trigger = multiprocessing.Event()
     run.init(
         f"test_executor_{'success' if successful else 'fail'}",
         tags=["simvue_client_unit_tests", request.node.name.replace("[", "_").replace("]", "_")],
@@ -29,10 +32,10 @@ def test_executor_add_process(
         identifier=f"test_add_process_{'success' if successful else 'fail'}",
         c=f"exit {0 if successful else 1}",
         executable="bash" if sys.platform != "win32" else "powershell",
-        completion_trigger=completion_trigger
+        completion_callback=completion_callback
     )
 
-    while not completion_trigger.is_set():
+    while not trigger.is_set():
         time.sleep(1)
 
     if successful:
@@ -43,6 +46,7 @@ def test_executor_add_process(
 
 
 @pytest.mark.executor
+@pytest.mark.unix
 def test_executor_multiprocess(request: pytest.FixtureRequest) -> None:
     triggers: dict[int, multiprocessing.synchronize.Event] = {}
     callbacks: dict[int, typing.Callable] = {}
@@ -127,6 +131,7 @@ with open(args.output_file, 'w') as out_f:
 def test_completion_callbacks_var_change(request: pytest.FixtureRequest) -> None:
     success: dict[str, bool] = {"complete": False}
     def completion_callback(*_, success: dict[str, bool]=success, **__):
+        print("YH BOI")
         success["complete"] = True
 
     with simvue.Run() as run:
@@ -142,9 +147,13 @@ def test_completion_callbacks_var_change(request: pytest.FixtureRequest) -> None
             completion_callback=completion_callback
         )
 
+    # Need a slight delay before checking
+    time.sleep(1)
+
     assert success["complete"]
 
 @pytest.mark.executor
+@pytest.mark.unix
 def test_completion_trigger_set(request: pytest.FixtureRequest) -> None:
     trigger = multiprocessing.Event()
 
@@ -160,6 +169,9 @@ def test_completion_trigger_set(request: pytest.FixtureRequest) -> None:
             c="exit 0",
             completion_trigger=trigger
         )
+
+    # Need a slight delay before checking
+    time.sleep(1)
 
     assert trigger.is_set()
 
@@ -182,6 +194,9 @@ def test_completion_callbacks_trigger_set(request: pytest.FixtureRequest) -> Non
             c="exit 0",
             completion_callback=completion_callback
         )
+
+    # Need a slight delay before checking
+    time.sleep(1)
 
     assert trigger.is_set()
 
