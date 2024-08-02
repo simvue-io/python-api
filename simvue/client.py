@@ -262,7 +262,7 @@ class Client:
         return _name
 
     @prettify_pydantic
-    @pydantic.validate_call
+    @pydantic.validate_call(config={"arbitrary_types_allowed": True})
     def get_runs(
         self,
         filters: typing.Optional[typing.Union[list[str], RunsFilter]],
@@ -901,7 +901,7 @@ class Client:
             return None
         return _folders[0]
 
-    @pydantic.validate_call
+    @pydantic.validate_call(config={"arbitrary_types_allowed": True})
     def get_folders(
         self,
         filters: typing.Optional[typing.Union[list[str], FoldersFilter]] = None,

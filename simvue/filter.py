@@ -153,50 +153,50 @@ class RunsFilter(RestAPIFilter):
             setattr(self, _func_name, _out_func)
 
     @pydantic.validate_call
-    def author(self, username: str = "self") -> "RunsFilter":
+    def author(self, username: str = "self") -> Self:
         self._filters.append(f"user == {username}")
         return self
 
     @pydantic.validate_call
-    def exclude_author(self, username: str = "self") -> "RunsFilter":
+    def exclude_author(self, username: str = "self") -> Self:
         self._filters.append(f"user != {username}")
         return self
 
-    def starred(self) -> "RunsFilter":
+    def starred(self) -> Self:
         self._filters.append("starred")
         return self
 
     @pydantic.validate_call
-    def has_name(self, name: str) -> "RunsFilter":
+    def has_name(self, name: str) -> Self:
         self._filters.append(f"name == {name}")
         return self
 
     @pydantic.validate_call
-    def has_name_containing(self, name: str) -> "RunsFilter":
+    def has_name_containing(self, name: str) -> Self:
         self._filters.append(f"name contains {name}")
         return self
 
     @pydantic.validate_call
-    def has_status(self, status: Status) -> "RunsFilter":
+    def has_status(self, status: Status) -> Self:
         self._filters.append(f"status == {status.value}")
         return self
 
-    def is_running(self) -> "RunsFilter":
+    def is_running(self) -> Self:
         return self.has_status(Status.Running)
 
-    def is_lost(self) -> "RunsFilter":
+    def is_lost(self) -> Self:
         return self.has_status(Status.Lost)
 
-    def has_completed(self) -> "RunsFilter":
+    def has_completed(self) -> Self:
         return self.has_status(Status.Completed)
 
-    def has_failed(self) -> "RunsFilter":
+    def has_failed(self) -> Self:
         return self.has_status(Status.Failed)
 
     @pydantic.validate_call
     def has_alert(
         self, alert_name: str, is_critical: typing.Optional[bool] = None
-    ) -> "RunsFilter":
+    ) -> Self:
         self._filters.append(f"alert.name == {alert_name}")
         if is_critical is True:
             self._filters.append("alert.status == critical")
@@ -211,7 +211,7 @@ class RunsFilter(RestAPIFilter):
         hours: pydantic.PositiveInt = 0,
         days: pydantic.PositiveInt = 0,
         years: pydantic.PositiveInt = 0,
-    ) -> "RunsFilter":
+    ) -> Self:
         return self._time_within(Time.Started, hours=hours, days=days, years=years)
 
     @pydantic.validate_call
@@ -221,7 +221,7 @@ class RunsFilter(RestAPIFilter):
         hours: pydantic.PositiveInt = 0,
         days: pydantic.PositiveInt = 0,
         years: pydantic.PositiveInt = 0,
-    ) -> "RunsFilter":
+    ) -> Self:
         return self._time_within(Time.Modified, hours=hours, days=days, years=years)
 
     @pydantic.validate_call
@@ -231,63 +231,63 @@ class RunsFilter(RestAPIFilter):
         hours: pydantic.PositiveInt = 0,
         days: pydantic.PositiveInt = 0,
         years: pydantic.PositiveInt = 0,
-    ) -> "RunsFilter":
+    ) -> Self:
         return self._time_within(Time.Ended, hours=hours, days=days, years=years)
 
     @pydantic.validate_call
-    def in_folder(self, folder_name: str) -> "RunsFilter":
+    def in_folder(self, folder_name: str) -> Self:
         self._filters.append(f"folder.path == {folder_name}")
         return self
 
     @pydantic.validate_call
-    def has_metadata_attribute(self, attribute: str) -> "RunsFilter":
+    def has_metadata_attribute(self, attribute: str) -> Self:
         self._filters.append(f"metadata.{attribute} exists")
         return self
 
     @pydantic.validate_call
-    def exclude_metadata_attribute(self, attribute: str) -> "RunsFilter":
+    def exclude_metadata_attribute(self, attribute: str) -> Self:
         self._filters.append(f"metadata.{attribute} not exists")
         return self
 
     def _value_eq(
         self, category: str, attribute: str, value: typing.Union[str, int, float]
-    ) -> "RunsFilter":
+    ) -> Self:
         self._filters.append(f"{category}.{attribute} == {value}")
         return self
 
     def _value_neq(
         self, category: str, attribute: str, value: typing.Union[str, int, float]
-    ) -> "RunsFilter":
+    ) -> Self:
         self._filters.append(f"{category}.{attribute} != {value}")
         return self
 
     def _value_contains(
         self, category: str, attribute: str, value: typing.Union[str, int, float]
-    ) -> "RunsFilter":
+    ) -> Self:
         self._filters.append(f"{category}.{attribute} contains {value}")
         return self
 
     def _value_leq(
         self, category: str, attribute: str, value: typing.Union[int, float]
-    ) -> "RunsFilter":
+    ) -> Self:
         self._filters.append(f"{category}.{attribute} <= {value}")
         return self
 
     def _value_geq(
         self, category: str, attribute: str, value: typing.Union[int, float]
-    ) -> "RunsFilter":
+    ) -> Self:
         self._filters.append(f"{category}.{attribute} >= {value}")
         return self
 
     def _value_lt(
         self, category: str, attribute: str, value: typing.Union[int, float]
-    ) -> "RunsFilter":
+    ) -> Self:
         self._filters.append(f"{category}.{attribute} < {value}")
         return self
 
     def _value_gt(
         self, category: str, attribute: str, value: typing.Union[int, float]
-    ) -> "RunsFilter":
+    ) -> Self:
         self._filters.append(f"{category}.{attribute} > {value}")
         return self
 
