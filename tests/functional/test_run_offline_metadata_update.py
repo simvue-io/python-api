@@ -38,10 +38,12 @@ class TestRunOffline(unittest.TestCase):
         metadata["b"] = 2
 
         client = Client()
-        data = client.get_runs([f"name == {name}"])
+        data = client.get_runs([f"name == {name}"], metadata=True)
         self.assertEqual(len(data), 1)
         self.assertEqual(name, data[0]["name"])
-        self.assertEqual(data[0]["metadata"], metadata)
+        self.assertEqual(data[0]["metadata"]["a"], metadata["a"])
+        self.assertEqual(data[0]["metadata"]["b"], metadata["b"])
+        self.assertEqual(data[0]["metadata"]["c"], metadata["c"])
 
         client.delete_folder(folder, remove_runs=True)
 

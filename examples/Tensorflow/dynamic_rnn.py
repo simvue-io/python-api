@@ -1,6 +1,7 @@
 from __future__ import absolute_import, division, print_function
 
 import random
+import click
 
 import numpy as np
 
@@ -13,30 +14,51 @@ from simvue import Run
 # Taken from https://github.com/aymericdamien/TensorFlow-Examples/
 
 
-if __name__ == "__main__":
+@click.command
+@click.option(
+    "--classes", type=int, default=2, help="linear sequence or not", show_default=True
+)
+@click.option(
+    "--lr", type=float, default=0.001, help="learning rate", show_default=True
+)
+@click.option("--training-steps", type=int, default=2000, show_default=True)
+@click.option("--batch-size", type=int, default=64, show_default=True)
+@click.option(
+    "--num-units",
+    type=int,
+    default=32,
+    help="number of neurons for the LSTM layer",
+    show_default=True,
+)
+@click.option("--ci", is_flag=True)
+def run_tensorflow_example(
+    classes: int,
+    lr: float,
+    training_steps: int,
+    batch_size: int,
+    ci: bool,
+    num_units: int,
+) -> None:
     # Dataset parameters.
-    num_classes = 2  # linear sequence or not.
+    num_classes = classes  # linear sequence or not.
     seq_max_len = 20  # Maximum sequence length.
     seq_min_len = 5  # Minimum sequence length (before padding).
     masking_val = -1  # -1 will represents the mask and be used to pad sequences to a common max length.
     max_value = 10000  # Maximum int value.
 
-    # Training Parameters
-    learning_rate = 0.001
-    training_steps = 2000
-    batch_size = 64
-
-    # Network Parameters
-    num_units = 32  # number of neurons for the LSTM layer.
+    if ci:
+        batch_size = 1
+        training_steps = 1
 
     with Run() as run:
         run.init(
+            "tensorflow_dynamic_rnn",
             metadata={
                 "dataset.num_classes": num_classes,
                 "dataset.seq_max_len": seq_max_len,
                 "dataset.seq_min_len": seq_min_len,
                 "dataset.masking_val": masking_val,
-                "training.learning_rate": learning_rate,
+                "training.learning_rate": lr,
                 "training.training_steps": training_steps,
                 "training.batch_size": batch_size,
                 "network.num_units": num_units,
@@ -44,8 +66,12 @@ if __name__ == "__main__":
             description="TensorFlow 2.0 implementation of a Recurrent Neural Network (LSTM) that performs dynamic "
             "computation over sequences with variable length. This example is using a toy dataset to "
             "classify linear sequences. The generated sequences have variable length.",
+            retention_period="1 hour" if ci else None,
+            tags=["tensorflow", "simvue_client_examples"],
+            folder="/simvue_client_demos",
+            visibility="tenant" if ci else None,
         )
-        run.save_file("dynamic_rnn.py", "code")
+        run.save_file(__file__, "code")
 
         # ====================
         #  TOY DATA GENERATOR
@@ -155,7 +181,7 @@ if __name__ == "__main__":
             return tf.reduce_mean(tf.cast(correct_prediction, tf.float32), axis=-1)
 
         # Adam optimizer.
-        optimizer = tf.optimizers.Adam(learning_rate)
+        optimizer = tf.optimizers.Adam(lr)
 
         # Optimization process.
         def run_optimization(x, y):
@@ -176,7 +202,7 @@ if __name__ == "__main__":
             optimizer.apply_gradients(zip(gradients, trainable_variables))
 
         # Run training for the given number of steps.
-        for step, (batch_x, batch_y) in enumerate(train_data.take(training_steps), 1):
+        for batch_x, batch_y in train_data.take(training_steps):
             # Run the optimization to update W and b values.
             run_optimization(batch_x, batch_y)
 
@@ -186,4 +212,7 @@ if __name__ == "__main__":
             run.log_metrics({"loss": float(loss), "accuracy": float(acc)})
 
         run.update_metadata({"loss": float(loss), "accuracy": float(acc)})
-        run.close()
+
+
+if __name__ in "__main__":
+    run_tensorflow_example()

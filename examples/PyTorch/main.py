@@ -1,7 +1,7 @@
 # Taken from https://github.com/pytorch/examples/blob/main/mnist/main.py
 from __future__ import print_function
 
-import argparse
+import click
 
 import torch
 import torch.nn as nn
@@ -39,7 +39,16 @@ class Net(nn.Module):
         return output
 
 
-def train(args, model, device, train_loader, optimizer, epoch, run):
+def train(
+    dry_run: bool,
+    log_interval: int,
+    model,
+    device,
+    train_loader,
+    optimizer,
+    epoch,
+    run: Run,
+) -> None:
     model.train()
     for batch_idx, (data, target) in enumerate(train_loader):
         data, target = data.to(device), target.to(device)
@@ -48,7 +57,7 @@ def train(args, model, device, train_loader, optimizer, epoch, run):
         loss = F.nll_loss(output, target)
         loss.backward()
         optimizer.step()
-        if batch_idx % args.log_interval == 0:
+        if batch_idx % log_interval == 0:
             print(
                 "Train Epoch: {} [{}/{} ({:.0f}%)]\tLoss: {:.6f}".format(
                     epoch,
@@ -61,7 +70,7 @@ def train(args, model, device, train_loader, optimizer, epoch, run):
             run.log_metrics(
                 {"train.loss.%d" % epoch: float(loss.item())}, step=batch_idx
             )
-            if args.dry_run:
+            if dry_run:
                 break
 
 
@@ -94,80 +103,91 @@ def test(model, device, test_loader, epoch, run):
     )
 
 
-def main():
-    # Training settings
-    parser = argparse.ArgumentParser(description="PyTorch MNIST Example")
-    parser.add_argument(
-        "--batch-size",
-        type=int,
-        default=64,
-        metavar="N",
-        help="input batch size for training (default: 64)",
-    )
-    parser.add_argument(
-        "--test-batch-size",
-        type=int,
-        default=1000,
-        metavar="N",
-        help="input batch size for testing (default: 1000)",
-    )
-    parser.add_argument(
-        "--epochs",
-        type=int,
-        default=14,
-        metavar="N",
-        help="number of epochs to train (default: 14)",
-    )
-    parser.add_argument(
-        "--lr",
-        type=float,
-        default=1.0,
-        metavar="LR",
-        help="learning rate (default: 1.0)",
-    )
-    parser.add_argument(
-        "--gamma",
-        type=float,
-        default=0.7,
-        metavar="M",
-        help="Learning rate step gamma (default: 0.7)",
-    )
-    parser.add_argument(
-        "--no-cuda", action="store_true", default=False, help="disables CUDA training"
-    )
-    parser.add_argument(
-        "--no-mps",
-        action="store_true",
-        default=False,
-        help="disables macOS GPU training",
-    )
-    parser.add_argument(
-        "--dry-run",
-        action="store_true",
-        default=False,
-        help="quickly check a single pass",
-    )
-    parser.add_argument(
-        "--seed", type=int, default=1, metavar="S", help="random seed (default: 1)"
-    )
-    parser.add_argument(
-        "--log-interval",
-        type=int,
-        default=10,
-        metavar="N",
-        help="how many batches to wait before logging training status",
-    )
-    parser.add_argument(
-        "--save-model",
-        action="store_true",
-        default=False,
-        help="For Saving the current Model",
-    )
-    args = parser.parse_args()
-    use_cuda = not args.no_cuda and torch.cuda.is_available()
-    use_mps = not args.no_mps and torch.backends.mps.is_available()
+@click.command
+@click.option(
+    "--batch-size",
+    type=int,
+    default=64,
+    help="input batch size for training",
+    show_default=True,
+)
+@click.option(
+    "--test-batch-size",
+    type=int,
+    default=1000,
+    help="input batch size for testing",
+    show_default=True,
+)
+@click.option(
+    "--epochs",
+    type=int,
+    default=14,
+    help="number of epochs to train",
+    show_default=True,
+)
+@click.option("--lr", type=float, default=1.0, help="learning rate", show_default=True)
+@click.option(
+    "--gamma",
+    type=float,
+    default=0.7,
+    help="learning rate step gamma",
+    show_default=True,
+)
+@click.option(
+    "--no-cuda",
+    is_flag=True,
+    default=False,
+    help="disables CUDA training",
+    show_default=True,
+)
+@click.option(
+    "--no-mps",
+    is_flag=True,
+    default=False,
+    help="disables macOS GPU training",
+    show_default=True,
+)
+@click.option(
+    "--dry-run",
+    is_flag=True,
+    default=False,
+    help="quickly check a single pass",
+    show_default=True,
+)
+@click.option("--seed", type=int, default=1, help="random seed", show_default=True)
+@click.option(
+    "--log-interval",
+    type=int,
+    default=10,
+    help="how many batches to wait before logging training status",
+    show_default=True,
+)
+@click.option(
+    "--save-model",
+    is_flag=True,
+    default=False,
+    help="save the current Model",
+    show_default=True,
+)
+@click.option("--ci", is_flag=True, default=False)
+def simvue_pytorch_example(
+    batch_size: int,
+    test_batch_size: int,
+    epochs: int,
+    lr: float,
+    gamma: float,
+    no_cuda: bool,
+    no_mps: bool,
+    dry_run: bool,
+    seed: int,
+    log_interval: int,
+    save_model: bool,
+    ci: bool,
+) -> None:
+    use_cuda = not no_cuda and torch.cuda.is_available() and not ci
+    use_mps = not no_mps and torch.backends.mps.is_available() and not ci
 
-    torch.manual_seed(args.seed)
+    torch.manual_seed(seed)
 
     if use_cuda:
         device = torch.device("cuda")
@@ -176,8 +196,15 @@ def main():
     else:
         device = torch.device("cpu")
 
-    train_kwargs = {"batch_size": args.batch_size}
-    test_kwargs = {"batch_size": args.test_batch_size}
+    if ci:
+        dry_run = True
+        batch_size = 1
+        test_batch_size = 1
+        epochs = 1
+        save_model = False
+
+    train_kwargs = {"batch_size": batch_size}
+    test_kwargs = {"batch_size": test_batch_size}
     if use_cuda:
         cuda_kwargs = {"num_workers": 1, "pin_memory": True, "shuffle": True}
         train_kwargs.update(cuda_kwargs)
@@ -192,23 +219,35 @@ def main():
     test_loader = torch.utils.data.DataLoader(dataset2, **test_kwargs)
 
     model = Net().to(device)
-    optimizer = optim.Adadelta(model.parameters(), lr=args.lr)
+    optimizer = optim.Adadelta(model.parameters(), lr=lr)
 
-    scheduler = StepLR(optimizer, step_size=1, gamma=args.gamma)
+    scheduler = StepLR(optimizer, step_size=1, gamma=gamma)
 
-    run = Run()
-    run.init(tags=["PyTorch"])
+    with Run() as run:
+        run.init(
+            tags=["PyTorch", "simvue_client_examples"],
+            folder="/simvue_client_demos",
+            retention_period="1 hour" if ci else None,
+            visibility="tenant" if ci else None,
+        )
 
-    for epoch in range(1, args.epochs + 1):
-        train(args, model, device, train_loader, optimizer, epoch, run)
-        test(model, device, test_loader, epoch, run)
-        scheduler.step()
+        for epoch in range(1, epochs + 1):
+            train(
+                dry_run,
+                log_interval,
+                model,
+                device,
+                train_loader,
+                optimizer,
+                epoch,
+                run,
+            )
+            test(model, device, test_loader, epoch, run)
+            scheduler.step()
 
-    if args.save_model:
-        run.save_file(model.state_dict(), "output", name="mnist_cnn.pt")
-
-    run.close()
+        if save_model:
+            run.save_file(model.state_dict(), "output", name="mnist_cnn.pt")
 
 
 if __name__ == "__main__":
-    main()
+    simvue_pytorch_example()

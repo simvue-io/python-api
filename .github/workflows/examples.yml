@@ -1,0 +1,209 @@
+name: Simvue Examples
+
+on:
+  push:
+    branches: ["main", "dev", "hotfix/update-ci"]
+  pull_request:
+    branches: [ "main", "dev", "hotfix/update-ci" ]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  GeometryOptimisation:
+    runs-on: ubuntu-latest
+    if: false # deactivate for now
+    steps:
+        - uses: actions/checkout@v4
+        - name: Download BlueMira
+          uses: actions/checkout@v4
+          with:
+            repository: Fusion-Power-Plant-Framework/bluemira
+            ref: v1.10.0
+            path: blue_mira
+        - uses: conda-incubator/setup-miniconda@v3
+          with:
+            activate-environment: bluemira
+            environment-file: blue_mira/conda/environment.yml
+            miniforge-version: "latest"
+            use-only-tar-bz2: false
+            miniforge-variant: Mambaforge
+            use-mamba: true
+            python-version: "3.11"
+        - name: Install bluemira
+          shell: bash -l {0}
+          run: pip install -e blue_mira
+        - name: Install Simvue
+          shell: bash -l {0}
+          run: pip install -e .
+        - name: Run Example
+          shell: bash -l {0}
+          run: python ./examples/GeometryOptimisation/bluemira_simvue_geometry_optimisation.py
+  Logging:
+    runs-on: ubuntu-latest
+    if: false # deactivate for now
+    steps:
+      - uses: actions/checkout@v4
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Install Simvue
+        run: python3 -m pip install .
+      - name: Run Example
+        run: |
+          export SIMVUE_URL=${{ secrets.SIMVUE_URL }}
+          export SIMVUE_TOKEN=${{ secrets.SIMVUE_TOKEN }}
+          python3 examples/Logging/logging-to-simvue.py --ci
+  OpenFOAM:
+    runs-on: ubuntu-latest
+    if: false # deactivate for now
+    container:
+      image: openfoam/openfoam10-paraview56
+      options: --user root
+    steps:
+      - uses: actions/checkout@v4
+      - name: Manual Python Install
+        run: |
+          add-apt-repository ppa:deadsnakes/ppa -y
+          apt-get update && \
+          apt-get install -y git wget curl python3.11-full
+
+      - name: Install dependencies
+        run: |
+          python3.11 -m ensurepip --upgrade
+          python3.11 -m pip install ukaea-multiparser
+      - name: Install Package
+        run: python3.11 -m pip install .
+      - name: Run Example
+        shell: bash
+        run: |
+          export SIMVUE_URL=${{ secrets.SIMVUE_URL }}
+          export SIMVUE_TOKEN=${{ secrets.SIMVUE_TOKEN }}
+          python3.11 ./examples/OpenFOAM/simvue_openfoam.py /opt/openfoam10/tutorials/incompressible/pimpleFoam/laminar/movingCone/Allrun  --ci
+  Optuna:
+    runs-on: ubuntu-latest
+    if: false # deactivate for now
+    steps:
+      - uses: actions/checkout@v4
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Install Simvue
+        run: python3 -m pip install .
+      - name: Install Dependencies
+        run: |
+          python3 -m pip install torch torchvision --index-url https://download.pytorch.org/whl/cpu
+          python3 -m pip install -r examples/Optuna/PyTorch/requirements.txt
+      - name: Run Example
+        run: |
+          export SIMVUE_URL=${{ secrets.SIMVUE_URL }}
+          export SIMVUE_TOKEN=${{ secrets.SIMVUE_TOKEN }}
+          python3.11 ./examples/Optuna/PyTorch/simvue_optuna_pytorch.py --ci
+  PyTorch:
+    runs-on: ubuntu-latest
+    if: false # deactivate for now
+    steps:
+      - uses: actions/checkout@v4
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Install Simvue
+        run: python3 -m pip install .
+      - name: Install Dependencies
+        run: |
+          python3 -m pip install torch torchvision --index-url https://download.pytorch.org/whl/cpu
+          python3 -m pip install -r examples/PyTorch/requirements.txt
+      - name: Run Example
+        run: |
+          export SIMVUE_URL=${{ secrets.SIMVUE_URL }}
+          export SIMVUE_TOKEN=${{ secrets.SIMVUE_TOKEN }}
+          python3.11 ./examples/PyTorch/main.py --ci
+  SU2:
+    runs-on: ubuntu-latest
+    if: false # deactivate for now
+    steps:
+      - uses: actions/checkout@v4
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Download SU2
+        run: |
+          wget https://github.com/su2code/SU2/releases/download/v8.0.1/SU2-v8.0.1-linux64.zip
+          unzip SU2-v8.0.1-linux64.zip
+      - name: Install dependencies
+        run: |
+          python -m pip install ukaea-multiparser
+          python -m pip install .
+      - name: Run Example
+        run: |
+          export SIMVUE_URL=${{ secrets.SIMVUE_URL }}
+          export SIMVUE_TOKEN=${{ secrets.SIMVUE_TOKEN }}
+          python examples/SU2/SU2.py bin --config tests/example_data/SU2_inv_ONERAM6.cfg --ci
+  TensorFlow:
+    if: false # deactivate for now
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Install Simvue
+        run: python3 -m pip install .
+      - name: Install Dependencies
+        run: python3 -m pip install -r examples/Tensorflow/requirements.txt
+      - name: Run Example
+        run: |
+          export SIMVUE_URL=${{ secrets.SIMVUE_URL }}
+          export SIMVUE_TOKEN=${{ secrets.SIMVUE_TOKEN }}
+          python3.11 ./examples/Tensorflow/dynamic_rnn.py --ci
+  FDS:
+    runs-on: ubuntu-latest
+    container:
+      image: openbcl/fds:6.9.1
+    steps:
+      - uses: actions/checkout@v4
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Install Simvue
+        run: python3 -m pip install .
+      - name: Install Dependencies
+        run: python3 -m pip install -r examples/FDS/requirements.txt
+      - name: Run Example
+        run: |
+          export SIMVUE_URL=${{ secrets.SIMVUE_URL }}
+          export SIMVUE_TOKEN=${{ secrets.SIMVUE_TOKEN }}
+          python3.11 ./examples/FDS/minimal_fds.py examples/FDS/activate_vents.fds . --ci
+  GEANT4:
+    if: false # deactivate for now
+    runs-on: ubuntu-latest
+    container:
+      image: artemisbeta/geant4:11.2.1
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: recursive
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Install Simvue
+        run: python3 -m pip install .
+      - name: Install Dependencies
+        run: python3 -m pip install -r examples/Geant4/requirements.txt
+      - name: Build Example
+        run: |
+          cmake -DCMAKE_PREFIX_PATH=/usr/local/share/geant4/install/4.11.2/ -Bbuild examples/Geant4/FixedTarget/
+          cmake --build build
+      - name: Run Example
+        run: |
+          export SIMVUE_URL=${{ secrets.SIMVUE_URL }}
+          export SIMVUE_TOKEN=${{ secrets.SIMVUE_TOKEN }}
+          python examples/Geant4/geant4_simvue.py build/MaterialTesting --ci --events 10

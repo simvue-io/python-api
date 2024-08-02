@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "simvue"
-version = "1.0.0.dev2"
+version = "1.0.1"
 description = "Simulation tracking and monitoring"
 authors = ["Simvue Development Team <info@simvue.io>"]
 license = "Apache v2"
@@ -13,6 +13,7 @@ classifiers = [
     "Operating System :: Unix",
     "Operating System :: Microsoft :: Windows",
     "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.9",
     "Programming Language :: Python :: 3.10",
     "Programming Language :: Python :: 3.11",
     "Programming Language :: Python :: 3.12",
@@ -41,7 +42,7 @@ psutil = "^5.9.8"
 pydantic = "^2.5.3"
 pandas = "^2.2.0"
 plotly = {version = "^5.18.0", optional = true}
-numpy = "^1.26.3"
+numpy = ">=1.26.3,<3.0.0"
 matplotlib = {version = "^3.8.2", optional = true}
 typing_extensions = { version = "^4.11.0", python = "<3.10" }
 toml = "^0.10.2"
@@ -49,16 +50,10 @@ click = "^8.1.7"
 gitpython = "^3.1.43"
 humanfriendly = "^10.0"
 tabulate = "^0.9.0"
-torch = [
-    {platform = "linux", version = "^2.0.0+cpu", source = "pytorch-cpu", optional=true},
-    {platform = "darwin", version="^2.0.0", source="PyPI", optional=true},
-    {platform = "win32", version="^2.0.0", source="PyPI", optional=true},
-]
 randomname = "^0.2.1"
 
 [tool.poetry.extras]
 plot = ["matplotlib", "plotly"]
-torch = ["torch"]
 
 [tool.poetry.scripts]
 simvue_sender = "simvue.bin.sender:run"
@@ -66,7 +61,7 @@ simvue_sender = "simvue.bin.sender:run"
 [tool.poetry.group.dev.dependencies]
 pytest = "^8.0.0"
 pytest-dependency = "^0.6.0"
-ruff = ">=0.3.2,<0.5.0"
+ruff = ">=0.5.0,<0.6.0"
 pytest-cov = ">=4.1,<6.0"
 pytest-mock = "^3.14.0"
 pytest-sugar = "^1.0.0"
@@ -76,12 +71,6 @@ jinja2 = "^3.1.4"
 [build-system]
 requires = ["poetry-core"]
 build-backend = "poetry.core.masonry.api"
-
-[[tool.poetry.source]]
-name = "pytorch-cpu"
-url = "https://download.pytorch.org/whl/cpu"
-priority = "supplemental"
-
 
 [[tool.poetry.source]]
 name = "PyPI"
@@ -98,7 +87,7 @@ lint.mccabe.max-complexity = 11
 "notebooks/*" = ["T201"]
 
 [tool.pytest.ini_options]
-addopts = "-p no:warnings --cov=simvue -n 0"
+addopts = "-p no:warnings --no-cov -n 0"
 testpaths = [
     "tests"
 ]

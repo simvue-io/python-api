@@ -543,6 +543,29 @@ class Client:
 
     @prettify_pydantic
     @pydantic.validate_call
+    def delete_alert(self, alert_id: str) -> None:
+        """Delete an alert from the server by ID
+
+        Parameters
+        ----------
+        alert_id : str
+            the unique identifier for the alert
+        """
+        response = requests.delete(
+            f"{self._url}/api/alerts/{alert_id}", headers=self._headers
+        )
+
+        if response.status_code == 200:
+            logger.debug(f"Alert '{alert_id}' deleted successfully")
+            return
+
+        raise RuntimeError(
+            f"Deletion of alert '{alert_id}' failed"
+            f"with code {response.status_code}: {response.text}"
+        )
+
+    @prettify_pydantic
+    @pydantic.validate_call
     def list_artifacts(self, run_id: str) -> list[dict[str, typing.Any]]:
         """Retrieve artifacts for a given run
 
@@ -1106,6 +1129,9 @@ class Client:
             max_points=max_points or -1,
         )
 
+        if not run_metrics:
+            return None
+
         if aggregate:
             return aggregated_metrics_to_dataframe(
                 run_metrics, xaxis=xaxis, parse_to=output_format
@@ -1162,6 +1188,12 @@ class Client:
             output_format="dataframe",
             aggregate=False,
         )
+
+        if data is None:
+            raise RuntimeError(
+                f"Cannot plot metrics {metric_names}, "
+                f"no data found for runs {run_ids}."
+            )
 
         # Undo multi-indexing
         flattened_df = data.reset_index()

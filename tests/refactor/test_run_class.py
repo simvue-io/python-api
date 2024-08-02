@@ -62,8 +62,8 @@ def test_log_metrics(
                 folder="/simvue_unit_testing",
                 retention_period="1 hour",
                 visibility=visibility,
-                resources_metrics_interval=1,
             )
+            run.config(resources_metrics_interval=1)
         return
 
     run.init(
@@ -74,9 +74,9 @@ def test_log_metrics(
         ],
         folder="/simvue_unit_testing",
         visibility=visibility,
-        resources_metrics_interval=1,
         retention_period="1 hour",
     )
+    run.config(resources_metrics_interval=1)
 
     # Speed up the read rate for this test
     run._dispatcher._max_buffer_size = 10
@@ -511,6 +511,25 @@ def test_abort_on_alert_python(create_plain_run: typing.Tuple[sv_run.Run, dict],
 
     assert i < 7
     assert run._status == "terminated"
+
+
+@pytest.mark.run
+def test_abort_on_alert_raise(create_plain_run: typing.Tuple[sv_run.Run, dict], mocker: pytest_mock.MockerFixture) -> None:
+    def testing_exit(status: int) -> None:
+        raise SystemExit(status)
+    mocker.patch("os._exit", testing_exit)
+    run, _ = create_plain_run
+    run.config(resources_metrics_interval=1)
+    run._heartbeat_interval = 1
+    run._testing = True
+    alert_id = run.create_alert("abort_test", source="user", trigger_abort=True)
+    run.add_process(identifier="forever_long", executable="bash", c="sleep 10")
+    time.sleep(2)
+    run.log_alert(alert_id, "critical")
+    time.sleep(4)
+    if not run._status == "terminated":
+        run.kill_all_processes()
+        raise AssertionError("Run was not terminated")
 
 
 @pytest.mark.run
