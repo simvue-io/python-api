@@ -102,7 +102,8 @@ markers = [
     "utilities: test simvue utilities module",
     "scenario: test scenarios",
     "executor: tests of executors",
-    "api: tests of RestAPI functionality"
+    "api: tests of RestAPI functionality",
+    "unix: tests for UNIX systems only"
 ]
 
 [tool.interrogate]
