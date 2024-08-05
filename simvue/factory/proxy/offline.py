@@ -16,6 +16,9 @@ from simvue.utilities import (
     skip_if_failed,
 )
 
+if typing.TYPE_CHECKING:
+    pass
+
 logger = logging.getLogger(__name__)
 
 

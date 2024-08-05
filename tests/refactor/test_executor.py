@@ -131,7 +131,6 @@ with open(args.output_file, 'w') as out_f:
 def test_completion_callbacks_var_change(request: pytest.FixtureRequest) -> None:
     success: dict[str, bool] = {"complete": False}
     def completion_callback(*_, success: dict[str, bool]=success, **__):
-        print("YH BOI")
         success["complete"] = True
 
     with simvue.Run() as run:

@@ -25,7 +25,7 @@ if typing.TYPE_CHECKING:
 
 def find_first_instance_of_file(
     file_names: typing.Union[list[str], str], check_user_space: bool = True
-) -> typing.Optional[str]:
+) -> typing.Optional[pathlib.Path]:
     """Traverses a file hierarchy from bottom upwards to find file
 
     Returns the first instance of 'file_names' found when moving
@@ -38,6 +38,11 @@ def find_first_instance_of_file(
     check_user_space: bool, optional
         check the users home area if current working directory is not
         within it. Default is True.
+
+    Returns
+    -------
+    pathlib.Path | None
+        first matching file if found
     """
     if isinstance(file_names, str):
         file_names = [file_names]
@@ -45,15 +50,13 @@ def find_first_instance_of_file(
     for root, _, files in os.walk(os.getcwd(), topdown=False):
         for file_name in file_names:
             if file_name in files:
-                return os.path.join(root, file_name)
+                return pathlib.Path(root).joinpath(file_name)
 
     # If the user is running on different mounted volume or outside
     # of their user space then the above will not return the file
     if check_user_space:
         for file_name in file_names:
-            if os.path.exists(
-                _user_file := os.path.join(pathlib.Path.home(), file_name)
-            ):
+            if os.path.exists(_user_file := pathlib.Path.home().joinpath(file_name)):
                 return _user_file
 
     return None

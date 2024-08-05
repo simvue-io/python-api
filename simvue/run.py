@@ -90,9 +90,9 @@ class Run:
     @pydantic.validate_call
     def __init__(
         self,
+        mode: typing.Literal["online", "offline", "disabled"] = "online",
         server_token: typing.Optional[str] = None,
         server_url: typing.Optional[str] = None,
-        mode: typing.Literal["online", "offline", "disabled"] = "online",
         debug: bool = False,
     ) -> None:
         """Initialise a new Simvue run
@@ -644,7 +644,11 @@ class Run:
             return False
 
         self._simvue = Simvue(
-            self._name, self._uuid, self._mode, self._config, self._suppress_errors
+            name=self._name,
+            uniq_id=self._uuid,
+            mode=self._mode,
+            config=self._config,
+            suppress_errors=self._suppress_errors,
         )
         name, self._id = self._simvue.create_run(data)
 

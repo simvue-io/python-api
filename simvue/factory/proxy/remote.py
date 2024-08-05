@@ -1,5 +1,4 @@
 import logging
-import time
 import typing
 
 if typing.TYPE_CHECKING:
@@ -7,7 +6,7 @@ if typing.TYPE_CHECKING:
 
 from simvue.api import get, post, put
 from simvue.factory.proxy.base import SimvueBaseClass
-from simvue.utilities import get_expiry, prepare_for_api, skip_if_failed
+from simvue.utilities import prepare_for_api, skip_if_failed
 from simvue.version import __version__
 
 logger = logging.getLogger(__name__)
@@ -477,20 +476,6 @@ class Remote(SimvueBaseClass):
 
         self._error(f"Got status code {response.status_code} when sending heartbeat")
         return None
-
-    @skip_if_failed("_aborted", "_suppress_errors", False)
-    def check_token(self) -> bool:
-        """
-        Check token
-        """
-        if not (expiry := get_expiry(self._config.server.token)):
-            self._error("Failed to parse user token")
-            return False
-
-        if time.time() - expiry > 0:
-            self._error("Token has expired")
-            return False
-        return True
 
     @skip_if_failed("_aborted", "_suppress_errors", False)
     def get_abort_status(self) -> bool:

@@ -1,10 +1,10 @@
 import pytest
 import uuid
-import os.path
+import pathlib
 import pydantic
 import pytest_mock
 import tempfile
-import simvue.config as sv_config
+import simvue.config
 
 
 @pytest.mark.config
@@ -13,8 +13,8 @@ import simvue.config as sv_config
     ids=("use_env", "no_env")
 )
 @pytest.mark.parametrize(
-    "use_file", (None, "basic", "extended"),
-    ids=("no_file", "basic_file", "extended_file")
+    "use_file", (None, "basic", "extended", "ini"),
+    ids=("no_file", "basic_file", "extended_file", "legacy_file")
 )
 @pytest.mark.parametrize(
     "use_args", (True, False),
@@ -45,14 +45,22 @@ def test_config_setup(
         monkeypatch.delenv("SIMVUE_URL", False)
 
     with tempfile.TemporaryDirectory() as temp_d:
-        mocker.patch("pathlib.Path.home", lambda: temp_d)
+        _config_file = None
         if use_file:
-            with open(_config_file := os.path.join(temp_d, "simvue.toml"), "w") as out_f:
-                _lines: str = f"""
+            with open(_config_file := pathlib.Path(temp_d).joinpath(f"simvue.{'toml' if use_file != 'ini' else 'ini'}"), "w") as out_f:
+                if use_file != "ini":
+                    _lines: str = f"""
 [server]
 url = "{_url}"
 token = "{_token}"
 """
+                else:
+                    _lines = f"""
+[server]
+url = {_url}
+token = {_token}
+"""
+
                 if use_file == "extended":
                     _lines += f"""
 [run]
@@ -61,19 +69,21 @@ folder = "{_folder}"
 tags = {_tags}
 """
                 out_f.write(_lines)
-        os.chdir(temp_d)
+            simvue.config.SimvueConfiguration.config_file.cache_clear()
+        
+        mocker.patch("simvue.config.user.sv_util.find_first_instance_of_file", lambda *_, **__: _config_file)
 
         if not use_file and not use_env and not use_args:
-            with pytest.raises(pydantic.ValidationError):
-                sv_config.SimvueConfiguration.fetch()
+            with pytest.raises(RuntimeError):
+                simvue.config.SimvueConfiguration.fetch()
             return
         elif use_args:
-            _config = sv_config.SimvueConfiguration.fetch(
+            _config = simvue.config.SimvueConfiguration.fetch(
                 server_url=_arg_url,
                 server_token=_arg_token
             )
         else:
-            _config = sv_config.SimvueConfiguration.fetch()
+            _config = simvue.config.SimvueConfiguration.fetch()
 
         if use_file:
             assert _config.config_file() == _config_file
@@ -96,3 +106,6 @@ tags = {_tags}
             assert _config.run.folder == "/"
             assert not _config.run.description
             assert not _config.run.tags
+
+        simvue.config.SimvueConfiguration.config_file.cache_clear()
+
