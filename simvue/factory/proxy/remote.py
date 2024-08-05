@@ -37,7 +37,6 @@ class Remote(SimvueBaseClass):
             "Content-Type": "application/msgpack"
         }
         super().__init__(name, uniq_id, suppress_errors)
-        self.check_token()
 
         self._id = uniq_id
 
@@ -45,7 +44,9 @@ class Remote(SimvueBaseClass):
     def list_tags(self) -> list[str]:
         logger.debug("Retrieving existing tags")
         try:
-            response = get(f"{self._url}/api/runs/{self._id}", self._headers)
+            response = get(
+                f"{self._config.server.url}/api/runs/{self._id}", self._headers
+            )
         except Exception as err:
             self._error(f"Exception retrieving tags: {str(err)}")
             return []

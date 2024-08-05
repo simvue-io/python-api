@@ -27,12 +27,12 @@ class ServerSpecifications(pydantic.BaseModel):
         return f"{v}"
 
     @pydantic.field_validator("token")
-    def check_token(cls, v: typing.Any) -> bool:
-        if not (expiry := get_expiry(v)):
+    def check_token(cls, v: pydantic.SecretStr) -> str:
+        if not (expiry := get_expiry(v.get_secret_value())):
             raise AssertionError("Failed to parse Simvue token - invalid token form")
         if time.time() - expiry > 0:
             raise AssertionError("Simvue token has expired")
-        return v
+        return v.get_secret_value()
 
 
 class DefaultRunSpecifications(pydantic.BaseModel):

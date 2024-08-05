@@ -434,9 +434,6 @@ class Run:
 
         logger.debug("Starting run")
 
-        if self._simvue and not self._simvue.check_token():
-            return False
-
         data: dict[str, typing.Any] = {"status": self._status}
 
         if reconnect:
