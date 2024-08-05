@@ -483,7 +483,9 @@ class Remote(SimvueBaseClass):
         logger.debug("Retrieving alert status")
 
         try:
-            response = get(f"{self._url}/api/runs/{self._id}/abort", self._headers_mp)
+            response = get(
+                f"{self._config.server.url}/api/runs/{self._id}/abort", self._headers_mp
+            )
         except Exception as err:
             self._error(f"Exception retrieving abort status: {str(err)}")
             return False
