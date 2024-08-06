@@ -87,10 +87,6 @@ class SimvueBaseClass(abc.ABC):
         pass
 
     @abc.abstractmethod
-    def check_url(self) -> bool:
-        pass
-
-    @abc.abstractmethod
     def check_token(self) -> bool:
         pass
 
