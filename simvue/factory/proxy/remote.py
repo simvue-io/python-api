@@ -32,6 +32,7 @@ class Remote(SimvueBaseClass):
         }
         super().__init__(name, uniq_id, suppress_errors)
         self.check_token()
+        self.check_url()
 
         self._id = uniq_id
 
@@ -464,6 +465,23 @@ class Remote(SimvueBaseClass):
 
         if time.time() - expiry > 0:
             self._error("Token has expired")
+            return False
+        return True
+
+    @skip_if_failed("_aborted", "_suppress_errors", False)
+    def check_url(self) -> bool:
+        """
+        Check URL
+        """
+        logger.debug("Checking server endpoint")
+
+        try:
+            response = get(f"{self._url}/api/version", self._headers)
+
+            if response.status_code != 200 or not response.json().get("version"):
+                raise AssertionError
+        except Exception as err:
+            self._error(f"Exception retrieving server version: {str(err)}")
             return False
         return True
 

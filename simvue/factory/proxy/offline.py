@@ -220,3 +220,7 @@ class Offline(SimvueBaseClass):
     @skip_if_failed("_aborted", "_suppress_errors", False)
     def check_token(self) -> bool:
         return True
+
+    @skip_if_failed("_aborted", "_suppress_errors", False)
+    def check_url(self) -> bool:
+        return True

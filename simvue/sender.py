@@ -176,6 +176,9 @@ def process(run):
         # Check token
         remote.check_token()
 
+        # Check URL
+        remote.check_url()
+
         name, run_id = remote.create_run(run_init)
         if name:
             logger.info("Creating run with name %s and id %s", name, id)
@@ -191,6 +194,9 @@ def process(run):
 
         # Check token
         remote.check_token()
+
+        # Check URL
+        remote.check_url()
 
     if status == "running":
         # Check for recent heartbeat
