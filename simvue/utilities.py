@@ -239,7 +239,8 @@ def get_auth():
         # If the keyring is stored under a different user
         # to the logged in user
         with contextlib.suppress(
-            configparser.NoOptionError, configparser.NoSectionError
+            configparser.NoOptionError,
+            configparser.NoSectionError,
         ):
             keyring_user = config.get("server", "keyring_user")
 
@@ -251,9 +252,10 @@ def get_auth():
         raise ValueError("No Simvue server URL was specified")
 
     # If a token still has not been provided try keychain
-    user_name = getpass.getuser()
-    keyring_user = keyring_user or user_name
-    token = keyring.get_password(url, keyring_user)
+    with contextlib.suppress(keyring.errors.NoKeyringError):
+        user_name = getpass.getuser()
+        keyring_user = keyring_user or user_name
+        token = keyring.get_password(url, keyring_user)
 
     if not token:
         raise ValueError("No Simvue server token was specified")
