@@ -601,9 +601,7 @@ class Run:
             "folder": folder,
             "name": name,
             "description": description,
-            "system": get_system()
-            if self._status == "running"
-            else {"cpu": {}, "gpu": {}, "platform": {}},
+            "system": get_system() if self._status == "running" else None,
             "visibility": {
                 "users": [] if not isinstance(visibility, list) else visibility,
                 "tenant": visibility == "tenant",
