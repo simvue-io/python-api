@@ -514,6 +514,7 @@ class Run:
         folder: typing.Annotated[str, pydantic.Field(pattern=FOLDER_REGEX)] = "/",
         running: bool = True,
         retention_period: typing.Optional[str] = None,
+        timeout: int = 180,
         visibility: typing.Union[
             typing.Literal["public", "tenant"], list[str], None
         ] = None,
@@ -540,6 +541,8 @@ class Run:
         retention_period : str, optional
             describer for time period to retain run, the default of None
             removes this constraint.
+        timeout: int, optional
+            specify the timeout of the run, if None there is no timeout
         visibility : Literal['public', 'tenant'] | list[str], optional
             set visibility options for this run, either:
                 * public - run viewable to all.
@@ -607,6 +610,7 @@ class Run:
                 "tenant": visibility == "tenant",
                 "public": visibility == "public",
             },
+            "heartbeat_timeout": timeout  
         }
 
         # Check against the expected run input
