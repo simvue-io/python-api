@@ -1,4 +1,4 @@
-exclude: '^tests|^docs'
+exclude: '^tests|^docs|^examples|^notebooks'
 ci:
     autofix_prs: false
     autoupdate_branch: ''

@@ -88,7 +88,9 @@ class Run:
 
     @pydantic.validate_call
     def __init__(
-        self, mode: typing.Literal["online", "offline", "disabled"] = "online"
+        self,
+        mode: typing.Literal["online", "offline", "disabled"] = "online",
+        abort_callback: typing.Optional[typing.Callable[[], None]] = None,
     ) -> None:
         """Initialise a new Simvue run
 
@@ -99,13 +101,17 @@ class Run:
                 online - objects sent directly to Simvue server
                 offline - everything is written to disk for later dispatch
                 disabled - disable monitoring completely
+        abort_callback : Callable | None, optional
+            callback executed when the run is aborted
         """
         self._uuid: str = f"{uuid.uuid4()}"
         self._mode: typing.Literal["online", "offline", "disabled"] = mode
         self._name: typing.Optional[str] = None
         self._testing: bool = False
         self._abort_on_alert: bool = True
-        self._abort_callback: typing.Optional[typing.Callable[[], None]] = None
+        self._abort_callback: typing.Optional[typing.Callable[[], None]] = (
+            abort_callback
+        )
         self._dispatch_mode: typing.Literal["direct", "queued"] = "queued"
         self._executor = Executor(self)
         self._dispatcher: typing.Optional[DispatcherBaseClass] = None
@@ -266,7 +272,7 @@ class Run:
 
         def _heartbeat(
             heartbeat_trigger: threading.Event = self._heartbeat_termination_trigger,
-            abort_callback: typing.Callable[[], None] = self._abort_callback
+            abort_callback: typing.Callable[[], None] = self._abort_callback,
         ) -> None:
             last_heartbeat = time.time()
             last_res_metric_call = time.time()
@@ -313,7 +319,7 @@ class Run:
                             fg="red" if self._term_color else None,
                             bold=self._term_color,
                         )
-                        if abort_callback:
+                        if abort_callback is not None:
                             abort_callback()
                         os._exit(1)
 
@@ -512,6 +518,7 @@ class Run:
         name: typing.Optional[
             typing.Annotated[str, pydantic.Field(pattern=NAME_REGEX)]
         ] = None,
+        *,
         metadata: typing.Optional[dict[str, typing.Any]] = None,
         tags: typing.Optional[list[str]] = None,
         description: typing.Optional[str] = None,
@@ -875,7 +882,6 @@ class Run:
         disable_resources_metrics: typing.Optional[bool] = None,
         storage_id: typing.Optional[str] = None,
         abort_on_alert: typing.Optional[bool] = None,
-        abort_callback: typing.Optional[typing.Callable[[], None]] = None
     ) -> bool:
         """Optional configuration
 
@@ -894,8 +900,6 @@ class Run:
             identifier of storage to use, by default None
         abort_on_alert : bool, optional
             whether to abort the run if an alert is triggered
-        abort_callback : Callable | None, optional
-            callback executed when the run is aborted
 
         Returns
         -------
@@ -928,9 +932,6 @@ class Run:
 
             if storage_id:
                 self._storage_id = storage_id
-
-            if abort_callback:
-                self._abort_callback = abort_callback
 
         return True
 
