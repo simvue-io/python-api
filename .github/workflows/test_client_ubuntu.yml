@@ -28,11 +28,12 @@ jobs:
       run: python -m pip install poetry
     - name: Test with pytest
       run: |
-        export SIMVUE_URL=${{ secrets.SIMVUE_URL }}
-        export SIMVUE_TOKEN=${{ secrets.SIMVUE_TOKEN }}
         poetry install --all-extras
         poetry run python -m pip install torch --index-url https://download.pytorch.org/whl/cpu
-        poetry run pytest -x --cov --cov-report=xml tests/unit/ tests/refactor/ -m 'not scenario'
+        poetry run \
+          SIMVUE_URL=${{ secrets.SIMVUE_URL }} \
+          SIMVUE_TOKEN=${{ secrets.SIMVUE_TOKEN }} \
+          pytest -x --cov --cov-report=xml tests/unit/ tests/refactor/ -m 'not scenario'
     - name: Upload coverage reports to Codecov
       run: |
         curl -Os https://uploader.codecov.io/latest/linux/codecov
