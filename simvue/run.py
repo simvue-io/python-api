@@ -302,26 +302,26 @@ class Run:
                 # Check if the user has aborted the run
                 with self._configuration_lock:
                     if (
-                        self._simvue
-                        and self._abort_on_alert
-                        and self._simvue.get_abort_status()
+                        self._simvue and self._simvue.get_abort_status()
                     ):
-                        logger.debug("Received abort request from server")
-                        self._alert_raised_trigger.set()
-                        self.kill_all_processes()
-                        if self._dispatcher and self._shutdown_event:
-                            self._shutdown_event.set()
-                            self._dispatcher.purge()
-                            self._dispatcher.join()
-                        self.set_status("terminated")
-                        click.secho(
-                            "[simvue] Run was aborted.",
-                            fg="red" if self._term_color else None,
-                            bold=self._term_color,
-                        )
+                        if self._abort_on_alert:
+                            logger.debug("Received abort request from server")
+                            self._alert_raised_trigger.set()
+                            self.kill_all_processes()
+                            if self._dispatcher and self._shutdown_event:
+                                self._shutdown_event.set()
+                                self._dispatcher.purge()
+                                self._dispatcher.join()
+                            self.set_status("terminated")
+                            click.secho(
+                                "[simvue] Run was aborted.",
+                                fg="red" if self._term_color else None,
+                                bold=self._term_color,
+                            )
                         if abort_callback is not None:
                             abort_callback()
-                        os._exit(1)
+                        if self._abort_on_alert:
+                            os._exit(1)
 
                 if self._simvue:
                     self._simvue.send_heartbeat()
