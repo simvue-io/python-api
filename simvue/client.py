@@ -617,7 +617,7 @@ class Client:
         )
 
         json_response = self._get_json_from_response(
-            expected_status=[200, 400],
+            expected_status=[200, 404],
             scenario=f"Retrieval of artifact '{name}' for run '{run_id}'",
             response=response,
         )
@@ -656,7 +656,7 @@ class Client:
         )
 
         json_response = self._get_json_from_response(
-            expected_status=[200, 400],
+            expected_status=[200, 404],
             scenario=f"Abort of run '{run_id}'",
             response=response,
         )

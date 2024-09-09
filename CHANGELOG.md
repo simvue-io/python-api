@@ -1,5 +1,10 @@
 # Change log
 
+## [v1.0.2](https://github.com/simvue-io/client/releases/tag/v1.0.2) - 2024-08-21
+
+* Fix incorrect HTTP status code in `Client` when checking if object exists.
+* Fix issue with `running=False` when launching a `Run` caused by incorrect system metadata being sent to the server.
+
 ## [v1.0.1](https://github.com/simvue-io/client/releases/tag/v1.0.1) - 2024-07-16
 
 * Fix to `add_process` with list of strings as arguments, the executable no longer returns the string `"None"`.
@@ -60,6 +65,7 @@
 * Added logging messages for debugging when debug level set to `debug`.
 
 ## [v0.11.2](https://github.com/simvue-io/client/releases/tag/v0.11.2) - 2023-03-06
+
 * Raise exceptions in `Client` class methods if run does not exist or artifact does not exist.
 * (Bug fix) `list_artifacts` optional category restriction now works.
 

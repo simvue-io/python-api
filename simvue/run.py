@@ -601,9 +601,7 @@ class Run:
             "folder": folder,
             "name": name,
             "description": description,
-            "system": get_system()
-            if self._status == "running"
-            else {"cpu": {}, "gpu": {}, "platform": {}},
+            "system": get_system() if self._status == "running" else None,
             "visibility": {
                 "users": [] if not isinstance(visibility, list) else visibility,
                 "tenant": visibility == "tenant",
@@ -660,6 +658,7 @@ class Run:
         ] = None,
         completion_trigger: typing.Optional[multiprocessing.synchronize.Event] = None,
         env: typing.Optional[typing.Dict[str, str]] = None,
+        cwd: typing.Optional[pathlib.Path] = None,
         **cmd_kwargs,
     ) -> None:
         """Add a process to be executed to the executor.
@@ -703,10 +702,10 @@ class Run:
             positional argument, by default None
         *positional_arguments : Any, ..., optional
             all other positional arguments are taken to be part of the command to execute
-        script : str | None, optional
+        script : pydantic.FilePath | None, optional
             the script to run, note this only work if the script is not an option, if this is the case
             you should provide it as such and perform the upload manually, by default None
-        input_file : str | None, optional
+        input_file : pydantic.FilePath | None, optional
             the input file to run, note this only work if the input file is not an option, if this is the case
             you should provide it as such and perform the upload manually, by default None
         completion_callback : typing.Callable | None, optional
@@ -715,6 +714,9 @@ class Run:
             this trigger event is set when the processes completes
         env : typing.Dict[str, str], optional
             environment variables for process
+        cwd: typing.Optional[pathlib.Path], optional
+            working directory to execute the process within. Note that executable, input and script file paths should
+            be absolute or relative to the directory where this method is called, not relative to the new working directory.
         **kwargs : Any, ..., optional
             all other keyword arguments are interpreted as options to the command
         """
@@ -773,6 +775,7 @@ class Run:
             completion_callback=completion_callback,  # type: ignore
             completion_trigger=completion_trigger,
             env=env,
+            cwd=cwd,
             **cmd_kwargs,
         )
 
