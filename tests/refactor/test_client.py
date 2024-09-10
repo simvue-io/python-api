@@ -169,15 +169,15 @@ def test_get_folder(
     filters: typing.Optional[str]
 ) -> None:
     if filters == "list":
-        filter_object = ["path == /simvue_unit_test_folder"]
+        filter_object = ["path == /simvue_unit_testing"]
     elif filters == "object":
         filter_object = sv_filter.FoldersFilter()
-        filter_object.has_path("/simvue_unit_test_folder")
+        filter_object.has_path("/simvue_unit_testing")
     else:
         filter_object = None
     client = svc.Client()
     assert client.get_folders(filters=filter_object)
-    assert client.get_folder(folder_path="/simvue_unit_test_folder")
+    assert client.get_folder(folder_path="/simvue_unit_testing")
 
 
 @pytest.mark.dependency
