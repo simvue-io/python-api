@@ -176,14 +176,8 @@ def test_get_folder(
     else:
         filter_object = None
     client = svc.Client()
-<<<<<<< HEAD
-    assert (folders := client.get_folders(filters=filter_object))
-    assert (folder_id := folders[0].get("id"))
-=======
-    assert (folders := client.get_folders())
-    assert (folder_id := folders[1].get("path"))
->>>>>>> dev
-    assert client.get_folder(folder_id)
+    assert client.get_folders(filters=filter_object)
+    assert client.get_folder(folder_path="/simvue_unit_test_folder")
 
 
 @pytest.mark.dependency
