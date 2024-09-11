@@ -20,6 +20,12 @@ if typing.TYPE_CHECKING:
 
 
 @pytest.mark.run
+def test_created_run() -> None:
+    with sv_run.Run() as run_created:
+        run_created.init(running=False)
+
+
+@pytest.mark.run
 def test_check_run_initialised_decorator() -> None:
     with sv_run.Run(mode="offline") as run:
         for method_name, method in inspect.getmembers(run, inspect.ismethod):
