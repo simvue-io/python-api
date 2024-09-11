@@ -109,7 +109,7 @@ class Run:
         self._mode: typing.Literal["online", "offline", "disabled"] = mode
         self._name: typing.Optional[str] = None
         self._testing: bool = False
-        self._abort_on_alert: typing.Literal["run", "all", "ignore"] = "run"
+        self._abort_on_alert: typing.Literal["run", "terminate", "ignore"] = "terminate"
         self._abort_callback: typing.Optional[typing.Callable[[], None]] = (
             abort_callback
         )
@@ -321,7 +321,7 @@ class Run:
                             )
                         if abort_callback is not None:
                             abort_callback()
-                        if self._abort_on_alert == "all":
+                        if self._abort_on_alert == "terminate":
                             os._exit(1)
 
                 if self._simvue:
