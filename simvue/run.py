@@ -610,7 +610,7 @@ class Run:
                 "tenant": visibility == "tenant",
                 "public": visibility == "public",
             },
-            "heartbeat_timeout": timeout  
+            "heartbeat_timeout": timeout,
         }
 
         # Check against the expected run input
