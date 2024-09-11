@@ -6,6 +6,7 @@ Contains functions for extracting additional metadata about the current project
 
 """
 
+import contextlib
 import typing
 import re
 import json
@@ -96,22 +97,27 @@ def _python_env(repository: pathlib.Path) -> dict[str, typing.Any]:
         if requirements:
             requirements = [re.split("[=><]", dep, 1)[0] for dep in requirements]
 
-        requirements = requirements or (project := content.get("tool", {}).get("poetry", {})).get("dependencies")
+        requirements = requirements or (
+            project := content.get("tool", {}).get("poetry", {})
+        ).get("dependencies")
 
-        if (version := project.get("version")):
+        if version := project.get("version"):
             meta |= {"python.project.version": version}
 
-        if (name := project.get("name")):
+        if name := project.get("name"):
             meta |= {"python.project.name": name}
 
         if not requirements:
             return meta
 
-        req_meta = {
-            package: importlib.metadata.version(package)
-            for package in requirements if package != "python"
-        }
+        req_meta = {}
 
+        for package in requirements:
+            if package == "python":
+                continue
+            # Cover case where package is an optional dependency and not installed
+            with contextlib.suppress(importlib.metadata.PackageNotFoundError):
+                req_meta[package] = importlib.metadata.version(package)
 
     return meta | {
         f"python.environment.{dependency}": version
@@ -125,12 +131,11 @@ def _rust_env(repository: pathlib.Path) -> dict[str, typing.Any]:
 
     if (cargo_file := pathlib.Path(repository).joinpath("Cargo.toml")).exists():
         content = toml.load(cargo_file).get("package", {})
-        if (version := content.get("version")):
+        if version := content.get("version"):
             rust_meta |= {"rust.project.version": version}
 
-        if (name := content.get("name")):
+        if name := content.get("name"):
             rust_meta |= {"rust.project.name": name}
-
 
     if not (cargo_lock := pathlib.Path(repository).joinpath("Cargo.lock")).exists():
         return {}
@@ -138,12 +143,11 @@ def _rust_env(repository: pathlib.Path) -> dict[str, typing.Any]:
     cargo_dat = toml.load(cargo_lock)
 
     return rust_meta | {
-        f"rust.environment.{dependency['name']}": dependency['version']
+        f"rust.environment.{dependency['name']}": dependency["version"]
         for dependency in cargo_dat.get("package")
     }
 
 
-def environment(repository: pathlib.Path=pathlib.Path.cwd()) -> dict[str, typing.Any]:
+def environment(repository: pathlib.Path = pathlib.Path.cwd()) -> dict[str, typing.Any]:
     """Retrieve environment metadata"""
     return _python_env(repository) | _rust_env(repository)
-
