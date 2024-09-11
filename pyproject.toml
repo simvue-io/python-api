@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "simvue"
-version = "1.0.1"
+version = "1.0.2"
 description = "Simulation tracking and monitoring"
 authors = ["Simvue Development Team <info@simvue.io>"]
 license = "Apache v2"
@@ -39,7 +39,7 @@ python = "^3.9"
 dill = "^0.3.7"
 requests = "^2.31.0"
 msgpack = "^1.0.7"
-tenacity = "^8.2.3"
+tenacity = ">=8.2.3,<10.0.0"
 PyJWT = "^2.8.0"
 psutil = "^5.9.8"
 pydantic = "^2.5.3"
@@ -64,7 +64,7 @@ simvue_sender = "simvue.bin.sender:run"
 [tool.poetry.group.dev.dependencies]
 pytest = "^8.0.0"
 pytest-dependency = "^0.6.0"
-ruff = ">=0.5.0,<0.6.0"
+ruff = ">=0.5.0,<0.7.0"
 pytest-cov = ">=4.1,<6.0"
 pytest-mock = "^3.14.0"
 pytest-sugar = "^1.0.0"
@@ -83,11 +83,7 @@ priority = "primary"
 [tool.ruff]
 lint.extend-select = ["C901", "T201"]
 lint.mccabe.max-complexity = 11
-
-[tool.ruff.lint.per-file-ignores]
-"tests/*" = ["T201"]
-"examples/*" = ["T201"]
-"notebooks/*" = ["T201"]
+extend-exclude = ["tests", "examples", "notebooks"]
 
 [tool.pytest.ini_options]
 addopts = "-p no:warnings --no-cov -n 0"
@@ -102,7 +98,8 @@ markers = [
     "utilities: test simvue utilities module",
     "scenario: test scenarios",
     "executor: tests of executors",
-    "api: tests of RestAPI functionality"
+    "api: tests of RestAPI functionality",
+    "unix: tests for UNIX systems only"
 ]
 
 [tool.interrogate]
