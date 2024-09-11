@@ -302,9 +302,7 @@ class Run:
 
                 # Check if the user has aborted the run
                 with self._configuration_lock:
-                    if (
-                        self._simvue and self._simvue.get_abort_status()
-                    ):
+                    if self._simvue and self._simvue.get_abort_status():
                         if self._abort_on_alert:
                             logger.debug("Received abort request from server")
                             self._alert_raised_trigger.set()
@@ -883,11 +881,8 @@ class Run:
         disable_resources_metrics: typing.Optional[bool] = None,
         storage_id: typing.Optional[str] = None,
         abort_on_alert: typing.Optional[
-            typing.Union[
-                typing.Literal['run', 'all', 'ignore'],
-                bool
-            ]
-        ] = None
+            typing.Union[typing.Literal["run", "all", "ignore"], bool]
+        ] = None,
     ) -> bool:
         """Optional configuration
 
@@ -908,7 +903,7 @@ class Run:
             whether to abort when an alert is triggered.
             If 'run' then the current run is aborted.
             If 'terminate' then the script itself is terminated.
-            If 'ignore' then alerts will not affect this run 
+            If 'ignore' then alerts will not affect this run
 
         Returns
         -------
