@@ -1,1 +1,1 @@
-from .user import SimvueConfiguration
+from .user import SimvueConfiguration as SimvueConfiguration
