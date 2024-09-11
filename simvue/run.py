@@ -24,6 +24,7 @@ import time
 import functools
 import platform
 import typing
+import warnings
 import uuid
 from datetime import timezone
 
@@ -108,7 +109,7 @@ class Run:
         self._mode: typing.Literal["online", "offline", "disabled"] = mode
         self._name: typing.Optional[str] = None
         self._testing: bool = False
-        self._abort_on_alert: bool = True
+        self._abort_on_alert: typing.Literal["run", "all", "ignore"] = "run"
         self._abort_callback: typing.Optional[typing.Callable[[], None]] = (
             abort_callback
         )
@@ -320,7 +321,7 @@ class Run:
                             )
                         if abort_callback is not None:
                             abort_callback()
-                        if self._abort_on_alert:
+                        if self._abort_on_alert == "all":
                             os._exit(1)
 
                 if self._simvue:
@@ -881,7 +882,12 @@ class Run:
         resources_metrics_interval: typing.Optional[int] = None,
         disable_resources_metrics: typing.Optional[bool] = None,
         storage_id: typing.Optional[str] = None,
-        abort_on_alert: typing.Optional[bool] = None,
+        abort_on_alert: typing.Optional[
+            typing.Union[
+                typing.Literal['run', 'all', 'ignore'],
+                bool
+            ]
+        ] = None
     ) -> bool:
         """Optional configuration
 
@@ -898,8 +904,11 @@ class Run:
             disable monitoring of resource metrics
         storage_id : str, optional
             identifier of storage to use, by default None
-        abort_on_alert : bool, optional
-            whether to abort the run if an alert is triggered
+        abort_on_alert : Literal['ignore', run', 'terminate'], optional
+            whether to abort when an alert is triggered.
+            If 'run' then the current run is aborted.
+            If 'terminate' then the script itself is terminated.
+            If 'ignore' then alerts will not affect this run 
 
         Returns
         -------
@@ -927,7 +936,13 @@ class Run:
             if resources_metrics_interval:
                 self._resources_metrics_interval = resources_metrics_interval
 
-            if abort_on_alert:
+            if abort_on_alert is not None:
+                if isinstance(abort_on_alert, bool):
+                    warnings.warn(
+                        "Use of type bool for argument 'abort_on_alert' will be deprecated from v1.2, "
+                        "please use either 'run', 'all' or 'ignore'"
+                    )
+                    abort_on_alert = "run" if self._abort_on_alert else "ignore"
                 self._abort_on_alert = abort_on_alert
 
             if storage_id:
