@@ -104,7 +104,9 @@ class Run:
         self._uuid: str = f"{uuid.uuid4()}"
         self._mode: typing.Literal["online", "offline", "disabled"] = mode
         self._name: typing.Optional[str] = None
-        self._emissions_tracker: typing.Optional[SimvueEmissionsTracker] = SimvueEmissionsTracker("simvue", self)
+        self._emissions_tracker: typing.Optional[SimvueEmissionsTracker] = (
+            SimvueEmissionsTracker("simvue", self)
+        )
         self._testing: bool = False
         self._abort_on_alert: bool = True
         self._dispatch_mode: typing.Literal["direct", "queued"] = "queued"
