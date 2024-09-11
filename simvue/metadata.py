@@ -9,12 +9,9 @@ Contains functions for extracting additional metadata about the current project
 import typing
 import re
 import json
-from git import repo
-from git.refs.reference import require_remote_ref_path
 import toml
 import importlib.metadata
 import pathlib
-import pip
 
 
 def git_info(repository: str) -> dict[str, typing.Any]:
