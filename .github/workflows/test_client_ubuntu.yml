@@ -56,4 +56,3 @@ jobs:
       with:
         task: display-results
         pr-comment: true
-
