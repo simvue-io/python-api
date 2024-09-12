@@ -932,6 +932,11 @@ class Run:
                 self._emissions_tracker = None
 
             if emission_metrics_interval:
+                if disable_emission_metrics or not self._emissions_tracker:
+                    self._error(
+                        "Cannot set rate of emission metrics, these metrics have been disabled"
+                    )
+                    return False
                 self._emission_metrics_interval = emission_metrics_interval
 
             if resources_metrics_interval:
