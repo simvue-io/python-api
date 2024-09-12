@@ -7,7 +7,6 @@ This forms the central API for users.
 """
 
 import contextlib
-import datetime
 import json
 import logging
 import pathlib
@@ -25,7 +24,6 @@ import functools
 import platform
 import typing
 import uuid
-from datetime import timezone
 
 import click
 import msgpack
@@ -50,6 +48,7 @@ from .utilities import (
     get_auth,
     get_offline_directory,
     validate_timestamp,
+    simvue_timestamp,
 )
 
 
@@ -104,14 +103,14 @@ class Run:
         self._uuid: str = f"{uuid.uuid4()}"
         self._mode: typing.Literal["online", "offline", "disabled"] = mode
         self._name: typing.Optional[str] = None
-        self._emissions_tracker: typing.Optional[SimvueEmissionsTracker] = (
-            SimvueEmissionsTracker("simvue", self)
-        )
         self._testing: bool = False
         self._abort_on_alert: bool = True
         self._dispatch_mode: typing.Literal["direct", "queued"] = "queued"
+
         self._executor = Executor(self)
         self._dispatcher: typing.Optional[DispatcherBaseClass] = None
+        self._emissions_tracker: typing.Optional[SimvueEmissionsTracker] = None
+
         self._id: typing.Optional[str] = None
         self._term_color: bool = True
         self._suppress_errors: bool = False
@@ -135,7 +134,9 @@ class Run:
         self._heartbeat_termination_trigger: typing.Optional[threading.Event] = None
         self._storage_id: typing.Optional[str] = None
         self._heartbeat_thread: typing.Optional[threading.Thread] = None
+
         self._heartbeat_interval: int = HEARTBEAT_INTERVAL
+        self._emission_metrics_interval: int = HEARTBEAT_INTERVAL
 
     def __enter__(self) -> "Run":
         return self
@@ -210,7 +211,7 @@ class Run:
     @property
     def time_stamp(self) -> str:
         """Return current timestamp"""
-        return datetime.datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S.%f")
+        return simvue_timestamp()
 
     @property
     def processes(self) -> list[psutil.Process]:
@@ -432,6 +433,9 @@ class Run:
         self._shutdown_event = threading.Event()
         self._heartbeat_termination_trigger = threading.Event()
         self._alert_raised_trigger = threading.Event()
+        self._emissions_tracker = SimvueEmissionsTracker(
+            "simvue", self, self._emission_metrics_interval
+        )
 
         try:
             self._dispatcher = Dispatcher(
@@ -874,7 +878,8 @@ class Run:
         *,
         suppress_errors: typing.Optional[bool] = None,
         queue_blocking: typing.Optional[bool] = None,
-        resources_metrics_interval: typing.Optional[int] = None,
+        resources_metrics_interval: typing.Optional[pydantic.PositiveInt] = None,
+        emission_metrics_interval: typing.Optional[pydantic.PositiveInt] = None,
         disable_emission_metrics: typing.Optional[bool] = None,
         disable_resources_metrics: typing.Optional[bool] = None,
         storage_id: typing.Optional[str] = None,
@@ -925,6 +930,9 @@ class Run:
 
             if disable_emission_metrics:
                 self._emissions_tracker = None
+
+            if emission_metrics_interval:
+                self._emission_metrics_interval = emission_metrics_interval
 
             if resources_metrics_interval:
                 self._resources_metrics_interval = resources_metrics_interval
