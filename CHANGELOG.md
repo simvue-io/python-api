@@ -1,5 +1,9 @@
 # Change log
 
+## Unreleased
+
+* Fix issue of hanging threads when exception raised by script using the API.
+
 ## [v1.0.2](https://github.com/simvue-io/client/releases/tag/v1.0.2) - 2024-08-21
 
 * Fix incorrect HTTP status code in `Client` when checking if object exists.
@@ -37,7 +41,7 @@
 
 * Added `plot_metrics` method to the `Client` class to simplify plotting metrics.
 * (Bug fix) `reconnect` works without a uuid being specified when `offline` mode isn't being used.
-* (Bug fix) Restrict version of Pydantic to prevent V2 from accidently being used.
+* (Bug fix) Restrict version of Pydantic to prevent v2 from accidentally being used.
 
 ## [v0.13.1](https://github.com/simvue-io/client/releases/tag/v0.13.1) - 2023-03-28
 
