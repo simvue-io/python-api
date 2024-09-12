@@ -171,7 +171,7 @@ class Remote(SimvueBaseClass):
                 f"{self._config.server.url}/api/folders", self._headers, data
             )
         except Exception as err:
-            self._error(f"Exception creatig folder: {err}")
+            self._error(f"Exception creating folder: {err}")
             return None
 
         if response.status_code == 200 or response.status_code == 409:
