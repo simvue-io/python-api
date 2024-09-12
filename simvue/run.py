@@ -140,6 +140,49 @@ class Run:
     def __enter__(self) -> "Run":
         return self
 
+    def _handle_exception_throw(
+        self,
+        exc_type: typing.Optional[typing.Type[BaseException]],
+        value: BaseException,
+        traceback: typing.Optional[
+            typing.Union[typing.Type[BaseException], BaseException]
+        ],
+    ) -> None:
+        _exception_thrown: typing.Optional[str] = (
+            exc_type.__name__ if exc_type else None
+        )
+        _is_running: bool = self._status == "running"
+        _is_running_online: bool = self._id is not None and _is_running
+        _is_running_offline: bool = self._mode == "offline" and _is_running
+        _is_terminated: bool = (
+            _exception_thrown is not None and _exception_thrown == "KeyboardInterrupt"
+        )
+
+        if not _exception_thrown and _is_running:
+            return
+
+        # Abort executor processes
+        self._executor.kill_all()
+
+        if not _is_running:
+            return
+
+        self.set_status("terminated" if _is_terminated else "failed")
+
+        if not self._active:
+            return
+
+        # If the dispatcher has already been aborted then this will
+        # fail so just continue without the event
+        with contextlib.suppress(RuntimeError):
+            self.log_event(f"{_exception_thrown}: {value}")
+
+        if not traceback:
+            return
+
+        with contextlib.suppress(RuntimeError):
+            self.log_event(f"Traceback: {traceback}")
+
     def __exit__(
         self,
         exc_type: typing.Optional[typing.Type[BaseException]],
@@ -148,68 +191,16 @@ class Run:
             typing.Union[typing.Type[BaseException], BaseException]
         ],
     ) -> None:
-        identifier = self._id
         logger.debug(
             "Automatically closing run '%s' in status %s",
-            identifier if self._mode == "online" else "unregistered",
+            self._id if self._mode == "online" else "unregistered",
             self._status,
         )
 
-        self._executor.wait_for_completion()
+        # Exception handling
+        self._handle_exception_throw(exc_type, value, traceback)
 
-        # Stop the run heartbeat
-        if self._heartbeat_thread and self._heartbeat_termination_trigger:
-            self._heartbeat_termination_trigger.set()
-            self._heartbeat_thread.join()
-
-        # Handle case where run is aborted by user KeyboardInterrupt
-        if (self._id or self._mode == "offline") and self._status == "running":
-            if not exc_type:
-                if self._shutdown_event is not None:
-                    self._shutdown_event.set()
-                if self._dispatcher:
-                    self._dispatcher.join()
-                self.set_status("completed")
-            else:
-                if self._active:
-                    # If the dispatcher has already been aborted then this will
-                    # fail so just continue without the event
-                    with contextlib.suppress(RuntimeError):
-                        self.log_event(f"{exc_type.__name__}: {value}")
-                if exc_type.__name__ in ("KeyboardInterrupt",) and self._active:
-                    self.set_status("terminated")
-                else:
-                    if traceback and self._active:
-                        with contextlib.suppress(RuntimeError):
-                            self.log_event(f"Traceback: {traceback}")
-                        self.set_status("failed")
-        else:
-            if self._shutdown_event is not None:
-                self._shutdown_event.set()
-            if self._dispatcher:
-                self._dispatcher.purge()
-                self._dispatcher.join()
-
-        if self._emissions_tracker:
-            with contextlib.suppress(Exception):
-                self._emissions_tracker.stop()
-
-        if _non_zero := self.executor.exit_status:
-            _error_msgs: dict[str, typing.Optional[str]] = (
-                self.executor.get_error_summary()
-            )
-            _error_msg = "\n".join(
-                f"{identifier}:\n{msg}" for identifier, msg in _error_msgs.items()
-            )
-            if _error_msg:
-                _error_msg = f":\n{_error_msg}"
-            click.secho(
-                "[simvue] Process executor terminated with non-zero exit status "
-                f"{_non_zero}{_error_msg}",
-                fg="red" if self._term_color else None,
-                bold=self._term_color,
-            )
-            sys.exit(_non_zero)
+        self._tidy_run()
 
     @property
     def duration(self) -> float:
@@ -1458,31 +1449,12 @@ class Run:
 
         return False
 
-    @skip_if_failed("_aborted", "_suppress_errors", False)
-    def close(self) -> bool:
-        """Close the run
-
-        Returns
-        -------
-        bool
-            whether close was successful
-        """
+    def _tidy_run(self) -> None:
         self._executor.wait_for_completion()
 
         if self._emissions_tracker:
             with contextlib.suppress(Exception):
                 self._emissions_tracker.stop()
-
-        if self._mode == "disabled":
-            return True
-
-        if not self._simvue:
-            self._error("Cannot close run, not initialised")
-            return False
-
-        if not self._active:
-            self._error("Run is not active")
-            return False
 
         if self._heartbeat_thread and self._heartbeat_termination_trigger:
             self._heartbeat_termination_trigger.set()
@@ -1491,7 +1463,7 @@ class Run:
         if self._shutdown_event:
             self._shutdown_event.set()
 
-        if self._status != "failed":
+        if self._status == "running":
             if self._dispatcher:
                 self._dispatcher.join()
             self.set_status("completed")
@@ -1515,6 +1487,29 @@ class Run:
                 bold=self._term_color,
             )
             sys.exit(_non_zero)
+
+    @skip_if_failed("_aborted", "_suppress_errors", False)
+    def close(self) -> bool:
+        """Close the run
+
+        Returns
+        -------
+        bool
+            whether close was successful
+        """
+        self._executor.wait_for_completion()
+        if self._mode == "disabled":
+            return True
+
+        if not self._simvue:
+            self._error("Cannot close run, not initialised")
+            return False
+
+        if not self._active:
+            self._error("Run is not active")
+            return False
+
+        self._tidy_run()
 
         return True
 

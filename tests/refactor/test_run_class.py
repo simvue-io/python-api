@@ -554,3 +554,4 @@ def test_kill_all_processes(create_plain_run: typing.Tuple[sv_run.Run, dict]) ->
     for process in processes:
         assert not process.is_running()
         assert all(not child.is_running() for child in process.children(recursive=True))
+

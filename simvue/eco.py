@@ -30,6 +30,7 @@ class CodeCarbonOutput(cc_BaseOutput):
                     "codecarbon.version": total.codecarbon_version,
                 }
             )
+            self._meta_update = False
         self._simvue_run.log_metrics(
             metrics={
                 "codecarbon.emissions.total": total.emissions,
