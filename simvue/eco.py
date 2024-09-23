@@ -41,10 +41,10 @@ class CodeCarbonOutput(cc_BaseOutput):
 
         self._simvue_run.log_metrics(
             metrics={
-                "codecarbon.emissions.total": total.emissions,
-                "codecarbon.energy_consumed.total": total.energy_consumed,
-                "codecarbon.emissions.delta": delta.emissions,
-                "codecarbon.energy_consumed.delta": delta.energy_consumed,
+                "codecarbon.total.emissions": total.emissions,
+                "codecarbon.total.energy_consumed": total.energy_consumed,
+                "codecarbon.delta.emissions": delta.emissions,
+                "codecarbon.delta.energy_consumed": delta.energy_consumed,
             },
             step=self._metrics_step,
             timestamp=simvue_timestamp(_cc_timestamp),

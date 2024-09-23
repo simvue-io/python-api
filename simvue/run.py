@@ -433,9 +433,6 @@ class Run:
         self._shutdown_event = threading.Event()
         self._heartbeat_termination_trigger = threading.Event()
         self._alert_raised_trigger = threading.Event()
-        self._emissions_tracker = SimvueEmissionsTracker(
-            "simvue", self, self._emission_metrics_interval
-        )
 
         try:
             self._dispatcher = Dispatcher(
@@ -880,7 +877,7 @@ class Run:
         queue_blocking: typing.Optional[bool] = None,
         resources_metrics_interval: typing.Optional[pydantic.PositiveInt] = None,
         emission_metrics_interval: typing.Optional[pydantic.PositiveInt] = None,
-        disable_emission_metrics: typing.Optional[bool] = None,
+        enable_emission_metrics: typing.Optional[bool] = None,
         disable_resources_metrics: typing.Optional[bool] = None,
         storage_id: typing.Optional[str] = None,
         abort_on_alert: typing.Optional[bool] = None,
@@ -896,8 +893,8 @@ class Run:
             block thread queues during metric/event recording
         resources_metrics_interval : int, optional
             frequency at which to collect resource metrics
-        disable_emission_metrics : bool, optional
-            disable monitoring of emission metrics
+        enable_emission_metrics : bool, optional
+            enable monitoring of emission metrics
         disable_resources_metrics : bool, optional
             disable monitoring of resource metrics
         storage_id : str, optional
@@ -928,16 +925,18 @@ class Run:
                 self._pid = None
                 self._resources_metrics_interval = None
 
-            if disable_emission_metrics:
-                self._emissions_tracker = None
-
             if emission_metrics_interval:
-                if disable_emission_metrics or not self._emissions_tracker:
+                if not enable_emission_metrics:
                     self._error(
                         "Cannot set rate of emission metrics, these metrics have been disabled"
                     )
                     return False
                 self._emission_metrics_interval = emission_metrics_interval
+
+            if enable_emission_metrics:
+                self._emissions_tracker = SimvueEmissionsTracker(
+                    "simvue", self, self._emission_metrics_interval
+                )
 
             if resources_metrics_interval:
                 self._resources_metrics_interval = resources_metrics_interval
