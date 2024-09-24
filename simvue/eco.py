@@ -1,7 +1,9 @@
 import typing
+import logging
 import datetime
+
 from codecarbon import EmissionsTracker
-from codecarbon.external.logger import logging
+from codecarbon.external.logger import logger
 from codecarbon.output_methods.base_output import BaseOutput as cc_BaseOutput
 from simvue.utilities import simvue_timestamp
 
@@ -60,6 +62,7 @@ class SimvueEmissionsTracker(EmissionsTracker):
         self, project_name: str, simvue_run: "Run", metrics_interval: int
     ) -> None:
         self._simvue_run = simvue_run
+        logger.setLevel(logging.ERROR)
         super().__init__(
             project_name=project_name,
             measure_power_secs=metrics_interval,
@@ -68,7 +71,7 @@ class SimvueEmissionsTracker(EmissionsTracker):
             logging_logger=CodeCarbonOutput(simvue_run),
             save_to_logger=True,
             allow_multiple_runs=True,
-            log_level=logging.ERROR,
+            log_level="error",
         )
 
     def set_measure_interval(self, interval: int) -> None:
