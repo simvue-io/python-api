@@ -28,7 +28,7 @@ def test_get_alerts(create_test_run: tuple[sv_run.Run, dict], from_run: bool) ->
             len(client.get_alerts(create_test_run[1]["run_id"], critical_only=False)) == 5
         )
     else:
-        client.get_alerts(names_only=True)
+        assert client.get_alerts(names_only=True)
 
 
 @pytest.mark.dependency
