@@ -7,7 +7,6 @@ This forms the central API for users.
 """
 
 import contextlib
-import datetime
 import json
 import logging
 import pathlib
@@ -25,7 +24,6 @@ import functools
 import platform
 import typing
 import uuid
-from datetime import timezone
 
 import click
 import msgpack
@@ -42,6 +40,7 @@ from .models import RunInput, FOLDER_REGEX, NAME_REGEX, MetricKeyString
 from .serialization import serialize_object
 from .system import get_system
 from .metadata import git_info, environment
+from .eco import SimvueEmissionsTracker
 from .utilities import (
     calculate_sha256,
     compare_alerts,
@@ -49,6 +48,7 @@ from .utilities import (
     get_auth,
     get_offline_directory,
     validate_timestamp,
+    simvue_timestamp,
 )
 
 
@@ -106,8 +106,11 @@ class Run:
         self._testing: bool = False
         self._abort_on_alert: bool = True
         self._dispatch_mode: typing.Literal["direct", "queued"] = "queued"
+
         self._executor = Executor(self)
         self._dispatcher: typing.Optional[DispatcherBaseClass] = None
+        self._emissions_tracker: typing.Optional[SimvueEmissionsTracker] = None
+
         self._id: typing.Optional[str] = None
         self._term_color: bool = True
         self._suppress_errors: bool = False
@@ -122,7 +125,7 @@ class Run:
         self._active: bool = False
         self._aborted: bool = False
         self._url, self._token = get_auth()
-        self._resources_metrics_interval: typing.Optional[int] = None
+        self._resources_metrics_interval: typing.Optional[int] = HEARTBEAT_INTERVAL
         self._headers: dict[str, str] = {"Authorization": f"Bearer {self._token}"}
         self._simvue: typing.Optional[SimvueBaseClass] = None
         self._pid: typing.Optional[int] = 0
@@ -131,10 +134,55 @@ class Run:
         self._heartbeat_termination_trigger: typing.Optional[threading.Event] = None
         self._storage_id: typing.Optional[str] = None
         self._heartbeat_thread: typing.Optional[threading.Thread] = None
+
         self._heartbeat_interval: int = HEARTBEAT_INTERVAL
+        self._emission_metrics_interval: int = HEARTBEAT_INTERVAL
 
     def __enter__(self) -> "Run":
         return self
+
+    def _handle_exception_throw(
+        self,
+        exc_type: typing.Optional[typing.Type[BaseException]],
+        value: BaseException,
+        traceback: typing.Optional[
+            typing.Union[typing.Type[BaseException], BaseException]
+        ],
+    ) -> None:
+        _exception_thrown: typing.Optional[str] = (
+            exc_type.__name__ if exc_type else None
+        )
+        _is_running: bool = self._status == "running"
+        _is_running_online: bool = self._id is not None and _is_running
+        _is_running_offline: bool = self._mode == "offline" and _is_running
+        _is_terminated: bool = (
+            _exception_thrown is not None and _exception_thrown == "KeyboardInterrupt"
+        )
+
+        if not _exception_thrown and _is_running:
+            return
+
+        # Abort executor processes
+        self._executor.kill_all()
+
+        if not _is_running:
+            return
+
+        if not self._active:
+            return
+
+        self.set_status("terminated" if _is_terminated else "failed")
+
+        # If the dispatcher has already been aborted then this will
+        # fail so just continue without the event
+        with contextlib.suppress(RuntimeError):
+            self.log_event(f"{_exception_thrown}: {value}")
+
+        if not traceback:
+            return
+
+        with contextlib.suppress(RuntimeError):
+            self.log_event(f"Traceback: {traceback}")
 
     def __exit__(
         self,
@@ -144,64 +192,16 @@ class Run:
             typing.Union[typing.Type[BaseException], BaseException]
         ],
     ) -> None:
-        identifier = self._id
         logger.debug(
             "Automatically closing run '%s' in status %s",
-            identifier if self._mode == "online" else "unregistered",
+            self._id if self._mode == "online" else "unregistered",
             self._status,
         )
 
-        self._executor.wait_for_completion()
+        # Exception handling
+        self._handle_exception_throw(exc_type, value, traceback)
 
-        # Stop the run heartbeat
-        if self._heartbeat_thread and self._heartbeat_termination_trigger:
-            self._heartbeat_termination_trigger.set()
-            self._heartbeat_thread.join()
-
-        # Handle case where run is aborted by user KeyboardInterrupt
-        if (self._id or self._mode == "offline") and self._status == "running":
-            if not exc_type:
-                if self._shutdown_event is not None:
-                    self._shutdown_event.set()
-                if self._dispatcher:
-                    self._dispatcher.join()
-                self.set_status("completed")
-            else:
-                if self._active:
-                    # If the dispatcher has already been aborted then this will
-                    # fail so just continue without the event
-                    with contextlib.suppress(RuntimeError):
-                        self.log_event(f"{exc_type.__name__}: {value}")
-                if exc_type.__name__ in ("KeyboardInterrupt",) and self._active:
-                    self.set_status("terminated")
-                else:
-                    if traceback and self._active:
-                        with contextlib.suppress(RuntimeError):
-                            self.log_event(f"Traceback: {traceback}")
-                        self.set_status("failed")
-        else:
-            if self._shutdown_event is not None:
-                self._shutdown_event.set()
-            if self._dispatcher:
-                self._dispatcher.purge()
-                self._dispatcher.join()
-
-        if _non_zero := self.executor.exit_status:
-            _error_msgs: dict[str, typing.Optional[str]] = (
-                self.executor.get_error_summary()
-            )
-            _error_msg = "\n".join(
-                f"{identifier}:\n{msg}" for identifier, msg in _error_msgs.items()
-            )
-            if _error_msg:
-                _error_msg = f":\n{_error_msg}"
-            click.secho(
-                "[simvue] Process executor terminated with non-zero exit status "
-                f"{_non_zero}{_error_msg}",
-                fg="red" if self._term_color else None,
-                bold=self._term_color,
-            )
-            sys.exit(_non_zero)
+        self._tidy_run()
 
     @property
     def duration(self) -> float:
@@ -211,7 +211,7 @@ class Run:
     @property
     def time_stamp(self) -> str:
         """Return current timestamp"""
-        return datetime.datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S.%f")
+        return simvue_timestamp()
 
     @property
     def processes(self) -> list[psutil.Process]:
@@ -473,6 +473,10 @@ class Run:
         RuntimeError
             exception throw
         """
+        if self._emissions_tracker:
+            with contextlib.suppress(Exception):
+                self._emissions_tracker.stop()
+
         # Stop heartbeat
         if self._heartbeat_termination_trigger and self._heartbeat_thread:
             self._heartbeat_termination_trigger.set()
@@ -641,6 +645,10 @@ class Run:
                 bold=self._term_color,
                 fg="green" if self._term_color else None,
             )
+
+        if self._emissions_tracker:
+            self._emissions_tracker.post_init()
+            self._emissions_tracker.start()
 
         return True
 
@@ -867,7 +875,9 @@ class Run:
         *,
         suppress_errors: typing.Optional[bool] = None,
         queue_blocking: typing.Optional[bool] = None,
-        resources_metrics_interval: typing.Optional[int] = None,
+        resources_metrics_interval: typing.Optional[pydantic.PositiveInt] = None,
+        emission_metrics_interval: typing.Optional[pydantic.PositiveInt] = None,
+        enable_emission_metrics: typing.Optional[bool] = None,
         disable_resources_metrics: typing.Optional[bool] = None,
         storage_id: typing.Optional[str] = None,
         abort_on_alert: typing.Optional[bool] = None,
@@ -883,6 +893,8 @@ class Run:
             block thread queues during metric/event recording
         resources_metrics_interval : int, optional
             frequency at which to collect resource metrics
+        enable_emission_metrics : bool, optional
+            enable monitoring of emission metrics
         disable_resources_metrics : bool, optional
             disable monitoring of resource metrics
         storage_id : str, optional
@@ -912,6 +924,19 @@ class Run:
             if disable_resources_metrics:
                 self._pid = None
                 self._resources_metrics_interval = None
+
+            if emission_metrics_interval:
+                if not enable_emission_metrics:
+                    self._error(
+                        "Cannot set rate of emission metrics, these metrics have been disabled"
+                    )
+                    return False
+                self._emission_metrics_interval = emission_metrics_interval
+
+            if enable_emission_metrics:
+                self._emissions_tracker = SimvueEmissionsTracker(
+                    "simvue", self, self._emission_metrics_interval
+                )
 
             if resources_metrics_interval:
                 self._resources_metrics_interval = resources_metrics_interval
@@ -1436,26 +1461,12 @@ class Run:
 
         return False
 
-    @skip_if_failed("_aborted", "_suppress_errors", False)
-    def close(self) -> bool:
-        """Close the run
-
-        Returns
-        -------
-        bool
-            whether close was successful
-        """
+    def _tidy_run(self) -> None:
         self._executor.wait_for_completion()
-        if self._mode == "disabled":
-            return True
 
-        if not self._simvue:
-            self._error("Cannot close run, not initialised")
-            return False
-
-        if not self._active:
-            self._error("Run is not active")
-            return False
+        if self._emissions_tracker:
+            with contextlib.suppress(Exception):
+                self._emissions_tracker.stop()
 
         if self._heartbeat_thread and self._heartbeat_termination_trigger:
             self._heartbeat_termination_trigger.set()
@@ -1464,7 +1475,7 @@ class Run:
         if self._shutdown_event:
             self._shutdown_event.set()
 
-        if self._status != "failed":
+        if self._status == "running":
             if self._dispatcher:
                 self._dispatcher.join()
             self.set_status("completed")
@@ -1488,6 +1499,29 @@ class Run:
                 bold=self._term_color,
             )
             sys.exit(_non_zero)
+
+    @skip_if_failed("_aborted", "_suppress_errors", False)
+    def close(self) -> bool:
+        """Close the run
+
+        Returns
+        -------
+        bool
+            whether close was successful
+        """
+        self._executor.wait_for_completion()
+        if self._mode == "disabled":
+            return True
+
+        if not self._simvue:
+            self._error("Cannot close run, not initialised")
+            return False
+
+        if not self._active:
+            self._error("Run is not active")
+            return False
+
+        self._tidy_run()
 
         return True
 

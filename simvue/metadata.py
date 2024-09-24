@@ -14,6 +14,8 @@ import toml
 import importlib.metadata
 import pathlib
 
+from simvue.utilities import simvue_timestamp
+
 
 def git_info(repository: str) -> dict[str, typing.Any]:
     """Retrieves metadata for the target git repository
@@ -65,9 +67,7 @@ def git_info(repository: str) -> dict[str, typing.Any]:
             "git.authors": json.dumps(list(author_list)),
             "git.ref": ref,
             "git.msg": current_commit.message.strip(),
-            "git.time_stamp": current_commit.committed_datetime.strftime(
-                "%Y-%m-%d %H:%M:%S %z UTC"
-            ),
+            "git.time_stamp": simvue_timestamp(current_commit.committed_datetime),
             "git.blame": blame,
             "git.url": git_repo.remote().url,
             "git.dirty": dirty,
