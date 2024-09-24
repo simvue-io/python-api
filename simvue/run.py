@@ -518,7 +518,7 @@ class Run:
         folder: typing.Annotated[str, pydantic.Field(pattern=FOLDER_REGEX)] = "/",
         running: bool = True,
         retention_period: typing.Optional[str] = None,
-        timeout: int = 180,
+        timeout: typing.Optional[int] = 180,
         visibility: typing.Union[
             typing.Literal["public", "tenant"], list[str], None
         ] = None,

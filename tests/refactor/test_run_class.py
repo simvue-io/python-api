@@ -12,6 +12,7 @@ import pathlib
 import concurrent.futures
 import random
 
+import simvue
 import simvue.run as sv_run
 import simvue.client as sv_cl
 
@@ -554,4 +555,17 @@ def test_kill_all_processes(create_plain_run: typing.Tuple[sv_run.Run, dict]) ->
     for process in processes:
         assert not process.is_running()
         assert all(not child.is_running() for child in process.children(recursive=True))
+
+
+@pytest.mark.run
+def test_run_created_with_no_timeout() -> None:
+    with simvue.Run() as run:
+        run.init(
+            name="test_run_created_with_no_timeout",
+            folder="/simvue_unit_testing",
+            retention_period="2 minutes",
+            timeout=None
+        )
+    client = simvue.Client()
+    assert client.get_run(run._id)
 
