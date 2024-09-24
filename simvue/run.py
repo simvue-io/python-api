@@ -7,7 +7,6 @@ This forms the central API for users.
 """
 
 import contextlib
-import datetime
 import json
 import logging
 import pathlib
@@ -25,7 +24,6 @@ import functools
 import platform
 import typing
 import uuid
-from datetime import timezone
 
 import click
 import msgpack
@@ -42,6 +40,7 @@ from .models import RunInput, FOLDER_REGEX, NAME_REGEX, MetricKeyString
 from .serialization import serialize_object
 from .system import get_system
 from .metadata import git_info
+from .eco import SimvueEmissionsTracker
 from .utilities import (
     calculate_sha256,
     compare_alerts,
@@ -49,6 +48,7 @@ from .utilities import (
     get_auth,
     get_offline_directory,
     validate_timestamp,
+    simvue_timestamp,
 )
 
 
@@ -106,8 +106,11 @@ class Run:
         self._testing: bool = False
         self._abort_on_alert: bool = True
         self._dispatch_mode: typing.Literal["direct", "queued"] = "queued"
+
         self._executor = Executor(self)
         self._dispatcher: typing.Optional[DispatcherBaseClass] = None
+        self._emissions_tracker: typing.Optional[SimvueEmissionsTracker] = None
+
         self._id: typing.Optional[str] = None
         self._term_color: bool = True
         self._suppress_errors: bool = False
@@ -131,7 +134,9 @@ class Run:
         self._heartbeat_termination_trigger: typing.Optional[threading.Event] = None
         self._storage_id: typing.Optional[str] = None
         self._heartbeat_thread: typing.Optional[threading.Thread] = None
+
         self._heartbeat_interval: int = HEARTBEAT_INTERVAL
+        self._emission_metrics_interval: int = HEARTBEAT_INTERVAL
 
     def __enter__(self) -> "Run":
         return self
@@ -206,7 +211,7 @@ class Run:
     @property
     def time_stamp(self) -> str:
         """Return current timestamp"""
-        return datetime.datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S.%f")
+        return simvue_timestamp()
 
     @property
     def processes(self) -> list[psutil.Process]:
@@ -468,6 +473,10 @@ class Run:
         RuntimeError
             exception throw
         """
+        if self._emissions_tracker:
+            with contextlib.suppress(Exception):
+                self._emissions_tracker.stop()
+
         # Stop heartbeat
         if self._heartbeat_termination_trigger and self._heartbeat_thread:
             self._heartbeat_termination_trigger.set()
@@ -636,6 +645,10 @@ class Run:
                 bold=self._term_color,
                 fg="green" if self._term_color else None,
             )
+
+        if self._emissions_tracker:
+            self._emissions_tracker.post_init()
+            self._emissions_tracker.start()
 
         return True
 
@@ -862,7 +875,9 @@ class Run:
         *,
         suppress_errors: typing.Optional[bool] = None,
         queue_blocking: typing.Optional[bool] = None,
-        resources_metrics_interval: typing.Optional[int] = None,
+        resources_metrics_interval: typing.Optional[pydantic.PositiveInt] = None,
+        emission_metrics_interval: typing.Optional[pydantic.PositiveInt] = None,
+        enable_emission_metrics: typing.Optional[bool] = None,
         disable_resources_metrics: typing.Optional[bool] = None,
         storage_id: typing.Optional[str] = None,
         abort_on_alert: typing.Optional[bool] = None,
@@ -878,6 +893,8 @@ class Run:
             block thread queues during metric/event recording
         resources_metrics_interval : int, optional
             frequency at which to collect resource metrics
+        enable_emission_metrics : bool, optional
+            enable monitoring of emission metrics
         disable_resources_metrics : bool, optional
             disable monitoring of resource metrics
         storage_id : str, optional
@@ -907,6 +924,19 @@ class Run:
             if disable_resources_metrics:
                 self._pid = None
                 self._resources_metrics_interval = None
+
+            if emission_metrics_interval:
+                if not enable_emission_metrics:
+                    self._error(
+                        "Cannot set rate of emission metrics, these metrics have been disabled"
+                    )
+                    return False
+                self._emission_metrics_interval = emission_metrics_interval
+
+            if enable_emission_metrics:
+                self._emissions_tracker = SimvueEmissionsTracker(
+                    "simvue", self, self._emission_metrics_interval
+                )
 
             if resources_metrics_interval:
                 self._resources_metrics_interval = resources_metrics_interval
@@ -1433,6 +1463,10 @@ class Run:
 
     def _tidy_run(self) -> None:
         self._executor.wait_for_completion()
+
+        if self._emissions_tracker:
+            with contextlib.suppress(Exception):
+                self._emissions_tracker.stop()
 
         if self._heartbeat_thread and self._heartbeat_termination_trigger:
             self._heartbeat_termination_trigger.set()
