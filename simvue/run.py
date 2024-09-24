@@ -163,10 +163,10 @@ class Run:
         if not _is_running:
             return
 
-        self.set_status("terminated" if _is_terminated else "failed")
-
         if not self._active:
             return
+
+        self.set_status("terminated" if _is_terminated else "failed")
 
         # If the dispatcher has already been aborted then this will
         # fail so just continue without the event
