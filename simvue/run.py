@@ -125,7 +125,7 @@ class Run:
         self._active: bool = False
         self._aborted: bool = False
         self._url, self._token = get_auth()
-        self._resources_metrics_interval: typing.Optional[int] = None
+        self._resources_metrics_interval: typing.Optional[int] = HEARTBEAT_INTERVAL
         self._headers: dict[str, str] = {"Authorization": f"Bearer {self._token}"}
         self._simvue: typing.Optional[SimvueBaseClass] = None
         self._pid: typing.Optional[int] = 0
