@@ -39,7 +39,7 @@ from .metrics import get_gpu_metrics, get_process_cpu, get_process_memory
 from .models import RunInput, FOLDER_REGEX, NAME_REGEX, MetricKeyString
 from .serialization import serialize_object
 from .system import get_system
-from .metadata import git_info
+from .metadata import git_info, environment
 from .eco import SimvueEmissionsTracker
 from .utilities import (
     calculate_sha256,
@@ -601,7 +601,7 @@ class Run:
             return False
 
         data: dict[str, typing.Any] = {
-            "metadata": (metadata or {}) | git_info(os.getcwd()),
+            "metadata": (metadata or {}) | git_info(os.getcwd()) | environment(),
             "tags": tags or [],
             "status": self._status,
             "ttl": retention_secs,

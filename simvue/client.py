@@ -22,7 +22,7 @@ from .converters import (
     parse_run_set_metrics,
 )
 from .serialization import deserialize_data
-from .types import DeserializedContent
+from .simvue_types import DeserializedContent
 from .utilities import check_extra, get_auth, prettify_pydantic
 from .models import FOLDER_REGEX, NAME_REGEX
 

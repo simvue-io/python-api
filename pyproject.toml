@@ -100,7 +100,8 @@ markers = [
     "scenario: test scenarios",
     "executor: tests of executors",
     "api: tests of RestAPI functionality",
-    "unix: tests for UNIX systems only"
+    "unix: tests for UNIX systems only",
+    "metadata: tests of metadata gathering functions"
 ]
 
 [tool.interrogate]

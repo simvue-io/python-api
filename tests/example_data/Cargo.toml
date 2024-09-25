@@ -1,0 +1,29 @@
+[package]
+name = "example_project"      # The name of your project
+version = "0.1.0"             # The version of your project
+authors = ["Your Name <you@example.com>"]  # Author information
+edition = "2021"              # Rust edition to use
+
+[dependencies]
+# Specify dependencies here
+serde = { version = "1.0", features = ["derive"] }  # Example dependency with features
+serde_json = "1.0"                              # Simple dependency with a specific version
+
+[dev-dependencies]
+# Specify development-only dependencies here
+tokio = { version = "1", features = ["full"] }  # Example of a development dependency with features
+
+[build-dependencies]
+# Specify build dependencies here (e.g., for build scripts)
+cc = "1.0"  # Example of a build dependency
+
+[features]
+# Define optional features and their dependencies
+default = []  # Default features
+extra = ["serde_json"]  # Optional feature that includes serde_json
+
+[workspace]
+# Define a workspace if you have multiple packages
+members = [
+    "crates/*",
+]
