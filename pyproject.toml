@@ -101,7 +101,8 @@ markers = [
     "executor: tests of executors",
     "api: tests of RestAPI functionality",
     "unix: tests for UNIX systems only",
-    "metadata: tests of metadata gathering functions"
+    "metadata: tests of metadata gathering functions",
+    "proxies: tests for remote/offline Simvue proxies"
 ]
 
 [tool.interrogate]
