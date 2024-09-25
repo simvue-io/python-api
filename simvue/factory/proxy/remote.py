@@ -1,14 +1,13 @@
 import logging
 import typing
 import http
-import time
 
 if typing.TYPE_CHECKING:
     from simvue.config import SimvueConfiguration
 
 from simvue.api import get, post, put
 from simvue.factory.proxy.base import SimvueBaseClass
-from simvue.utilities import prepare_for_api, skip_if_failed, get_expiry
+from simvue.utilities import prepare_for_api, skip_if_failed
 from simvue.version import __version__
 
 logger = logging.getLogger(__name__)
@@ -482,36 +481,6 @@ class Remote(SimvueBaseClass):
 
         self._error(f"Got status code {response.status_code} when sending heartbeat")
         return None
-
-    @skip_if_failed("_aborted", "_suppress_errors", False)
-    def check_token(self) -> bool:
-        """
-        Check token
-        """
-        if not (expiry := get_expiry(self._token)):
-            self._error("Failed to parse user token")
-            return False
-
-        if time.time() - expiry > 0:
-            self._error("Token has expired")
-            return False
-
-        try:
-            response = get(f"{self._url}/api/version", self._headers)
-
-            if response.status_code != http.HTTPStatus.OK or not response.json().get(
-                "version"
-            ):
-                raise AssertionError
-
-            if response.status_code == http.HTTPStatus.UNAUTHORIZED:
-                self._error("Unauthorised token")
-                return False
-
-        except Exception as err:
-            self._error(f"Exception retrieving server version: {str(err)}")
-            return False
-        return True
 
     @skip_if_failed("_aborted", "_suppress_errors", False)
     def get_abort_status(self) -> bool:
