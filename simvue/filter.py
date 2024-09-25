@@ -125,9 +125,13 @@ class FoldersFilter(RestAPIFilter):
 
 class RunsFilter(RestAPIFilter):
     def _generate_members(self) -> None:
-        _global_comparators = [self._value_contains, self._value_eq, self._value_neq]
+        _global_comparators: list[typing.Callable] = [
+            self._value_contains,
+            self._value_eq,
+            self._value_neq,
+        ]
 
-        _numeric_comparators = [
+        _numeric_comparators: list[typing.Callable] = [
             self._value_geq,
             self._value_leq,
             self._value_lt,
@@ -138,17 +142,19 @@ class RunsFilter(RestAPIFilter):
             for function in _global_comparators:
                 _label: str = label.lower()
                 _func_name: str = function.__name__.replace("_value", _label)
-                _out_func = lambda value, func=function: func(
-                    "system", system_spec.value, value
-                )
+
+                def _out_func(value, func=function):
+                    return func("system", system_spec.value, value)
+
                 _out_func.__name__ = _func_name
                 setattr(self, _func_name, _out_func)
 
         for function in _global_comparators + _numeric_comparators:
-            _func_name: str = function.__name__.replace("_value", "metadata")
-            _out_func = lambda attribute, value, func=function: func(
-                "metadata", attribute, value
-            )
+            _func_name = function.__name__.replace("_value", "metadata")
+
+            def _out_func(attribute, value, func=function):
+                return func("metadata", attribute, value)
+
             _out_func.__name__ = _func_name
             setattr(self, _func_name, _out_func)
 
