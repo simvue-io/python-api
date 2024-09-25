@@ -1,6 +1,10 @@
 # Change log
 
-## Unreleased
+## [v1.0.4](https://github.com/simvue-io/client/releases/tag/v1.0.4) - 2024-09-24
+
+* Set resource metrics to be recorded by default.
+
+## [v1.0.3](https://github.com/simvue-io/client/releases/tag/v1.0.3) - 2024-09-23
 
 * Fix issue of hanging threads when exception raised by script using the API.
 

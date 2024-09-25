@@ -14,6 +14,8 @@ import typing
 
 import jwt
 
+from datetime import timezone
+
 CHECKSUM_BLOCK_SIZE = 4096
 EXTRAS: tuple[str, ...] = ("plot", "torch")
 
@@ -405,3 +407,21 @@ def compare_alerts(first, second):
                     return False
 
     return True
+
+
+def simvue_timestamp(date_time: typing.Optional[datetime.datetime] = None) -> str:
+    """Return the Simvue valid timestamp
+
+    Parameters
+    ----------
+    date_time: datetime.datetime, optional
+        if provided, the datetime object to convert, else use current date and time
+
+    Returns
+    -------
+    str
+        Datetime string valid for the Simvue server
+    """
+    if not date_time:
+        date_time = datetime.datetime.now(timezone.utc)
+    return date_time.strftime("%Y-%m-%d %H:%M:%S.%f")
