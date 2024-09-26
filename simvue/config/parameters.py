@@ -31,22 +31,22 @@ class ServerSpecifications(pydantic.BaseModel):
 
     @pydantic.field_validator("token")
     def check_token(cls, v: typing.Any) -> str:
-        if not (expiry := get_expiry(v)):
+        value = v.get_secret_value()
+        if not (expiry := get_expiry(value)):
             raise AssertionError("Failed to parse Simvue token - invalid token form")
         if time.time() - expiry > 0:
             raise AssertionError("Simvue token has expired")
-        return v
+        return value
 
     @pydantic.model_validator(mode="after")
-    def check_valid_server(cls, values: dict) -> bool:
-        url = values["url"]
-        token = values["token"]
+    @classmethod
+    def check_valid_server(cls, values: "ServerSpecifications") -> bool:
         headers: dict[str, str] = {
-            "Authorization": f"Bearer {token}",
+            "Authorization": f"Bearer {values.token}",
             "User-Agent": f"Simvue Python client {__version__}",
         }
         try:
-            response = get(f"{url}/api/version", headers)
+            response = get(f"{values.url}/api/version", headers)
 
             if response.status_code != http.HTTPStatus.OK or not response.json().get(
                 "version"
@@ -58,6 +58,8 @@ class ServerSpecifications(pydantic.BaseModel):
 
         except Exception as err:
             raise AssertionError(f"Exception retrieving server version: {str(err)}")
+
+        return values
 
 
 class DefaultRunSpecifications(pydantic.BaseModel):
