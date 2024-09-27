@@ -1,4 +1,5 @@
 import logging
+import os
 import time
 import pydantic
 import typing
@@ -41,6 +42,9 @@ class ServerSpecifications(pydantic.BaseModel):
     @pydantic.model_validator(mode="after")
     @classmethod
     def check_valid_server(cls, values: "ServerSpecifications") -> bool:
+        if os.environ.get("SIMVUE_NO_SERVER_CHECK"):
+            return values
+
         headers: dict[str, str] = {
             "Authorization": f"Bearer {values.token}",
             "User-Agent": f"Simvue Python client {__version__}",

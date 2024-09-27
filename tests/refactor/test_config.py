@@ -1,5 +1,6 @@
 import pytest
 import typing
+import os
 import uuid
 import pathlib
 import pytest_mock
@@ -37,6 +38,9 @@ def test_config_setup(
     _folder: str = "/test-case"
     _tags: list[str] = ["tag-test", "other-tag"]
 
+    # Deactivate the server checks for this test
+    monkeypatch.setenv("SIMVUE_NO_SERVER_CHECK", True)
+
     if use_env:
         monkeypatch.setenv("SIMVUE_TOKEN", _other_token)
         monkeypatch.setenv("SIMVUE_URL", _other_url)
@@ -70,7 +74,7 @@ tags = {_tags}
 """
                 out_f.write(_lines)
             SimvueConfiguration.config_file.cache_clear()
-        
+
         mocker.patch("simvue.config.parameters.get_expiry", lambda *_, **__: 1e10)
         mocker.patch("simvue.config.user.sv_util.find_first_instance_of_file", lambda *_, **__: _config_file)
 
