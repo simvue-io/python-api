@@ -91,9 +91,11 @@ class Run:
     def __init__(
         self,
         mode: typing.Literal["online", "offline", "disabled"] = "online",
-        abort_callback: typing.Optional[typing.Callable[[], None]] = None,
+        abort_callback: typing.Optional[typing.Callable[["Run"], None]] = None,
     ) -> None:
         """Initialise a new Simvue run
+
+        If `abort_callback` is provided the first argument must be this Run instance
 
         Parameters
         ----------
@@ -110,7 +112,7 @@ class Run:
         self._name: typing.Optional[str] = None
         self._testing: bool = False
         self._abort_on_alert: typing.Literal["run", "terminate", "ignore"] = "terminate"
-        self._abort_callback: typing.Optional[typing.Callable[[], None]] = (
+        self._abort_callback: typing.Optional[typing.Callable[["Run"], None]] = (
             abort_callback
         )
         self._dispatch_mode: typing.Literal["direct", "queued"] = "queued"
@@ -273,7 +275,7 @@ class Run:
 
         def _heartbeat(
             heartbeat_trigger: threading.Event = self._heartbeat_termination_trigger,
-            abort_callback: typing.Callable[[], None] = self._abort_callback,
+            abort_callback: typing.Callable[["Run"], None] = self._abort_callback,
         ) -> None:
             last_heartbeat = time.time()
             last_res_metric_call = time.time()
@@ -319,7 +321,7 @@ class Run:
                                 bold=self._term_color,
                             )
                         if abort_callback is not None:
-                            abort_callback()
+                            abort_callback(self)
                         if self._abort_on_alert == "terminate":
                             os._exit(1)
 
