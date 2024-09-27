@@ -91,7 +91,7 @@ class Run:
     def __init__(
         self,
         mode: typing.Literal["online", "offline", "disabled"] = "online",
-        abort_callback: typing.Optional[typing.Callable[["Run"], None]] = None,
+        abort_callback: typing.Optional[typing.Callable[[typing.Self], None]] = None,
     ) -> None:
         """Initialise a new Simvue run
 
@@ -112,7 +112,7 @@ class Run:
         self._name: typing.Optional[str] = None
         self._testing: bool = False
         self._abort_on_alert: typing.Literal["run", "terminate", "ignore"] = "terminate"
-        self._abort_callback: typing.Optional[typing.Callable[["Run"], None]] = (
+        self._abort_callback: typing.Optional[typing.Callable[[typing.Self], None]] = (
             abort_callback
         )
         self._dispatch_mode: typing.Literal["direct", "queued"] = "queued"
@@ -274,9 +274,16 @@ class Run:
             raise RuntimeError("Could not commence heartbeat, run not initialised")
 
         def _heartbeat(
-            heartbeat_trigger: threading.Event = self._heartbeat_termination_trigger,
-            abort_callback: typing.Callable[["Run"], None] = self._abort_callback,
+            heartbeat_trigger: typing.Optional[
+                threading.Event
+            ] = self._heartbeat_termination_trigger,
+            abort_callback: typing.Optional[
+                typing.Callable[[typing.Self], None]
+            ] = self._abort_callback,
         ) -> None:
+            if not heartbeat_trigger:
+                raise RuntimeError("Expected initialisation of heartbeat")
+
             last_heartbeat = time.time()
             last_res_metric_call = time.time()
 
@@ -305,6 +312,8 @@ class Run:
                 # Check if the user has aborted the run
                 with self._configuration_lock:
                     if self._simvue and self._simvue.get_abort_status():
+                        if abort_callback is not None:
+                            abort_callback(self)  # type: ignore
                         if self._abort_on_alert:
                             logger.debug("Received abort request from server")
                             self._alert_raised_trigger.set()
@@ -320,8 +329,6 @@ class Run:
                                 fg="red" if self._term_color else None,
                                 bold=self._term_color,
                             )
-                        if abort_callback is not None:
-                            abort_callback(self)
                         if self._abort_on_alert == "terminate":
                             os._exit(1)
 
