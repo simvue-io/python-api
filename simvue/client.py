@@ -10,6 +10,7 @@ import json
 import logging
 import os
 import typing
+import http
 import pydantic
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from pandas import DataFrame
@@ -22,7 +23,7 @@ from .converters import (
     parse_run_set_metrics,
 )
 from .serialization import deserialize_data
-from .types import DeserializedContent
+from .simvue_types import DeserializedContent
 from .utilities import check_extra, get_auth, prettify_pydantic
 from .models import FOLDER_REGEX, NAME_REGEX
 
@@ -168,7 +169,7 @@ class Client:
         )
 
         json_response = self._get_json_from_response(
-            expected_status=[200],
+            expected_status=[http.HTTPStatus.OK],
             scenario="Retrieval of run ID from name",
             response=response,
         )
@@ -218,12 +219,12 @@ class Client:
         )
 
         json_response = self._get_json_from_response(
-            expected_status=[200, 404],
+            expected_status=[http.HTTPStatus.OK, http.HTTPStatus.NOT_FOUND],
             scenario=f"Retrieval of run '{run_id}'",
             response=response,
         )
 
-        if response.status_code == 404:
+        if response.status_code == http.HTTPStatus.NOT_FOUND:
             return None
 
         if not isinstance(json_response, dict):
@@ -339,7 +340,9 @@ class Client:
             raise ValueError("Invalid format specified")
 
         json_response = self._get_json_from_response(
-            expected_status=[200], scenario="Run retrieval", response=response
+            expected_status=[http.HTTPStatus.OK],
+            scenario="Run retrieval",
+            response=response,
         )
 
         if not isinstance(json_response, dict):
@@ -381,7 +384,7 @@ class Client:
         )
 
         json_response = self._get_json_from_response(
-            expected_status=[200],
+            expected_status=[http.HTTPStatus.OK],
             scenario=f"Deletion of run '{run_identifier}'",
             response=response,
         )
@@ -416,7 +419,7 @@ class Client:
         )
 
         if (
-            response.status_code == 200
+            response.status_code == http.HTTPStatus.OK
             and (response_data := response.json().get("data"))
             and (identifier := response_data[0].get("id"))
         ):
@@ -458,7 +461,7 @@ class Client:
             f"{self._url}/api/folders/{folder_id}", headers=self._headers, params=params
         )
 
-        if response.status_code == 200:
+        if response.status_code == http.HTTPStatus.OK:
             if runs := response.json().get("runs", []):
                 logger.debug(f"Runs from '{folder_path}' deleted successfully: {runs}")
             else:
@@ -523,7 +526,7 @@ class Client:
         )
 
         json_response = self._get_json_from_response(
-            expected_status=[200, 404],
+            expected_status=[http.HTTPStatus.OK, http.HTTPStatus.NOT_FOUND],
             scenario=f"Deletion of folder '{folder_path}'",
             response=response,
         )
@@ -551,7 +554,7 @@ class Client:
             f"{self._url}/api/alerts/{alert_id}", headers=self._headers
         )
 
-        if response.status_code == 200:
+        if response.status_code == http.HTTPStatus.OK:
             logger.debug(f"Alert '{alert_id}' deleted successfully")
             return
 
@@ -587,7 +590,7 @@ class Client:
         )
 
         json_response = self._get_json_from_response(
-            expected_status=[200],
+            expected_status=[http.HTTPStatus.OK],
             scenario=f"Retrieval of artifacts for run '{run_id}",
             response=response,
         )
@@ -613,7 +616,7 @@ class Client:
         )
 
         json_response = self._get_json_from_response(
-            expected_status=[200, 404],
+            expected_status=[http.HTTPStatus.OK, http.HTTPStatus.NOT_FOUND],
             scenario=f"Retrieval of artifact '{name}' for run '{run_id}'",
             response=response,
         )
@@ -652,7 +655,7 @@ class Client:
         )
 
         json_response = self._get_json_from_response(
-            expected_status=[200, 404],
+            expected_status=[http.HTTPStatus.OK, http.HTTPStatus.NOT_FOUND],
             scenario=f"Abort of run '{run_id}'",
             response=response,
         )
@@ -846,7 +849,7 @@ class Client:
         )
 
         self._get_json_from_response(
-            expected_status=[200],
+            expected_status=[http.HTTPStatus.OK],
             scenario=f"Download of artifacts for run '{run_id}'",
             response=response,
         )
@@ -936,7 +939,9 @@ class Client:
         )
 
         json_response = self._get_json_from_response(
-            expected_status=[200], scenario="Retrieval of folders", response=response
+            expected_status=[http.HTTPStatus.OK],
+            scenario="Retrieval of folders",
+            response=response,
         )
 
         if not isinstance(json_response, dict):
@@ -979,7 +984,7 @@ class Client:
         )
 
         json_response = self._get_json_from_response(
-            expected_status=[200],
+            expected_status=[http.HTTPStatus.OK],
             scenario=f"Request for metric names for run '{run_id}'",
             response=response,
         )
@@ -1013,7 +1018,7 @@ class Client:
         )
 
         json_response = self._get_json_from_response(
-            expected_status=[200],
+            expected_status=[http.HTTPStatus.OK],
             scenario=f"Retrieval of metrics '{metric_names}' in " f"runs '{run_ids}'",
             response=metrics_response,
         )
@@ -1270,7 +1275,7 @@ class Client:
         )
 
         json_response = self._get_json_from_response(
-            expected_status=[200],
+            expected_status=[http.HTTPStatus.OK],
             scenario=f"Retrieval of events for run '{run_id}'",
             response=response,
         )
@@ -1285,16 +1290,19 @@ class Client:
     @prettify_pydantic
     @pydantic.validate_call
     def get_alerts(
-        self, run_id: str, critical_only: bool = True, names_only: bool = True
+        self,
+        run_id: typing.Optional[str] = None,
+        critical_only: bool = True,
+        names_only: bool = True,
     ) -> list[dict[str, typing.Any]]:
         """Retrieve alerts for a given run
 
         Parameters
         ----------
-        run_id : str
+        run_id : str | None
             The ID of the run to find alerts for
         critical_only : bool, optional
-            Whether to only return details about alerts which are currently critical, by default True
+            If a run is specified, whether to only return details about alerts which are currently critical, by default True
         names_only: bool, optional
             Whether to only return the names of the alerts (otherwise return the full details of the alerts), by default True
 
@@ -1308,26 +1316,42 @@ class Client:
         RuntimeError
             if there was a failure retrieving data from the server
         """
-        response = requests.get(f"{self._url}/api/runs/{run_id}", headers=self._headers)
+        if not run_id:
+            response = requests.get(f"{self._url}/api/alerts/", headers=self._headers)
 
-        json_response = self._get_json_from_response(
-            expected_status=[200],
-            scenario=f"Retrieval of alerts for run '{run_id}'",
-            response=response,
-        )
+            json_response = self._get_json_from_response(
+                expected_status=[http.HTTPStatus.OK],
+                scenario=f"Retrieval of alerts for run '{run_id}'",
+                response=response,
+            )
+        else:
+            response = requests.get(
+                f"{self._url}/api/runs/{run_id}", headers=self._headers
+            )
+
+            json_response = self._get_json_from_response(
+                expected_status=[200],
+                scenario=f"Retrieval of alerts for run '{run_id}'",
+                response=response,
+            )
 
         if not isinstance(json_response, dict):
             raise RuntimeError(
                 "Expected dictionary from JSON response when retrieving alerts"
             )
 
-        if (alerts := json_response.get("alerts")) is None:
+        if run_id and (alerts := json_response.get("alerts")) is None:
             raise RuntimeError(
                 "Expected key 'alerts' in response when retrieving "
                 f"alerts for run '{run_id}': {json_response}"
             )
+        elif not run_id and (alerts := json_response.get("data")) is None:
+            raise RuntimeError(
+                "Expected key 'data' in response when retrieving "
+                f"alerts: {json_response}"
+            )
 
-        if critical_only:
+        if run_id and critical_only:
             if names_only:
                 return [
                     alert["alert"].get("name")
@@ -1340,7 +1364,10 @@ class Client:
                     for alert in alerts
                     if alert["status"].get("current") == "critical"
                 ]
-        elif names_only:
-            return [alert["alert"].get("name") for alert in alerts]
+        if names_only:
+            if run_id:
+                return [alert["alert"].get("name") for alert in alerts]
+            else:
+                return [alert.get("name") for alert in alerts]
 
         return alerts
