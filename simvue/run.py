@@ -311,7 +311,8 @@ class Run:
                                 self._shutdown_event.set()
                                 self._dispatcher.purge()
                                 self._dispatcher.join()
-                            self.set_status("terminated")
+                            if self._active:
+                                self.set_status("terminated")
                             click.secho(
                                 "[simvue] Run was aborted.",
                                 fg="red" if self._term_color else None,
@@ -1503,7 +1504,8 @@ class Run:
         if self._status == "running":
             if self._dispatcher:
                 self._dispatcher.join()
-            self.set_status("completed")
+            if self._active:
+                self.set_status("completed")
         elif self._dispatcher:
             self._dispatcher.purge()
             self._dispatcher.join()
