@@ -69,6 +69,9 @@ def check_run_initialised(
 ) -> typing.Callable[..., typing.Any]:
     @functools.wraps(function)
     def _wrapper(self: "Run", *args: typing.Any, **kwargs: typing.Any) -> typing.Any:
+        if self._mode == "disabled":
+            return True
+
         if not self._simvue:
             raise RuntimeError(
                 "Simvue Run must be initialised before calling "
@@ -580,6 +583,12 @@ class Run:
         bool
             whether the initialisation was successful
         """
+        if self._mode == "disabled":
+            logger.warning(
+                "Simvue monitoring has been deactivated for this run, metrics and artifacts will not be recorded."
+            )
+            return True
+
         self._term_color = not no_color
 
         if isinstance(visibility, str) and visibility not in ("public", "tenant"):
@@ -587,12 +596,9 @@ class Run:
                 "invalid visibility option, must be either None, 'public', 'tenant' or a list of users"
             )
 
-        if self._mode not in ("online", "offline", "disabled"):
+        if self._mode not in ("online", "offline"):
             self._error("invalid mode specified, must be online, offline or disabled")
             return False
-
-        if self._mode == "disabled":
-            return True
 
         if not self._token or not self._url:
             self._error(
@@ -869,9 +875,6 @@ class Run:
         bool
             whether reconnection succeeded
         """
-        if self._mode == "disabled":
-            return True
-
         self._status = "running"
 
         self._id = run_id
@@ -1000,9 +1003,6 @@ class Run:
         bool
             if the update was successful
         """
-        if self._mode == "disabled":
-            return True
-
         if not self._simvue:
             self._error("Cannot update metadata, run not initialised")
             return False
@@ -1034,9 +1034,6 @@ class Run:
         bool
             whether the update was successful
         """
-        if self._mode == "disabled":
-            return True
-
         if not self._simvue:
             self._error("Cannot update tags, run not initialised")
             return False
@@ -1064,9 +1061,6 @@ class Run:
         bool
             whether the update was successful
         """
-        if self._mode == "disabled":
-            return True
-
         if not self._simvue:
             return False
 
@@ -1104,10 +1098,6 @@ class Run:
         """
         if self._aborted:
             return False
-
-        if self._mode == "disabled":
-            self._error("Cannot log events in 'disabled' state")
-            return True
 
         if not self._simvue or not self._dispatcher:
             self._error("Cannot log events, run not initialised")
@@ -1301,9 +1291,6 @@ class Run:
         bool
             whether the upload was successful
         """
-        if self._mode == "disabled":
-            return True
-
         if not self._simvue:
             self._error("Cannot save files, run not initialised")
             return False
@@ -1387,9 +1374,6 @@ class Run:
         bool
             if the directory save was successful
         """
-        if self._mode == "disabled":
-            return True
-
         if not self._simvue:
             self._error("Cannot save directory, run not inirialised")
             return False
@@ -1439,11 +1423,6 @@ class Run:
         bool
             whether the save was successful
         """
-        success: bool = True
-
-        if self._mode == "disabled":
-            return success
-
         for item in items:
             if item.is_file():
                 save_file = self.save_file(item, category, filetype, preserve_path)
@@ -1477,9 +1456,6 @@ class Run:
         bool
             if status update was successful
         """
-        if self._mode == "disabled":
-            return True
-
         if not self._active or not self._name:
             self._error("Run is not active")
             return False
@@ -1546,8 +1522,6 @@ class Run:
             whether close was successful
         """
         self._executor.wait_for_completion()
-        if self._mode == "disabled":
-            return True
 
         if not self._simvue:
             self._error("Cannot close run, not initialised")
@@ -1589,9 +1563,6 @@ class Run:
         bool
             returns True if update was successful
         """
-        if self._mode == "disabled":
-            return True
-
         if not self._simvue:
             self._error("Cannot update folder details, run was not initialised")
             return False
@@ -1768,9 +1739,6 @@ class Run:
         str | None
             returns the created alert ID if successful
         """
-        if self._mode == "disabled":
-            return None
-
         if not self._simvue:
             self._error("Cannot add alert, run not initialised")
             return None
