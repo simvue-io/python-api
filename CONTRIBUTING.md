@@ -32,7 +32,7 @@ pre-commit install
 
 ### 🧪 Testing
 
-To ensure robustness and reliability this repository includes a set of tests which are executed automatically as part of continuous integration. Before opening a merge request we ask that you check 
+To ensure robustness and reliability this repository includes a set of tests which are executed automatically as part of continuous integration. Before opening a merge request we ask that you check
 your changes locally by running the test suit. New tests should be written for any further functionality added.
 
 ## :book: Documentation
