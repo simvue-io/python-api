@@ -471,12 +471,26 @@ def test_save_object(
 
 
 @pytest.mark.run
-def test_abort_on_alert_process(create_plain_run: typing.Tuple[sv_run.Run, dict], mocker: pytest_mock.MockerFixture) -> None:
+def test_abort_on_alert_process(mocker: pytest_mock.MockerFixture) -> None:
     def testing_exit(status: int) -> None:
         raise SystemExit(status)
+
+    trigger = threading.Event()
+
+    def abort_callback(abort_run=trigger) -> None:
+        trigger.set()
+
+    run = sv_run.Run(abort_callback=abort_callback)
+    run.init(
+        name="test_abort_on_alert_process",
+        folder="/simvue_unit_tests",
+        retention_period="1 min",
+        tags=["test_abort_on_alert_process"],
+        visibility="tenant"
+    )
+
     mocker.patch("os._exit", testing_exit)
     N_PROCESSES: int = 3
-    run, _ = create_plain_run
     run.config(resources_metrics_interval=1)
     run._heartbeat_interval = 1
     run._testing = True
@@ -494,6 +508,7 @@ def test_abort_on_alert_process(create_plain_run: typing.Tuple[sv_run.Run, dict]
     if not run._status == "terminated":
         run.kill_all_processes()
         raise AssertionError("Run was not terminated")
+    assert trigger.is_set()
     
 
 @pytest.mark.run
