@@ -322,7 +322,7 @@ class Run:
                     if self._simvue and self._simvue.get_abort_status():
                         if abort_callback is not None:
                             abort_callback(self)  # type: ignore
-                        if self._abort_on_alert:
+                        if self._abort_on_alert != "ignore":
                             logger.debug("Received abort request from server")
                             self._alert_raised_trigger.set()
                             self.kill_all_processes()
