@@ -1,5 +1,9 @@
 # Change log
 
+## Unreleased
+
+* Ensure all functionality is deactivated when mode is set to `disabled`.
+
 ## [v1.0.4](https://github.com/simvue-io/client/releases/tag/v1.0.4) - 2024-09-24
 
 * Set resource metrics to be recorded by default.

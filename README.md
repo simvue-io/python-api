@@ -3,7 +3,11 @@
 <br/>
 
 <p align="center">
-  <img src="https://raw.githubusercontent.com/simvue-io/client/dev/simvue-black.png" width="500" alt="Simvue" />
+  <picture>
+    <source media="(prefers-color-scheme: dark)" srcset="https://github.com/simvue-io/.github/blob/5eb8cfd2edd3269259eccd508029f269d993282f/simvue-white.png" />
+    <source media="(prefers-color-scheme: light)" srcset="https://github.com/simvue-io/.github/blob/5eb8cfd2edd3269259eccd508029f269d993282f/simvue-black.png" />
+    <img alt="Simvue" src="https://github.com/simvue-io/.github/blob/5eb8cfd2edd3269259eccd508029f269d993282f/simvue-black.png" width="500">
+  </picture>
 </p>
 
 <p align="center">
