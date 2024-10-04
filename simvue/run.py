@@ -23,6 +23,7 @@ import time
 import functools
 import platform
 import typing
+import warnings
 import uuid
 
 import click
@@ -51,6 +52,11 @@ from .utilities import (
     simvue_timestamp,
 )
 
+try:
+    from typing import Self
+except ImportError:
+    from typing_extensions import Self
+
 
 if typing.TYPE_CHECKING:
     from .factory.proxy import SimvueBaseClass
@@ -67,7 +73,7 @@ def check_run_initialised(
     function: typing.Callable[..., typing.Any],
 ) -> typing.Callable[..., typing.Any]:
     @functools.wraps(function)
-    def _wrapper(self: "Run", *args: typing.Any, **kwargs: typing.Any) -> typing.Any:
+    def _wrapper(self: Self, *args: typing.Any, **kwargs: typing.Any) -> typing.Any:
         if self._mode == "disabled":
             return True
 
@@ -91,9 +97,13 @@ class Run:
 
     @pydantic.validate_call
     def __init__(
-        self, mode: typing.Literal["online", "offline", "disabled"] = "online"
+        self,
+        mode: typing.Literal["online", "offline", "disabled"] = "online",
+        abort_callback: typing.Optional[typing.Callable[[Self], None]] = None,
     ) -> None:
         """Initialise a new Simvue run
+
+        If `abort_callback` is provided the first argument must be this Run instance
 
         Parameters
         ----------
@@ -102,12 +112,17 @@ class Run:
                 online - objects sent directly to Simvue server
                 offline - everything is written to disk for later dispatch
                 disabled - disable monitoring completely
+        abort_callback : Callable | None, optional
+            callback executed when the run is aborted
         """
         self._uuid: str = f"{uuid.uuid4()}"
         self._mode: typing.Literal["online", "offline", "disabled"] = mode
         self._name: typing.Optional[str] = None
         self._testing: bool = False
-        self._abort_on_alert: bool = True
+        self._abort_on_alert: typing.Literal["run", "terminate", "ignore"] = "terminate"
+        self._abort_callback: typing.Optional[typing.Callable[[Self], None]] = (
+            abort_callback
+        )
         self._dispatch_mode: typing.Literal["direct", "queued"] = "queued"
 
         self._executor = Executor(self)
@@ -141,7 +156,7 @@ class Run:
         self._heartbeat_interval: int = HEARTBEAT_INTERVAL
         self._emission_metrics_interval: int = HEARTBEAT_INTERVAL
 
-    def __enter__(self) -> "Run":
+    def __enter__(self) -> Self:
         return self
 
     def _handle_exception_throw(
@@ -267,8 +282,16 @@ class Run:
             raise RuntimeError("Could not commence heartbeat, run not initialised")
 
         def _heartbeat(
-            heartbeat_trigger: threading.Event = self._heartbeat_termination_trigger,
+            heartbeat_trigger: typing.Optional[
+                threading.Event
+            ] = self._heartbeat_termination_trigger,
+            abort_callback: typing.Optional[
+                typing.Callable[[Self], None]
+            ] = self._abort_callback,
         ) -> None:
+            if not heartbeat_trigger:
+                raise RuntimeError("Expected initialisation of heartbeat")
+
             last_heartbeat = time.time()
             last_res_metric_call = time.time()
 
@@ -296,26 +319,28 @@ class Run:
 
                 # Check if the user has aborted the run
                 with self._configuration_lock:
-                    if (
-                        self._simvue
-                        and self._abort_on_alert
-                        and self._simvue.get_abort_status()
-                    ):
-                        logger.debug("Received abort request from server")
+                    if self._simvue and self._simvue.get_abort_status():
                         self._alert_raised_trigger.set()
-                        self.kill_all_processes()
-                        if self._dispatcher and self._shutdown_event:
-                            self._shutdown_event.set()
-                            self._dispatcher.purge()
-                            self._dispatcher.join()
-                        if self._active:
-                            self.set_status("terminated")
-                        click.secho(
-                            "[simvue] Run was aborted.",
-                            fg="red" if self._term_color else None,
-                            bold=self._term_color,
-                        )
-                        os._exit(1)
+                        logger.debug("Received abort request from server")
+
+                        if abort_callback is not None:
+                            abort_callback(self)  # type: ignore
+
+                        if self._abort_on_alert != "ignore":
+                            self.kill_all_processes()
+                            if self._dispatcher and self._shutdown_event:
+                                self._shutdown_event.set()
+                                self._dispatcher.purge()
+                                self._dispatcher.join()
+                            if self._active:
+                                self.set_status("terminated")
+                            click.secho(
+                                "[simvue] Run was aborted.",
+                                fg="red" if self._term_color else None,
+                                bold=self._term_color,
+                            )
+                        if self._abort_on_alert == "terminate":
+                            os._exit(1)
 
                 if self._simvue:
                     self._simvue.send_heartbeat()
@@ -516,6 +541,7 @@ class Run:
         name: typing.Optional[
             typing.Annotated[str, pydantic.Field(pattern=NAME_REGEX)]
         ] = None,
+        *,
         metadata: typing.Optional[dict[str, typing.Any]] = None,
         tags: typing.Optional[list[str]] = None,
         description: typing.Optional[str] = None,
@@ -888,7 +914,9 @@ class Run:
         enable_emission_metrics: typing.Optional[bool] = None,
         disable_resources_metrics: typing.Optional[bool] = None,
         storage_id: typing.Optional[str] = None,
-        abort_on_alert: typing.Optional[bool] = None,
+        abort_on_alert: typing.Optional[
+            typing.Union[typing.Literal["run", "all", "ignore"], bool]
+        ] = None,
     ) -> bool:
         """Optional configuration
 
@@ -907,8 +935,11 @@ class Run:
             disable monitoring of resource metrics
         storage_id : str, optional
             identifier of storage to use, by default None
-        abort_on_alert : bool, optional
-            whether to abort the run if an alert is triggered
+        abort_on_alert : Literal['ignore', run', 'terminate'], optional
+            whether to abort when an alert is triggered.
+            If 'run' then the current run is aborted.
+            If 'terminate' then the script itself is terminated.
+            If 'ignore' then alerts will not affect this run
 
         Returns
         -------
@@ -949,7 +980,13 @@ class Run:
             if resources_metrics_interval:
                 self._resources_metrics_interval = resources_metrics_interval
 
-            if abort_on_alert:
+            if abort_on_alert is not None:
+                if isinstance(abort_on_alert, bool):
+                    warnings.warn(
+                        "Use of type bool for argument 'abort_on_alert' will be deprecated from v1.2, "
+                        "please use either 'run', 'all' or 'ignore'"
+                    )
+                    abort_on_alert = "run" if self._abort_on_alert else "ignore"
                 self._abort_on_alert = abort_on_alert
 
             if storage_id:
