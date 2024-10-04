@@ -52,6 +52,11 @@ from .utilities import (
     simvue_timestamp,
 )
 
+try:
+    from typing import Self
+except ImportError:
+    from typing_extensions import Self
+
 
 if typing.TYPE_CHECKING:
     from .factory.proxy import SimvueBaseClass
@@ -68,7 +73,7 @@ def check_run_initialised(
     function: typing.Callable[..., typing.Any],
 ) -> typing.Callable[..., typing.Any]:
     @functools.wraps(function)
-    def _wrapper(self: "Run", *args: typing.Any, **kwargs: typing.Any) -> typing.Any:
+    def _wrapper(self: Self, *args: typing.Any, **kwargs: typing.Any) -> typing.Any:
         if self._mode == "disabled":
             return True
 
@@ -94,7 +99,7 @@ class Run:
     def __init__(
         self,
         mode: typing.Literal["online", "offline", "disabled"] = "online",
-        abort_callback: typing.Optional[typing.Callable[[typing.Self], None]] = None,
+        abort_callback: typing.Optional[typing.Callable[[Self], None]] = None,
     ) -> None:
         """Initialise a new Simvue run
 
@@ -115,7 +120,7 @@ class Run:
         self._name: typing.Optional[str] = None
         self._testing: bool = False
         self._abort_on_alert: typing.Literal["run", "terminate", "ignore"] = "terminate"
-        self._abort_callback: typing.Optional[typing.Callable[[typing.Self], None]] = (
+        self._abort_callback: typing.Optional[typing.Callable[[Self], None]] = (
             abort_callback
         )
         self._dispatch_mode: typing.Literal["direct", "queued"] = "queued"
@@ -151,7 +156,7 @@ class Run:
         self._heartbeat_interval: int = HEARTBEAT_INTERVAL
         self._emission_metrics_interval: int = HEARTBEAT_INTERVAL
 
-    def __enter__(self) -> "Run":
+    def __enter__(self) -> Self:
         return self
 
     def _handle_exception_throw(
@@ -281,7 +286,7 @@ class Run:
                 threading.Event
             ] = self._heartbeat_termination_trigger,
             abort_callback: typing.Optional[
-                typing.Callable[[typing.Self], None]
+                typing.Callable[[Self], None]
             ] = self._abort_callback,
         ) -> None:
             if not heartbeat_trigger:
