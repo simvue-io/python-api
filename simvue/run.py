@@ -320,8 +320,11 @@ class Run:
                 # Check if the user has aborted the run
                 with self._configuration_lock:
                     if self._simvue and self._simvue.get_abort_status():
+                        self._alert_raised_trigger.set()
+                        
                         if abort_callback is not None:
                             abort_callback(self)  # type: ignore
+                        
                         if self._abort_on_alert != "ignore":
                             logger.debug("Received abort request from server")
                             self.kill_all_processes()
@@ -458,6 +461,7 @@ class Run:
 
         self._shutdown_event = threading.Event()
         self._heartbeat_termination_trigger = threading.Event()
+        self._alert_raised_trigger = threading.Event()
 
         try:
             self._dispatcher = Dispatcher(
