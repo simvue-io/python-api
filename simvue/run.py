@@ -324,7 +324,6 @@ class Run:
                             abort_callback(self)  # type: ignore
                         if self._abort_on_alert != "ignore":
                             logger.debug("Received abort request from server")
-                            self._alert_raised_trigger.set()
                             self.kill_all_processes()
                             if self._dispatcher and self._shutdown_event:
                                 self._shutdown_event.set()
@@ -459,7 +458,6 @@ class Run:
 
         self._shutdown_event = threading.Event()
         self._heartbeat_termination_trigger = threading.Event()
-        self._alert_raised_trigger = threading.Event()
 
         try:
             self._dispatcher = Dispatcher(
