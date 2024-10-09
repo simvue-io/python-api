@@ -619,6 +619,7 @@ class Run:
         description = description or self._config.run.description
         tags = tags or self._config.run.tags
         folder = folder or self._config.run.folder or "/"
+        name = name or self._config.run.name
 
         self._term_color = not no_color
 
