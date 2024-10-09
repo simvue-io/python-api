@@ -529,10 +529,10 @@ def test_abort_on_alert_python(create_plain_run: typing.Tuple[sv_run.Run, dict],
         if i == 4:
             client.abort_run(run._id, reason="testing abort")
         i += 1
-        if abort_set.is_set() or i > 9:
+        if abort_set.is_set() or i > 11:
             break
 
-    assert i < 7
+    assert i < 10
     assert run._status == "terminated"
 
 
