@@ -20,6 +20,7 @@ import multiprocessing
 import pydantic
 import re
 import sys
+import traceback as tb
 import time
 import functools
 import platform
@@ -166,10 +167,18 @@ class Run:
         if not _is_running:
             return
 
-        self.set_status("terminated" if _is_terminated else "failed")
-
         if not self._active:
             return
+
+        _traceback_out: list[str] = tb.format_exception(exc_type, value, traceback)
+        _event_msg: str = (
+            "\n".join(_traceback_out)
+            if _traceback_out
+            else f"An exception was thrown: {_exception_thrown}"
+        )
+
+        self.log_event(_event_msg)
+        self.set_status("terminated" if _is_terminated else "failed")
 
         # If the dispatcher has already been aborted then this will
         # fail so just continue without the event
@@ -1415,7 +1424,8 @@ class Run:
         if self._status == "running":
             if self._dispatcher:
                 self._dispatcher.join()
-            self.set_status("completed")
+            if self._active:
+                self.set_status("completed")
         elif self._dispatcher:
             self._dispatcher.purge()
             self._dispatcher.join()

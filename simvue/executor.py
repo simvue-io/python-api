@@ -414,6 +414,8 @@ class Executor:
             process.kill()
             process.wait()
 
+        self._save_output()
+
     def kill_all(self) -> None:
         """Kill all running processes"""
         for process in self._processes.keys():
