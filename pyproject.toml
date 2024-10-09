@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "simvue"
-version = "1.0.4"
+version = "1.0.5"
 description = "Simulation tracking and monitoring"
 authors = ["Simvue Development Team <info@simvue.io>"]
 license = "Apache v2"

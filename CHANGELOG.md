@@ -1,6 +1,6 @@
 # Change log
 
-## Unreleased
+## [v1.0.5](https://github.com/simvue-io/client/releases/tag/v1.0.5) - 2024-10-09
 
 * Ensure all functionality is deactivated when mode is set to `disabled`.
 * When an exception is thrown an event is sent to Simvue displaying the traceback.
