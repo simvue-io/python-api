@@ -1,3 +1,11 @@
+"""
+Simvue Configuration File Models
+================================
+
+Pydantic models for elements of the Simvue configuration file
+
+"""
+
 import logging
 import os
 import time

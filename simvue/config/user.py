@@ -1,3 +1,11 @@
+"""
+Simvue Configuration File Model
+===============================
+
+Pydantic model for the Simvue TOML configuration file
+
+"""
+
 import functools
 import logging
 import os
