@@ -93,8 +93,8 @@ class Client:
 
     def __init__(
         self,
-        server_token: typing.Optional[str]=None,
-        server_url: typing.Optional[str]=None
+        server_token: typing.Optional[str] = None,
+        server_url: typing.Optional[str] = None,
     ) -> None:
         """Initialise an instance of the Simvue client
 
@@ -109,11 +109,15 @@ class Client:
             server_token=server_token, server_url=server_url
         )
 
-        for label, value in zip(("URL", "API token"), (self._config.server.url, self._config.server.url)):
+        for label, value in zip(
+            ("URL", "API token"), (self._config.server.url, self._config.server.url)
+        ):
             if not value:
                 logger.warning(f"No {label} specified")
 
-        self._headers: dict[str, str] = {"Authorization": f"Bearer {self._config.server.token}"}
+        self._headers: dict[str, str] = {
+            "Authorization": f"Bearer {self._config.server.token}"
+        }
 
     def _get_json_from_response(
         self,
@@ -392,7 +396,8 @@ class Client:
         """
 
         response = requests.delete(
-            f"{self._config.server.url}/api/runs/{run_identifier}", headers=self._headers
+            f"{self._config.server.url}/api/runs/{run_identifier}",
+            headers=self._headers,
         )
 
         json_response = self._get_json_from_response(
@@ -427,7 +432,9 @@ class Client:
         params: dict[str, str] = {"filters": json.dumps([f"path == {path}"])}
 
         response: requests.Response = requests.get(
-            f"{self._config.server.url}/api/folders", headers=self._headers, params=params
+            f"{self._config.server.url}/api/folders",
+            headers=self._headers,
+            params=params,
         )
 
         if (
@@ -470,7 +477,9 @@ class Client:
         params: dict[str, bool] = {"runs_only": True, "runs": True}
 
         response = requests.delete(
-            f"{self._config.server.url}/api/folders/{folder_id}", headers=self._headers, params=params
+            f"{self._config.server.url}/api/folders/{folder_id}",
+            headers=self._headers,
+            params=params,
         )
 
         if response.status_code == http.HTTPStatus.OK:
@@ -534,7 +543,9 @@ class Client:
         params |= {"recursive": recursive}
 
         response = requests.delete(
-            f"{self._config.server.url}/api/folders/{folder_id}", headers=self._headers, params=params
+            f"{self._config.server.url}/api/folders/{folder_id}",
+            headers=self._headers,
+            params=params,
         )
 
         json_response = self._get_json_from_response(
@@ -598,7 +609,9 @@ class Client:
         params: dict[str, str] = {"runs": json.dumps([run_id])}
 
         response: requests.Response = requests.get(
-            f"{self._config.server.url}/api/artifacts", headers=self._headers, params=params
+            f"{self._config.server.url}/api/artifacts",
+            headers=self._headers,
+            params=params,
         )
 
         json_response = self._get_json_from_response(
@@ -947,7 +960,9 @@ class Client:
         }
 
         response: requests.Response = requests.get(
-            f"{self._config.server.url}/api/folders", headers=self._headers, params=params
+            f"{self._config.server.url}/api/folders",
+            headers=self._headers,
+            params=params,
         )
 
         json_response = self._get_json_from_response(
@@ -992,7 +1007,9 @@ class Client:
         params = {"runs": json.dumps([run_id])}
 
         response: requests.Response = requests.get(
-            f"{self._config.server.url}/api/metrics/names", headers=self._headers, params=params
+            f"{self._config.server.url}/api/metrics/names",
+            headers=self._headers,
+            params=params,
         )
 
         json_response = self._get_json_from_response(
@@ -1026,7 +1043,9 @@ class Client:
         }
 
         metrics_response: requests.Response = requests.get(
-            f"{self._config.server.url}/api/metrics", headers=self._headers, params=params
+            f"{self._config.server.url}/api/metrics",
+            headers=self._headers,
+            params=params,
         )
 
         json_response = self._get_json_from_response(
@@ -1283,7 +1302,9 @@ class Client:
         }
 
         response = requests.get(
-            f"{self._config.server.url}/api/events", headers=self._headers, params=params
+            f"{self._config.server.url}/api/events",
+            headers=self._headers,
+            params=params,
         )
 
         json_response = self._get_json_from_response(
@@ -1329,7 +1350,9 @@ class Client:
             if there was a failure retrieving data from the server
         """
         if not run_id:
-            response = requests.get(f"{self._config.server.url}/api/alerts/", headers=self._headers)
+            response = requests.get(
+                f"{self._config.server.url}/api/alerts/", headers=self._headers
+            )
 
             json_response = self._get_json_from_response(
                 expected_status=[http.HTTPStatus.OK],
