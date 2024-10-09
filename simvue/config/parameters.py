@@ -79,7 +79,7 @@ class DefaultRunSpecifications(pydantic.BaseModel):
     description: typing.Optional[str] = None
     tags: typing.Optional[list[str]] = None
     folder: str = pydantic.Field("/", pattern=sv_models.FOLDER_REGEX)
-    metadata: typing.Optional[dict[str, str]] = None
+    metadata: typing.Optional[dict[str, typing.Union[str, int, float, bool]]] = None
 
 
 class ClientGeneralOptions(pydantic.BaseModel):

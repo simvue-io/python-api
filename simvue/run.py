@@ -560,7 +560,9 @@ class Run:
             typing.Annotated[str, pydantic.Field(pattern=NAME_REGEX)]
         ] = None,
         *,
-        metadata: typing.Optional[dict[str, typing.Any]] = None,
+        metadata: typing.Optional[
+            dict[str, typing.Union[str, int, float, bool]]
+        ] = None,
         tags: typing.Optional[list[str]] = None,
         description: typing.Optional[str] = None,
         folder: typing.Annotated[
