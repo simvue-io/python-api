@@ -617,9 +617,10 @@ class Run:
             return True
 
         description = description or self._config.run.description
-        tags = tags or self._config.run.tags
-        folder = folder or self._config.run.folder or "/"
+        tags = (tags or []) + (self._config.run.tags or [])
+        folder = folder or self._config.run.folder
         name = name or self._config.run.name
+        metadata = (metadata or {}) | (self._config.run.metadata or {})
 
         self._term_color = not no_color
 

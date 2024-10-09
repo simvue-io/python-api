@@ -55,6 +55,7 @@ class SimvueConfiguration(pydantic.BaseModel):
         return config_dict
 
     @classmethod
+    @sv_util.prettify_pydantic
     def fetch(
         cls,
         server_url: typing.Optional[str] = None,

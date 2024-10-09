@@ -69,8 +69,9 @@ class ServerSpecifications(pydantic.BaseModel):
 class DefaultRunSpecifications(pydantic.BaseModel):
     name: typing.Optional[str] = None
     description: typing.Optional[str] = None
-    tags: list[str] | None = None
+    tags: typing.Optional[list[str]] = None
     folder: str = pydantic.Field("/", pattern=sv_models.FOLDER_REGEX)
+    metadata: typing.Optional[dict[str, str]] = None
 
 
 class ClientGeneralOptions(pydantic.BaseModel):
