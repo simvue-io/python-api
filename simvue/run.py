@@ -163,7 +163,9 @@ class Run:
 
         self._aborted: bool = False
         self._resources_metrics_interval: typing.Optional[int] = HEARTBEAT_INTERVAL
-        self._headers: dict[str, str] = {"Authorization": f"Bearer {self._config.server.token}"}
+        self._headers: dict[str, str] = {
+            "Authorization": f"Bearer {self._config.server.token}"
+        }
         self._simvue: typing.Optional[SimvueBaseClass] = None
         self._pid: typing.Optional[int] = 0
         self._shutdown_event: typing.Optional[threading.Event] = None
@@ -561,7 +563,9 @@ class Run:
         metadata: typing.Optional[dict[str, typing.Any]] = None,
         tags: typing.Optional[list[str]] = None,
         description: typing.Optional[str] = None,
-        folder: typing.Annotated[str, pydantic.Field(pattern=FOLDER_REGEX)] = "/",
+        folder: typing.Annotated[
+            str, pydantic.Field(None, pattern=FOLDER_REGEX)
+        ] = None,
         running: bool = True,
         retention_period: typing.Optional[str] = None,
         timeout: typing.Optional[int] = 180,
@@ -614,7 +618,7 @@ class Run:
 
         description = description or self._config.run.description
         tags = tags or self._config.run.tags
-        folder = folder or self._config.run.folder
+        folder = folder or self._config.run.folder or "/"
 
         self._term_color = not no_color
 
