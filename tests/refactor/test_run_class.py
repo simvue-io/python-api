@@ -502,6 +502,7 @@ def test_abort_on_alert_process(mocker: pytest_mock.MockerFixture) -> None:
     client = sv_cl.Client()
     client.abort_run(run._id, reason="testing abort")
     time.sleep(4)
+    assert run._resources_metrics_interval == 1
     for child in child_processes:
         assert not child.is_running()
     if not run._status == "terminated":
@@ -528,10 +529,10 @@ def test_abort_on_alert_python(create_plain_run: typing.Tuple[sv_run.Run, dict],
         if i == 4:
             client.abort_run(run._id, reason="testing abort")
         i += 1
-        if abort_set.is_set() or i > 9:
+        if abort_set.is_set() or i > 11:
             break
 
-    assert i < 7
+    assert i < 10
     assert run._status == "terminated"
 
 

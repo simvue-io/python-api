@@ -113,7 +113,7 @@ def setup_test_run(run: sv_run.Run, create_objects: bool, request: pytest.Fixtur
         TEST_DATA["metrics"] = ("metric_counter", "metric_val")
     TEST_DATA["run_id"] = run._id
     TEST_DATA["run_name"] = run._name
-    TEST_DATA["url"] = run._url
+    TEST_DATA["url"] = run._config.server.url
     TEST_DATA["headers"] = run._headers
     TEST_DATA["pid"] = run._pid
     TEST_DATA["resources_metrics_interval"] = run._resources_metrics_interval
@@ -139,3 +139,4 @@ def setup_test_run(run: sv_run.Run, create_objects: bool, request: pytest.Fixtur
 
     time.sleep(1.)
     return TEST_DATA
+
