@@ -47,7 +47,6 @@ from .utilities import (
     calculate_sha256,
     compare_alerts,
     skip_if_failed,
-    get_auth,
     get_offline_directory,
     validate_timestamp,
     simvue_timestamp,
@@ -163,9 +162,8 @@ class Run:
         )
 
         self._aborted: bool = False
-        self._url, self._token = get_auth()
         self._resources_metrics_interval: typing.Optional[int] = HEARTBEAT_INTERVAL
-        self._headers: dict[str, str] = {"Authorization": f"Bearer {self._token}"}
+        self._headers: dict[str, str] = {"Authorization": f"Bearer {self._config.server.token}"}
         self._simvue: typing.Optional[SimvueBaseClass] = None
         self._pid: typing.Optional[int] = 0
         self._shutdown_event: typing.Optional[threading.Event] = None
@@ -298,7 +296,7 @@ class Run:
         self,
     ) -> typing.Callable[[threading.Event], None]:
         if (
-            self._mode == "online" and (not self._url or not self._id)
+            self._mode == "online" and (not self._config.server.url or not self._id)
         ) or not self._heartbeat_termination_trigger:
             raise RuntimeError("Could not commence heartbeat, run not initialised")
 
@@ -380,7 +378,7 @@ class Run:
         if self._mode == "online" and not self._id:
             raise RuntimeError("Expected identifier for run")
 
-        if not self._url:
+        if not self._config.server.url:
             raise RuntimeError("Cannot commence dispatch, run not initialised")
 
         def _offline_dispatch_callback(
@@ -415,7 +413,7 @@ class Run:
         def _online_dispatch_callback(
             buffer: list[typing.Any],
             category: str,
-            url: str = self._url,
+            url: str = self._config.server.url,
             run_id: typing.Optional[str] = self._id,
             headers: dict[str, str] = self._headers,
         ) -> None:
