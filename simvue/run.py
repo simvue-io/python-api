@@ -166,10 +166,11 @@ class Run:
         if not _is_running:
             return
 
-        self.set_status("terminated" if _is_terminated else "failed")
-
         if not self._active:
             return
+
+        self.log_event(traceback or f"An exception was thrown: {_exception_thrown}")
+        self.set_status("terminated" if _is_terminated else "failed")
 
         # If the dispatcher has already been aborted then this will
         # fail so just continue without the event
@@ -1415,7 +1416,8 @@ class Run:
         if self._status == "running":
             if self._dispatcher:
                 self._dispatcher.join()
-            self.set_status("completed")
+            if self._active:
+                self.set_status("completed")
         elif self._dispatcher:
             self._dispatcher.purge()
             self._dispatcher.join()
