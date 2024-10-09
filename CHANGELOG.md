@@ -12,6 +12,7 @@
 * Ensure all functionality is deactivated when mode is set to `disabled`.
 * When an exception is thrown an event is sent to Simvue displaying the traceback.
 * If `add_process` is used and an exception is thrown, `.err` and `.out` files are still uploaded.
+* Migrate to `simvue.toml` from `simvue.ini`, allowing more defaults to be set during runs.
 
 ## [v1.0.4](https://github.com/simvue-io/client/releases/tag/v1.0.4) - 2024-09-24
 
