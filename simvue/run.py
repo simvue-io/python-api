@@ -78,7 +78,7 @@ def check_run_initialised(
         if self._mode == "disabled":
             return True
 
-        if self._retention and self._timer > self._retention:
+        if self._retention and time.time() - self._timer > self._retention:
             self._active = False
             raise RuntimeError("Cannot update expired Simvue Run")
 
