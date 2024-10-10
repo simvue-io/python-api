@@ -78,6 +78,10 @@ def check_run_initialised(
         if self._mode == "disabled":
             return True
 
+        if self._retention and self._timer > self._retention:
+            self._active = False
+            raise RuntimeError("Cannot update expired Simvue Run")
+
         if not self._simvue:
             raise RuntimeError(
                 "Simvue Run must be initialised before calling "
@@ -128,6 +132,11 @@ class Run:
         self._uuid: str = f"{uuid.uuid4()}"
         self._mode: typing.Literal["online", "offline", "disabled"] = mode
         self._name: typing.Optional[str] = None
+
+        # monitor duration with respect to retention period
+        self._timer: float = 0
+        self._retention: typing.Optional[float] = None
+
         self._testing: bool = False
         self._abort_on_alert: typing.Literal["run", "terminate", "ignore"] = "terminate"
         self._abort_callback: typing.Optional[typing.Callable[[Self], None]] = (
@@ -661,20 +670,22 @@ class Run:
         # Parse the time to live/retention time if specified
         try:
             if retention_period:
-                retention_secs: typing.Optional[int] = int(
+                self._retention: typing.Optional[int] = int(
                     humanfriendly.parse_timespan(retention_period)
                 )
             else:
-                retention_secs = None
+                self._retention = None
         except humanfriendly.InvalidTimespan as e:
             self._error(e.args[0])
             return False
+
+        self._timer = time.time()
 
         data: dict[str, typing.Any] = {
             "metadata": (metadata or {}) | git_info(os.getcwd()) | environment(),
             "tags": tags or [],
             "status": self._status,
-            "ttl": retention_secs,
+            "ttl": self._retention,
             "folder": folder,
             "name": name,
             "description": description,
