@@ -1,5 +1,9 @@
 # Change log
 
+## [v1.0.6](https://github.com/simvue-io/client/releases/tag/v1.0.6) - 2024-10-10
+
+* Fix incorrect usage of `retry` when attempting connections to the server.
+
 ## [v1.0.5](https://github.com/simvue-io/client/releases/tag/v1.0.5) - 2024-10-09
 
 * Ensure all functionality is deactivated when mode is set to `disabled`.
