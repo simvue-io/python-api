@@ -15,9 +15,9 @@ import http
 import requests
 from tenacity import (
     retry,
+    retry_if_exception,
     stop_after_attempt,
     wait_exponential,
-    retry_if_exception_type,
 )
 from .utilities import parse_validation_response
 
@@ -26,6 +26,14 @@ RETRY_MULTIPLIER = 1
 RETRY_MIN = 4
 RETRY_MAX = 10
 RETRY_STOP = 5
+RETRY_STATUS_CODES = (
+    http.HTTPStatus.BAD_REQUEST,
+    http.HTTPStatus.SERVICE_UNAVAILABLE,
+    http.HTTPStatus.GATEWAY_TIMEOUT,
+    http.HTTPStatus.REQUEST_TIMEOUT,
+    http.HTTPStatus.TOO_EARLY,
+)
+RETRY_EXCEPTION_TYPES = (RuntimeError, requests.exceptions.ConnectionError)
 
 
 def set_json_header(headers: dict[str, str]) -> dict[str, str]:
@@ -38,10 +46,18 @@ def set_json_header(headers: dict[str, str]) -> dict[str, str]:
     return headers
 
 
+def is_retryable_exception(exception: Exception) -> bool:
+    """Returns if the given exception should lead to a retry being called"""
+    if isinstance(exception, requests.HTTPError):
+        return exception.status_code in RETRY_STATUS_CODES
+
+    return isinstance(exception, RETRY_EXCEPTION_TYPES)
+
+
 @retry(
     wait=wait_exponential(multiplier=RETRY_MULTIPLIER, min=RETRY_MIN, max=RETRY_MAX),
     stop=stop_after_attempt(RETRY_STOP),
-    retry=retry_if_exception_type(RuntimeError),
+    retry=retry_if_exception(is_retryable_exception),
     reraise=True,
 )
 def post(
@@ -104,7 +120,7 @@ def post(
 
 @retry(
     wait=wait_exponential(multiplier=RETRY_MULTIPLIER, min=RETRY_MIN, max=RETRY_MAX),
-    retry=retry_if_exception_type(RuntimeError),
+    retry=retry_if_exception(is_retryable_exception),
     stop=stop_after_attempt(RETRY_STOP),
     reraise=True,
 )
@@ -127,7 +143,7 @@ def put(
         data to put
     is_json : bool, optional
         send as JSON string, by default True
-    timeout : _type_, optional
+    timeout : int, optional
         timeout of request, by default DEFAULT_API_TIMEOUT
 
     Returns
@@ -148,6 +164,12 @@ def put(
     return response
 
 
+@retry(
+    wait=wait_exponential(multiplier=RETRY_MULTIPLIER, min=RETRY_MIN, max=RETRY_MAX),
+    retry=retry_if_exception(is_retryable_exception),
+    stop=stop_after_attempt(RETRY_STOP),
+    reraise=True,
+)
 def get(
     url: str, headers: dict[str, str], timeout: int = DEFAULT_API_TIMEOUT
 ) -> requests.Response:
@@ -159,7 +181,7 @@ def get(
         URL to put to
     headers : dict[str, str]
         headers for the post request
-    timeout : _type_, optional
+    timeout : int, optional
         timeout of request, by default DEFAULT_API_TIMEOUT
 
     Returns
