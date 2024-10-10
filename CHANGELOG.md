@@ -1,6 +1,10 @@
 # Change log
 
-## Unreleased
+## [v1.0.6](https://github.com/simvue-io/client/releases/tag/v1.0.6) - 2024-10-10
+
+* Fix incorrect usage of `retry` when attempting connections to the server.
+
+## [v1.0.5](https://github.com/simvue-io/client/releases/tag/v1.0.5) - 2024-10-09
 
 * Add option to specify a callback executed when an alert is triggered for a run.
 * Allow retrieval of all alerts when no constraints are specified.
