@@ -172,7 +172,7 @@ def process(run):
     # Create run if it hasn't previously been created
     created_file = f"{current}/init"
     name = None
-    config = SimvueConfiguration()
+    config = SimvueConfiguration.fetch()
     if not os.path.isfile(created_file):
         remote = Remote(
             name=run_init["name"], uniq_id=id, config=config, suppress_errors=False
