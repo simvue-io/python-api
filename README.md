@@ -34,7 +34,7 @@ The service URL and token can be defined as environment variables:
 export SIMVUE_URL=...
 export SIMVUE_TOKEN=...
 ```
-or a file `simvue.ini` can be created containing:
+or a file `simvue.toml` can be created containing:
 ```toml
 [server]
 url = "..."
