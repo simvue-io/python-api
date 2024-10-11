@@ -32,9 +32,20 @@ pre-commit install
 
 ### 🧪 Testing
 
-To ensure robustness and reliability this repository includes a set of tests which are executed automatically as part of continuous integration. Before opening a merge request we ask that you check
-your changes locally by running the test suit. New tests should be written for any further functionality added.
+To ensure robustness and reliability this repository includes a set of tests which are executed automatically as part of continuous integration. Before opening a merge request we ask that you check your changes locally by running the test suite. New tests should be written for any further functionality added. In the past the Python API underwent a major refactor leading to a new set of tests being written, rather than delete the previous integration tests a new `refactor` folder was created, only `unit` tests and `refactor` tests are used during development
+
+```sh
+pytest tests/unit/ tests/refactor/
+```
+
+### ℹ️ Typing
+
+All code within this repository makes use of Python's typing capability, this has proven invaluable for spotting any incorrect usage of functionality as linters are able to quickly flag up any incompatibilities. Typing also allows us define validator rules using the [Pydantic](https://docs.pydantic.dev/latest/) framework.  We ask that you type all functions and variables where possible.
+
+### ✔️ Linting and Formatting
+
+_Simvue_ Python API utilises the [Ruff](https://github.com/astral-sh/ruff) linter and formatter to ensure consistency, and this tool is included as part of the pre-commit hooks. Checking of styling/formatting is part of the CI pipeline.
 
 ## :book: Documentation
 
-To ensure functions, methods and classes are documented appropriately _Simvue_ Python API follows the Numpy docstring convention.
+To ensure functions, methods and classes are documented appropriately _Simvue_ Python API follows the Numpy docstring convention. We also ask that if adding new features you ensure these are mentioned within the official [documentation](https://github.com/simvue-io/docs). 
