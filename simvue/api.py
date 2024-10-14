@@ -49,7 +49,7 @@ def set_json_header(headers: dict[str, str]) -> dict[str, str]:
 def is_retryable_exception(exception: Exception) -> bool:
     """Returns if the given exception should lead to a retry being called"""
     if isinstance(exception, requests.HTTPError):
-        return exception.status_code in RETRY_STATUS_CODES
+        return exception.response.status_code in RETRY_STATUS_CODES
 
     return isinstance(exception, RETRY_EXCEPTION_TYPES)
 
