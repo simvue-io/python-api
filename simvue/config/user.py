@@ -27,7 +27,7 @@ from simvue.config.parameters import (
     ServerSpecifications,
 )
 
-logger = logging.getLogger(__file__)
+logger = logging.getLogger(__name__)
 
 
 class SimvueConfiguration(pydantic.BaseModel):
