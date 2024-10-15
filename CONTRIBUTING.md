@@ -32,10 +32,10 @@ pre-commit install
 
 ### 🧪 Testing
 
-To ensure robustness and reliability this repository includes a set of tests which are executed automatically as part of continuous integration. Before opening a merge request we ask that you check your changes locally by running the test suite. New tests should be written for any further functionality added. In the past the Python API underwent a major refactor leading to a new set of tests being written, rather than delete the previous integration tests a new `refactor` folder was created, only `unit` tests and `refactor` tests are used during development
+To ensure robustness and reliability this repository includes a set of tests which are executed automatically as part of continuous integration. Before opening a merge request we ask that you check your changes locally by running the test suite. New tests should be written for any further functionality added.
 
 ```sh
-pytest tests/unit/ tests/refactor/
+pytest tests
 ```
 
 ### ℹ️ Typing
@@ -48,4 +48,4 @@ _Simvue_ Python API utilises the [Ruff](https://github.com/astral-sh/ruff) linte
 
 ## :book: Documentation
 
-To ensure functions, methods and classes are documented appropriately _Simvue_ Python API follows the Numpy docstring convention. We also ask that if adding new features you ensure these are mentioned within the official [documentation](https://github.com/simvue-io/docs). 
+To ensure functions, methods and classes are documented appropriately _Simvue_ Python API follows the Numpy docstring convention. We also ask that if adding new features you ensure these are mentioned within the official [documentation](https://github.com/simvue-io/docs).
