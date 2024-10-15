@@ -153,10 +153,17 @@ def check_extra(extra_name: str) -> typing.Callable:
 def parse_pydantic_error(class_name: str, error: pydantic.ValidationError) -> str:
     out_table: list[str] = []
     for data in json.loads(error.json()):
-        out_table.append([data["loc"], data["type"], data["msg"]])
+        out_table.append(
+            [
+                data.get("input") if data["input"] is not None else "None",
+                data["loc"],
+                data["type"],
+                data["msg"],
+            ]
+        )
     err_table = tabulate.tabulate(
         out_table,
-        headers=["Location", "Type", "Message"],
+        headers=["Input", "Location", "Type", "Message"],
         tablefmt="fancy_grid",
     )
     return f"`{class_name}` Validation:\n{err_table}"
