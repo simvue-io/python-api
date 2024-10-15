@@ -93,6 +93,7 @@ class Client:
 
     def __init__(
         self,
+        *,
         server_token: typing.Optional[str] = None,
         server_url: typing.Optional[str] = None,
     ) -> None:
@@ -282,13 +283,14 @@ class Client:
     def get_runs(
         self,
         filters: typing.Optional[list[str]],
+        *,
         system: bool = False,
         metrics: bool = False,
         alerts: bool = False,
         metadata: bool = False,
         output_format: typing.Literal["dict", "dataframe"] = "dict",
-        count: int = 100,
-        start_index: int = 0,
+        count_limit: typing.Optional[pydantic.PositiveInt] = 100,
+        start_index: typing.Optional[pydantic.PositiveInt] = 0,
         show_shared: bool = False,
     ) -> typing.Union[
         DataFrame, list[dict[str, typing.Union[int, str, float, None]]], None
@@ -312,7 +314,7 @@ class Client:
         output_format : Literal['dict', 'dataframe'], optional
             the structure of the response, either a dictionary or a dataframe.
             Default is 'dict'. Pandas must be installed for 'dataframe'.
-        count : int, optional
+        count_limit : int, optional
             maximum number of entries to return. Default is 100.
         start_index : int, optional
             the index from which to count entries. Default is 0.
@@ -342,7 +344,7 @@ class Client:
             "return_alerts": alerts,
             "return_system": system,
             "return_metadata": metadata,
-            "count": count,
+            "count": count_limit,
             "start": start_index,
         }
 
@@ -376,12 +378,12 @@ class Client:
 
     @prettify_pydantic
     @pydantic.validate_call
-    def delete_run(self, run_identifier: str) -> typing.Optional[dict]:
+    def delete_run(self, run_id: str) -> typing.Optional[dict]:
         """Delete run by identifier
 
         Parameters
         ----------
-        run_identifier : str
+        run_id : str
             the unique identifier for the run
 
         Returns
@@ -396,17 +398,17 @@ class Client:
         """
 
         response = requests.delete(
-            f"{self._config.server.url}/api/runs/{run_identifier}",
+            f"{self._config.server.url}/api/runs/{run_id}",
             headers=self._headers,
         )
 
         json_response = self._get_json_from_response(
             expected_status=[http.HTTPStatus.OK],
-            scenario=f"Deletion of run '{run_identifier}'",
+            scenario=f"Deletion of run '{run_id}'",
             response=response,
         )
 
-        logger.debug(f"Run '{run_identifier}' deleted successfully")
+        logger.debug(f"Run '{run_id}' deleted successfully")
 
         if not isinstance(json_response, dict):
             raise RuntimeError(
@@ -645,6 +647,9 @@ class Client:
             scenario=f"Retrieval of artifact '{name}' for run '{run_id}'",
             response=response,
         )
+
+        if isinstance(json_response, dict) and (detail := json_response.get("detail")):
+            raise RuntimeError(f"Failed to retrieve artifact '{name}': {detail}")
 
         if not isinstance(json_response, list):
             raise RuntimeError(
@@ -928,6 +933,7 @@ class Client:
     @pydantic.validate_call
     def get_folders(
         self,
+        *,
         filters: typing.Optional[list[str]] = None,
         count: pydantic.PositiveInt = 100,
         start_index: pydantic.NonNegativeInt = 0,
@@ -1067,6 +1073,7 @@ class Client:
         self,
         metric_names: list[str],
         xaxis: typing.Literal["step", "time", "timestamp"],
+        *,
         output_format: typing.Literal["dataframe", "dict"] = "dict",
         run_ids: typing.Optional[list[str]] = None,
         run_filters: typing.Optional[list[str]] = None,
@@ -1178,6 +1185,7 @@ class Client:
         run_ids: list[str],
         metric_names: list[str],
         xaxis: typing.Literal["step", "time"],
+        *,
         max_points: typing.Optional[int] = None,
     ) -> typing.Any:
         """Plt the time series values for multiple metrics/runs
@@ -1260,6 +1268,7 @@ class Client:
     def get_events(
         self,
         run_id: str,
+        *,
         message_contains: typing.Optional[str] = None,
         start_index: typing.Optional[pydantic.NonNegativeInt] = None,
         count_limit: typing.Optional[pydantic.PositiveInt] = None,
@@ -1324,9 +1333,12 @@ class Client:
     @pydantic.validate_call
     def get_alerts(
         self,
+        *,
         run_id: typing.Optional[str] = None,
         critical_only: bool = True,
         names_only: bool = True,
+        start_index: typing.Optional[pydantic.NonNegativeInt] = None,
+        count_limit: typing.Optional[pydantic.PositiveInt] = None,
     ) -> list[dict[str, typing.Any]]:
         """Retrieve alerts for a given run
 
@@ -1338,6 +1350,10 @@ class Client:
             If a run is specified, whether to only return details about alerts which are currently critical, by default True
         names_only: bool, optional
             Whether to only return the names of the alerts (otherwise return the full details of the alerts), by default True
+        start_index : typing.int, optional
+            slice results returning only those above this index, by default None
+        count_limit : typing.int, optional
+            limit number of returned results, by default None
 
         Returns
         -------
@@ -1349,9 +1365,12 @@ class Client:
         RuntimeError
             if there was a failure retrieving data from the server
         """
+        params: dict[str, int] = {"count": count_limit or 0, "start": start_index or 0}
         if not run_id:
             response = requests.get(
-                f"{self._config.server.url}/api/alerts/", headers=self._headers
+                f"{self._config.server.url}/api/alerts/",
+                headers=self._headers,
+                params=params,
             )
 
             json_response = self._get_json_from_response(
@@ -1361,7 +1380,9 @@ class Client:
             )
         else:
             response = requests.get(
-                f"{self._config.server.url}/api/runs/{run_id}", headers=self._headers
+                f"{self._config.server.url}/api/runs/{run_id}",
+                headers=self._headers,
+                params=params,
             )
 
             json_response = self._get_json_from_response(
@@ -1406,3 +1427,127 @@ class Client:
                 return [alert.get("name") for alert in alerts]
 
         return alerts
+
+    @prettify_pydantic
+    @pydantic.validate_call
+    def get_tags(
+        self,
+        *,
+        start_index: typing.Optional[pydantic.NonNegativeInt] = None,
+        count_limit: typing.Optional[pydantic.PositiveInt] = None,
+    ) -> list[dict]:
+        """Retrieve tags
+
+        Parameters
+        ----------
+        start_index : typing.int, optional
+            slice results returning only those above this index, by default None
+        count_limit : typing.int, optional
+            limit number of returned results, by default None
+
+        Returns
+        -------
+        list[dict[str, Any]]
+            a list of all tags for this run which match the constrains specified
+
+        Raises
+        ------
+        RuntimeError
+            if there was a failure retrieving data from the server
+        """
+        params = {"count": count_limit or 0, "start": start_index or 0}
+        response = requests.get(
+            f"{self._config.server.url}/api/tags", headers=self._headers, params=params
+        )
+
+        json_response = self._get_json_from_response(
+            expected_status=[200],
+            scenario="Retrieval of tags",
+            response=response,
+        )
+
+        if not isinstance(json_response, dict):
+            raise RuntimeError("Expected list from JSON response when retrieving tags")
+
+        if not (data := json_response.get("data")):
+            raise RuntimeError("Expected key 'data' in response during tags retrieval")
+
+        return data
+
+    @prettify_pydantic
+    @pydantic.validate_call
+    def delete_tag(self, tag_id: str) -> None:
+        """Delete a tag by its identifier
+
+        Parameters
+        ----------
+        tag_id : str
+            unique identifier for the tag
+
+        Raises
+        ------
+        RuntimeError
+            if the deletion failed due to a server request error
+        """
+
+        response = requests.delete(
+            f"{self._config.server.url}/api/tags/{tag_id}",
+            headers=self._headers,
+        )
+
+        json_response = self._get_json_from_response(
+            expected_status=[http.HTTPStatus.OK],
+            scenario=f"Deletion of tag '{tag_id}'",
+            response=response,
+        )
+
+        logger.debug(f"Tag '{tag_id}' deleted successfully")
+
+        if not isinstance(json_response, dict):
+            raise RuntimeError(
+                "Expected dictionary from JSON response during run deletion "
+                f"but got '{type(json_response)}'"
+            )
+
+        return json_response or None
+
+    @prettify_pydantic
+    @pydantic.validate_call
+    def get_tag(self, tag_id: str) -> typing.Optional[dict[str, typing.Any]]:
+        """Retrieve a single tag
+
+        Parameters
+        ----------
+        tag_id : str
+            the unique identifier for this tag
+
+        Returns
+        -------
+        dict[str, Any]
+            response containing information on the given tag
+
+        Raises
+        ------
+        RuntimeError
+            if retrieval of information from the server on this tag failed
+        """
+
+        response: requests.Response = requests.get(
+            f"{self._config.server.url}/api/tag/{tag_id}", headers=self._headers
+        )
+
+        json_response = self._get_json_from_response(
+            expected_status=[http.HTTPStatus.OK, http.HTTPStatus.NOT_FOUND],
+            scenario=f"Retrieval of tag '{tag_id}'",
+            response=response,
+        )
+
+        if response.status_code == http.HTTPStatus.NOT_FOUND:
+            return None
+
+        if not isinstance(json_response, dict):
+            raise RuntimeError(
+                "Expected dictionary from JSON response during tag retrieval "
+                f"but got '{type(json_response)}'"
+            )
+        return json_response
