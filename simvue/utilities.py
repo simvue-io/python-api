@@ -266,12 +266,15 @@ def get_offline_directory() -> str:
         os.path.join(os.path.expanduser("~"), ".simvue.ini"),
         "simvue.ini",
     ):
+        if not filename or not os.path.exists(filename):
+            continue
+
         with contextlib.suppress(Exception):
             config = configparser.ConfigParser()
             config.read(filename)
             directory = config.get("offline", "cache")
 
-    if not directory:
+    if not (directory := os.environ.get("SIMVUE_OFFLINE_DIRECTORY", directory)):
         directory = os.path.join(os.path.expanduser("~"), ".simvue")
 
     return directory
