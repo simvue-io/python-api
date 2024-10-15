@@ -1,6 +1,7 @@
 from concurrent.futures import ThreadPoolExecutor
 import glob
 import json
+import typing
 import logging
 import os
 import shutil
@@ -116,12 +117,12 @@ def sender() -> str:
         with ThreadPoolExecutor(NUM_PARALLEL_WORKERS) as executor:
             for run in runs:
                 executor.submit(process(run))
+        return [executor.result() for _ in runs]
     else:
-        for run in runs:
-            process(run)
+        return [process(run) for run in runs]
 
 
-def process(run):
+def process(run) -> typing.Optional[str]:
     """
     Handle updates for the specified run
     """
@@ -319,4 +320,4 @@ def process(run):
         logger.info("Finished sending run %s as it was lost", run_init["name"])
         create_file(f"{current}/sent")
 
-    return
+    return run_id
