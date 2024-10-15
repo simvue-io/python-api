@@ -160,9 +160,7 @@ class Run:
         self._data: dict[str, typing.Any] = {}
         self._step: int = 0
         self._active: bool = False
-        self._config = SimvueConfiguration.fetch(
-            server_token=server_token, server_url=server_url
-        )
+        self._config = SimvueConfiguration.fetch()
 
         logging.getLogger(self.__class__.__module__).setLevel(
             logging.DEBUG
@@ -1869,10 +1867,8 @@ class Run:
             except RuntimeError as e:
                 self._error(f"{e.args[0]}")
                 return None
-            if response:
-                if "id" in response:
-                    alert_id = response["id"]
-            else:
+
+            if not (alert_id := (response or {}).get("id")):
                 self._error("unable to create alert")
                 return None
 
