@@ -58,6 +58,8 @@ class Offline(SimvueBaseClass):
     ) -> typing.Optional[dict[str, typing.Any]]:
         unique_id = time.time()
         filename = os.path.join(self._directory, f"{prefix}-{unique_id}.json")
+        if not data.get("id"):
+            data["id"] = f"{unique_id}"
         self._write_json(filename, data)
         return data
 
