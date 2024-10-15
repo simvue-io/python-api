@@ -60,11 +60,10 @@ def create_test_run(request) -> typing.Generator[typing.Tuple[sv_run.Run, dict],
 
 @pytest.fixture
 def create_test_run_offline(mocker: pytest_mock.MockerFixture, request) -> typing.Generator[typing.Tuple[sv_run.Run, dict], None, None]:
-    with tempfile.TemporaryDirectory() as temp_d:
-        with tempfile.TemporaryDirectory() as offline_dir:
-            os.environ["SIMVUE_OFFLINE_DIRECTORY"] = offline_dir
-            with sv_run.Run("offline") as run:
-                yield run, setup_test_run(run, True, request)
+    with tempfile.TemporaryDirectory() as offline_dir:
+        os.environ["SIMVUE_OFFLINE_DIRECTORY"] = offline_dir
+        with sv_run.Run("offline") as run:
+            yield run, setup_test_run(run, True, request)
     clear_out_files()
 
 
@@ -84,11 +83,10 @@ def create_pending_run(request) -> typing.Generator[typing.Tuple[sv_run.Run, dic
 
 @pytest.fixture
 def create_plain_run_offline(mocker: pytest_mock.MockerFixture, request) -> typing.Generator[typing.Tuple[sv_run.Run, dict], None, None]:
-    with tempfile.TemporaryDirectory() as temp_d:
-        with tempfile.TemporaryDirectory() as offline_dir:
-            os.environ["SIMVUE_OFFLINE_DIRECTORY"] = offline_dir
-            with sv_run.Run("offline") as run:
-                yield run, setup_test_run(run, False, request)
+    with tempfile.TemporaryDirectory() as offline_dir:
+        os.environ["SIMVUE_OFFLINE_DIRECTORY"] = offline_dir
+        with sv_run.Run("offline") as run:
+            yield run, setup_test_run(run, False, request)
     clear_out_files()
 
 

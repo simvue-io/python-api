@@ -1,4 +1,5 @@
 import os
+from os.path import basename
 import pytest
 import pytest_mock
 import time
@@ -435,7 +436,7 @@ def test_set_folder_details(request: pytest.FixtureRequest) -> None:
         run.set_folder_details(path=folder_name, tags=tags, description=description)
 
     client = sv_cl.Client()
-    assert (folder := client.get_folders([f"path == {folder_name}"])[0])["tags"] == tags
+    assert (folder := client.get_folders(filters=[f"path == {folder_name}"])[0])["tags"] == tags
     assert folder["description"] == description
 
 
@@ -450,7 +451,7 @@ def test_set_folder_details(request: pytest.FixtureRequest) -> None:
 @pytest.mark.parametrize("allow_pickle", (True, False), ids=("pickled", "unpickled"))
 @pytest.mark.parametrize("empty_file", (True, False), ids=("empty", "content"))
 @pytest.mark.parametrize("category", ("input", "output", "code"))
-def test_save_file(
+def test_save_file_online(
     create_plain_run: typing.Tuple[sv_run.Run, dict],
     valid_mimetype: bool,
     preserve_path: bool,
@@ -494,13 +495,28 @@ def test_save_file(
                     variable.out
                     == "[simvue] WARNING: saving zero-sized files not currently supported\n"
                 )
+                return
+        simvue_run.close()
+        time.sleep(1.0)
+        os.remove(out_name)
+        client = sv_cl.Client()
+        base_name = name or out_name.name
+        if preserve_path:
+            out_loc = pathlib.Path(tempd) / out_name.parent
+            stored_name = out_name.parent / pathlib.Path(base_name)
+        else:
+            out_loc = pathlib.Path(tempd)
+            stored_name = pathlib.Path(base_name)
+        out_file = out_loc.joinpath(name or out_name.name)
+        client.get_artifact_as_file(run_id=simvue_run.id, name=f"{name or stored_name}", path=tempd)
+        assert out_loc.joinpath(name if name else out_name.name).exists()
 
 
 @pytest.mark.run
 @pytest.mark.parametrize(
     "preserve_path", (True, False), ids=("preserve_path", "modified_path")
 )
-@pytest.mark.parametrize("name", ("test_file", None), ids=("named", "nameless"))
+@pytest.mark.parametrize("name", ("retrieved_test_file", None), ids=("named", "nameless"))
 @pytest.mark.parametrize("category", ("input", "output", "code"))
 def test_save_file_offline(
     create_plain_run_offline: tuple[sv_run.Run, dict],
@@ -517,20 +533,28 @@ def test_save_file_offline(
         ) as out_f:
             out_f.write("test data entry")
 
-            simvue_run.save_file(
-                out_name,
-                category=category,
-                preserve_path=preserve_path,
-                name=name,
-            )
-            os.remove(out_name)
-            run_id, *_ = sv_send.sender()
-            simvue_run.close()
-            time.sleep(1.0)
-            client = sv_cl.Client()
-            client.get_artifact_as_file(run_id, name, path=tempd)
-            assert os.path.exists(out_name)
-
+        simvue_run.save_file(
+            out_name,
+            category=category,
+            preserve_path=preserve_path,
+            name=name,
+        )
+        run_id, *_ = sv_send.sender()
+        simvue_run.close()
+        time.sleep(1.0)
+        os.remove(out_name)
+        client = sv_cl.Client()
+        assert run_id
+        base_name = name or out_name.name
+        if preserve_path:
+            out_loc = pathlib.Path(tempd) / out_name.parent
+            stored_name = out_name.parent / pathlib.Path(base_name)
+        else:
+            out_loc = pathlib.Path(tempd)
+            stored_name = pathlib.Path(base_name)
+        out_file = out_loc.joinpath(name or out_name.name)
+        client.get_artifact_as_file(run_id=run_id, name=f"{name or stored_name}", path=tempd)
+        assert out_loc.joinpath(name if name else out_name.name).exists()
 
 
 @pytest.mark.run
