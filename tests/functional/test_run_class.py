@@ -715,6 +715,7 @@ def test_abort_on_alert_raise(create_plain_run: typing.Tuple[sv_run.Run, dict], 
         time.sleep(1)
         counter += 1
     if counter >= 15:
+        run.kill_all_processes()
         raise AssertionError("Run was not terminated")
 
 
