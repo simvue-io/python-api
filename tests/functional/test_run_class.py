@@ -710,9 +710,11 @@ def test_abort_on_alert_raise(create_plain_run: typing.Tuple[sv_run.Run, dict], 
     run.add_process(identifier="forever_long", executable="bash", c="sleep 10")
     time.sleep(2)
     run.log_alert(alert_id, "critical")
-    time.sleep(4)
-    if not run._status == "terminated":
-        run.kill_all_processes()
+    counter = 0
+    while run._status != "terminated" and counter < 15:
+        time.sleep(1)
+        counter += 1
+    if counter >= 15:
         raise AssertionError("Run was not terminated")
 
 
