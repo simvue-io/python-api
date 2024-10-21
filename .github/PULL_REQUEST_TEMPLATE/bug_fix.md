@@ -1,4 +1,4 @@
-# Bug Fix PR Template
+# <Title of Bug Fix>
 
 **Issue:** Link to the issue relating to this bug.
 **Python Version(s) Tested:** Python versions this fix has been verified against.
