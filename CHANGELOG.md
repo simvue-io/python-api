@@ -1,6 +1,6 @@
 # Change log
 
-## Unreleased
+## [v1.1.0](https://github.com/simvue-io/client/releases/tag/v1.1.0) - 2024-10-21
 
 * Add option to specify a callback executed when an alert is triggered for a run.
 * Allow retrieval of all alerts when no constraints are specified.

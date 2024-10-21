@@ -363,7 +363,7 @@ def test_set_folder_details(request: pytest.FixtureRequest) -> None:
         run.set_folder_details(path=folder_name, tags=tags, description=description)
 
     client = sv_cl.Client()
-    assert (folder := client.get_folders([f"path == {folder_name}"])[0])["tags"] == tags
+    assert (folder := client.get_folders(filters=[f"path == {folder_name}"])[0])["tags"] == tags
     assert folder["description"] == description
 
 
