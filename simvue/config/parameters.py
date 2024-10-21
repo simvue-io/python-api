@@ -74,6 +74,10 @@ class ServerSpecifications(pydantic.BaseModel):
         return values
 
 
+class OfflineSpecifications(pydantic.BaseModel):
+    cache: typing.Optional[pathlib.Path] = None
+
+
 class DefaultRunSpecifications(pydantic.BaseModel):
     name: typing.Optional[str] = None
     description: typing.Optional[str] = None

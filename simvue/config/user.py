@@ -25,6 +25,7 @@ from simvue.config.parameters import (
     ClientGeneralOptions,
     DefaultRunSpecifications,
     ServerSpecifications,
+    OfflineSpecifications,
 )
 
 logger = logging.getLogger(__name__)
@@ -38,6 +39,7 @@ class SimvueConfiguration(pydantic.BaseModel):
         ..., description="Specifications for Simvue server"
     )
     run: DefaultRunSpecifications = DefaultRunSpecifications()
+    offline: OfflineSpecifications = OfflineSpecifications()
 
     @classmethod
     def _parse_ini_config(cls, ini_file: pathlib.Path) -> dict[str, dict[str, str]]:
