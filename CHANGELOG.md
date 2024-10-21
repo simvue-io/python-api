@@ -1,5 +1,9 @@
 # Change log
 
+## Unreleased
+
+* Add missing `offline.cache` key to TOML config.
+
 ## [v1.1.0](https://github.com/simvue-io/client/releases/tag/v1.1.0) - 2024-10-21
 
 * Add option to specify a callback executed when an alert is triggered for a run.
