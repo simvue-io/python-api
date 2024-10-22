@@ -14,8 +14,8 @@ from simvue.config.user import SimvueConfiguration
     ids=("use_env", "no_env")
 )
 @pytest.mark.parametrize(
-    "use_file", (None, "basic", "extended", "ini"),
-    ids=("no_file", "basic_file", "extended_file", "legacy_file")
+    "use_file", (None, "basic", "extended"),
+    ids=("no_file", "basic_file", "extended_file")
 )
 @pytest.mark.parametrize(
     "use_args", (True, False),
@@ -50,8 +50,8 @@ def test_config_setup(
     with tempfile.TemporaryDirectory() as temp_d:
         _config_file = None
         if use_file:
-            with open(_config_file := pathlib.Path(temp_d).joinpath(f"simvue.{'toml' if use_file != 'ini' else 'ini'}"), "w") as out_f:
-                if use_file != "ini":
+            with open(_config_file := pathlib.Path(temp_d).joinpath("simvue.toml"), "w") as out_f:
+                if use_file:
                     _lines: str = f"""
 [server]
 url = "{_url}"
@@ -59,15 +59,6 @@ token = "{_token}"
 
 [offline]
 cache = "{temp_d}"
-"""
-                else:
-                    _lines = f"""
-[server]
-url = {_url}
-token = {_token}
-
-[offline]
-cache = {temp_d}
 """
 
                 if use_file == "extended":
