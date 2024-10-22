@@ -5,7 +5,7 @@ import uuid
 import pathlib
 import pytest_mock
 import tempfile
-from simvue.config import SimvueConfiguration
+from simvue.config.user import SimvueConfiguration
 
 
 @pytest.mark.config
@@ -57,12 +57,18 @@ def test_config_setup(
 [server]
 url = "{_url}"
 token = "{_token}"
+
+[offline]
+cache = "{temp_d}"
 """
                 else:
                     _lines = f"""
 [server]
 url = {_url}
 token = {_token}
+
+[offline]
+cache = {temp_d}
 """
 
                 if use_file == "extended":
@@ -78,19 +84,19 @@ tags = {_tags}
         mocker.patch("simvue.config.parameters.get_expiry", lambda *_, **__: 1e10)
         mocker.patch("simvue.config.user.sv_util.find_first_instance_of_file", lambda *_, **__: _config_file)
 
-        import simvue.config
+        import simvue.config.user
 
         if not use_file and not use_env and not use_args:
             with pytest.raises(RuntimeError):
-                simvue.config.SimvueConfiguration.fetch()
+                simvue.config.user.SimvueConfiguration.fetch()
             return
         elif use_args:
-            _config = simvue.config.SimvueConfiguration.fetch(
+            _config = simvue.config.user.SimvueConfiguration.fetch(
                 server_url=_arg_url,
                 server_token=_arg_token
             )
         else:
-            _config = simvue.config.SimvueConfiguration.fetch()
+            _config = simvue.config.user.SimvueConfiguration.fetch()
 
         if use_file:
             assert _config.config_file() == _config_file
@@ -104,6 +110,7 @@ tags = {_tags}
         elif use_file:
             assert _config.server.url == _url
             assert _config.server.token == _token
+            assert _config.offline.cache == temp_d
 
         if use_file == "extended":
             assert _config.run.description == _description
@@ -114,5 +121,5 @@ tags = {_tags}
             assert not _config.run.description
             assert not _config.run.tags
 
-        simvue.config.SimvueConfiguration.config_file.cache_clear()
+        simvue.config.user.SimvueConfiguration.config_file.cache_clear()
 

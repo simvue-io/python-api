@@ -20,12 +20,15 @@ import toml
 
 import simvue.utilities as sv_util
 from simvue.config.parameters import (
-    CONFIG_FILE_NAMES,
-    CONFIG_INI_FILE_NAMES,
     ClientGeneralOptions,
     DefaultRunSpecifications,
     ServerSpecifications,
     OfflineSpecifications,
+)
+
+from simvue.config.files import (
+    CONFIG_FILE_NAMES,
+    CONFIG_INI_FILE_NAMES,
 )
 
 logger = logging.getLogger(__name__)
@@ -61,6 +64,8 @@ class SimvueConfiguration(pydantic.BaseModel):
                 config_dict["server"]["token"] = token
             if url := parser.get("server", "url"):
                 config_dict["server"]["url"] = url
+            if offline_dir := parser.get("offline", "cache"):
+                config_dict["offline"]["cache"] = offline_dir
 
         return config_dict
 
@@ -88,6 +93,7 @@ class SimvueConfiguration(pydantic.BaseModel):
                 logger.warning("No config file found, checking environment variables")
 
         _config_dict["server"] = _config_dict.get("server", {})
+        _config_dict["offline"] = _config_dict.get("offline", {})
 
         # Ranking of configurations for token and URl is:
         # Envionment Variables > Run Definition > Configuration File

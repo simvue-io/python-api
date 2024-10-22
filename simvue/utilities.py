@@ -16,6 +16,9 @@ import jwt
 
 from datetime import timezone
 
+import toml
+from simvue.config.files import CONFIG_FILE_NAMES, CONFIG_INI_FILE_NAMES
+
 CHECKSUM_BLOCK_SIZE = 4096
 EXTRAS: tuple[str, ...] = ("plot", "torch")
 
@@ -260,24 +263,31 @@ def get_offline_directory() -> str:
     """
     Get directory for offline cache
     """
-    directory = None
+    _directory: typing.Optional[str] = None
 
-    for filename in (
-        os.path.join(os.path.expanduser("~"), ".simvue.ini"),
-        "simvue.ini",
-    ):
-        if not filename or not os.path.exists(filename):
-            continue
+    _config_file: typing.Optional[pathlib.Path] = find_first_instance_of_file(
+        CONFIG_FILE_NAMES, check_user_space=True
+    )
+    _config_file_ini: typing.Optional[pathlib.Path] = None
 
-        with contextlib.suppress(Exception):
-            config = configparser.ConfigParser()
-            config.read(filename)
-            directory = config.get("offline", "cache")
+    if _config_file:
+        _config = toml.load(_config_file)
+        _directory = _config.get("offline", {}).get("cache")
 
-    if not (directory := os.environ.get("SIMVUE_OFFLINE_DIRECTORY", directory)):
-        directory = os.path.join(os.path.expanduser("~"), ".simvue")
+    if not _config_file:
+        _config_file_ini: typing.Optional[pathlib.Path] = find_first_instance_of_file(
+            CONFIG_INI_FILE_NAMES, check_user_space=True
+        )
 
-    return directory
+    if _config_file_ini and not _directory:
+        _config_ini = configparser.ConfigParser()
+        _config_ini.read(_config_file_ini)
+        _directory = _config_ini.get("offline", "cache")
+
+    if not (_directory := os.environ.get("SIMVUE_OFFLINE_DIRECTORY", _directory)):
+        _directory = os.path.join(os.path.expanduser("~"), ".simvue")
+
+    return _directory
 
 
 def create_file(filename: str) -> None:

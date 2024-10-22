@@ -9,9 +9,9 @@ import uuid
 import randomname
 
 from simvue.factory.proxy.base import SimvueBaseClass
+from simvue.config.user import SimvueConfiguration
 from simvue.utilities import (
     create_file,
-    get_offline_directory,
     prepare_for_api,
     skip_if_failed,
 )
@@ -32,7 +32,8 @@ class Offline(SimvueBaseClass):
     ) -> None:
         super().__init__(name, uniq_id, suppress_errors)
 
-        self._directory: str = os.path.join(get_offline_directory(), self._uuid)
+        _offline_dir = SimvueConfiguration.fetch().offline.cache
+        self._directory: str = os.path.join(_offline_dir, self._uuid)
 
         os.makedirs(self._directory, exist_ok=True)
 

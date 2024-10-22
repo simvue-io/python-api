@@ -19,12 +19,6 @@ from simvue.utilities import get_expiry
 from simvue.version import __version__
 from simvue.api import get
 
-CONFIG_FILE_NAMES: list[str] = ["simvue.toml", ".simvue.toml"]
-
-CONFIG_INI_FILE_NAMES: list[str] = [
-    f'{pathlib.Path.cwd().joinpath("simvue.ini")}',
-    f'{pathlib.Path.home().joinpath(".simvue.ini")}',
-]
 
 logger = logging.getLogger(__file__)
 
@@ -76,6 +70,13 @@ class ServerSpecifications(pydantic.BaseModel):
 
 class OfflineSpecifications(pydantic.BaseModel):
     cache: typing.Optional[pathlib.Path] = None
+
+    @pydantic.field_validator("cache")
+    @classmethod
+    def cache_to_str(cls, v: typing.Any) -> str:
+        if not v and not (v := os.environ.get("SIMVUE_OFFLINE_DIRECTORY")):
+            return v
+        return f"{v}"
 
 
 class DefaultRunSpecifications(pydantic.BaseModel):
