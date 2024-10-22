@@ -13,18 +13,13 @@ import pydantic
 import typing
 import pathlib
 import http
+import functools
 
 import simvue.models as sv_models
 from simvue.utilities import get_expiry
 from simvue.version import __version__
 from simvue.api import get
 
-CONFIG_FILE_NAMES: list[str] = ["simvue.toml", ".simvue.toml"]
-
-CONFIG_INI_FILE_NAMES: list[str] = [
-    f'{pathlib.Path.cwd().joinpath("simvue.ini")}',
-    f'{pathlib.Path.home().joinpath(".simvue.ini")}',
-]
 
 logger = logging.getLogger(__file__)
 
@@ -47,18 +42,15 @@ class ServerSpecifications(pydantic.BaseModel):
             raise AssertionError("Simvue token has expired")
         return value
 
-    @pydantic.model_validator(mode="after")
     @classmethod
-    def check_valid_server(cls, values: "ServerSpecifications") -> bool:
-        if os.environ.get("SIMVUE_NO_SERVER_CHECK"):
-            return values
-
+    @functools.lru_cache
+    def _check_server(cls, token: str, url: str) -> None:
         headers: dict[str, str] = {
-            "Authorization": f"Bearer {values.token}",
+            "Authorization": f"Bearer {token}",
             "User-Agent": f"Simvue Python client {__version__}",
         }
         try:
-            response = get(f"{values.url}/api/version", headers)
+            response = get(f"{url}/api/version", headers)
 
             if response.status_code != http.HTTPStatus.OK or not response.json().get(
                 "version"
@@ -71,7 +63,24 @@ class ServerSpecifications(pydantic.BaseModel):
         except Exception as err:
             raise AssertionError(f"Exception retrieving server version: {str(err)}")
 
+    @pydantic.model_validator(mode="after")
+    @classmethod
+    def check_valid_server(cls, values: "ServerSpecifications") -> bool:
+        if os.environ.get("SIMVUE_NO_SERVER_CHECK"):
+            return values
+
+        cls._check_server(values.token, values.url)
+
         return values
+
+
+class OfflineSpecifications(pydantic.BaseModel):
+    cache: typing.Optional[pathlib.Path] = None
+
+    @pydantic.field_validator("cache")
+    @classmethod
+    def cache_to_str(cls, v: typing.Any) -> str:
+        return f"{v}"
 
 
 class DefaultRunSpecifications(pydantic.BaseModel):

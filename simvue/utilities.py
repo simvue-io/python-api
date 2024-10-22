@@ -1,4 +1,3 @@
-import configparser
 import datetime
 import hashlib
 import logging
@@ -15,6 +14,7 @@ import typing
 import jwt
 
 from datetime import timezone
+
 
 CHECKSUM_BLOCK_SIZE = 4096
 EXTRAS: tuple[str, ...] = ("plot", "torch")
@@ -254,30 +254,6 @@ def prettify_pydantic(class_func: typing.Callable) -> typing.Callable:
             raise RuntimeError(error_str)
 
     return wrapper
-
-
-def get_offline_directory() -> str:
-    """
-    Get directory for offline cache
-    """
-    directory = None
-
-    for filename in (
-        os.path.join(os.path.expanduser("~"), ".simvue.ini"),
-        "simvue.ini",
-    ):
-        if not filename or not os.path.exists(filename):
-            continue
-
-        with contextlib.suppress(Exception):
-            config = configparser.ConfigParser()
-            config.read(filename)
-            directory = config.get("offline", "cache")
-
-    if not (directory := os.environ.get("SIMVUE_OFFLINE_DIRECTORY", directory)):
-        directory = os.path.join(os.path.expanduser("~"), ".simvue")
-
-    return directory
 
 
 def create_file(filename: str) -> None:

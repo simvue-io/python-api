@@ -20,11 +20,16 @@ import toml
 
 import simvue.utilities as sv_util
 from simvue.config.parameters import (
-    CONFIG_FILE_NAMES,
-    CONFIG_INI_FILE_NAMES,
     ClientGeneralOptions,
     DefaultRunSpecifications,
     ServerSpecifications,
+    OfflineSpecifications,
+)
+
+from simvue.config.files import (
+    CONFIG_FILE_NAMES,
+    CONFIG_INI_FILE_NAMES,
+    DEFAULT_OFFLINE_DIRECTORY,
 )
 
 logger = logging.getLogger(__name__)
@@ -38,6 +43,7 @@ class SimvueConfiguration(pydantic.BaseModel):
         ..., description="Specifications for Simvue server"
     )
     run: DefaultRunSpecifications = DefaultRunSpecifications()
+    offline: OfflineSpecifications = OfflineSpecifications()
 
     @classmethod
     def _parse_ini_config(cls, ini_file: pathlib.Path) -> dict[str, dict[str, str]]:
@@ -50,7 +56,7 @@ class SimvueConfiguration(pydantic.BaseModel):
             stacklevel=2,
         )
 
-        config_dict: dict[str, dict[str, str]] = {"server": {}}
+        config_dict: dict[str, dict[str, str]] = {"server": {}, "offline": {}}
 
         with contextlib.suppress(Exception):
             parser = configparser.ConfigParser()
@@ -59,6 +65,8 @@ class SimvueConfiguration(pydantic.BaseModel):
                 config_dict["server"]["token"] = token
             if url := parser.get("server", "url"):
                 config_dict["server"]["url"] = url
+            if offline_dir := parser.get("offline", "cache"):
+                config_dict["offline"]["cache"] = offline_dir
 
         return config_dict
 
@@ -69,6 +77,24 @@ class SimvueConfiguration(pydantic.BaseModel):
         server_url: typing.Optional[str] = None,
         server_token: typing.Optional[str] = None,
     ) -> "SimvueConfiguration":
+        """Retrieve the Simvue configuration from this project
+
+        Will retrieve the configuration options set for this project either using
+        local or global configurations.
+
+        Parameters
+        ----------
+        server_url : str, optional
+            override the URL used for this session
+        server_token : str, optional
+            override the token used for this session
+
+        Return
+        ------
+        SimvueConfiguration
+            object containing configurations
+
+        """
         _config_dict: dict[str, dict[str, str]] = {}
 
         try:
@@ -86,6 +112,16 @@ class SimvueConfiguration(pydantic.BaseModel):
                 logger.warning("No config file found, checking environment variables")
 
         _config_dict["server"] = _config_dict.get("server", {})
+
+        _config_dict["offline"] = _config_dict.get("offline", {})
+
+        # Allow override of specification of offline directory via environment variable
+        if not (_default_dir := os.environ.get("SIMVUE_OFFLINE_DIRECTORY")):
+            _default_dir = _config_dict["offline"].get(
+                "cache", DEFAULT_OFFLINE_DIRECTORY
+            )
+
+        _config_dict["offline"]["cache"] = _default_dir
 
         # Ranking of configurations for token and URl is:
         # Envionment Variables > Run Definition > Configuration File
@@ -112,6 +148,7 @@ class SimvueConfiguration(pydantic.BaseModel):
     @classmethod
     @functools.lru_cache
     def config_file(cls) -> pathlib.Path:
+        """Returns the path of top level configuration file used for the session"""
         _config_file: typing.Optional[pathlib.Path] = (
             sv_util.find_first_instance_of_file(
                 CONFIG_FILE_NAMES, check_user_space=True

@@ -12,7 +12,7 @@ import msgpack
 from simvue.config.user import SimvueConfiguration
 
 from .factory.proxy.remote import Remote
-from .utilities import create_file, get_offline_directory, remove_file
+from .utilities import create_file, remove_file
 
 logger = logging.getLogger(__name__)
 
@@ -88,7 +88,7 @@ def sender() -> str:
     """
     Asynchronous upload of runs to Simvue server
     """
-    directory = get_offline_directory()
+    directory = SimvueConfiguration.fetch().offline.cache
 
     # Clean up old runs after waiting 5 mins
     runs = glob.glob(f"{directory}/*/sent")

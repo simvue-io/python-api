@@ -26,7 +26,7 @@ from .serialization import deserialize_data
 from .simvue_types import DeserializedContent
 from .utilities import check_extra, prettify_pydantic
 from .models import FOLDER_REGEX, NAME_REGEX
-from .config import SimvueConfiguration
+from .config.user import SimvueConfiguration
 
 if typing.TYPE_CHECKING:
     pass

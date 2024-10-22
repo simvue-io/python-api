@@ -48,4 +48,4 @@ _Simvue_ Python API utilises the [Ruff](https://github.com/astral-sh/ruff) linte
 
 ## :book: Documentation
 
-To ensure functions, methods and classes are documented appropriately _Simvue_ Python API follows the Numpy docstring convention. We also ask that if adding new features you ensure these are mentioned within the official [documentation](https://github.com/simvue-io/docs). 
+To ensure functions, methods and classes are documented appropriately _Simvue_ Python API follows the Numpy docstring convention. We also ask that if adding new features you ensure these are mentioned within the official [documentation](https://github.com/simvue-io/docs).
