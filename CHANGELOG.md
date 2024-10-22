@@ -1,8 +1,9 @@
 # Change log
 
-## Unreleased
+## [v1.1.1](https://github.com/simvue-io/client/releases/tag/v1.1.1) - 2024-10-22
 
 * Add missing `offline.cache` key to TOML config.
+* Fix repetition of server URL validation for each call to configuration.
 
 ## [v1.1.0](https://github.com/simvue-io/client/releases/tag/v1.1.0) - 2024-10-21
 
