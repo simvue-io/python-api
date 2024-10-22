@@ -78,6 +78,25 @@ class SimvueConfiguration(pydantic.BaseModel):
         server_url: typing.Optional[str] = None,
         server_token: typing.Optional[str] = None,
     ) -> "SimvueConfiguration":
+        """Retrieve the Simvue configuration from this project
+
+        Will retrieve the configuration options set for this project either using
+        local or global configurations. This function is cached to prevent re-check
+        of the same files, note this means mid-run changes will not be verified.
+
+        Parameters
+        ----------
+        server_url : str, optional
+            override the URL used for this session
+        server_token : str, optional
+            override the token used for this session
+
+        Return
+        ------
+        SimvueConfiguration
+            object containing configurations
+
+        """
         _config_dict: dict[str, dict[str, str]] = {}
 
         try:
@@ -131,6 +150,7 @@ class SimvueConfiguration(pydantic.BaseModel):
     @classmethod
     @functools.lru_cache
     def config_file(cls) -> pathlib.Path:
+        """Returns the path of top level configuration file used for the session"""
         _config_file: typing.Optional[pathlib.Path] = (
             sv_util.find_first_instance_of_file(
                 CONFIG_FILE_NAMES, check_user_space=True

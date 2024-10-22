@@ -40,13 +40,12 @@ def test_config_setup(
 
     # Deactivate the server checks for this test
     monkeypatch.setenv("SIMVUE_NO_SERVER_CHECK", "True")
+    monkeypatch.delenv("SIMVUE_TOKEN", False)
+    monkeypatch.delenv("SIMVUE_URL", False)
 
     if use_env:
         monkeypatch.setenv("SIMVUE_TOKEN", _other_token)
         monkeypatch.setenv("SIMVUE_URL", _other_url)
-    else:
-        monkeypatch.delenv("SIMVUE_TOKEN", False)
-        monkeypatch.delenv("SIMVUE_URL", False)
 
     with tempfile.TemporaryDirectory() as temp_d:
         _config_file = None
