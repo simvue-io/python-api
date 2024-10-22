@@ -43,6 +43,38 @@ class SimvueConfiguration(pydantic.BaseModel):
     offline: OfflineSpecifications = OfflineSpecifications()
 
     @classmethod
+    def _load_pyproject_configs(cls) -> typing.Optional[dict]:
+        """Recover any Simvue non-authentication configurations from pyproject.toml"""
+        _pyproject_toml = sv_util.find_first_instance_of_file(
+            file_names=["pyproject.toml"], check_user_space=False
+        )
+
+        if not _pyproject_toml:
+            return
+
+        _project_data = toml.load(_pyproject_toml)
+
+        if not (_simvue_setup := _project_data.get("tool", {}).get("simvue")):
+            return
+
+        # Do not allow reading of authentication credentials within a project file
+        _server_credentials = _simvue_setup.get("server", {})
+        _offline_credentials = _simvue_setup.get("offline", {})
+
+        if any(
+            [
+                _server_credentials.get("token"),
+                _server_credentials.get("url"),
+                _offline_credentials.get("cache"),
+            ]
+        ):
+            raise RuntimeError(
+                "Provision of Simvue URL, Token or offline directory in pyproject.toml is not allowed."
+            )
+
+        return _simvue_setup
+
+    @classmethod
     @sv_util.prettify_pydantic
     def fetch(
         cls,
@@ -67,13 +99,13 @@ class SimvueConfiguration(pydantic.BaseModel):
             object containing configurations
 
         """
-        _config_dict: dict[str, dict[str, str]] = {}
+        _config_dict: dict[str, dict[str, str]] = cls._load_pyproject_configs() or {}
 
         try:
             logger.info(f"Using config file '{cls.config_file()}'")
 
             # NOTE: Legacy INI support has been removed
-            _config_dict = toml.load(cls.config_file())
+            _config_dict |= toml.load(cls.config_file())
 
         except FileNotFoundError:
             if not server_token or not server_url:
