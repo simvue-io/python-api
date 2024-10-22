@@ -11,9 +11,6 @@ import logging
 import os
 import typing
 import pathlib
-import configparser
-import contextlib
-import warnings
 
 import pydantic
 import toml
@@ -46,31 +43,6 @@ class SimvueConfiguration(pydantic.BaseModel):
     offline: OfflineSpecifications = OfflineSpecifications()
 
     @classmethod
-    def _parse_ini_config(cls, ini_file: pathlib.Path) -> dict[str, dict[str, str]]:
-        """Parse a legacy INI config file if found."""
-        # NOTE: Legacy INI support, this will be removed
-        warnings.warn(
-            "Support for legacy INI based configuration files will be dropped in simvue>=1.2, "
-            "please switch to TOML based configuration.",
-            DeprecationWarning,
-            stacklevel=2,
-        )
-
-        config_dict: dict[str, dict[str, str]] = {"server": {}, "offline": {}}
-
-        with contextlib.suppress(Exception):
-            parser = configparser.ConfigParser()
-            parser.read(f"{ini_file}")
-            if token := parser.get("server", "token"):
-                config_dict["server"]["token"] = token
-            if url := parser.get("server", "url"):
-                config_dict["server"]["url"] = url
-            if offline_dir := parser.get("offline", "cache"):
-                config_dict["offline"]["cache"] = offline_dir
-
-        return config_dict
-
-    @classmethod
     @sv_util.prettify_pydantic
     def fetch(
         cls,
@@ -100,11 +72,8 @@ class SimvueConfiguration(pydantic.BaseModel):
         try:
             logger.info(f"Using config file '{cls.config_file()}'")
 
-            # NOTE: Legacy INI support, this will be removed
-            if cls.config_file().suffix == ".toml":
-                _config_dict = toml.load(cls.config_file())
-            else:
-                _config_dict = cls._parse_ini_config(cls.config_file())
+            # NOTE: Legacy INI support has been removed
+            _config_dict = toml.load(cls.config_file())
 
         except FileNotFoundError:
             if not server_token or not server_url:
@@ -155,12 +124,13 @@ class SimvueConfiguration(pydantic.BaseModel):
             )
         )
 
-        # NOTE: Legacy INI support, this will be removed
-        if not _config_file:
-            _config_file: typing.Optional[pathlib.Path] = (
-                sv_util.find_first_instance_of_file(
-                    CONFIG_INI_FILE_NAMES, check_user_space=True
-                )
+        # NOTE: Legacy INI support has been removed
+        if not _config_file and sv_util.find_first_instance_of_file(
+            CONFIG_INI_FILE_NAMES, check_user_space=True
+        ):
+            raise RuntimeError(
+                "Simvue INI configuration file format has been deprecated in simvue>=1.2, "
+                "please use TOML file"
             )
 
         if not _config_file:
