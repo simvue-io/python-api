@@ -71,6 +71,7 @@ class SimvueConfiguration(pydantic.BaseModel):
 
     @classmethod
     @sv_util.prettify_pydantic
+    @functools.lru_cache
     def fetch(
         cls,
         server_url: typing.Optional[str] = None,
