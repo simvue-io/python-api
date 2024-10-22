@@ -13,6 +13,7 @@ import pydantic
 import typing
 import pathlib
 import http
+import functools
 
 import simvue.models as sv_models
 from simvue.utilities import get_expiry
@@ -43,6 +44,7 @@ class ServerSpecifications(pydantic.BaseModel):
 
     @pydantic.model_validator(mode="after")
     @classmethod
+    @functools.lru_cache
     def check_valid_server(cls, values: "ServerSpecifications") -> bool:
         if os.environ.get("SIMVUE_NO_SERVER_CHECK"):
             return values

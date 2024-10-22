@@ -72,7 +72,6 @@ class SimvueConfiguration(pydantic.BaseModel):
 
     @classmethod
     @sv_util.prettify_pydantic
-    @functools.lru_cache
     def fetch(
         cls,
         server_url: typing.Optional[str] = None,
@@ -81,8 +80,7 @@ class SimvueConfiguration(pydantic.BaseModel):
         """Retrieve the Simvue configuration from this project
 
         Will retrieve the configuration options set for this project either using
-        local or global configurations. This function is cached to prevent re-check
-        of the same files, note this means mid-run changes will not be verified.
+        local or global configurations.
 
         Parameters
         ----------
