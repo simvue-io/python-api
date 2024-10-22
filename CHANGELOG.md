@@ -1,5 +1,9 @@
 # Change log
 
+## Unreleased
+
+* Drop support for INI based configuration files.
+
 ## [v1.1.1](https://github.com/simvue-io/client/releases/tag/v1.1.1) - 2024-10-22
 
 * Add missing `offline.cache` key to TOML config.
