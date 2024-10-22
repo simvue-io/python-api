@@ -3,7 +3,7 @@ import typing
 import http
 
 if typing.TYPE_CHECKING:
-    from simvue.config import SimvueConfiguration
+    from simvue.config.user import SimvueConfiguration
 
 from simvue.api import get, post, put
 from simvue.factory.proxy.base import SimvueBaseClass

@@ -32,7 +32,7 @@ import msgpack
 import psutil
 from pydantic import ValidationError
 
-from .config import SimvueConfiguration
+from .config.user import SimvueConfiguration
 import simvue.api as sv_api
 
 from .factory.dispatch import Dispatcher
@@ -48,7 +48,6 @@ from .utilities import (
     calculate_sha256,
     compare_alerts,
     skip_if_failed,
-    get_offline_directory,
     validate_timestamp,
     simvue_timestamp,
 )
@@ -405,7 +404,8 @@ class Run:
             run_id: typing.Optional[str] = self._id,
             uuid: str = self._uuid,
         ) -> None:
-            if not os.path.exists((_offline_directory := get_offline_directory())):
+            _offline_directory = self.config.offline.cache
+            if not os.path.exists(_offline_directory):
                 logger.error(
                     f"Cannot write to offline directory '{_offline_directory}', directory not found."
                 )
