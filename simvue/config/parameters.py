@@ -42,19 +42,15 @@ class ServerSpecifications(pydantic.BaseModel):
             raise AssertionError("Simvue token has expired")
         return value
 
-    @pydantic.model_validator(mode="after")
     @classmethod
     @functools.lru_cache
-    def check_valid_server(cls, values: "ServerSpecifications") -> bool:
-        if os.environ.get("SIMVUE_NO_SERVER_CHECK"):
-            return values
-
+    def _check_server(cls, token: str, url: str) -> None:
         headers: dict[str, str] = {
-            "Authorization": f"Bearer {values.token}",
+            "Authorization": f"Bearer {token}",
             "User-Agent": f"Simvue Python client {__version__}",
         }
         try:
-            response = get(f"{values.url}/api/version", headers)
+            response = get(f"{url}/api/version", headers)
 
             if response.status_code != http.HTTPStatus.OK or not response.json().get(
                 "version"
@@ -66,6 +62,14 @@ class ServerSpecifications(pydantic.BaseModel):
 
         except Exception as err:
             raise AssertionError(f"Exception retrieving server version: {str(err)}")
+
+    @pydantic.model_validator(mode="after")
+    @classmethod
+    def check_valid_server(cls, values: "ServerSpecifications") -> bool:
+        if os.environ.get("SIMVUE_NO_SERVER_CHECK"):
+            return values
+
+        cls._check_server(values.token, values.url)
 
         return values
 
