@@ -39,7 +39,7 @@ def test_config_setup(
     _tags: list[str] = ["tag-test", "other-tag"]
 
     # Deactivate the server checks for this test
-    monkeypatch.setenv("SIMVUE_NO_SERVER_CHECK", True)
+    monkeypatch.setenv("SIMVUE_NO_SERVER_CHECK", "True")
 
     if use_env:
         monkeypatch.setenv("SIMVUE_TOKEN", _other_token)

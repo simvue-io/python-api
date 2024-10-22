@@ -1,4 +1,3 @@
-import configparser
 import datetime
 import hashlib
 import logging
@@ -16,8 +15,6 @@ import jwt
 
 from datetime import timezone
 
-import toml
-from simvue.config.files import CONFIG_FILE_NAMES, CONFIG_INI_FILE_NAMES
 
 CHECKSUM_BLOCK_SIZE = 4096
 EXTRAS: tuple[str, ...] = ("plot", "torch")
@@ -257,37 +254,6 @@ def prettify_pydantic(class_func: typing.Callable) -> typing.Callable:
             raise RuntimeError(error_str)
 
     return wrapper
-
-
-def get_offline_directory() -> str:
-    """
-    Get directory for offline cache
-    """
-    _directory: typing.Optional[str] = None
-
-    _config_file: typing.Optional[pathlib.Path] = find_first_instance_of_file(
-        CONFIG_FILE_NAMES, check_user_space=True
-    )
-    _config_file_ini: typing.Optional[pathlib.Path] = None
-
-    if _config_file:
-        _config = toml.load(_config_file)
-        _directory = _config.get("offline", {}).get("cache")
-
-    if not _config_file:
-        _config_file_ini: typing.Optional[pathlib.Path] = find_first_instance_of_file(
-            CONFIG_INI_FILE_NAMES, check_user_space=True
-        )
-
-    if _config_file_ini and not _directory:
-        _config_ini = configparser.ConfigParser()
-        _config_ini.read(_config_file_ini)
-        _directory = _config_ini.get("offline", "cache")
-
-    if not (_directory := os.environ.get("SIMVUE_OFFLINE_DIRECTORY", _directory)):
-        _directory = os.path.join(os.path.expanduser("~"), ".simvue")
-
-    return _directory
 
 
 def create_file(filename: str) -> None:

@@ -55,7 +55,7 @@ class SimvueConfiguration(pydantic.BaseModel):
             stacklevel=2,
         )
 
-        config_dict: dict[str, dict[str, str]] = {"server": {}}
+        config_dict: dict[str, dict[str, str]] = {"server": {}, "offline": {}}
 
         with contextlib.suppress(Exception):
             parser = configparser.ConfigParser()

@@ -351,6 +351,7 @@ def test_bad_run_arguments() -> None:
             run.init("sdas", [34])
 
 
+@pytest.mark.run
 def test_set_folder_details(request: pytest.FixtureRequest) -> None:
     with sv_run.Run() as run:
         folder_name: str = "/simvue_unit_tests"
