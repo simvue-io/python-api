@@ -2,6 +2,7 @@ import datetime
 import hashlib
 import logging
 import json
+import sys
 import tabulate
 import pydantic
 import importlib.util
@@ -137,10 +138,15 @@ def check_extra(extra_name: str) -> typing.Callable:
                 raise RuntimeError(
                     f"Plotting features require the '{extra_name}' extension to Simvue"
                 )
-            elif extra_name == "torch" and not importlib.util.find_spec("torch"):
-                raise RuntimeError(
-                    "PyTorch features require the 'torch' module to be installed"
-                )
+            elif extra_name == "torch":
+                if importlib.util.find_spec("torch"):
+                    raise RuntimeError(
+                        "PyTorch features require the 'torch' module to be installed"
+                    )
+                if sys.version_info.minor > 12:
+                    raise RuntimeError(
+                        "PyTorch features are not yet supported for python>3.12"
+                    )
             elif extra_name not in EXTRAS:
                 raise RuntimeError(f"Unrecognised extra '{extra_name}'")
             return class_func(self, *args, **kwargs) if class_func else None

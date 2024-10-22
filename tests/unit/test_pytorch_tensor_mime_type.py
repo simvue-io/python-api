@@ -1,5 +1,4 @@
 from simvue.serialization import serialize_object
-import torch
 import pytest
 
 
