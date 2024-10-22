@@ -29,6 +29,7 @@ from simvue.config.parameters import (
 from simvue.config.files import (
     CONFIG_FILE_NAMES,
     CONFIG_INI_FILE_NAMES,
+    DEFAULT_OFFLINE_DIRECTORY,
 )
 
 logger = logging.getLogger(__name__)
@@ -94,7 +95,16 @@ class SimvueConfiguration(pydantic.BaseModel):
                 logger.warning("No config file found, checking environment variables")
 
         _config_dict["server"] = _config_dict.get("server", {})
+
         _config_dict["offline"] = _config_dict.get("offline", {})
+
+        # Allow override of specification of offline directory via environment variable
+        if not (_default_dir := os.environ.get("SIMVUE_OFFLINE_DIRECTORY")):
+            _default_dir = _config_dict["offline"].get(
+                "cache", DEFAULT_OFFLINE_DIRECTORY
+            )
+
+        _config_dict["offline"]["cache"] = _default_dir
 
         # Ranking of configurations for token and URl is:
         # Envionment Variables > Run Definition > Configuration File

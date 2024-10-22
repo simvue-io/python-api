@@ -74,8 +74,6 @@ class OfflineSpecifications(pydantic.BaseModel):
     @pydantic.field_validator("cache")
     @classmethod
     def cache_to_str(cls, v: typing.Any) -> str:
-        if not v and not (v := os.environ.get("SIMVUE_OFFLINE_DIRECTORY")):
-            return v
         return f"{v}"
 
 
