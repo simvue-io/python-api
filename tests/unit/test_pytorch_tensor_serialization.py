@@ -1,4 +1,3 @@
-import torch
 from simvue.serialization import serialize_object, deserialize_data
 import pytest
 

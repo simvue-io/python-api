@@ -3,7 +3,11 @@
 <br/>
 
 <p align="center">
-  <img src="https://raw.githubusercontent.com/simvue-io/client/dev/simvue-black.png" width="500" alt="Simvue" />
+  <picture>
+    <source media="(prefers-color-scheme: dark)" srcset="https://github.com/simvue-io/.github/blob/5eb8cfd2edd3269259eccd508029f269d993282f/simvue-white.png" />
+    <source media="(prefers-color-scheme: light)" srcset="https://github.com/simvue-io/.github/blob/5eb8cfd2edd3269259eccd508029f269d993282f/simvue-black.png" />
+    <img alt="Simvue" src="https://github.com/simvue-io/.github/blob/5eb8cfd2edd3269259eccd508029f269d993282f/simvue-black.png" width="500">
+  </picture>
 </p>
 
 <p align="center">
@@ -30,11 +34,11 @@ The service URL and token can be defined as environment variables:
 export SIMVUE_URL=...
 export SIMVUE_TOKEN=...
 ```
-or a file `simvue.ini` can be created containing:
-```ini
+or a file `simvue.toml` can be created containing:
+```toml
 [server]
-url = ...
-token = ...
+url = "..."
+token = "..."
 ```
 The exact contents of both of the above options can be obtained directly by clicking the **Create new run** button on the web UI. Note that the environment variables have preference over the config file.
 

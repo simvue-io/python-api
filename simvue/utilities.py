@@ -1,19 +1,21 @@
-import configparser
 import datetime
 import hashlib
 import logging
 import json
+import sys
 import tabulate
 import pydantic
 import importlib.util
 import functools
 import contextlib
 import os
+import pathlib
 import typing
 
 import jwt
 
 from datetime import timezone
+
 
 CHECKSUM_BLOCK_SIZE = 4096
 EXTRAS: tuple[str, ...] = ("plot", "torch")
@@ -22,6 +24,45 @@ logger = logging.getLogger(__name__)
 
 if typing.TYPE_CHECKING:
     from simvue.run import Run
+
+
+def find_first_instance_of_file(
+    file_names: typing.Union[list[str], str], check_user_space: bool = True
+) -> typing.Optional[pathlib.Path]:
+    """Traverses a file hierarchy from bottom upwards to find file
+
+    Returns the first instance of 'file_names' found when moving
+    upward from the current directory.
+
+    Parameters
+    ----------
+    file_name: list[str] | str
+        candidate names of file to locate
+    check_user_space: bool, optional
+        check the users home area if current working directory is not
+        within it. Default is True.
+
+    Returns
+    -------
+    pathlib.Path | None
+        first matching file if found
+    """
+    if isinstance(file_names, str):
+        file_names = [file_names]
+
+    for root, _, files in os.walk(os.getcwd(), topdown=False):
+        for file_name in file_names:
+            if file_name in files:
+                return pathlib.Path(root).joinpath(file_name)
+
+    # If the user is running on different mounted volume or outside
+    # of their user space then the above will not return the file
+    if check_user_space:
+        for file_name in file_names:
+            if os.path.exists(_user_file := pathlib.Path.home().joinpath(file_name)):
+                return _user_file
+
+    return None
 
 
 def parse_validation_response(
@@ -97,10 +138,15 @@ def check_extra(extra_name: str) -> typing.Callable:
                 raise RuntimeError(
                     f"Plotting features require the '{extra_name}' extension to Simvue"
                 )
-            elif extra_name == "torch" and not importlib.util.find_spec("torch"):
-                raise RuntimeError(
-                    "PyTorch features require the 'torch' module to be installed"
-                )
+            elif extra_name == "torch":
+                if importlib.util.find_spec("torch"):
+                    raise RuntimeError(
+                        "PyTorch features require the 'torch' module to be installed"
+                    )
+                if sys.version_info.minor > 12:
+                    raise RuntimeError(
+                        "PyTorch features are not yet supported for python>3.12"
+                    )
             elif extra_name not in EXTRAS:
                 raise RuntimeError(f"Unrecognised extra '{extra_name}'")
             return class_func(self, *args, **kwargs) if class_func else None
@@ -113,10 +159,17 @@ def check_extra(extra_name: str) -> typing.Callable:
 def parse_pydantic_error(class_name: str, error: pydantic.ValidationError) -> str:
     out_table: list[str] = []
     for data in json.loads(error.json()):
-        out_table.append([data["loc"], data["type"], data["msg"]])
+        out_table.append(
+            [
+                data.get("input") if data["input"] is not None else "None",
+                data["loc"],
+                data["type"],
+                data["msg"],
+            ]
+        )
     err_table = tabulate.tabulate(
         out_table,
-        headers=["Location", "Type", "Message"],
+        headers=["Input", "Location", "Type", "Message"],
         tablefmt="fancy_grid",
     )
     return f"`{class_name}` Validation:\n{err_table}"
@@ -207,66 +260,6 @@ def prettify_pydantic(class_func: typing.Callable) -> typing.Callable:
             raise RuntimeError(error_str)
 
     return wrapper
-
-
-def get_auth() -> tuple[str, str]:
-    """
-    Get the URL and access token
-    """
-    url: typing.Optional[str] = None
-    token: typing.Optional[str] = None
-    token_source: str = ""
-    url_source: str = ""
-
-    # Try reading from config file
-    for filename in (
-        os.path.join(os.path.expanduser("~"), ".simvue.ini"),
-        "simvue.ini",
-    ):
-        with contextlib.suppress(Exception):
-            config = configparser.ConfigParser()
-            config.read(filename)
-            token = config.get("server", "token")
-            token_source = filename
-            url = config.get("server", "url")
-            url_source = filename
-
-    # Try environment variables
-    if not token and (token := os.getenv("SIMVUE_TOKEN")):
-        token_source = "env:SIMVUE_TOKEN"
-    if not url and (url := os.getenv("SIMVUE_URL")):
-        url_source = "env:SIMVUE_URL"
-
-    if not token:
-        raise ValueError("No Simvue server token was specified")
-    if not url:
-        raise ValueError("No Simvue server URL was specified")
-
-    logger.info(f"Using '{token_source}' as source for Simvue token")
-    logger.info(f"Using '{url_source}' as source for Simvue URL")
-
-    return url, token
-
-
-def get_offline_directory() -> str:
-    """
-    Get directory for offline cache
-    """
-    directory = None
-
-    for filename in (
-        os.path.join(os.path.expanduser("~"), ".simvue.ini"),
-        "simvue.ini",
-    ):
-        with contextlib.suppress(Exception):
-            config = configparser.ConfigParser()
-            config.read(filename)
-            directory = config.get("offline", "cache")
-
-    if not directory:
-        directory = os.path.join(os.path.expanduser("~"), ".simvue")
-
-    return directory
 
 
 def create_file(filename: str) -> None:

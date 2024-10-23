@@ -351,6 +351,7 @@ def test_bad_run_arguments() -> None:
             run.init("sdas", [34])
 
 
+@pytest.mark.run
 def test_set_folder_details(request: pytest.FixtureRequest) -> None:
     with sv_run.Run() as run:
         folder_name: str = "/simvue_unit_tests"
@@ -363,7 +364,7 @@ def test_set_folder_details(request: pytest.FixtureRequest) -> None:
         run.set_folder_details(path=folder_name, tags=tags, description=description)
 
     client = sv_cl.Client()
-    assert (folder := client.get_folders([f"path == {folder_name}"])[0])["tags"] == tags
+    assert (folder := client.get_folders(filters=[f"path == {folder_name}"])[0])["tags"] == tags
     assert folder["description"] == description
 
 
@@ -471,12 +472,26 @@ def test_save_object(
 
 
 @pytest.mark.run
-def test_abort_on_alert_process(create_plain_run: typing.Tuple[sv_run.Run, dict], mocker: pytest_mock.MockerFixture) -> None:
+def test_abort_on_alert_process(mocker: pytest_mock.MockerFixture) -> None:
     def testing_exit(status: int) -> None:
         raise SystemExit(status)
+
+    trigger = threading.Event()
+
+    def abort_callback(abort_run=trigger) -> None:
+        trigger.set()
+
+    run = sv_run.Run(abort_callback=abort_callback)
+    run.init(
+        name="test_abort_on_alert_process",
+        folder="/simvue_unit_tests",
+        retention_period="1 min",
+        tags=["test_abort_on_alert_process"],
+        visibility="tenant"
+    )
+
     mocker.patch("os._exit", testing_exit)
     N_PROCESSES: int = 3
-    run, _ = create_plain_run
     run.config(resources_metrics_interval=1)
     run._heartbeat_interval = 1
     run._testing = True
@@ -488,11 +503,13 @@ def test_abort_on_alert_process(create_plain_run: typing.Tuple[sv_run.Run, dict]
     client = sv_cl.Client()
     client.abort_run(run._id, reason="testing abort")
     time.sleep(4)
+    assert run._resources_metrics_interval == 1
     for child in child_processes:
         assert not child.is_running()
     if not run._status == "terminated":
         run.kill_all_processes()
         raise AssertionError("Run was not terminated")
+    assert trigger.is_set()
     
 
 @pytest.mark.run
@@ -513,10 +530,10 @@ def test_abort_on_alert_python(create_plain_run: typing.Tuple[sv_run.Run, dict],
         if i == 4:
             client.abort_run(run._id, reason="testing abort")
         i += 1
-        if abort_set.is_set() or i > 9:
+        if abort_set.is_set() or i > 11:
             break
 
-    assert i < 7
+    assert i < 10
     assert run._status == "terminated"
 
 

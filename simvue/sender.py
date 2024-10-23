@@ -1,6 +1,7 @@
 from concurrent.futures import ThreadPoolExecutor
 import glob
 import json
+import typing
 import logging
 import os
 import shutil
@@ -8,8 +9,10 @@ import time
 
 import msgpack
 
+from simvue.config.user import SimvueConfiguration
+
 from .factory.proxy.remote import Remote
-from .utilities import create_file, get_offline_directory, remove_file
+from .utilities import create_file, remove_file
 
 logger = logging.getLogger(__name__)
 
@@ -85,7 +88,7 @@ def sender() -> str:
     """
     Asynchronous upload of runs to Simvue server
     """
-    directory = get_offline_directory()
+    directory = SimvueConfiguration.fetch().offline.cache
 
     # Clean up old runs after waiting 5 mins
     runs = glob.glob(f"{directory}/*/sent")
@@ -114,12 +117,12 @@ def sender() -> str:
         with ThreadPoolExecutor(NUM_PARALLEL_WORKERS) as executor:
             for run in runs:
                 executor.submit(process(run))
+        return [executor.result() for _ in runs]
     else:
-        for run in runs:
-            process(run)
+        return [process(run) for run in runs]
 
 
-def process(run):
+def process(run) -> typing.Optional[str]:
     """
     Handle updates for the specified run
     """
@@ -170,11 +173,11 @@ def process(run):
     # Create run if it hasn't previously been created
     created_file = f"{current}/init"
     name = None
+    config = SimvueConfiguration.fetch()
     if not os.path.isfile(created_file):
-        remote = Remote(run_init["name"], id, suppress_errors=False)
-
-        # Check token
-        remote.check_token()
+        remote = Remote(
+            name=run_init["name"], uniq_id=id, config=config, suppress_errors=False
+        )
 
         name, run_id = remote.create_run(run_init)
         if name:
@@ -187,10 +190,9 @@ def process(run):
     else:
         name, run_id = get_details(created_file)
         run_init["name"] = name
-        remote = Remote(run_init["name"], run_id, suppress_errors=False)
-
-        # Check token
-        remote.check_token()
+        remote = Remote(
+            name=run_init["name"], uniq_id=run_id, config=config, suppress_errors=False
+        )
 
     if status == "running":
         # Check for recent heartbeat
@@ -318,4 +320,4 @@ def process(run):
         logger.info("Finished sending run %s as it was lost", run_init["name"])
         create_file(f"{current}/sent")
 
-    return
+    return run_id

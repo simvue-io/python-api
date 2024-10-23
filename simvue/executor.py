@@ -265,6 +265,9 @@ class Executor:
             name=f"{identifier}_exit_status", source="user"
         )
 
+        if not self._alert_ids[identifier]:
+            raise RuntimeError(f"Expected alert identifier for process '{identifier}'")
+
     @property
     def processes(self) -> list[psutil.Process]:
         """Create an array containing a list of processes"""
@@ -310,7 +313,7 @@ class Executor:
             if value.returncode
         }
 
-    def getcommand(self, process_id: str) -> str:
+    def get_command(self, process_id: str) -> str:
         """Returns the command executed within the given process.
 
         Parameters
@@ -419,6 +422,8 @@ class Executor:
             logger.debug(f"Terminating process {process.pid}: {process.args}")
             process.kill()
             process.wait()
+
+        self._save_output()
 
     def kill_all(self) -> None:
         """Kill all running processes"""

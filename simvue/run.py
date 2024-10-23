@@ -19,10 +19,12 @@ import multiprocessing
 import pydantic
 import re
 import sys
+import traceback as tb
 import time
 import functools
 import platform
 import typing
+import warnings
 import uuid
 
 import click
@@ -30,6 +32,7 @@ import msgpack
 import psutil
 from pydantic import ValidationError
 
+from .config.user import SimvueConfiguration
 import simvue.api as sv_api
 
 from .factory.dispatch import Dispatcher
@@ -45,11 +48,14 @@ from .utilities import (
     calculate_sha256,
     compare_alerts,
     skip_if_failed,
-    get_auth,
-    get_offline_directory,
     validate_timestamp,
     simvue_timestamp,
 )
+
+try:
+    from typing import Self
+except ImportError:
+    from typing_extensions import Self
 
 
 if typing.TYPE_CHECKING:
@@ -67,7 +73,14 @@ def check_run_initialised(
     function: typing.Callable[..., typing.Any],
 ) -> typing.Callable[..., typing.Any]:
     @functools.wraps(function)
-    def _wrapper(self: "Run", *args: typing.Any, **kwargs: typing.Any) -> typing.Any:
+    def _wrapper(self: Self, *args: typing.Any, **kwargs: typing.Any) -> typing.Any:
+        if self._mode == "disabled":
+            return True
+
+        if self._retention and time.time() - self._timer > self._retention:
+            self._active = False
+            raise RuntimeError("Cannot update expired Simvue Run")
+
         if not self._simvue:
             raise RuntimeError(
                 "Simvue Run must be initialised before calling "
@@ -88,9 +101,16 @@ class Run:
 
     @pydantic.validate_call
     def __init__(
-        self, mode: typing.Literal["online", "offline", "disabled"] = "online"
+        self,
+        mode: typing.Literal["online", "offline", "disabled"] = "online",
+        abort_callback: typing.Optional[typing.Callable[[Self], None]] = None,
+        server_token: typing.Optional[str] = None,
+        server_url: typing.Optional[str] = None,
+        debug: bool = False,
     ) -> None:
         """Initialise a new Simvue run
+
+        If `abort_callback` is provided the first argument must be this Run instance
 
         Parameters
         ----------
@@ -99,12 +119,28 @@ class Run:
                 online - objects sent directly to Simvue server
                 offline - everything is written to disk for later dispatch
                 disabled - disable monitoring completely
+        abort_callback : Callable | None, optional
+            callback executed when the run is aborted
+        server_token : str, optional
+            overwrite value for server token, default is None
+        server_url : str, optional
+            overwrite value for server URL, default is None
+        debug : bool, optional
+            run in debug mode, default is False
         """
         self._uuid: str = f"{uuid.uuid4()}"
         self._mode: typing.Literal["online", "offline", "disabled"] = mode
         self._name: typing.Optional[str] = None
+
+        # monitor duration with respect to retention period
+        self._timer: float = 0
+        self._retention: typing.Optional[float] = None
+
         self._testing: bool = False
-        self._abort_on_alert: bool = True
+        self._abort_on_alert: typing.Literal["run", "terminate", "ignore"] = "terminate"
+        self._abort_callback: typing.Optional[typing.Callable[[Self], None]] = (
+            abort_callback
+        )
         self._dispatch_mode: typing.Literal["direct", "queued"] = "queued"
 
         self._executor = Executor(self)
@@ -123,10 +159,20 @@ class Run:
         self._data: dict[str, typing.Any] = {}
         self._step: int = 0
         self._active: bool = False
+        self._config = SimvueConfiguration.fetch()
+
+        logging.getLogger(self.__class__.__module__).setLevel(
+            logging.DEBUG
+            if (debug is not None and debug)
+            or (debug is None and self._config.client.debug)
+            else logging.INFO
+        )
+
         self._aborted: bool = False
-        self._url, self._token = get_auth()
         self._resources_metrics_interval: typing.Optional[int] = HEARTBEAT_INTERVAL
-        self._headers: dict[str, str] = {"Authorization": f"Bearer {self._token}"}
+        self._headers: dict[str, str] = {
+            "Authorization": f"Bearer {self._config.server.token}"
+        }
         self._simvue: typing.Optional[SimvueBaseClass] = None
         self._pid: typing.Optional[int] = 0
         self._shutdown_event: typing.Optional[threading.Event] = None
@@ -138,7 +184,7 @@ class Run:
         self._heartbeat_interval: int = HEARTBEAT_INTERVAL
         self._emission_metrics_interval: int = HEARTBEAT_INTERVAL
 
-    def __enter__(self) -> "Run":
+    def __enter__(self) -> Self:
         return self
 
     def _handle_exception_throw(
@@ -171,6 +217,14 @@ class Run:
         if not self._active:
             return
 
+        _traceback_out: list[str] = tb.format_exception(exc_type, value, traceback)
+        _event_msg: str = (
+            "\n".join(_traceback_out)
+            if _traceback_out
+            else f"An exception was thrown: {_exception_thrown}"
+        )
+
+        self.log_event(_event_msg)
         self.set_status("terminated" if _is_terminated else "failed")
 
         # If the dispatcher has already been aborted then this will
@@ -259,13 +313,21 @@ class Run:
         self,
     ) -> typing.Callable[[threading.Event], None]:
         if (
-            self._mode == "online" and (not self._url or not self._id)
+            self._mode == "online" and (not self._config.server.url or not self._id)
         ) or not self._heartbeat_termination_trigger:
             raise RuntimeError("Could not commence heartbeat, run not initialised")
 
         def _heartbeat(
-            heartbeat_trigger: threading.Event = self._heartbeat_termination_trigger,
+            heartbeat_trigger: typing.Optional[
+                threading.Event
+            ] = self._heartbeat_termination_trigger,
+            abort_callback: typing.Optional[
+                typing.Callable[[Self], None]
+            ] = self._abort_callback,
         ) -> None:
+            if not heartbeat_trigger:
+                raise RuntimeError("Expected initialisation of heartbeat")
+
             last_heartbeat = time.time()
             last_res_metric_call = time.time()
 
@@ -293,25 +355,28 @@ class Run:
 
                 # Check if the user has aborted the run
                 with self._configuration_lock:
-                    if (
-                        self._simvue
-                        and self._abort_on_alert
-                        and self._simvue.get_abort_status()
-                    ):
-                        logger.debug("Received abort request from server")
+                    if self._simvue and self._simvue.get_abort_status():
                         self._alert_raised_trigger.set()
-                        self.kill_all_processes()
-                        if self._dispatcher and self._shutdown_event:
-                            self._shutdown_event.set()
-                            self._dispatcher.purge()
-                            self._dispatcher.join()
-                        self.set_status("terminated")
-                        click.secho(
-                            "[simvue] Run was aborted.",
-                            fg="red" if self._term_color else None,
-                            bold=self._term_color,
-                        )
-                        os._exit(1)
+                        logger.debug("Received abort request from server")
+
+                        if abort_callback is not None:
+                            abort_callback(self)  # type: ignore
+
+                        if self._abort_on_alert != "ignore":
+                            self.kill_all_processes()
+                            if self._dispatcher and self._shutdown_event:
+                                self._shutdown_event.set()
+                                self._dispatcher.purge()
+                                self._dispatcher.join()
+                            if self._active:
+                                self.set_status("terminated")
+                            click.secho(
+                                "[simvue] Run was aborted.",
+                                fg="red" if self._term_color else None,
+                                bold=self._term_color,
+                            )
+                        if self._abort_on_alert == "terminate":
+                            os._exit(1)
 
                 if self._simvue:
                     self._simvue.send_heartbeat()
@@ -330,7 +395,7 @@ class Run:
         if self._mode == "online" and not self._id:
             raise RuntimeError("Expected identifier for run")
 
-        if not self._url:
+        if not self._config.server.url:
             raise RuntimeError("Cannot commence dispatch, run not initialised")
 
         def _offline_dispatch_callback(
@@ -339,7 +404,8 @@ class Run:
             run_id: typing.Optional[str] = self._id,
             uuid: str = self._uuid,
         ) -> None:
-            if not os.path.exists((_offline_directory := get_offline_directory())):
+            _offline_directory = self.config.offline.cache
+            if not os.path.exists(_offline_directory):
                 logger.error(
                     f"Cannot write to offline directory '{_offline_directory}', directory not found."
                 )
@@ -365,7 +431,7 @@ class Run:
         def _online_dispatch_callback(
             buffer: list[typing.Any],
             category: str,
-            url: str = self._url,
+            url: str = self._config.server.url,
             run_id: typing.Optional[str] = self._id,
             headers: dict[str, str] = self._headers,
         ) -> None:
@@ -411,9 +477,6 @@ class Run:
             self._uuid = "notused"
 
         logger.debug("Starting run")
-
-        if self._simvue and not self._simvue.check_token():
-            return False
 
         data: dict[str, typing.Any] = {"status": self._status}
 
@@ -512,10 +575,15 @@ class Run:
         name: typing.Optional[
             typing.Annotated[str, pydantic.Field(pattern=NAME_REGEX)]
         ] = None,
-        metadata: typing.Optional[dict[str, typing.Any]] = None,
+        *,
+        metadata: typing.Optional[
+            dict[str, typing.Union[str, int, float, bool]]
+        ] = None,
         tags: typing.Optional[list[str]] = None,
         description: typing.Optional[str] = None,
-        folder: typing.Annotated[str, pydantic.Field(pattern=FOLDER_REGEX)] = "/",
+        folder: typing.Annotated[
+            str, pydantic.Field(None, pattern=FOLDER_REGEX)
+        ] = None,
         running: bool = True,
         retention_period: typing.Optional[str] = None,
         timeout: typing.Optional[int] = 180,
@@ -560,6 +628,18 @@ class Run:
         bool
             whether the initialisation was successful
         """
+        if self._mode == "disabled":
+            logger.warning(
+                "Simvue monitoring has been deactivated for this run, metrics and artifacts will not be recorded."
+            )
+            return True
+
+        description = description or self._config.run.description
+        tags = (tags or []) + (self._config.run.tags or [])
+        folder = folder or self._config.run.folder
+        name = name or self._config.run.name
+        metadata = (metadata or {}) | (self._config.run.metadata or {})
+
         self._term_color = not no_color
 
         if isinstance(visibility, str) and visibility not in ("public", "tenant"):
@@ -567,14 +647,11 @@ class Run:
                 "invalid visibility option, must be either None, 'public', 'tenant' or a list of users"
             )
 
-        if self._mode not in ("online", "offline", "disabled"):
+        if self._mode not in ("online", "offline"):
             self._error("invalid mode specified, must be online, offline or disabled")
             return False
 
-        if self._mode == "disabled":
-            return True
-
-        if not self._token or not self._url:
+        if not self._config.server.token or not self._config.server.url:
             self._error(
                 "Unable to get URL and token from environment variables or config file"
             )
@@ -591,20 +668,22 @@ class Run:
         # Parse the time to live/retention time if specified
         try:
             if retention_period:
-                retention_secs: typing.Optional[int] = int(
+                self._retention: typing.Optional[int] = int(
                     humanfriendly.parse_timespan(retention_period)
                 )
             else:
-                retention_secs = None
+                self._retention = None
         except humanfriendly.InvalidTimespan as e:
             self._error(e.args[0])
             return False
+
+        self._timer = time.time()
 
         data: dict[str, typing.Any] = {
             "metadata": (metadata or {}) | git_info(os.getcwd()) | environment(),
             "tags": tags or [],
             "status": self._status,
-            "ttl": retention_secs,
+            "ttl": self._retention,
             "folder": folder,
             "name": name,
             "description": description,
@@ -624,7 +703,13 @@ class Run:
             self._error(f"{err}")
             return False
 
-        self._simvue = Simvue(self._name, self._uuid, self._mode, self._suppress_errors)
+        self._simvue = Simvue(
+            name=self._name,
+            uniq_id=self._uuid,
+            mode=self._mode,
+            config=self._config,
+            suppress_errors=self._suppress_errors,
+        )
         name, self._id = self._simvue.create_run(data)
 
         self._data = data
@@ -645,7 +730,7 @@ class Run:
                 fg="green" if self._term_color else None,
             )
             click.secho(
-                f"[simvue] Monitor in the UI at {self._url}/dashboard/runs/run/{self._id}",
+                f"[simvue] Monitor in the UI at {self._config.server.url}/dashboard/runs/run/{self._id}",
                 bold=self._term_color,
                 fg="green" if self._term_color else None,
             )
@@ -849,13 +934,12 @@ class Run:
         bool
             whether reconnection succeeded
         """
-        if self._mode == "disabled":
-            return True
-
         self._status = "running"
 
         self._id = run_id
-        self._simvue = Simvue(self._name, self._id, self._mode, self._suppress_errors)
+        self._simvue = Simvue(
+            self._name, self._id, self._mode, self._config, self._suppress_errors
+        )
         self._start(reconnect=True)
 
         return True
@@ -884,7 +968,9 @@ class Run:
         enable_emission_metrics: typing.Optional[bool] = None,
         disable_resources_metrics: typing.Optional[bool] = None,
         storage_id: typing.Optional[str] = None,
-        abort_on_alert: typing.Optional[bool] = None,
+        abort_on_alert: typing.Optional[
+            typing.Union[typing.Literal["run", "all", "ignore"], bool]
+        ] = None,
     ) -> bool:
         """Optional configuration
 
@@ -903,8 +989,11 @@ class Run:
             disable monitoring of resource metrics
         storage_id : str, optional
             identifier of storage to use, by default None
-        abort_on_alert : bool, optional
-            whether to abort the run if an alert is triggered
+        abort_on_alert : Literal['ignore', run', 'terminate'], optional
+            whether to abort when an alert is triggered.
+            If 'run' then the current run is aborted.
+            If 'terminate' then the script itself is terminated.
+            If 'ignore' then alerts will not affect this run
 
         Returns
         -------
@@ -945,7 +1034,13 @@ class Run:
             if resources_metrics_interval:
                 self._resources_metrics_interval = resources_metrics_interval
 
-            if abort_on_alert:
+            if abort_on_alert is not None:
+                if isinstance(abort_on_alert, bool):
+                    warnings.warn(
+                        "Use of type bool for argument 'abort_on_alert' will be deprecated from v1.2, "
+                        "please use either 'run', 'all' or 'ignore'"
+                    )
+                    abort_on_alert = "run" if self._abort_on_alert else "ignore"
                 self._abort_on_alert = abort_on_alert
 
             if storage_id:
@@ -969,9 +1064,6 @@ class Run:
         bool
             if the update was successful
         """
-        if self._mode == "disabled":
-            return True
-
         if not self._simvue:
             self._error("Cannot update metadata, run not initialised")
             return False
@@ -1003,9 +1095,6 @@ class Run:
         bool
             whether the update was successful
         """
-        if self._mode == "disabled":
-            return True
-
         if not self._simvue:
             self._error("Cannot update tags, run not initialised")
             return False
@@ -1033,9 +1122,6 @@ class Run:
         bool
             whether the update was successful
         """
-        if self._mode == "disabled":
-            return True
-
         if not self._simvue:
             return False
 
@@ -1073,10 +1159,6 @@ class Run:
         """
         if self._aborted:
             return False
-
-        if self._mode == "disabled":
-            self._error("Cannot log events in 'disabled' state")
-            return True
 
         if not self._simvue or not self._dispatcher:
             self._error("Cannot log events, run not initialised")
@@ -1270,9 +1352,6 @@ class Run:
         bool
             whether the upload was successful
         """
-        if self._mode == "disabled":
-            return True
-
         if not self._simvue:
             self._error("Cannot save files, run not initialised")
             return False
@@ -1356,9 +1435,6 @@ class Run:
         bool
             if the directory save was successful
         """
-        if self._mode == "disabled":
-            return True
-
         if not self._simvue:
             self._error("Cannot save directory, run not inirialised")
             return False
@@ -1408,11 +1484,6 @@ class Run:
         bool
             whether the save was successful
         """
-        success: bool = True
-
-        if self._mode == "disabled":
-            return success
-
         for item in items:
             if item.is_file():
                 save_file = self.save_file(item, category, filetype, preserve_path)
@@ -1446,9 +1517,6 @@ class Run:
         bool
             if status update was successful
         """
-        if self._mode == "disabled":
-            return True
-
         if not self._active or not self._name:
             self._error("Run is not active")
             return False
@@ -1482,7 +1550,8 @@ class Run:
         if self._status == "running":
             if self._dispatcher:
                 self._dispatcher.join()
-            self.set_status("completed")
+            if self._active:
+                self.set_status("completed")
         elif self._dispatcher:
             self._dispatcher.purge()
             self._dispatcher.join()
@@ -1514,8 +1583,6 @@ class Run:
             whether close was successful
         """
         self._executor.wait_for_completion()
-        if self._mode == "disabled":
-            return True
 
         if not self._simvue:
             self._error("Cannot close run, not initialised")
@@ -1557,9 +1624,6 @@ class Run:
         bool
             returns True if update was successful
         """
-        if self._mode == "disabled":
-            return True
-
         if not self._simvue:
             self._error("Cannot update folder details, run was not initialised")
             return False
@@ -1736,9 +1800,6 @@ class Run:
         str | None
             returns the created alert ID if successful
         """
-        if self._mode == "disabled":
-            return None
-
         if not self._simvue:
             self._error("Cannot add alert, run not initialised")
             return None
@@ -1806,10 +1867,8 @@ class Run:
             except RuntimeError as e:
                 self._error(f"{e.args[0]}")
                 return None
-            if response:
-                if "id" in response:
-                    alert_id = response["id"]
-            else:
+
+            if not (alert_id := (response or {}).get("id")):
                 self._error("unable to create alert")
                 return None
 

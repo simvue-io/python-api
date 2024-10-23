@@ -17,11 +17,11 @@ class CountingLogHandler(logging.Handler):
         super().__init__(level)
         self.counts = []
         self.captures = []
-    
+
     def emit(self, record):
         if len(self.captures) != len(self.counts):
             self.counts = [0] * len(self.captures)
-        
+
         for i, capture in enumerate(self.captures):
             if capture in record.msg:
                 self.counts[i] += 1
@@ -48,9 +48,9 @@ def create_test_run(request) -> typing.Generator[typing.Tuple[sv_run.Run, dict],
 
 
 @pytest.fixture
-def create_test_run_offline(mocker: pytest_mock.MockerFixture, request) -> typing.Generator[typing.Tuple[sv_run.Run, dict], None, None]:
+def create_test_run_offline(mocker: pytest_mock.MockerFixture, request, monkeypatch: pytest.MonkeyPatch) -> typing.Generator[typing.Tuple[sv_run.Run, dict], None, None]:
     with tempfile.TemporaryDirectory() as temp_d:
-        mocker.patch.object(simvue.utilities, "get_offline_directory", lambda *_: temp_d)
+        monkeypatch.setenv("SIMVUE_OFFLINE_DIRECTORY", temp_d)
         with sv_run.Run("offline") as run:
             yield run, setup_test_run(run, True, request)
 
@@ -62,9 +62,9 @@ def create_plain_run(request) -> typing.Generator[typing.Tuple[sv_run.Run, dict]
 
 
 @pytest.fixture
-def create_plain_run_offline(mocker: pytest_mock.MockerFixture, request) -> typing.Generator[typing.Tuple[sv_run.Run, dict], None, None]:
+def create_plain_run_offline(mocker: pytest_mock.MockerFixture, request, monkeypatch: pytest.MonkeyPatch) -> typing.Generator[typing.Tuple[sv_run.Run, dict], None, None]:
     with tempfile.TemporaryDirectory() as temp_d:
-        mocker.patch.object(simvue.utilities, "get_offline_directory", lambda *_: temp_d)
+        monkeypatch.setenv("SIMVUE_OFFLINE_DIRECTORY", temp_d)
         with sv_run.Run("offline") as run:
             
             yield run, setup_test_run(run, False, request)
@@ -113,7 +113,7 @@ def setup_test_run(run: sv_run.Run, create_objects: bool, request: pytest.Fixtur
         TEST_DATA["metrics"] = ("metric_counter", "metric_val")
     TEST_DATA["run_id"] = run._id
     TEST_DATA["run_name"] = run._name
-    TEST_DATA["url"] = run._url
+    TEST_DATA["url"] = run._config.server.url
     TEST_DATA["headers"] = run._headers
     TEST_DATA["pid"] = run._pid
     TEST_DATA["resources_metrics_interval"] = run._resources_metrics_interval
@@ -139,3 +139,4 @@ def setup_test_run(run: sv_run.Run, create_objects: bool, request: pytest.Fixtur
 
     time.sleep(1.)
     return TEST_DATA
+

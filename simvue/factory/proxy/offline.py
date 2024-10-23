@@ -9,12 +9,15 @@ import uuid
 import randomname
 
 from simvue.factory.proxy.base import SimvueBaseClass
+from simvue.config.user import SimvueConfiguration
 from simvue.utilities import (
     create_file,
-    get_offline_directory,
     prepare_for_api,
     skip_if_failed,
 )
+
+if typing.TYPE_CHECKING:
+    pass
 
 logger = logging.getLogger(__name__)
 
@@ -29,7 +32,8 @@ class Offline(SimvueBaseClass):
     ) -> None:
         super().__init__(name, uniq_id, suppress_errors)
 
-        self._directory: str = os.path.join(get_offline_directory(), self._uuid)
+        _offline_dir = SimvueConfiguration.fetch().offline.cache
+        self._directory: str = os.path.join(_offline_dir, self._uuid)
 
         os.makedirs(self._directory, exist_ok=True)
 
@@ -55,6 +59,8 @@ class Offline(SimvueBaseClass):
     ) -> typing.Optional[dict[str, typing.Any]]:
         unique_id = time.time()
         filename = os.path.join(self._directory, f"{prefix}-{unique_id}.json")
+        if not data.get("id"):
+            data["id"] = f"{unique_id}"
         self._write_json(filename, data)
         return data
 
@@ -216,7 +222,3 @@ class Offline(SimvueBaseClass):
         )
         pathlib.Path(os.path.join(self._directory, "heartbeat")).touch()
         return {"success": True}
-
-    @skip_if_failed("_aborted", "_suppress_errors", False)
-    def check_token(self) -> bool:
-        return True

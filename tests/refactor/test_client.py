@@ -13,7 +13,7 @@ import simvue.filter as sv_filter
 @pytest.mark.client
 def test_get_events(create_test_run: tuple[sv_run.Run, dict]) -> None:
     client = svc.Client()
-    assert client.get_events(create_test_run[1]["run_id"])
+    assert client.get_events(run_id=create_test_run[1]["run_id"])
 
 
 @pytest.mark.dependency
@@ -26,7 +26,7 @@ def test_get_alerts(create_test_run: tuple[sv_run.Run, dict], from_run: bool) ->
 
     if from_run:
         assert (
-            len(client.get_alerts(create_test_run[1]["run_id"], critical_only=False)) == 5
+            len(client.get_alerts(run_id=create_test_run[1]["run_id"], critical_only=False)) == 5
         )
     else:
         assert client.get_alerts(names_only=True)
