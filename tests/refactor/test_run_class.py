@@ -147,10 +147,28 @@ def test_log_events_offline(create_test_run_offline: tuple[sv_run.Run, dict]) ->
 
 
 @pytest.mark.run
-def test_update_metadata(create_test_run: tuple[sv_run.Run, dict]) -> None:
+@pytest.mark.parametrize(
+    "valid", (True, False), ids=("valid", "invalid")
+)
+@pytest.mark.parametrize(
+    "nested", (True, False), ids=("nested", "flat")
+)
+def test_update_metadata(create_test_run: tuple[sv_run.Run, dict], valid: bool, nested: bool) -> None:
     METADATA = {"a": 10, "b": 1.2, "c": "word"}
+    if not valid and not nested:
+        METADATA |= {"d": pathlib.Path.cwd()}
+    elif not valid:
+        METADATA["d"] = {"e": pathlib.Path.cwd()}
+    else:
+        METADATA["d"] = {"e": 2.3}
+
     run, _ = create_test_run
-    run.update_metadata(METADATA)
+
+    if not valid:
+        with pytest.raises(RuntimeError):
+            run.update_metadata(METADATA)
+    else:
+        run.update_metadata(METADATA)
 
 
 @pytest.mark.run

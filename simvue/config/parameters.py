@@ -16,7 +16,7 @@ import http
 import functools
 
 import simvue.models as sv_models
-from simvue.utilities import get_expiry
+from simvue.utilities import get_expiry, valid_dictionary
 from simvue.version import __version__
 from simvue.api import get
 
@@ -89,6 +89,15 @@ class DefaultRunSpecifications(pydantic.BaseModel):
     tags: typing.Optional[list[str]] = None
     folder: str = pydantic.Field("/", pattern=sv_models.FOLDER_REGEX)
     metadata: typing.Optional[dict[str, typing.Union[str, int, float, bool]]] = None
+
+    @pydantic.field_validator("metadata")
+    @classmethod
+    def cache_to_str(cls, v: typing.Any) -> str:
+        if not valid_dictionary(v):
+            raise AssertionError(
+                "Base level keys must be of type int, float, bool or str"
+            )
+        return f"{v}"
 
 
 class ClientGeneralOptions(pydantic.BaseModel):
