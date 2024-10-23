@@ -2,6 +2,7 @@
 
 ## Unreleased
 
+* Add support for defining Simvue run defaults using `tool.simvue` in a project `pyproject.toml` file.
 * Drop support for INI based configuration files.
 * Retrieve all metric values if `max_points` is unspecified or set to `None`.
 
