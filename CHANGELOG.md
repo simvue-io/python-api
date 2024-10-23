@@ -2,7 +2,9 @@
 
 ## Unreleased
 
+* Supports Simvue server `>=0.1.0`.
 * Drop support for INI based configuration files.
+* Allow sending of nested metadata to the Simvue server.
 
 ## [v1.1.1](https://github.com/simvue-io/client/releases/tag/v1.1.1) - 2024-10-22
 
