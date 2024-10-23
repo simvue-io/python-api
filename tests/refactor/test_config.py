@@ -5,7 +5,8 @@ import uuid
 import pathlib
 import pytest_mock
 import tempfile
-from simvue.config.user import SimvueConfiguration
+
+import semver
 
 
 @pytest.mark.config
@@ -28,6 +29,7 @@ def test_config_setup(
     monkeypatch: pytest.MonkeyPatch,
     mocker: pytest_mock.MockerFixture
 ) -> None:
+    from simvue.config.user import SimvueConfiguration
     _token: str = f"{uuid.uuid4()}".replace('-', '')
     _other_token: str = f"{uuid.uuid4()}".replace('-', '')
     _arg_token: str = f"{uuid.uuid4()}".replace('-', '')
@@ -141,4 +143,13 @@ tags = {_tags}
             assert not _config.run.tags
 
         simvue.config.user.SimvueConfiguration.config_file.cache_clear()
+
+
+@pytest.mark.config
+def test_invalid_server_version(mocker: pytest_mock.MockerFixture) -> None:
+    mocker.patch("simvue.config.parameters.SIMVUE_MINIMUM_SERVER_VERSION", semver.VersionInfo.parse("10.10.10"))
+    from simvue.config.user import SimvueConfiguration
+
+    with pytest.raises(RuntimeError):
+        SimvueConfiguration.fetch()
 

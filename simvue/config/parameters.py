@@ -14,6 +14,7 @@ import typing
 import pathlib
 import http
 import functools
+import semver
 
 import simvue.models as sv_models
 from simvue.utilities import get_expiry, valid_dictionary
@@ -22,6 +23,8 @@ from simvue.api import get
 
 
 logger = logging.getLogger(__file__)
+
+SIMVUE_MINIMUM_SERVER_VERSION = semver.VersionInfo.parse("0.1.0")
 
 
 class ServerSpecifications(pydantic.BaseModel):
@@ -52,10 +55,18 @@ class ServerSpecifications(pydantic.BaseModel):
         try:
             response = get(f"{url}/api/version", headers)
 
-            if response.status_code != http.HTTPStatus.OK or not response.json().get(
-                "version"
+            if response.status_code != http.HTTPStatus.OK or not (
+                version := response.json().get("version")
             ):
                 raise AssertionError
+
+            if (
+                semver.VersionInfo.parse(version.strip())
+                < SIMVUE_MINIMUM_SERVER_VERSION
+            ):
+                raise AssertionError(
+                    f"Unsupported Simvue server version <{SIMVUE_MINIMUM_SERVER_VERSION}"
+                )
 
             if response.status_code == http.HTTPStatus.UNAUTHORIZED:
                 raise AssertionError("Unauthorised token")
