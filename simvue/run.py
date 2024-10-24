@@ -50,6 +50,7 @@ from .utilities import (
     skip_if_failed,
     validate_timestamp,
     simvue_timestamp,
+    valid_dictionary,
 )
 
 try:
@@ -576,9 +577,7 @@ class Run:
             typing.Annotated[str, pydantic.Field(pattern=NAME_REGEX)]
         ] = None,
         *,
-        metadata: typing.Optional[
-            dict[str, typing.Union[str, int, float, bool]]
-        ] = None,
+        metadata: typing.Optional[dict[str, typing.Any]] = None,
         tags: typing.Optional[list[str]] = None,
         description: typing.Optional[str] = None,
         folder: typing.Annotated[
@@ -639,6 +638,12 @@ class Run:
         folder = folder or self._config.run.folder
         name = name or self._config.run.name
         metadata = (metadata or {}) | (self._config.run.metadata or {})
+
+        if not valid_dictionary(metadata):
+            self._error(
+                "Base values in 'metadata' must be of type int, str, bool or float"
+            )
+            return False
 
         self._term_color = not no_color
 
@@ -1070,6 +1075,12 @@ class Run:
 
         if not isinstance(metadata, dict):
             self._error("metadata must be a dict")
+            return False
+
+        if not valid_dictionary(metadata):
+            self._error(
+                "Base values in 'metadata' must be of type int, str, bool or float"
+            )
             return False
 
         data: dict[str, dict[str, typing.Any]] = {"metadata": metadata}

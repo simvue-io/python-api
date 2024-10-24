@@ -1,5 +1,4 @@
 import pytest
-import pytest_mock
 import typing
 import uuid
 import time
@@ -48,7 +47,7 @@ def create_test_run(request) -> typing.Generator[typing.Tuple[sv_run.Run, dict],
 
 
 @pytest.fixture
-def create_test_run_offline(mocker: pytest_mock.MockerFixture, request, monkeypatch: pytest.MonkeyPatch) -> typing.Generator[typing.Tuple[sv_run.Run, dict], None, None]:
+def create_test_run_offline(request, monkeypatch: pytest.MonkeyPatch) -> typing.Generator[typing.Tuple[sv_run.Run, dict], None, None]:
     with tempfile.TemporaryDirectory() as temp_d:
         monkeypatch.setenv("SIMVUE_OFFLINE_DIRECTORY", temp_d)
         with sv_run.Run("offline") as run:
@@ -62,7 +61,7 @@ def create_plain_run(request) -> typing.Generator[typing.Tuple[sv_run.Run, dict]
 
 
 @pytest.fixture
-def create_plain_run_offline(mocker: pytest_mock.MockerFixture, request, monkeypatch: pytest.MonkeyPatch) -> typing.Generator[typing.Tuple[sv_run.Run, dict], None, None]:
+def create_plain_run_offline(request, monkeypatch: pytest.MonkeyPatch) -> typing.Generator[typing.Tuple[sv_run.Run, dict], None, None]:
     with tempfile.TemporaryDirectory() as temp_d:
         monkeypatch.setenv("SIMVUE_OFFLINE_DIRECTORY", temp_d)
         with sv_run.Run("offline") as run:

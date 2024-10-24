@@ -11,6 +11,7 @@ import contextlib
 import os
 import pathlib
 import typing
+import flatdict
 
 import jwt
 
@@ -378,3 +379,9 @@ def simvue_timestamp(date_time: typing.Optional[datetime.datetime] = None) -> st
     if not date_time:
         date_time = datetime.datetime.now(timezone.utc)
     return date_time.strftime("%Y-%m-%d %H:%M:%S.%f")
+
+
+def valid_dictionary(input_dict: dict[str, typing.Any]) -> bool:
+    """Returns whether the provided dictionary is compatible with the server"""
+    _flattened_dict = flatdict.FlatterDict(input_dict)
+    return all(isinstance(v, (int, float, str, bool)) for v in _flattened_dict.values())
