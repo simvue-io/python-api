@@ -5,6 +5,8 @@
 * Supports Simvue server `>=0.1.0`.
 * Drop support for INI based configuration files.
 * Allow sending of nested metadata to the Simvue server.
+* Add support for defining Simvue run defaults using `tool.simvue` in a project `pyproject.toml` file.
+* Retrieve all metric values if `max_points` is unspecified or set to `None`.
 
 ## [v1.1.1](https://github.com/simvue-io/client/releases/tag/v1.1.1) - 2024-10-22
 
