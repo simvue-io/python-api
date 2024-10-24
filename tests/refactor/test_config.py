@@ -3,7 +3,6 @@ import typing
 import os
 import uuid
 import pathlib
-import pytest_mock
 import tempfile
 
 import semver
@@ -26,8 +25,7 @@ def test_config_setup(
     use_env: bool,
     use_file: str | None,
     use_args: bool,
-    monkeypatch: pytest.MonkeyPatch,
-    mocker: pytest_mock.MockerFixture
+    monkeypatch: pytest.MonkeyPatch
 ) -> None:
     from simvue.config.user import SimvueConfiguration
     _token: str = f"{uuid.uuid4()}".replace('-', '')
@@ -90,7 +88,7 @@ tags = {_tags}
                 out_f.write(_lines)
             SimvueConfiguration.config_file.cache_clear()
 
-        mocker.patch("simvue.config.parameters.get_expiry", lambda *_, **__: 1e10)
+        monkeypatch.setattr("simvue.config.parameters.get_expiry", lambda *_, **__: 1e10)
 
 
         def _mocked_find(file_names: list[str], *_, ppt_file=_ppt_file, conf_file=_config_file, **__) -> str:
@@ -146,8 +144,8 @@ tags = {_tags}
 
 
 @pytest.mark.config
-def test_invalid_server_version(mocker: pytest_mock.MockerFixture) -> None:
-    mocker.patch("simvue.config.parameters.SIMVUE_MINIMUM_SERVER_VERSION", semver.VersionInfo.parse("10.10.10"))
+def test_invalid_server_version(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr("simvue.config.parameters.SIMVUE_MINIMUM_SERVER_VERSION", semver.VersionInfo.parse("10.10.10"))
     from simvue.config.user import SimvueConfiguration
 
     with pytest.raises(RuntimeError):
