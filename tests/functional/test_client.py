@@ -15,7 +15,7 @@ import simvue.run as sv_run
 @pytest.mark.client
 def test_get_events(create_test_run: tuple[sv_run.Run, dict]) -> None:
     client = svc.Client()
-    assert client.get_events(create_test_run[1]["run_id"])
+    assert client.get_events(run_id=create_test_run[1]["run_id"])
 
 
 @pytest.mark.dependency

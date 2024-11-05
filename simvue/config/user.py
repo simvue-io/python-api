@@ -11,20 +11,22 @@ import logging
 import os
 import typing
 import pathlib
-import configparser
-import contextlib
-import warnings
 
 import pydantic
 import toml
 
 import simvue.utilities as sv_util
 from simvue.config.parameters import (
-    CONFIG_FILE_NAMES,
-    CONFIG_INI_FILE_NAMES,
     ClientGeneralOptions,
     DefaultRunSpecifications,
     ServerSpecifications,
+    OfflineSpecifications,
+)
+
+from simvue.config.files import (
+    CONFIG_FILE_NAMES,
+    CONFIG_INI_FILE_NAMES,
+    DEFAULT_OFFLINE_DIRECTORY,
 )
 
 logger = logging.getLogger(__name__)
@@ -38,29 +40,39 @@ class SimvueConfiguration(pydantic.BaseModel):
         ..., description="Specifications for Simvue server"
     )
     run: DefaultRunSpecifications = DefaultRunSpecifications()
+    offline: OfflineSpecifications = OfflineSpecifications()
 
     @classmethod
-    def _parse_ini_config(cls, ini_file: pathlib.Path) -> dict[str, dict[str, str]]:
-        """Parse a legacy INI config file if found."""
-        # NOTE: Legacy INI support, this will be removed
-        warnings.warn(
-            "Support for legacy INI based configuration files will be dropped in simvue>=1.2, "
-            "please switch to TOML based configuration.",
-            DeprecationWarning,
-            stacklevel=2,
+    def _load_pyproject_configs(cls) -> typing.Optional[dict]:
+        """Recover any Simvue non-authentication configurations from pyproject.toml"""
+        _pyproject_toml = sv_util.find_first_instance_of_file(
+            file_names=["pyproject.toml"], check_user_space=False
         )
 
-        config_dict: dict[str, dict[str, str]] = {"server": {}}
+        if not _pyproject_toml:
+            return
 
-        with contextlib.suppress(Exception):
-            parser = configparser.ConfigParser()
-            parser.read(f"{ini_file}")
-            if token := parser.get("server", "token"):
-                config_dict["server"]["token"] = token
-            if url := parser.get("server", "url"):
-                config_dict["server"]["url"] = url
+        _project_data = toml.load(_pyproject_toml)
 
-        return config_dict
+        if not (_simvue_setup := _project_data.get("tool", {}).get("simvue")):
+            return
+
+        # Do not allow reading of authentication credentials within a project file
+        _server_credentials = _simvue_setup.get("server", {})
+        _offline_credentials = _simvue_setup.get("offline", {})
+
+        if any(
+            [
+                _server_credentials.get("token"),
+                _server_credentials.get("url"),
+                _offline_credentials.get("cache"),
+            ]
+        ):
+            raise RuntimeError(
+                "Provision of Simvue URL, Token or offline directory in pyproject.toml is not allowed."
+            )
+
+        return _simvue_setup
 
     @classmethod
     @sv_util.prettify_pydantic
@@ -69,16 +81,31 @@ class SimvueConfiguration(pydantic.BaseModel):
         server_url: typing.Optional[str] = None,
         server_token: typing.Optional[str] = None,
     ) -> "SimvueConfiguration":
-        _config_dict: dict[str, dict[str, str]] = {}
+        """Retrieve the Simvue configuration from this project
+
+        Will retrieve the configuration options set for this project either using
+        local or global configurations.
+
+        Parameters
+        ----------
+        server_url : str, optional
+            override the URL used for this session
+        server_token : str, optional
+            override the token used for this session
+
+        Return
+        ------
+        SimvueConfiguration
+            object containing configurations
+
+        """
+        _config_dict: dict[str, dict[str, str]] = cls._load_pyproject_configs() or {}
 
         try:
             logger.info(f"Using config file '{cls.config_file()}'")
 
-            # NOTE: Legacy INI support, this will be removed
-            if cls.config_file().suffix == ".toml":
-                _config_dict = toml.load(cls.config_file())
-            else:
-                _config_dict = cls._parse_ini_config(cls.config_file())
+            # NOTE: Legacy INI support has been removed
+            _config_dict |= toml.load(cls.config_file())
 
         except FileNotFoundError:
             if not server_token or not server_url:
@@ -86,6 +113,16 @@ class SimvueConfiguration(pydantic.BaseModel):
                 logger.warning("No config file found, checking environment variables")
 
         _config_dict["server"] = _config_dict.get("server", {})
+
+        _config_dict["offline"] = _config_dict.get("offline", {})
+
+        # Allow override of specification of offline directory via environment variable
+        if not (_default_dir := os.environ.get("SIMVUE_OFFLINE_DIRECTORY")):
+            _default_dir = _config_dict["offline"].get(
+                "cache", DEFAULT_OFFLINE_DIRECTORY
+            )
+
+        _config_dict["offline"]["cache"] = _default_dir
 
         # Ranking of configurations for token and URl is:
         # Envionment Variables > Run Definition > Configuration File
@@ -112,18 +149,20 @@ class SimvueConfiguration(pydantic.BaseModel):
     @classmethod
     @functools.lru_cache
     def config_file(cls) -> pathlib.Path:
+        """Returns the path of top level configuration file used for the session"""
         _config_file: typing.Optional[pathlib.Path] = (
             sv_util.find_first_instance_of_file(
                 CONFIG_FILE_NAMES, check_user_space=True
             )
         )
 
-        # NOTE: Legacy INI support, this will be removed
-        if not _config_file:
-            _config_file: typing.Optional[pathlib.Path] = (
-                sv_util.find_first_instance_of_file(
-                    CONFIG_INI_FILE_NAMES, check_user_space=True
-                )
+        # NOTE: Legacy INI support has been removed
+        if not _config_file and sv_util.find_first_instance_of_file(
+            CONFIG_INI_FILE_NAMES, check_user_space=True
+        ):
+            raise RuntimeError(
+                "Simvue INI configuration file format has been deprecated in simvue>=1.2, "
+                "please use TOML file"
             )
 
         if not _config_file:

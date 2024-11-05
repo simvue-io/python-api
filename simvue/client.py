@@ -26,7 +26,7 @@ from .serialization import deserialize_data
 from .simvue_types import DeserializedContent
 from .utilities import check_extra, prettify_pydantic
 from .models import FOLDER_REGEX, NAME_REGEX
-from .config import SimvueConfiguration
+from .config.user import SimvueConfiguration
 
 if typing.TYPE_CHECKING:
     pass
@@ -1038,9 +1038,9 @@ class Client:
         run_ids: list[str],
         xaxis: str,
         aggregate: bool,
-        max_points: int = -1,
+        max_points: typing.Optional[int] = None,
     ) -> dict[str, typing.Any]:
-        params: dict[str, typing.Union[str, int]] = {
+        params: dict[str, typing.Union[str, int, None]] = {
             "runs": json.dumps(run_ids),
             "aggregate": aggregate,
             "metrics": json.dumps(metric_names),
@@ -1162,7 +1162,7 @@ class Client:
             run_ids=run_ids,
             xaxis=xaxis,
             aggregate=aggregate,
-            max_points=max_points or -1,
+            max_points=max_points,
         )
 
         if not run_metrics:
