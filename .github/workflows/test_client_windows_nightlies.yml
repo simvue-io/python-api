@@ -1,4 +1,4 @@
-name: Simvue Client (Windows)
+name: Simvue Nightlies (Windows)
 
 on:
   workflow_dispatch:
