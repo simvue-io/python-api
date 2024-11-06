@@ -106,18 +106,19 @@ class Client:
         server_url : str, optional
             specify URL, if unset this is read from the config file
         """
-        self._config = SimvueConfiguration.fetch(
+        self._user_config = SimvueConfiguration.fetch(
             server_token=server_token, server_url=server_url
         )
 
         for label, value in zip(
-            ("URL", "API token"), (self._config.server.url, self._config.server.url)
+            ("URL", "API token"),
+            (self._user_config.server.url, self._user_config.server.url),
         ):
             if not value:
                 logger.warning(f"No {label} specified")
 
         self._headers: dict[str, str] = {
-            "Authorization": f"Bearer {self._config.server.token}"
+            "Authorization": f"Bearer {self._user_config.server.token}"
         }
 
     def _get_json_from_response(
@@ -183,7 +184,9 @@ class Client:
         params: dict[str, str] = {"filters": json.dumps([f"name == {name}"])}
 
         response: requests.Response = requests.get(
-            f"{self._config.server.url}/api/runs", headers=self._headers, params=params
+            f"{self._user_config.server.url}/api/runs",
+            headers=self._headers,
+            params=params,
         )
 
         json_response = self._get_json_from_response(
@@ -233,7 +236,7 @@ class Client:
         """
 
         response: requests.Response = requests.get(
-            f"{self._config.server.url}/api/runs/{run_id}", headers=self._headers
+            f"{self._user_config.server.url}/api/runs/{run_id}", headers=self._headers
         )
 
         json_response = self._get_json_from_response(
@@ -350,7 +353,9 @@ class Client:
         }
 
         response = requests.get(
-            f"{self._config.server.url}/api/runs", headers=self._headers, params=params
+            f"{self._user_config.server.url}/api/runs",
+            headers=self._headers,
+            params=params,
         )
 
         response.raise_for_status()
@@ -399,7 +404,7 @@ class Client:
         """
 
         response = requests.delete(
-            f"{self._config.server.url}/api/runs/{run_id}",
+            f"{self._user_config.server.url}/api/runs/{run_id}",
             headers=self._headers,
         )
 
@@ -435,7 +440,7 @@ class Client:
         params: dict[str, str] = {"filters": json.dumps([f"path == {path}"])}
 
         response: requests.Response = requests.get(
-            f"{self._config.server.url}/api/folders",
+            f"{self._user_config.server.url}/api/folders",
             headers=self._headers,
             params=params,
         )
@@ -480,7 +485,7 @@ class Client:
         params: dict[str, bool] = {"runs_only": True, "runs": True}
 
         response = requests.delete(
-            f"{self._config.server.url}/api/folders/{folder_id}",
+            f"{self._user_config.server.url}/api/folders/{folder_id}",
             headers=self._headers,
             params=params,
         )
@@ -546,7 +551,7 @@ class Client:
         params |= {"recursive": recursive}
 
         response = requests.delete(
-            f"{self._config.server.url}/api/folders/{folder_id}",
+            f"{self._user_config.server.url}/api/folders/{folder_id}",
             headers=self._headers,
             params=params,
         )
@@ -577,7 +582,8 @@ class Client:
             the unique identifier for the alert
         """
         response = requests.delete(
-            f"{self._config.server.url}/api/alerts/{alert_id}", headers=self._headers
+            f"{self._user_config.server.url}/api/alerts/{alert_id}",
+            headers=self._headers,
         )
 
         if response.status_code == http.HTTPStatus.OK:
@@ -612,7 +618,7 @@ class Client:
         params: dict[str, str] = {"runs": json.dumps([run_id])}
 
         response: requests.Response = requests.get(
-            f"{self._config.server.url}/api/artifacts",
+            f"{self._user_config.server.url}/api/artifacts",
             headers=self._headers,
             params=params,
         )
@@ -638,7 +644,7 @@ class Client:
         params: dict[str, str | None] = {"name": name}
 
         response = requests.get(
-            f"{self._config.server.url}/api/runs/{run_id}/artifacts",
+            f"{self._user_config.server.url}/api/runs/{run_id}/artifacts",
             headers=self._headers,
             params=params,
         )
@@ -680,7 +686,7 @@ class Client:
         body: dict[str, str | None] = {"id": run_id, "reason": reason}
 
         response = requests.put(
-            f"{self._config.server.url}/api/runs/abort",
+            f"{self._user_config.server.url}/api/runs/abort",
             headers=self._headers,
             json=body,
         )
@@ -874,7 +880,7 @@ class Client:
         params: dict[str, typing.Optional[str]] = {"category": category}
 
         response: requests.Response = requests.get(
-            f"{self._config.server.url}/api/runs/{run_id}/artifacts",
+            f"{self._user_config.server.url}/api/runs/{run_id}/artifacts",
             headers=self._headers,
             params=params,
         )
@@ -967,7 +973,7 @@ class Client:
         }
 
         response: requests.Response = requests.get(
-            f"{self._config.server.url}/api/folders",
+            f"{self._user_config.server.url}/api/folders",
             headers=self._headers,
             params=params,
         )
@@ -1014,7 +1020,7 @@ class Client:
         params = {"runs": json.dumps([run_id])}
 
         response: requests.Response = requests.get(
-            f"{self._config.server.url}/api/metrics/names",
+            f"{self._user_config.server.url}/api/metrics/names",
             headers=self._headers,
             params=params,
         )
@@ -1050,7 +1056,7 @@ class Client:
         }
 
         metrics_response: requests.Response = requests.get(
-            f"{self._config.server.url}/api/metrics",
+            f"{self._user_config.server.url}/api/metrics",
             headers=self._headers,
             params=params,
         )
@@ -1312,7 +1318,7 @@ class Client:
         }
 
         response = requests.get(
-            f"{self._config.server.url}/api/events",
+            f"{self._user_config.server.url}/api/events",
             headers=self._headers,
             params=params,
         )
@@ -1369,7 +1375,7 @@ class Client:
         params: dict[str, int] = {"count": count_limit or 0, "start": start_index or 0}
         if not run_id:
             response = requests.get(
-                f"{self._config.server.url}/api/alerts/",
+                f"{self._user_config.server.url}/api/alerts/",
                 headers=self._headers,
                 params=params,
             )
@@ -1381,7 +1387,7 @@ class Client:
             )
         else:
             response = requests.get(
-                f"{self._config.server.url}/api/runs/{run_id}",
+                f"{self._user_config.server.url}/api/runs/{run_id}",
                 headers=self._headers,
                 params=params,
             )
@@ -1458,7 +1464,9 @@ class Client:
         """
         params = {"count": count_limit or 0, "start": start_index or 0}
         response = requests.get(
-            f"{self._config.server.url}/api/tags", headers=self._headers, params=params
+            f"{self._user_config.server.url}/api/tags",
+            headers=self._headers,
+            params=params,
         )
 
         json_response = self._get_json_from_response(
@@ -1492,7 +1500,7 @@ class Client:
         """
 
         response = requests.delete(
-            f"{self._config.server.url}/api/tags/{tag_id}",
+            f"{self._user_config.server.url}/api/tags/{tag_id}",
             headers=self._headers,
         )
 
@@ -1534,7 +1542,7 @@ class Client:
         """
 
         response: requests.Response = requests.get(
-            f"{self._config.server.url}/api/tag/{tag_id}", headers=self._headers
+            f"{self._user_config.server.url}/api/tag/{tag_id}", headers=self._headers
         )
 
         json_response = self._get_json_from_response(
