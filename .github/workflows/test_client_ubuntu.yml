@@ -36,7 +36,7 @@ jobs:
         export SIMVUE_TOKEN=${{ secrets.SIMVUE_TOKEN }}
         poetry install --all-extras
         # poetry run python -m pip install torch --index-url https://download.pytorch.org/whl/cpu FIXME: PyTorch current broken for Python3.13
-        poetry run pytest -x --cov --cov-report=xml tests/unit/ tests/refactor/ -m 'not scenario' -c /dev/null -p no:warnings -n 0
+        poetry run pytest tests/ -x --cov --cov-report=xml -m 'not scenario' -c /dev/null -p no:warnings -n 0 -v
     - name: Upload coverage reports to Codecov
       run: |
         curl -Os https://uploader.codecov.io/latest/linux/codecov
