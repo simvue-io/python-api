@@ -128,6 +128,7 @@ class Client:
     ) -> typing.Union[dict, list]:
         try:
             json_response = response.json()
+            json_response = json_response or {}
         except json.JSONDecodeError:
             json_response = None
 

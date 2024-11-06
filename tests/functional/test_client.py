@@ -1,6 +1,7 @@
 from logging import critical
 from numpy import tri
 import pytest
+import uuid
 import random
 import os.path
 import typing
@@ -255,14 +256,15 @@ def test_run_folder_metadata_find(create_plain_run: tuple[sv_run.Run, dict]) -> 
 @pytest.mark.client
 def test_tag_deletion(create_plain_run: tuple[sv_run.Run, dict]) -> None:
     run, run_data = create_plain_run
-    run.update_tags(["delete_me"])
+    unique_id = f"{uuid.uuid4()}".split("-")[0]
+    run.update_tags([f"delete_me_{unique_id}"])
     run.close()
     time.sleep(1.0)
     client = svc.Client()
     tags = client.get_tags()
     client.delete_run(run.id)
     time.sleep(1.0)
-    tag_identifier = [tag["id"] for tag in tags if tag["name"] == "delete_me"][0]
+    tag_identifier = [tag["id"] for tag in tags if tag["name"] == f"delete_me_{unique_id}"][0]
     client.delete_tag(tag_identifier)
     time.sleep(1.0)
     assert not client.get_tag(tag_identifier)
