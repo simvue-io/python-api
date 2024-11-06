@@ -1,4 +1,4 @@
-name: Simvue Client (macOS)
+name: Simvue Nightlies (macOS)
 
 on:
   workflow_dispatch:
