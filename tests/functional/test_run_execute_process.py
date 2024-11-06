@@ -17,8 +17,8 @@ def test_monitor_processes(create_plain_run_offline: tuple[Run, dict]):
 
 
 @pytest.mark.executor
-def test_abort_all_processes(create_plain_run_offline: tuple[Run, dict]) -> None:
-    _run, _ = create_plain_run_offline
+def test_abort_all_processes(create_plain_run: tuple[Run, dict]) -> None:
+    _run, _ = create_plain_run
     start_time = time.time()
     with tempfile.NamedTemporaryFile(suffix=".py") as temp_f:
         with open(temp_f.name, "w") as out_f:
@@ -36,7 +36,6 @@ def test_abort_all_processes(create_plain_run_offline: tuple[Run, dict]) -> None
 
         _run.kill_all_processes()
         end_time = time.time()
-        sv_send.sender()
 
     assert end_time - start_time < 10, f"{end_time - start_time} >= 10"
 
