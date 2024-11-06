@@ -404,7 +404,7 @@ class Run:
             run_id: typing.Optional[str] = self._id,
             uuid: str = self._uuid,
         ) -> None:
-            _offline_directory = self.config.offline.cache
+            _offline_directory = self._config.offline.cache
             if not os.path.exists(_offline_directory):
                 logger.error(
                     f"Cannot write to offline directory '{_offline_directory}', directory not found."
