@@ -47,7 +47,6 @@ def test_check_run_initialised_decorator() -> None:
 def test_log_metrics(
     overload_buffer: bool,
     setup_logging: "CountingLogHandler",
-    mocker,
     request: pytest.FixtureRequest,
     visibility: typing.Union[typing.Literal["public", "tenant"], list[str], None],
 ) -> None:

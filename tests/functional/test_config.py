@@ -97,7 +97,7 @@ tags = {_tags}
             else:
                 return conf_file
 
-        mocker.patch("simvue.config.user.sv_util.find_first_instance_of_file", _mocked_find)
+        monkeypatch.setattr("simvue.config.user.sv_util.find_first_instance_of_file", _mocked_find)
 
         import simvue.config.user
 
