@@ -2,6 +2,8 @@ name: Simvue Client (macOS)
 
 on:
   workflow_dispatch:
+  schedule:
+    - cron: '30 23 * * *'
 
 permissions:
   contents: read
