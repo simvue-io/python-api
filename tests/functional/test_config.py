@@ -3,9 +3,9 @@ import typing
 import os
 import uuid
 import pathlib
-import pytest_mock
 import tempfile
-from simvue.config.user import SimvueConfiguration
+
+import semver
 
 
 @pytest.mark.config
@@ -25,9 +25,9 @@ def test_config_setup(
     use_env: bool,
     use_file: str | None,
     use_args: bool,
-    monkeypatch: pytest.MonkeyPatch,
-    mocker: pytest_mock.MockerFixture
+    monkeypatch: pytest.MonkeyPatch
 ) -> None:
+    from simvue.config.user import SimvueConfiguration
     _token: str = f"{uuid.uuid4()}".replace('-', '')
     _other_token: str = f"{uuid.uuid4()}".replace('-', '')
     _arg_token: str = f"{uuid.uuid4()}".replace('-', '')
@@ -88,7 +88,7 @@ tags = {_tags}
                 out_f.write(_lines)
             SimvueConfiguration.config_file.cache_clear()
 
-        mocker.patch("simvue.config.parameters.get_expiry", lambda *_, **__: 1e10)
+        monkeypatch.setattr("simvue.config.parameters.get_expiry", lambda *_, **__: 1e10)
 
 
         def _mocked_find(file_names: list[str], *_, ppt_file=_ppt_file, conf_file=_config_file, **__) -> str:
@@ -97,7 +97,7 @@ tags = {_tags}
             else:
                 return conf_file
 
-        mocker.patch("simvue.config.user.sv_util.find_first_instance_of_file", _mocked_find)
+        monkeypatch.setattr("simvue.config.user.sv_util.find_first_instance_of_file", _mocked_find)
 
         import simvue.config.user
 
@@ -141,4 +141,13 @@ tags = {_tags}
             assert not _config.run.tags
 
         simvue.config.user.SimvueConfiguration.config_file.cache_clear()
+
+
+@pytest.mark.config
+def test_invalid_server_version(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr("simvue.config.parameters.SIMVUE_MINIMUM_SERVER_VERSION", semver.VersionInfo.parse("10.10.10"))
+    from simvue.config.user import SimvueConfiguration
+
+    with pytest.raises(RuntimeError):
+        SimvueConfiguration.fetch()
 

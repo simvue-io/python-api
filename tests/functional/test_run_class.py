@@ -1,7 +1,6 @@
 import os
 from os.path import basename
 import pytest
-import pytest_mock
 import time
 import typing
 import contextlib
@@ -48,7 +47,6 @@ def test_check_run_initialised_decorator() -> None:
 def test_log_metrics(
     overload_buffer: bool,
     setup_logging: "CountingLogHandler",
-    mocker,
     request: pytest.FixtureRequest,
     visibility: typing.Union[typing.Literal["public", "tenant"], list[str], None],
 ) -> None:
@@ -194,6 +192,13 @@ def test_offline_tags(create_plain_run_offline: tuple[sv_run.Run, dict]) -> None
 @pytest.mark.run
 def test_update_metadata_running(create_test_run: tuple[sv_run.Run, dict]) -> None:
     METADATA = {"a": 10, "b": 1.2, "c": "word"}
+    if not valid and not nested:
+        METADATA |= {"d": pathlib.Path.cwd()}
+    elif not valid:
+        METADATA["d"] = {"e": pathlib.Path.cwd()}
+    else:
+        METADATA["d"] = {"e": 2.3}
+
     run, _ = create_test_run
     run.update_metadata(METADATA)
     run.close()
@@ -633,7 +638,7 @@ def test_save_object(
 
 
 @pytest.mark.run
-def test_abort_on_alert_process(mocker: pytest_mock.MockerFixture) -> None:
+def test_abort_on_alert_process(monkeypatch: pytest.MonkeyPatch)-> None:
     def testing_exit(status: int) -> None:
         raise SystemExit(status)
 
@@ -651,7 +656,7 @@ def test_abort_on_alert_process(mocker: pytest_mock.MockerFixture) -> None:
         visibility="tenant"
     )
 
-    mocker.patch("os._exit", testing_exit)
+    monkeypatch.setattr("os._exit", testing_exit)
     N_PROCESSES: int = 3
     run.config(resources_metrics_interval=1)
     run._heartbeat_interval = 1
@@ -674,12 +679,12 @@ def test_abort_on_alert_process(mocker: pytest_mock.MockerFixture) -> None:
     
 
 @pytest.mark.run
-def test_abort_on_alert_python(create_plain_run: typing.Tuple[sv_run.Run, dict], mocker: pytest_mock.MockerFixture) -> None:
+def test_abort_on_alert_python(create_plain_run: typing.Tuple[sv_run.Run, dict], monkeypatch: pytest.MonkeyPatch) -> None:
     abort_set = threading.Event()
     def testing_exit(status: int) -> None:
         abort_set.set()
         raise SystemExit(status)
-    mocker.patch("os._exit", testing_exit)
+    monkeypatch.setattr("os._exit", testing_exit)
     run, _ = create_plain_run
     run.config(resources_metrics_interval=1)
     run._heartbeat_interval = 1
@@ -699,10 +704,10 @@ def test_abort_on_alert_python(create_plain_run: typing.Tuple[sv_run.Run, dict],
 
 
 @pytest.mark.run
-def test_abort_on_alert_raise(create_plain_run: typing.Tuple[sv_run.Run, dict], mocker: pytest_mock.MockerFixture) -> None:
+def test_abort_on_alert_raise(create_plain_run: typing.Tuple[sv_run.Run, dict], monkeypatch: pytest.MonkeyPatch) -> None:
     def testing_exit(status: int) -> None:
         raise SystemExit(status)
-    mocker.patch("os._exit", testing_exit)
+    monkeypatch.setattr("os._exit", testing_exit)
     run, _ = create_plain_run
     run.config(resources_metrics_interval=1)
     run._heartbeat_interval = 1
