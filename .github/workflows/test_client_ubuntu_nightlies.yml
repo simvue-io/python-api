@@ -34,4 +34,4 @@ jobs:
         export SIMVUE_TOKEN=${{ secrets.SIMVUE_NIGHTLY_TOKEN }}
         poetry install --all-extras
         # poetry run python -m pip install torch --index-url https://download.pytorch.org/whl/cpu FIXME: PyTorch current broken for Python3.13
-        poetry run pytest tests/ -x --cov --cov-report=xml -m 'not scenario' -c /dev/null -p no:warnings -n 0 -v
+        poetry run pytest tests/ -m 'not scenario' -c /dev/null -p no:warnings -n 0 -v
