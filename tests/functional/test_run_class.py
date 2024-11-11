@@ -601,7 +601,7 @@ def test_update_tags_created(
     time.sleep(1)
     client = sv_cl.Client()
     run_data = client.get_run(simvue_run._id)
-    assert run_data["tags"] == tags
+    assert sorted(run_data["tags"]) == sorted(tags)
 
     simvue_run.update_tags(["additional"])
 
