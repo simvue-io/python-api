@@ -10,7 +10,7 @@ Rule = typing.Literal["is above", "is below", "is inside range", "is outside ran
 class MetricsAlert(AlertBase):
     @property
     def aggregation(self) -> Aggregate:
-        if not (_aggregation := self._alert.get_alert().get("aggregation")):
+        if not (_aggregation := self.alert.get_alert().get("aggregation")):
             raise RuntimeError(
                 "Expected key 'aggregation' in alert definition retrieval"
             )
@@ -18,20 +18,20 @@ class MetricsAlert(AlertBase):
 
     @property
     def rule(self) -> Rule:
-        if not (_rule := self._alert.get_alert().get("rule")):
+        if not (_rule := self.alert.get_alert().get("rule")):
             raise RuntimeError("Expected key 'rule' in alert definition retrieval")
         return _rule
 
     @property
     def window(self) -> int:
-        if not (_window := self._alert.get_alert().get("window")):
+        if not (_window := self.alert.get_alert().get("window")):
             raise RuntimeError("Expected key 'window' in alert definition retrieval")
         return _window
 
     @property
     def frequency(self) -> int:
         try:
-            return self._alert.get_alert()["frequency"]
+            return self.alert.get_alert()["frequency"]
         except KeyError as e:
             raise RuntimeError(
                 "Expected key 'frequency' in alert definition retrieval"
@@ -40,12 +40,11 @@ class MetricsAlert(AlertBase):
     @frequency.setter
     @pydantic.validate_call
     def frequency(self, frequency: int) -> None:
-        self._alert._put(frequency=frequency)
+        self.alert._put(frequency=frequency)
 
 
 class MetricsThresholdAlert(MetricsAlert):
     def __init__(self, identifier: str | None = None, **kwargs) -> None:
-        self._label = "alert"
         self.alert = MetricThresholdAlertDefinition(self)
         super().__init__(identifier, **kwargs)
 
@@ -85,7 +84,6 @@ class MetricsThresholdAlert(MetricsAlert):
 
 class MetricsRangeAlert(AlertBase):
     def __init__(self, identifier: str, **kwargs) -> None:
-        self._label = "alert"
         self.alert = MetricRangeAlertDefinition(self)
         super().__init__(identifier, **kwargs)
 
@@ -130,28 +128,28 @@ class MetricsRangeAlert(AlertBase):
 
 class MetricThresholdAlertDefinition:
     def __init__(self, alert: MetricsThresholdAlert) -> None:
-        self._alert = alert
+        self.alert = alert
 
     @property
     def threshold(self) -> float:
-        if not (threshold_l := self._alert.get_alert().get("threshold")):
+        if not (threshold_l := self.alert.get_alert().get("threshold")):
             raise RuntimeError("Expected key 'threshold' in alert definition retrieval")
         return threshold_l
 
 
 class MetricRangeAlertDefinition:
     def __init__(self, alert: MetricsRangeAlert) -> None:
-        self._alert = alert
+        self.alert = alert
 
     @property
     def range_low(self) -> float:
-        if not (range_l := self._alert.get_alert().get("range_low")):
+        if not (range_l := self.alert.get_alert().get("range_low")):
             raise RuntimeError("Expected key 'range_low' in alert definition retrieval")
         return range_l
 
     @property
     def range_high(self) -> float:
-        if not (range_u := self._alert.get_alert().get("range_high")):
+        if not (range_u := self.alert.get_alert().get("range_high")):
             raise RuntimeError(
                 "Expected key 'range_high' in alert definition retrieval"
             )

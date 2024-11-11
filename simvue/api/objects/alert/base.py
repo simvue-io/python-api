@@ -5,6 +5,10 @@ from simvue.models import NAME_REGEX
 
 
 class AlertBase(SimvueObject):
+    def __init__(self, identifier: typing.Optional[str] = None, **kwargs) -> None:
+        self._label = "alert"
+        super().__init__(identifier, **kwargs)
+
     def get_alert(self) -> dict[str, typing.Any]:
         try:
             return self._get()["alert"]

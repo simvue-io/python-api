@@ -6,7 +6,6 @@ from simvue.models import NAME_REGEX
 
 class EventsAlert(AlertBase):
     def __init__(self, identifier: str | None = None, **kwargs) -> None:
-        self._label = "alert"
         self.alert = EventAlertDefinition(self)
         super().__init__(identifier, **kwargs)
 

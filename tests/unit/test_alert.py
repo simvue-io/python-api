@@ -1,3 +1,4 @@
+import time
 import pytest
 import uuid
 
@@ -16,3 +17,19 @@ def test_event_alert_creation() -> None:
     assert _alert.alert.pattern == "completed"
     assert _alert.name == f"events_alert_{_uuid}"
     assert _alert.notification == "none"
+
+
+@pytest.mark.api
+def test_event_alert_modification() -> None:
+    _uuid: str = f"{uuid.uuid4()}".split("-")[0]
+    _alert = EventsAlert.new(
+        name=f"events_alert_{_uuid}",
+        frequency=1,
+        pattern="completed",
+        notification="none"
+    )
+    time.sleep(1)
+    _new_alert = SimvueAlert(_alert.id)
+    assert isinstance(_new_alert, EventsAlert)
+    _new_alert.description = "updated!"
+    assert _new_alert.description == "updated!"
