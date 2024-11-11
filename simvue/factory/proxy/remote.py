@@ -5,7 +5,7 @@ import http
 if typing.TYPE_CHECKING:
     from simvue.config.user import SimvueConfiguration
 
-from simvue.api import get, post, put
+from simvue.api.request import get, post, put
 from simvue.factory.proxy.base import SimvueBaseClass
 from simvue.utilities import prepare_for_api, skip_if_failed
 from simvue.version import __version__

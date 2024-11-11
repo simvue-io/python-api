@@ -19,7 +19,7 @@ from tenacity import (
     stop_after_attempt,
     wait_exponential,
 )
-from .utilities import parse_validation_response
+from simvue.utilities import parse_validation_response
 
 DEFAULT_API_TIMEOUT = 10
 RETRY_MULTIPLIER = 1
@@ -193,3 +193,68 @@ def get(
     response.raise_for_status()
 
     return response
+
+
+@retry(
+    wait=wait_exponential(multiplier=RETRY_MULTIPLIER, min=RETRY_MIN, max=RETRY_MAX),
+    retry=retry_if_exception(is_retryable_exception),
+    stop=stop_after_attempt(RETRY_STOP),
+    reraise=True,
+)
+def delete(
+    url: str, headers: dict[str, str], timeout: int = DEFAULT_API_TIMEOUT
+) -> requests.Response:
+    """HTTP DELETE
+
+    Parameters
+    ----------
+    url : str
+        URL to put to
+    headers : dict[str, str]
+        headers for the post request
+    timeout : int, optional
+        timeout of request, by default DEFAULT_API_TIMEOUT
+
+    Returns
+    -------
+    requests.Response
+        response from executing DELETE
+    """
+    response = requests.delete(url, headers=headers, timeout=timeout)
+    response.raise_for_status()
+
+    return response
+
+
+def get_json_from_response(
+    expected_status: list[int],
+    scenario: str,
+    response: requests.Response,
+) -> typing.Union[dict, list]:
+    try:
+        json_response = response.json()
+        json_response = json_response or {}
+    except json.JSONDecodeError:
+        json_response = None
+
+    error_str = f"{scenario} failed "
+
+    if (_status_code := response.status_code) in expected_status:
+        if json_response is not None:
+            return json_response
+        details = "could not request JSON response"
+    else:
+        error_str += f"with status {_status_code}"
+        details = (json_response or {}).get("details")
+
+    try:
+        txt_response = response.text
+    except UnicodeDecodeError:
+        txt_response = None
+
+    if details:
+        error_str += f": {details}"
+    elif txt_response:
+        error_str += f": {txt_response}"
+
+    raise RuntimeError(error_str)

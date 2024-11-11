@@ -33,7 +33,7 @@ import psutil
 from pydantic import ValidationError
 
 from .config.user import SimvueConfiguration
-import simvue.api as sv_api
+import simvue.api.request as sv_api
 
 from .factory.dispatch import Dispatcher
 from .executor import Executor

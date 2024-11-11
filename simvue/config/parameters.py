@@ -18,7 +18,7 @@ import functools
 import simvue.models as sv_models
 from simvue.utilities import get_expiry
 from simvue.version import __version__
-from simvue.api import get
+from simvue.api.request import get
 
 
 logger = logging.getLogger(__file__)

@@ -27,9 +27,8 @@ from .simvue_types import DeserializedContent
 from .utilities import check_extra, prettify_pydantic
 from .models import FOLDER_REGEX, NAME_REGEX
 from .config.user import SimvueConfiguration
+from .api.request import get_json_from_response
 
-if typing.TYPE_CHECKING:
-    pass
 
 CONCURRENT_DOWNLOADS = 10
 DOWNLOAD_CHUNK_SIZE = 8192
@@ -121,40 +120,6 @@ class Client:
             "Authorization": f"Bearer {self._user_config.server.token}"
         }
 
-    def _get_json_from_response(
-        self,
-        expected_status: list[int],
-        scenario: str,
-        response: requests.Response,
-    ) -> typing.Union[dict, list]:
-        try:
-            json_response = response.json()
-            json_response = json_response or {}
-        except json.JSONDecodeError:
-            json_response = None
-
-        error_str = f"{scenario} failed "
-
-        if (_status_code := response.status_code) in expected_status:
-            if json_response is not None:
-                return json_response
-            details = "could not request JSON response"
-        else:
-            error_str += f"with status {_status_code}"
-            details = (json_response or {}).get("details")
-
-        try:
-            txt_response = response.text
-        except UnicodeDecodeError:
-            txt_response = None
-
-        if details:
-            error_str += f": {details}"
-        elif txt_response:
-            error_str += f": {txt_response}"
-
-        raise RuntimeError(error_str)
-
     @prettify_pydantic
     @pydantic.validate_call
     def get_run_id_from_name(
@@ -189,7 +154,7 @@ class Client:
             params=params,
         )
 
-        json_response = self._get_json_from_response(
+        json_response = get_json_from_response(
             expected_status=[http.HTTPStatus.OK],
             scenario="Retrieval of run ID from name",
             response=response,
@@ -239,7 +204,7 @@ class Client:
             f"{self._user_config.server.url}/api/runs/{run_id}", headers=self._headers
         )
 
-        json_response = self._get_json_from_response(
+        json_response = get_json_from_response(
             expected_status=[http.HTTPStatus.OK, http.HTTPStatus.NOT_FOUND],
             scenario=f"Retrieval of run '{run_id}'",
             response=response,
@@ -363,7 +328,7 @@ class Client:
         if output_format not in ("dict", "dataframe"):
             raise ValueError("Invalid format specified")
 
-        json_response = self._get_json_from_response(
+        json_response = get_json_from_response(
             expected_status=[http.HTTPStatus.OK],
             scenario="Run retrieval",
             response=response,
@@ -408,7 +373,7 @@ class Client:
             headers=self._headers,
         )
 
-        json_response = self._get_json_from_response(
+        json_response = get_json_from_response(
             expected_status=[http.HTTPStatus.OK],
             scenario=f"Deletion of run '{run_id}'",
             response=response,
@@ -556,7 +521,7 @@ class Client:
             params=params,
         )
 
-        json_response = self._get_json_from_response(
+        json_response = get_json_from_response(
             expected_status=[http.HTTPStatus.OK, http.HTTPStatus.NOT_FOUND],
             scenario=f"Deletion of folder '{folder_path}'",
             response=response,
@@ -623,7 +588,7 @@ class Client:
             params=params,
         )
 
-        json_response = self._get_json_from_response(
+        json_response = get_json_from_response(
             expected_status=[http.HTTPStatus.OK],
             scenario=f"Retrieval of artifacts for run '{run_id}",
             response=response,
@@ -649,7 +614,7 @@ class Client:
             params=params,
         )
 
-        json_response = self._get_json_from_response(
+        json_response = get_json_from_response(
             expected_status=[http.HTTPStatus.OK, http.HTTPStatus.NOT_FOUND],
             scenario=f"Retrieval of artifact '{name}' for run '{run_id}'",
             response=response,
@@ -691,7 +656,7 @@ class Client:
             json=body,
         )
 
-        json_response = self._get_json_from_response(
+        json_response = get_json_from_response(
             expected_status=[http.HTTPStatus.OK, http.HTTPStatus.NOT_FOUND],
             scenario=f"Abort of run '{run_id}'",
             response=response,
@@ -885,7 +850,7 @@ class Client:
             params=params,
         )
 
-        self._get_json_from_response(
+        get_json_from_response(
             expected_status=[http.HTTPStatus.OK],
             scenario=f"Download of artifacts for run '{run_id}'",
             response=response,
@@ -978,7 +943,7 @@ class Client:
             params=params,
         )
 
-        json_response = self._get_json_from_response(
+        json_response = get_json_from_response(
             expected_status=[http.HTTPStatus.OK],
             scenario="Retrieval of folders",
             response=response,
@@ -1025,7 +990,7 @@ class Client:
             params=params,
         )
 
-        json_response = self._get_json_from_response(
+        json_response = get_json_from_response(
             expected_status=[http.HTTPStatus.OK],
             scenario=f"Request for metric names for run '{run_id}'",
             response=response,
@@ -1061,7 +1026,7 @@ class Client:
             params=params,
         )
 
-        json_response = self._get_json_from_response(
+        json_response = get_json_from_response(
             expected_status=[http.HTTPStatus.OK],
             scenario=f"Retrieval of metrics '{metric_names}' in " f"runs '{run_ids}'",
             response=metrics_response,
@@ -1323,7 +1288,7 @@ class Client:
             params=params,
         )
 
-        json_response = self._get_json_from_response(
+        json_response = get_json_from_response(
             expected_status=[http.HTTPStatus.OK],
             scenario=f"Retrieval of events for run '{run_id}'",
             response=response,
@@ -1380,7 +1345,7 @@ class Client:
                 params=params,
             )
 
-            json_response = self._get_json_from_response(
+            json_response = get_json_from_response(
                 expected_status=[http.HTTPStatus.OK],
                 scenario=f"Retrieval of alerts for run '{run_id}'",
                 response=response,
@@ -1392,7 +1357,7 @@ class Client:
                 params=params,
             )
 
-            json_response = self._get_json_from_response(
+            json_response = get_json_from_response(
                 expected_status=[200],
                 scenario=f"Retrieval of alerts for run '{run_id}'",
                 response=response,
@@ -1469,7 +1434,7 @@ class Client:
             params=params,
         )
 
-        json_response = self._get_json_from_response(
+        json_response = get_json_from_response(
             expected_status=[200],
             scenario="Retrieval of tags",
             response=response,
@@ -1504,7 +1469,7 @@ class Client:
             headers=self._headers,
         )
 
-        json_response = self._get_json_from_response(
+        json_response = get_json_from_response(
             expected_status=[http.HTTPStatus.OK],
             scenario=f"Deletion of tag '{tag_id}'",
             response=response,
@@ -1545,7 +1510,7 @@ class Client:
             f"{self._user_config.server.url}/api/tag/{tag_id}", headers=self._headers
         )
 
-        json_response = self._get_json_from_response(
+        json_response = get_json_from_response(
             expected_status=[http.HTTPStatus.OK, http.HTTPStatus.NOT_FOUND],
             scenario=f"Retrieval of tag '{tag_id}'",
             response=response,
