@@ -1,6 +1,6 @@
 import pydantic.color
 import typing
-from .base import SimvueObject
+from .base import SimvueObject, dynamic_property
 
 
 class Tag(SimvueObject):
@@ -23,7 +23,7 @@ class Tag(SimvueObject):
         _tag._post(**_data)
         return _tag
 
-    @property
+    @dynamic_property
     def name(self) -> str:
         try:
             return self._get()["name"]
@@ -33,9 +33,9 @@ class Tag(SimvueObject):
     @name.setter
     @pydantic.validate_call
     def name(self, name: str) -> None:
-        self._put(name=name)
+        self._staging["name"] = name
 
-    @property
+    @dynamic_property
     def color(self) -> pydantic.color.RGBA:
         try:
             _color: str = self._get()["colour"]
@@ -46,9 +46,9 @@ class Tag(SimvueObject):
     @color.setter
     @pydantic.validate_call
     def color(self, color: pydantic.color.Color) -> None:
-        self._put(colour=color.as_hex())
+        self._staging["colour"] = color.as_hex()
 
-    @property
+    @dynamic_property
     def description(self) -> str:
         try:
             return self._get()["description"]
@@ -58,4 +58,4 @@ class Tag(SimvueObject):
     @description.setter
     @pydantic.validate_call
     def description(self, description: str) -> None:
-        self._put(description=description)
+        self._staging["description"] = description

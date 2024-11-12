@@ -1,6 +1,6 @@
 import pydantic
 import typing
-from simvue.api.objects.base import SimvueObject
+from simvue.api.objects.base import SimvueObject, dynamic_property
 from simvue.models import NAME_REGEX
 
 
@@ -27,9 +27,9 @@ class AlertBase(SimvueObject):
     def name(
         self, name: typing.Annotated[str, pydantic.Field(pattern=NAME_REGEX)]
     ) -> None:
-        self._put(name=name)
+        self._staging["name"] = name
 
-    @property
+    @dynamic_property
     def description(self) -> str | None:
         try:
             return self._get()["description"]
@@ -39,9 +39,9 @@ class AlertBase(SimvueObject):
     @description.setter
     @pydantic.validate_call
     def description(self, description: str | None) -> None:
-        self._put(description=description)
+        self._staging["description"] = description
 
-    @property
+    @dynamic_property
     def tags(self) -> list[str]:
         try:
             return self._get()["tags"] or []
@@ -51,9 +51,9 @@ class AlertBase(SimvueObject):
     @tags.setter
     @pydantic.validate_call
     def tags(self, tags: list[str]) -> None:
-        self._put(tags=tags)
+        self._staging["tags"] = tags
 
-    @property
+    @dynamic_property
     def notification(self) -> typing.Literal["none", "email"]:
         try:
             return self._get()["notification"]
@@ -63,7 +63,7 @@ class AlertBase(SimvueObject):
     @notification.setter
     @pydantic.validate_call
     def notification(self, notification: typing.Literal["none", "email"]) -> None:
-        self._put(notification=notification)
+        self._staging["notification"] = notification
 
     @property
     def source(self) -> typing.Literal["events", "metrics", "user"]:
@@ -72,7 +72,7 @@ class AlertBase(SimvueObject):
         except KeyError as e:
             raise RuntimeError("Expected key 'source' in alert retrieval") from e
 
-    @property
+    @dynamic_property
     def enabled(self) -> bool:
         try:
             return self._get()["enabled"]
@@ -82,9 +82,9 @@ class AlertBase(SimvueObject):
     @enabled.setter
     @pydantic.validate_call
     def enabled(self, enabled: str) -> None:
-        self._put(enabled=enabled)
+        self._staging["enabled"] = enabled
 
-    @property
+    @dynamic_property
     def abort(self) -> bool:
         try:
             return self._get()["abort"]
@@ -94,4 +94,4 @@ class AlertBase(SimvueObject):
     @abort.setter
     @pydantic.validate_call
     def abort(self, abort: str) -> None:
-        self._put(abort=abort)
+        self._staging["abort"] = abort

@@ -11,7 +11,7 @@ import pathlib
 import typing
 
 import pydantic
-from .base import SimvueObject, Visibility
+from .base import SimvueObject, Visibility, dynamic_property
 from simvue.models import FOLDER_REGEX
 
 
@@ -52,9 +52,12 @@ class Folder(SimvueObject):
         _folder._post(path=path)
         return _folder
 
-    @property
+    @dynamic_property
     def tags(self) -> list[str]:
         """Return list of tags assigned to this folder"""
+        if self._staging.get("tags"):
+            self._logger.warning("Uncommitted changes found for attribute 'tags'")
+            return self._staging["tags"]
         try:
             return self._get()["tags"]
         except KeyError as e:
@@ -66,7 +69,7 @@ class Folder(SimvueObject):
     @pydantic.validate_call
     def tags(self, tags: list[str]) -> None:
         """Set tags assigned to this folder"""
-        self._put(tags=tags)
+        self._staging["tags"] = tags
 
     @property
     def path(self) -> pathlib.Path:
@@ -78,7 +81,7 @@ class Folder(SimvueObject):
                 f"Expected value for 'path' for folder '{self._identifier}'"
             ) from e
 
-    @property
+    @dynamic_property
     def description(self) -> typing.Optional[str]:
         """Return the folder description"""
         return self._get().get("description")
@@ -87,9 +90,9 @@ class Folder(SimvueObject):
     @pydantic.validate_call
     def description(self, description: str) -> None:
         """Update the folder description"""
-        self._put(description=description)
+        self._staging["description"] = description
 
-    @property
+    @dynamic_property
     def name(self) -> typing.Optional[str]:
         """Return the folder name"""
         return self._get().get("name")
@@ -98,9 +101,9 @@ class Folder(SimvueObject):
     @pydantic.validate_call
     def name(self, name: str) -> None:
         """Update the folder name"""
-        self._put(name=name)
+        self._staging["name"] = name
 
-    @property
+    @dynamic_property
     def star(self) -> bool:
         """Return if this folder is starred"""
         return self._get().get("starred", False)
@@ -109,7 +112,7 @@ class Folder(SimvueObject):
     @pydantic.validate_call
     def star(self, is_true: bool = True) -> None:
         """Star this folder as a favourite"""
-        self._put(starred=is_true)
+        self._staging["starred"] = is_true
 
     @property
     def ttl(self) -> int:

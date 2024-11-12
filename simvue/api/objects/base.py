@@ -24,15 +24,34 @@ from simvue.api.request import (
 )
 
 
+def dynamic_property(member_func: typing.Callable):
+    def _wrapper(self: typing.Union["SimvueObject", typing.Any]) -> typing.Any:
+        if isinstance(self, SimvueObject):
+            _sv_obj = self
+        elif hasattr(self, "_sv_obj"):
+            _sv_obj = self._sv_obj
+        else:
+            raise RuntimeError(
+                f"Cannot use 'dynamic_property' decorator on type '{self.__name__}'"
+            )
+        if member_func.__name__ in _sv_obj._staging:
+            _sv_obj._logger.warning(
+                f"Uncommitted change found for attribute '{member_func.__name__}'"
+            )
+        return member_func(self)
+
+    return property(_wrapper)
+
+
 class Visibility:
     def __init__(self, sv_obj: "SimvueObject") -> None:
         self._sv_obj = sv_obj
 
     def _update_visibility(self, key: str, value: typing.Any) -> None:
         _visibility = self._sv_obj._get_visibility() | {key: value}
-        self._sv_obj._put(visibility=_visibility)
+        self._sv_obj._staging["visibility"] = _visibility
 
-    @property
+    @dynamic_property
     def users(self) -> list[str]:
         return self._sv_obj._get_visibility().get("users", [])
 
@@ -40,7 +59,7 @@ class Visibility:
     def users(self, users: list[str]) -> None:
         self._update_visibility("users", users)
 
-    @property
+    @dynamic_property
     def public(self) -> bool:
         return self._sv_obj._get_visibility().get("public", False)
 
@@ -48,7 +67,7 @@ class Visibility:
     def public(self, public: bool) -> None:
         self._update_visibility("public", public)
 
-    @property
+    @dynamic_property
     def tenant(self) -> bool:
         return self._sv_obj._get_visibility().get("tenant", False)
 
@@ -63,6 +82,7 @@ class SimvueObject(abc.ABC):
         self._label: str = getattr(self, "_label", self.__class__.__name__.lower())
         self._identifier: typing.Optional[str] = identifier
         self._user_config = SimvueConfiguration.fetch(**kwargs)
+        self._staging: dict[str, typing.Any] = {}
         self._headers: dict[str, str] = {
             "Authorization": f"Bearer {self._user_config.server.token}",
             "User-Agent": f"Simvue Python client {__version__}",
@@ -78,6 +98,11 @@ class SimvueObject(abc.ABC):
         _obj = SimvueObject()
         _obj._post(**kwargs)
         return _obj
+
+    def commit(self) -> None:
+        if not self._staging:
+            return
+        self._put(**self._staging)
 
     @property
     def id(self) -> typing.Optional[str]:

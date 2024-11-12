@@ -32,4 +32,6 @@ def test_event_alert_modification() -> None:
     _new_alert = SimvueAlert(_alert.id)
     assert isinstance(_new_alert, EventsAlert)
     _new_alert.description = "updated!"
+    assert _new_alert.description != "updated!"
+    _new_alert.commit()
     assert _new_alert.description == "updated!"
