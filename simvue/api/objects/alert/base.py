@@ -1,6 +1,6 @@
 import pydantic
 import typing
-from simvue.api.objects.base import SimvueObject, dynamic_property
+from simvue.api.objects.base import SimvueObject, staging_check
 from simvue.models import NAME_REGEX
 
 
@@ -29,7 +29,8 @@ class AlertBase(SimvueObject):
     ) -> None:
         self._staging["name"] = name
 
-    @dynamic_property
+    @property
+    @staging_check
     def description(self) -> str | None:
         try:
             return self._get()["description"]
@@ -41,7 +42,8 @@ class AlertBase(SimvueObject):
     def description(self, description: str | None) -> None:
         self._staging["description"] = description
 
-    @dynamic_property
+    @property
+    @staging_check
     def tags(self) -> list[str]:
         try:
             return self._get()["tags"] or []
@@ -53,7 +55,8 @@ class AlertBase(SimvueObject):
     def tags(self, tags: list[str]) -> None:
         self._staging["tags"] = tags
 
-    @dynamic_property
+    @property
+    @staging_check
     def notification(self) -> typing.Literal["none", "email"]:
         try:
             return self._get()["notification"]
@@ -72,7 +75,8 @@ class AlertBase(SimvueObject):
         except KeyError as e:
             raise RuntimeError("Expected key 'source' in alert retrieval") from e
 
-    @dynamic_property
+    @property
+    @staging_check
     def enabled(self) -> bool:
         try:
             return self._get()["enabled"]
@@ -84,7 +88,8 @@ class AlertBase(SimvueObject):
     def enabled(self, enabled: str) -> None:
         self._staging["enabled"] = enabled
 
-    @dynamic_property
+    @property
+    @staging_check
     def abort(self) -> bool:
         try:
             return self._get()["abort"]

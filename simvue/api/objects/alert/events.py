@@ -1,6 +1,6 @@
 import typing
 import pydantic
-from .base import AlertBase, dynamic_property
+from .base import AlertBase, staging_check
 from simvue.models import NAME_REGEX
 
 
@@ -47,7 +47,8 @@ class EventAlertDefinition:
                 "Expected key 'pattern' in alert definition retrieval"
             ) from e
 
-    @dynamic_property
+    @property
+    @staging_check
     def frequency(self) -> int:
         try:
             return self._alert.get_alert()["frequency"]

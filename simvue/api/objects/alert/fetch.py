@@ -3,7 +3,7 @@ from .metrics import MetricsThresholdAlert, MetricsRangeAlert
 from .base import AlertBase
 
 
-class SimvueAlert:
+class Alert:
     def __new__(
         cls, identifier: str | None = None, **kwargs
     ) -> EventsAlert | MetricsRangeAlert | MetricsThresholdAlert:

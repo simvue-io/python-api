@@ -11,7 +11,7 @@ import pathlib
 import typing
 
 import pydantic
-from .base import SimvueObject, Visibility, dynamic_property
+from .base import SimvueObject, Visibility, staging_check
 from simvue.models import FOLDER_REGEX
 
 
@@ -44,15 +44,14 @@ class Folder(SimvueObject):
 
     @classmethod
     @pydantic.validate_call
-    def new(
-        cls, *, path: typing.Annotated[str, pydantic.Field(pattern=FOLDER_REGEX)]
-    ) -> typing.Self:
+    def new(cls, *, path: typing.Annotated[str, pydantic.Field(pattern=FOLDER_REGEX)]):
         """Create a new Folder on the Simvue server with the given path"""
         _folder = Folder()
         _folder._post(path=path)
         return _folder
 
-    @dynamic_property
+    @property
+    @staging_check
     def tags(self) -> list[str]:
         """Return list of tags assigned to this folder"""
         if self._staging.get("tags"):
@@ -81,7 +80,8 @@ class Folder(SimvueObject):
                 f"Expected value for 'path' for folder '{self._identifier}'"
             ) from e
 
-    @dynamic_property
+    @property
+    @staging_check
     def description(self) -> typing.Optional[str]:
         """Return the folder description"""
         return self._get().get("description")
@@ -92,7 +92,8 @@ class Folder(SimvueObject):
         """Update the folder description"""
         self._staging["description"] = description
 
-    @dynamic_property
+    @property
+    @staging_check
     def name(self) -> typing.Optional[str]:
         """Return the folder name"""
         return self._get().get("name")
@@ -103,7 +104,8 @@ class Folder(SimvueObject):
         """Update the folder name"""
         self._staging["name"] = name
 
-    @dynamic_property
+    @property
+    @staging_check
     def star(self) -> bool:
         """Return if this folder is starred"""
         return self._get().get("starred", False)
@@ -115,6 +117,7 @@ class Folder(SimvueObject):
         self._staging["starred"] = is_true
 
     @property
+    @staging_check
     def ttl(self) -> int:
         """Return the retention period for this folder"""
         try:
@@ -128,4 +131,4 @@ class Folder(SimvueObject):
     @pydantic.validate_call
     def ttl(self, time_seconds: int) -> None:
         """Update the retention period for this folder"""
-        self._put(ttl=time_seconds)
+        self._staging["ttl"] = time_seconds

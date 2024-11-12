@@ -24,15 +24,17 @@ from simvue.api.request import (
 )
 
 
-def dynamic_property(member_func: typing.Callable):
-    def _wrapper(self: typing.Union["SimvueObject", typing.Any]) -> typing.Any:
+def staging_check(member_func: typing.Callable) -> typing.Callable:
+    """Decorator for checking if requested attribute has uncommitted changes"""
+
+    def _wrapper(self) -> typing.Any:
         if isinstance(self, SimvueObject):
             _sv_obj = self
         elif hasattr(self, "_sv_obj"):
             _sv_obj = self._sv_obj
         else:
             raise RuntimeError(
-                f"Cannot use 'dynamic_property' decorator on type '{self.__name__}'"
+                f"Cannot use 'staging_check' decorator on type '{type(self).__name__}'"
             )
         if member_func.__name__ in _sv_obj._staging:
             _sv_obj._logger.warning(
@@ -40,7 +42,7 @@ def dynamic_property(member_func: typing.Callable):
             )
         return member_func(self)
 
-    return property(_wrapper)
+    return _wrapper
 
 
 class Visibility:
@@ -51,7 +53,8 @@ class Visibility:
         _visibility = self._sv_obj._get_visibility() | {key: value}
         self._sv_obj._staging["visibility"] = _visibility
 
-    @dynamic_property
+    @property
+    @staging_check
     def users(self) -> list[str]:
         return self._sv_obj._get_visibility().get("users", [])
 
@@ -59,7 +62,8 @@ class Visibility:
     def users(self, users: list[str]) -> None:
         self._update_visibility("users", users)
 
-    @dynamic_property
+    @property
+    @staging_check
     def public(self) -> bool:
         return self._sv_obj._get_visibility().get("public", False)
 
@@ -67,7 +71,8 @@ class Visibility:
     def public(self, public: bool) -> None:
         self._update_visibility("public", public)
 
-    @dynamic_property
+    @property
+    @staging_check
     def tenant(self) -> bool:
         return self._sv_obj._get_visibility().get("tenant", False)
 
@@ -94,7 +99,7 @@ class SimvueObject(abc.ABC):
         return visibility
 
     @classmethod
-    def new(cls, **kwargs) -> "SimvueObject":
+    def new(cls, **kwargs):
         _obj = SimvueObject()
         _obj._post(**kwargs)
         return _obj
@@ -169,7 +174,7 @@ class SimvueObject(abc.ABC):
 
         return _json_response
 
-    def _delete(self) -> dict[str, typing.Any]:
+    def delete(self) -> dict[str, typing.Any]:
         if not self.url:
             raise RuntimeError(
                 f"Identifier for instance of {self.__class__.__name__} Unknown"

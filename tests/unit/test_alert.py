@@ -2,7 +2,7 @@ import time
 import pytest
 import uuid
 
-from simvue.api.objects import SimvueAlert, MetricsRangeAlert, MetricsThresholdAlert, EventsAlert
+from simvue.api.objects import Alert, MetricsRangeAlert, MetricsThresholdAlert, EventsAlert
 
 @pytest.mark.api
 def test_event_alert_creation() -> None:
@@ -29,7 +29,7 @@ def test_event_alert_modification() -> None:
         notification="none"
     )
     time.sleep(1)
-    _new_alert = SimvueAlert(_alert.id)
+    _new_alert = Alert(_alert.id)
     assert isinstance(_new_alert, EventsAlert)
     _new_alert.description = "updated!"
     assert _new_alert.description != "updated!"

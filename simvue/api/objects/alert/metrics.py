@@ -1,6 +1,6 @@
 import pydantic
 import typing
-from .base import AlertBase, dynamic_property
+from .base import AlertBase, staging_check
 from simvue.models import NAME_REGEX
 
 Aggregate = typing.Literal["average", "sum", "at least one", "all"]
@@ -28,7 +28,8 @@ class MetricsAlert(AlertBase):
             raise RuntimeError("Expected key 'window' in alert definition retrieval")
         return _window
 
-    @dynamic_property
+    @property
+    @staging_check
     def frequency(self) -> int:
         try:
             return self.alert.get_alert()["frequency"]

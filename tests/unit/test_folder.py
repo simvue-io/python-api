@@ -29,6 +29,7 @@ def test_folder_modification() -> None:
     _folder_new.tags = _tags
     _folder_new.description = _description
     _folder_new.visibility.tenant = True
+    _folder_new.commit()
     assert _folder_new.tags == _tags
     assert _folder.tags == _tags
     assert _folder_new.description == _description
