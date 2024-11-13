@@ -11,6 +11,8 @@ def test_run_creation() -> None:
     _folder_name = f"/simvue_unit_testing/{_uuid}"
     _folder = Folder.new(path=_folder_name)
     _run = Run.new(folder=_folder_name)
+    _folder.commit()
+    _run.commit()
     assert _run.folder == _folder_name
     _run.delete()
     _folder.delete()
@@ -22,6 +24,8 @@ def test_run_modification() -> None:
     _folder_name = f"/simvue_unit_testing/{_uuid}"
     _folder = Folder.new(path=_folder_name)
     _run = Run.new(folder=_folder_name)
+    _folder.commit()
+    _run.commit()
     assert _run.folder == _folder_name
     time.sleep(1)
     _now = datetime.datetime.now()

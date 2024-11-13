@@ -54,9 +54,6 @@ class Folder(SimvueObject):
     @staging_check
     def tags(self) -> list[str]:
         """Return list of tags assigned to this folder"""
-        if self._staging.get("tags"):
-            self._logger.warning("Uncommitted changes found for attribute 'tags'")
-            return self._staging["tags"]
         try:
             return self._get()["tags"]
         except KeyError as e:

@@ -3,6 +3,7 @@ import hashlib
 import logging
 import json
 import sys
+import mimetypes
 import tabulate
 import pydantic
 import importlib.util
@@ -307,7 +308,7 @@ def prepare_for_api(data_in, all=True):
     return data
 
 
-def calculate_sha256(filename: str, is_file: bool) -> typing.Optional[str]:
+def calculate_sha256(filename: str | typing.Any, is_file: bool) -> typing.Optional[str]:
     """
     Calculate sha256 checksum of the specified file
     """
@@ -378,3 +379,18 @@ def simvue_timestamp(date_time: typing.Optional[datetime.datetime] = None) -> st
     if not date_time:
         date_time = datetime.datetime.now(timezone.utc)
     return date_time.strftime("%Y-%m-%d %H:%M:%S.%f")
+
+
+@functools.lru_cache
+def get_mimetypes() -> list[str]:
+    """Returns a list of allowed MIME types"""
+    mimetypes.init()
+    _valid_mimetypes = ["application/vnd.plotly.v1+json"]
+    _valid_mimetypes += list(mimetypes.types_map.values())
+    return _valid_mimetypes
+
+
+def get_mimetype_for_file(file_path: pathlib.Path) -> str:
+    """Return MIME type for the given file"""
+    _guess, *_ = mimetypes.guess_type(file_path)
+    return _guess or "application/octet-stream"

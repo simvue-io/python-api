@@ -10,6 +10,7 @@ def test_folder_creation() -> None:
     _uuid: str = f"{uuid.uuid4()}".split("-")[0]
     _path = f"/simvue_unit_testing/objects/folder/{_uuid}"
     _folder = Folder.new(path=_path)
+    _folder.commit()
     assert _folder.id
     assert _folder.path == _path
     assert not _folder.visibility.public
@@ -24,6 +25,7 @@ def test_folder_modification() -> None:
     _description = "Test study"
     _tags = ["testing", "api"]
     _folder = Folder.new(path=_path)
+    _folder.commit()
     time.sleep(1)
     _folder_new = Folder(identifier=_folder.id)
     _folder_new.tags = _tags

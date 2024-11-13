@@ -12,6 +12,7 @@ import boltons.urlutils as bo_url
 import http
 
 from codecarbon.external.logger import logging
+from codecarbon.output_methods.emissions_data import json
 
 from simvue.config.user import SimvueConfiguration
 from simvue.version import __version__
@@ -86,8 +87,15 @@ class SimvueObject(abc.ABC):
         self._logger = logging.getLogger(f"simvue.{self.__class__.__name__}")
         self._label: str = getattr(self, "_label", self.__class__.__name__.lower())
         self._identifier: typing.Optional[str] = identifier
-        self._user_config = SimvueConfiguration.fetch(**kwargs)
-        self._staging: dict[str, typing.Any] = {}
+
+        _config_args = {
+            "server_url": kwargs.pop("server_url", None),
+            "server_token": kwargs.pop("server_token", None),
+        }
+
+        self._user_config = SimvueConfiguration.fetch(**_config_args)
+
+        self._staging: dict[str, typing.Any] = kwargs
         self._headers: dict[str, str] = {
             "Authorization": f"Bearer {self._user_config.server.token}",
             "User-Agent": f"Simvue Python client {__version__}",
@@ -100,14 +108,17 @@ class SimvueObject(abc.ABC):
 
     @classmethod
     def new(cls, **kwargs):
-        _obj = SimvueObject()
-        _obj._post(**kwargs)
-        return _obj
+        return SimvueObject(**kwargs)
 
     def commit(self) -> None:
         if not self._staging:
             return
-        self._put(**self._staging)
+
+        # Initial commit is creation of object
+        if not self._identifier:
+            self._post(**self._staging)
+        else:
+            self._put(**self._staging)
 
     @property
     def id(self) -> typing.Optional[str]:
@@ -213,3 +224,11 @@ class SimvueObject(abc.ABC):
                 f"but got '{type(_json_response)}'"
             )
         return _json_response
+
+    def cache(self, output_file: pathlib.Path) -> None:
+        if not (_dir := output_file.parent).exists():
+            raise FileNotFoundError(
+                f"Cannot write {self._label} to '{_dir}', not a directory."
+            )
+        with output_file.open("w", encoding="utf-8") as out_f:
+            json.dump(self._staging, out_f, indent=2)
