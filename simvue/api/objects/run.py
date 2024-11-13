@@ -8,6 +8,8 @@ Status = typing.Literal[
     "lost", "failed", "completed", "terminated", "running", "created"
 ]
 
+__all__ = ["Run"]
+
 
 class Run(SimvueObject):
     def __init__(self, identifier: typing.Optional[str] = None, **kwargs) -> None:
@@ -33,21 +35,17 @@ class Run(SimvueObject):
         cls,
         *,
         folder: typing.Annotated[str, pydantic.Field(pattern=FOLDER_REGEX)],
+        offline: bool = False,
     ):
         """Create a new Folder on the Simvue server with the given path"""
-        _run = Run()
-        _run._post(folder=folder, system=None, status="created")
+        _run = Run(folder=folder, system=None, status="created")
+        _run.offline_mode(offline)
         return _run
 
     @property
     @staging_check
     def name(self) -> str:
-        try:
-            return self._get()["name"]
-        except KeyError as e:
-            raise RuntimeError(
-                f"Expected value for 'name' for run '{self._identifier}'"
-            ) from e
+        return self._get_attribute("name")
 
     @name.setter
     @pydantic.validate_call
@@ -59,12 +57,7 @@ class Run(SimvueObject):
     @property
     @staging_check
     def tags(self) -> list[str]:
-        try:
-            return self._get()["tags"]
-        except KeyError as e:
-            raise RuntimeError(
-                f"Expected value for 'tags' for run '{self._identifier}'"
-            ) from e
+        return self._get_attribute("tags")
 
     @tags.setter
     @pydantic.validate_call
@@ -74,11 +67,7 @@ class Run(SimvueObject):
     @property
     @staging_check
     def status(self) -> Status:
-        if not (_status := self._get().get("status")):
-            raise RuntimeError(
-                f"Expected value for 'status' for run '{self._identifier}'"
-            )
-        return _status
+        return self._get_attribute("status")
 
     @status.setter
     @pydantic.validate_call
@@ -89,12 +78,7 @@ class Run(SimvueObject):
     @staging_check
     def ttl(self) -> int:
         """Return the retention period for this run"""
-        try:
-            return self._get()["ttl"]
-        except KeyError as e:
-            raise RuntimeError(
-                f"Expected value for 'ttl' for run '{self._identifier}'"
-            ) from e
+        return self._get_attribute("ttl")
 
     @ttl.setter
     @pydantic.validate_call
@@ -105,11 +89,7 @@ class Run(SimvueObject):
     @property
     @staging_check
     def folder(self) -> str:
-        if not (_folder := self._get().get("folder")):
-            raise RuntimeError(
-                f"Expected value for 'folder' for run '{self._identifier}'"
-            )
-        return _folder
+        return self._get_attribute("folder")
 
     @folder.setter
     @pydantic.validate_call
@@ -121,11 +101,7 @@ class Run(SimvueObject):
     @property
     @staging_check
     def metadata(self) -> dict[str, typing.Any]:
-        if not (_metadata := self._get().get("metadata")):
-            raise RuntimeError(
-                f"Expected value for 'metadata' for run '{self._identifier}'"
-            )
-        return _metadata
+        return self._get_attribute("metadata")
 
     @metadata.setter
     @pydantic.validate_call
@@ -135,11 +111,7 @@ class Run(SimvueObject):
     @property
     @staging_check
     def description(self) -> str:
-        if not (_description := self._get().get("description")):
-            raise RuntimeError(
-                f"Expected value for 'description' for run '{self._identifier}'"
-            )
-        return _description
+        return self._get_attribute("description")
 
     @description.setter
     @pydantic.validate_call
@@ -148,20 +120,12 @@ class Run(SimvueObject):
 
     @property
     def system(self) -> dict[str, typing.Any]:
-        if not (_system := self._get().get("system")):
-            raise RuntimeError(
-                f"Expected value for 'descriptio' for run '{self._identifier}'"
-            )
-        return _system
+        return self._get_attribute("system")
 
     @property
     @staging_check
     def heartbeat_timeout(self) -> int:
-        if not (_heartbeat_timeout := self._get().get("heartbeat_timeout")):
-            raise RuntimeError(
-                f"Expected value for 'heartbeat_timeout' for run '{self._identifier}'"
-            )
-        return _heartbeat_timeout
+        return self._get_attribute("heartbeat_timeout")
 
     @heartbeat_timeout.setter
     @pydantic.validate_call
@@ -171,10 +135,7 @@ class Run(SimvueObject):
     @property
     @staging_check
     def notifications(self) -> typing.Literal["none", "email"]:
-        try:
-            return self._get()["notifications"]
-        except KeyError as e:
-            raise RuntimeError("Expected key 'notifications' in alert retrieval") from e
+        return self._get_attribute("notifications")
 
     @notifications.setter
     @pydantic.validate_call
@@ -184,10 +145,7 @@ class Run(SimvueObject):
     @property
     @staging_check
     def alerts(self) -> list[str]:
-        try:
-            return self._get()["alerts"]
-        except KeyError as e:
-            raise RuntimeError("Expected key 'alerts' in alert retrieval") from e
+        return self._get_attribute("alerts")
 
     @alerts.setter
     @pydantic.validate_call
@@ -197,10 +155,9 @@ class Run(SimvueObject):
     @property
     @staging_check
     def created(self) -> datetime.datetime:
-        try:
-            return datetime.datetime.strptime(self._get()["created"], DATETIME_FORMAT)
-        except KeyError as e:
-            raise RuntimeError("Expected key 'created' in alert retrieval") from e
+        return datetime.datetime.strptime(
+            self._get_attribute("created"), DATETIME_FORMAT
+        )
 
     @created.setter
     @pydantic.validate_call
@@ -210,10 +167,9 @@ class Run(SimvueObject):
     @property
     @staging_check
     def started(self) -> datetime.datetime:
-        try:
-            return datetime.datetime.strptime(self._get()["started"], DATETIME_FORMAT)
-        except KeyError as e:
-            raise RuntimeError("Expected key 'started' in alert retrieval") from e
+        return datetime.datetime.strptime(
+            self._get_attribute("started"), DATETIME_FORMAT
+        )
 
     @started.setter
     @pydantic.validate_call
@@ -223,10 +179,9 @@ class Run(SimvueObject):
     @property
     @staging_check
     def endtime(self) -> datetime.datetime:
-        try:
-            return datetime.datetime.strptime(self._get()["endtime"], DATETIME_FORMAT)
-        except KeyError as e:
-            raise RuntimeError("Expected key 'endtime' in alert retrieval") from e
+        return datetime.datetime.strptime(
+            self._get_attribute("endtime"), DATETIME_FORMAT
+        )
 
     @endtime.setter
     @pydantic.validate_call

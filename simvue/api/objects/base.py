@@ -8,6 +8,7 @@ Contains base class for interacting with objects on the Simvue server
 import abc
 import pathlib
 import typing
+import uuid
 import boltons.urlutils as bo_url
 import http
 
@@ -86,7 +87,12 @@ class SimvueObject(abc.ABC):
     def __init__(self, identifier: typing.Optional[str] = None, **kwargs) -> None:
         self._logger = logging.getLogger(f"simvue.{self.__class__.__name__}")
         self._label: str = getattr(self, "_label", self.__class__.__name__.lower())
-        self._identifier: typing.Optional[str] = identifier
+        self._identifier: typing.Optional[str] = (
+            identifier if identifier is not None else f"offline_{uuid.uuid1()}"
+        )
+        self._offline: bool = identifier is not None and identifier.startswith(
+            "offline_"
+        )
 
         _config_args = {
             "server_url": kwargs.pop("server_url", None),
@@ -94,31 +100,87 @@ class SimvueObject(abc.ABC):
         }
 
         self._user_config = SimvueConfiguration.fetch(**_config_args)
+        self._local_staging_file: pathlib.Path = (
+            self._user_config.offline.cache.joinpath("staging.json")
+        )
 
-        self._staging: dict[str, typing.Any] = kwargs
+        # Recover any locally staged changes
+        self._staging: dict[str, typing.Any] = self._get_local_staged() | kwargs
+
         self._headers: dict[str, str] = {
             "Authorization": f"Bearer {self._user_config.server.token}",
             "User-Agent": f"Simvue Python client {__version__}",
         }
 
-    def _get_visibility(self) -> dict[str, bool | list[str]]:
-        if not (visibility := self._get().get("visibility")):
-            raise RuntimeError("Expected key 'visibility' in response")
-        return visibility
+    def _get_local_staged(self) -> dict[str, typing.Any]:
+        """Retrieve any locally staged data for this identifier"""
+        if not self._local_staging_file.exists() or not self._identifier:
+            return {}
 
-    @classmethod
-    def new(cls, **kwargs):
-        return SimvueObject(**kwargs)
+        with self._local_staging_file.open() as in_f:
+            _staged_data = json.load(in_f)
+
+        return _staged_data.get(self._label, {}).get(self._identifier, {})
+
+    def _get_attribute(self, attribute: str) -> typing.Any:
+        try:
+            return self._get()[attribute]
+        except KeyError as e:
+            if self._offline:
+                raise AttributeError(
+                    f"A value for attribute '{attribute}' has "
+                    f"not yet been committed for offline {self._label} '{self._identifier}'"
+                ) from e
+            raise RuntimeError(
+                f"Expected key '{attribute}' for {self._label} '{self._identifier}'"
+            ) from e
+
+    def _clear_staging(self) -> None:
+        self._staging = {}
+
+        if not self._local_staging_file.exists():
+            return
+
+        with self._local_staging_file.open() as in_f:
+            _staged_data = json.load(in_f)
+
+        if _staged_data.get(self._label):
+            _staged_data[self._label].pop(self._identifier, None)
+
+        with self._local_staging_file.open("w") as out_f:
+            json.dump(_staged_data, out_f, indent=2)
+
+    def offline_mode(self, is_true: bool) -> None:
+        self._offline = is_true
+
+    def _get_visibility(self) -> dict[str, bool | list[str]]:
+        try:
+            return self._get_attribute("visibility")
+        except AttributeError:
+            return {}
+
+    @abc.abstractclassmethod
+    def new(cls, offline: bool = False, **kwargs):
+        pass
 
     def commit(self) -> None:
         if not self._staging:
             return
 
+        if self._offline:
+            _offline_dir: pathlib.Path = self._user_config.offline.cache
+            _offline_file = _offline_dir.joinpath("staging.json")
+            self._cache()
+            return
+
         # Initial commit is creation of object
-        if not self._identifier:
+        if not self._identifier or self._identifier.startswith("offline_"):
             self._post(**self._staging)
         else:
             self._put(**self._staging)
+
+        # Clear staged changes
+        self._clear_staging()
 
     @property
     def id(self) -> typing.Optional[str]:
@@ -136,7 +198,7 @@ class SimvueObject(abc.ABC):
 
     @property
     def url(self) -> typing.Optional[str]:
-        if not self._identifier:
+        if self._identifier is None:
             return None
         _url = bo_url.URL(self._user_config.server.url)
         _url.path = f"{self._url_path / self._identifier}"
@@ -186,6 +248,18 @@ class SimvueObject(abc.ABC):
         return _json_response
 
     def delete(self) -> dict[str, typing.Any]:
+        if self._get_local_staged():
+            with self._local_staging_file.open() as in_f:
+                _local_data = json.load(in_f)
+
+            _local_data[self._label].pop(self._identifier, None)
+
+            with self._local_staging_file.open("w") as out_f:
+                json.dump(_local_data, out_f, indent=2)
+
+        if self._offline:
+            return {"id": self._identifier}
+
         if not self.url:
             raise RuntimeError(
                 f"Identifier for instance of {self.__class__.__name__} Unknown"
@@ -206,6 +280,9 @@ class SimvueObject(abc.ABC):
         return _json_response
 
     def _get(self) -> dict[str, typing.Any]:
+        if self._offline:
+            return self._get_local_staged()
+
         if not self.url:
             raise RuntimeError(
                 f"Identifier for instance of {self.__class__.__name__} Unknown"
@@ -225,10 +302,20 @@ class SimvueObject(abc.ABC):
             )
         return _json_response
 
-    def cache(self, output_file: pathlib.Path) -> None:
-        if not (_dir := output_file.parent).exists():
-            raise FileNotFoundError(
-                f"Cannot write {self._label} to '{_dir}', not a directory."
-            )
-        with output_file.open("w", encoding="utf-8") as out_f:
-            json.dump(self._staging, out_f, indent=2)
+    def _cache(self) -> None:
+        if not (_dir := self._local_staging_file.parent).exists():
+            _dir.mkdir()
+
+        _local_data: dict[str, typing.Any] = {}
+
+        if self._local_staging_file.exists():
+            with self._local_staging_file.open() as in_f:
+                _local_data = json.load(in_f)
+
+        if not _local_data.get(self._label):
+            _local_data[self._label] = {}
+
+        _local_data[self._label][self._identifier] = self._staging
+
+        with self._local_staging_file.open("w", encoding="utf-8") as out_f:
+            json.dump(_local_data, out_f, indent=2)

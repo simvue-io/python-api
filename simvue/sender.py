@@ -1,6 +1,7 @@
 from concurrent.futures import ThreadPoolExecutor
 import glob
 import json
+import pathlib
 import typing
 import logging
 import os
@@ -88,10 +89,10 @@ def sender() -> str:
     """
     Asynchronous upload of runs to Simvue server
     """
-    directory = SimvueConfiguration.fetch().offline.cache
+    directory: pathlib.Path = SimvueConfiguration.fetch().offline.cache
 
     # Clean up old runs after waiting 5 mins
-    runs = glob.glob(f"{directory}/*/sent")
+    runs = directory.glob("*/sent")
 
     for run in runs:
         id = run.split("/")[len(run.split("/")) - 2]
@@ -99,17 +100,17 @@ def sender() -> str:
 
         if time.time() - os.path.getmtime(run) > 300:
             try:
-                shutil.rmtree(f"{directory}/{id}")
+                shutil.rmtree(f"{directory.joinpath(id)}")
             except Exception:
                 logger.error("Got exception trying to cleanup run in directory %s", id)
 
     # Deal with runs in the created, running or a terminal state
     runs = (
-        glob.glob(f"{directory}/*/created")
-        + glob.glob(f"{directory}/*/running")
-        + glob.glob(f"{directory}/*/completed")
-        + glob.glob(f"{directory}/*/failed")
-        + glob.glob(f"{directory}/*/terminated")
+        directory.glob("*/created")
+        + directory.glob("*/running")
+        + directory.glob("*/completed")
+        + directory.glob("*/failed")
+        + directory.glob("*/terminated")
     )
 
     if len(runs) > MAX_RUNS:

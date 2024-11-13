@@ -16,9 +16,6 @@ from simvue.utilities import (
     skip_if_failed,
 )
 
-if typing.TYPE_CHECKING:
-    pass
-
 logger = logging.getLogger(__name__)
 
 
@@ -32,8 +29,8 @@ class Offline(SimvueBaseClass):
     ) -> None:
         super().__init__(name, uniq_id, suppress_errors)
 
-        _offline_dir = SimvueConfiguration.fetch().offline.cache
-        self._directory: str = os.path.join(_offline_dir, self._uuid)
+        _offline_dir: pathlib.Path = SimvueConfiguration.fetch().offline.cache
+        self._directory = f"{_offline_dir.joinpath(self._uuid)}"
 
         os.makedirs(self._directory, exist_ok=True)
 

@@ -44,22 +44,22 @@ class Folder(SimvueObject):
 
     @classmethod
     @pydantic.validate_call
-    def new(cls, *, path: typing.Annotated[str, pydantic.Field(pattern=FOLDER_REGEX)]):
+    def new(
+        cls,
+        *,
+        path: typing.Annotated[str, pydantic.Field(pattern=FOLDER_REGEX)],
+        offline: bool = False,
+    ):
         """Create a new Folder on the Simvue server with the given path"""
-        _folder = Folder()
-        _folder._post(path=path)
+        _folder = Folder(path=path)
+        _folder.offline_mode(offline)
         return _folder
 
     @property
     @staging_check
     def tags(self) -> list[str]:
         """Return list of tags assigned to this folder"""
-        try:
-            return self._get()["tags"]
-        except KeyError as e:
-            raise RuntimeError(
-                f"Expected value for 'tags' for folder '{self._identifier}'"
-            ) from e
+        return self._get_attribute("tags")
 
     @tags.setter
     @pydantic.validate_call
@@ -70,12 +70,7 @@ class Folder(SimvueObject):
     @property
     def path(self) -> pathlib.Path:
         """Return the path of this folder"""
-        try:
-            return self._get()["path"]
-        except KeyError as e:
-            raise RuntimeError(
-                f"Expected value for 'path' for folder '{self._identifier}'"
-            ) from e
+        return self._get_attribute("path")
 
     @property
     @staging_check
@@ -117,12 +112,7 @@ class Folder(SimvueObject):
     @staging_check
     def ttl(self) -> int:
         """Return the retention period for this folder"""
-        try:
-            return self._get()["ttl"]
-        except KeyError as e:
-            raise RuntimeError(
-                f"Expected value for 'ttl' for folder '{self._identifier}'"
-            ) from e
+        return self._get_attribute("ttl")
 
     @ttl.setter
     @pydantic.validate_call

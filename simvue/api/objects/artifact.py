@@ -8,6 +8,8 @@ from .base import SimvueObject
 
 Category = typing.Literal["code", "input", "output"]
 
+__all__ = ["Artifact"]
+
 
 class Artifact(SimvueObject):
     @classmethod
@@ -21,6 +23,7 @@ class Artifact(SimvueObject):
         category: Category,
         file_path: pydantic.FilePath,
         file_type: str | None,
+        offline: bool = False,
     ):
         _file_type = file_type or get_mimetype_for_file(file_path)
 
@@ -31,8 +34,7 @@ class Artifact(SimvueObject):
         _file_orig_path = file_path.expanduser().absolute()
         _file_checksum = calculate_sha256(f"{file_path}", is_file=True)
 
-        _artifact = Artifact()
-        _artifact._post(
+        _artifact = Artifact(
             name=name,
             run=run,
             storage=storage,
@@ -42,57 +44,29 @@ class Artifact(SimvueObject):
             type=_file_type,
             checksum=_file_checksum,
         )
+        _artifact.offline_mode(offline)
+        return _artifact
 
     @property
     def name(self) -> str:
-        try:
-            return self._get()["name"]
-        except KeyError as e:
-            raise RuntimeError(
-                f"Expected value for 'name' for artifact '{self._identifier}'"
-            ) from e
+        return self._get_attribute("name")
 
     @property
     def checksum(self) -> str:
-        try:
-            return self._get()["checksum"]
-        except KeyError as e:
-            raise RuntimeError(
-                f"Expected value for 'checksum' for artifact '{self._identifier}'"
-            ) from e
+        return self._get_attribute("checksum")
 
     @property
     def category(self) -> Category:
-        try:
-            return self._get()["category"]
-        except KeyError as e:
-            raise RuntimeError(
-                f"Expected value for 'category' for artifact '{self._identifier}'"
-            ) from e
+        return self._get_attribute("category")
 
     @property
     def original_path(self) -> str:
-        try:
-            return self._get()["originalPath"]
-        except KeyError as e:
-            raise RuntimeError(
-                f"Expected value for 'originalPath' for artifact '{self._identifier}'"
-            ) from e
+        return self._get_attribute("originalPath")
 
     @property
     def storage(self) -> str:
-        try:
-            return self._get()["storage"]
-        except KeyError as e:
-            raise RuntimeError(
-                f"Expected value for 'storage' for artifact '{self._identifier}'"
-            ) from e
+        return self._get_attribute("storage")
 
     @property
     def type(self) -> str:
-        try:
-            return self._get()["type"]
-        except KeyError as e:
-            raise RuntimeError(
-                f"Expected value for 'type' for artifact '{self._identifier}'"
-            ) from e
+        return self._get_attribute("type")

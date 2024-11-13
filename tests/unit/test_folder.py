@@ -1,12 +1,13 @@
 import typing
 import pytest
 import uuid
+import json
 import time
 
 from simvue.api.objects.folder import Folder
 
 @pytest.mark.api
-def test_folder_creation() -> None:
+def test_folder_creation_online() -> None:
     _uuid: str = f"{uuid.uuid4()}".split("-")[0]
     _path = f"/simvue_unit_testing/objects/folder/{_uuid}"
     _folder = Folder.new(path=_path)
@@ -18,8 +19,28 @@ def test_folder_creation() -> None:
     assert not _folder.visibility.users
 
 
-@pytest.mark.api(depends=["test_folder_creation"])
-def test_folder_modification() -> None:
+@pytest.mark.api
+def test_folder_creation_offline() -> None:
+    _uuid: str = f"{uuid.uuid4()}".split("-")[0]
+    _path = f"/simvue_unit_testing/objects/folder/{_uuid}"
+    _folder = Folder.new(path=_path, offline=True)
+    _folder.commit()
+    assert _folder.id
+    assert _folder.path == _path
+
+    with pytest.raises(AttributeError):
+        _folder.visibility.public
+
+    _folder.delete()
+
+    with _folder._local_staging_file.open() as in_f:
+        _local_data = json.load(in_f)
+
+    assert not _local_data.get(_folder._label, {}).get(_folder.id)
+
+
+@pytest.mark.api
+def test_folder_modification_online() -> None:
     _uuid: str = f"{uuid.uuid4()}".split("-")[0]
     _path = f"/simvue_unit_testing/objects/folder/{_uuid}"
     _description = "Test study"
@@ -37,4 +58,27 @@ def test_folder_modification() -> None:
     assert _folder_new.description == _description
     assert _folder.description == _description
     assert _folder_new.visibility.tenant
+    _folder.delete()
+
+
+@pytest.mark.api
+def test_folder_modification_offline() -> None:
+    _uuid: str = f"{uuid.uuid4()}".split("-")[0]
+    _path = f"/simvue_unit_testing/objects/folder/{_uuid}"
+    _description = "Test study"
+    _tags = ["testing", "api"]
+    _folder = Folder.new(path=_path, offline=True)
+    _folder.commit()
+    time.sleep(1)
+    _folder_new = Folder(identifier=_folder.id)
+    _folder_new.tags = _tags
+    _folder_new.description = _description
+    _folder_new.visibility.tenant = True
+    _folder_new.commit()
+    assert _folder_new.tags == _tags
+    assert _folder.tags == _tags
+    assert _folder_new.description == _description
+    assert _folder.description == _description
+    assert _folder_new.visibility.tenant
+    _folder_new.delete()
 

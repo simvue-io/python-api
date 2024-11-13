@@ -2,6 +2,8 @@ import pydantic.color
 import typing
 from .base import SimvueObject, staging_check
 
+__all__ = ["Tag"]
+
 
 class Tag(SimvueObject):
     @classmethod
@@ -12,6 +14,7 @@ class Tag(SimvueObject):
         name: str,
         description: str | None = None,
         color: pydantic.color.Color | None = None,
+        offline: bool = False,
     ):
         """Create a new Tag on the Simvue server"""
         _data: dict[str, typing.Any] = {"name": name}
@@ -19,17 +22,14 @@ class Tag(SimvueObject):
             _data["description"] = description
         if color:
             _data["description"] = color.as_hex()
-        _tag = Tag()
-        _tag._post(**_data)
+        _tag = Tag(**_data)
+        _tag.offline_mode(offline)
         return _tag
 
     @property
     @staging_check
     def name(self) -> str:
-        try:
-            return self._get()["name"]
-        except KeyError as e:
-            raise RuntimeError("Expected key 'name' in tag retrieval") from e
+        return self._get_attribute("name")
 
     @name.setter
     @pydantic.validate_call
@@ -39,11 +39,7 @@ class Tag(SimvueObject):
     @property
     @staging_check
     def color(self) -> pydantic.color.RGBA:
-        try:
-            _color: str = self._get()["colour"]
-            return pydantic.color.parse_str(_color)
-        except KeyError as e:
-            raise RuntimeError("Expected key 'colour' in tag retrieval") from e
+        return pydantic.color.parse_str(self._get_attribute("colour"))
 
     @color.setter
     @pydantic.validate_call
@@ -53,10 +49,7 @@ class Tag(SimvueObject):
     @property
     @staging_check
     def description(self) -> str:
-        try:
-            return self._get()["description"]
-        except KeyError as e:
-            raise RuntimeError("Expected key 'description' in tag retrieval") from e
+        return self._get_attribute("description")
 
     @description.setter
     @pydantic.validate_call

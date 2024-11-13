@@ -8,7 +8,7 @@ from simvue.api.objects import Artifact, Run
 from simvue.api.objects.folder import Folder
 
 @pytest.mark.api
-def test_artifact_creation() -> None:
+def test_artifact_creation_online() -> None:
     _uuid: str = f"{uuid.uuid4()}".split("-")[0]
     _folder_name = f"/simvue_unit_testing/{_uuid}"
     _folder = Folder.new(path=_folder_name)
@@ -32,3 +32,34 @@ def test_artifact_creation() -> None:
         _artifact.delete()
     _run.delete()
     _folder.delete()
+
+
+@pytest.mark.api
+def test_artifact_creation_offline() -> None:
+    _uuid: str = f"{uuid.uuid4()}".split("-")[0]
+    _folder_name = f"/simvue_unit_testing/{_uuid}"
+    _folder = Folder.new(path=_folder_name, offline=True)
+    _run = Run.new(folder=_folder_name, offline=True) 
+
+    with tempfile.NamedTemporaryFile(suffix=".txt") as temp_f:
+        _path = pathlib.Path(temp_f.name)
+        with _path.open("w") as out_f:
+            out_f.write("Hello World!")
+        _artifact = Artifact.new(
+            name=f"test_artifact_{_uuid}",
+            run=_run.id,
+            file_path=_path,
+            category="input",
+            storage=None,
+            file_type=None,
+            offline=True
+        )
+        _folder.commit()
+        _run.commit()
+        _artifact.commit()
+        time.sleep(1)
+        assert _artifact.name == f"test_artifact_{_uuid}"
+        _artifact.delete()
+    _run.delete()
+    _folder.delete()
+

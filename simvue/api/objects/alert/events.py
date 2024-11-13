@@ -20,10 +20,10 @@ class EventsAlert(AlertBase):
         frequency: pydantic.PositiveInt,
         enabled: bool = True,
         tags: list[str] | None = None,
+        offline: bool = False,
     ) -> typing.Self:
-        _alert = EventsAlert()
         _alert_definition = {"pattern": pattern, "frequency": frequency}
-        _alert._post(
+        _alert = EventsAlert(
             name=name,
             notification=notification,
             source="events",
@@ -31,17 +31,18 @@ class EventsAlert(AlertBase):
             enabled=enabled,
             tags=tags or [],
         )
+        _alert.offline_mode(offline)
         return _alert
 
 
 class EventAlertDefinition:
     def __init__(self, alert: EventsAlert) -> None:
-        self._alert = alert
+        self._sv_obj = alert
 
     @property
     def pattern(self) -> str:
         try:
-            return self._alert.get_alert()["pattern"]
+            return self._sv_obj.get_alert()["pattern"]
         except KeyError as e:
             raise RuntimeError(
                 "Expected key 'pattern' in alert definition retrieval"
@@ -51,7 +52,7 @@ class EventAlertDefinition:
     @staging_check
     def frequency(self) -> int:
         try:
-            return self._alert.get_alert()["frequency"]
+            return self._sv_obj.get_alert()["frequency"]
         except KeyError as e:
             raise RuntimeError(
                 "Expected key 'frequency' in alert definition retrieval"
@@ -60,5 +61,5 @@ class EventAlertDefinition:
     @frequency.setter
     @pydantic.validate_call
     def frequency(self, frequency: int) -> None:
-        _alert = self._alert.get_alert() | {"frequency": frequency}
-        self._alert._staging["alert"] = _alert
+        _alert = self._sv_obj.get_alert() | {"frequency": frequency}
+        self._sv_obj._staging["alert"] = _alert

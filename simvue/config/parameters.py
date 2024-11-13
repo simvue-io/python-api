@@ -77,11 +77,6 @@ class ServerSpecifications(pydantic.BaseModel):
 class OfflineSpecifications(pydantic.BaseModel):
     cache: typing.Optional[pathlib.Path] = None
 
-    @pydantic.field_validator("cache")
-    @classmethod
-    def cache_to_str(cls, v: typing.Any) -> str:
-        return f"{v}"
-
 
 class DefaultRunSpecifications(pydantic.BaseModel):
     name: typing.Optional[str] = None

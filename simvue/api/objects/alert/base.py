@@ -5,22 +5,25 @@ from simvue.models import NAME_REGEX
 
 
 class AlertBase(SimvueObject):
+    @classmethod
+    def new(cls, offline: bool = False, **kwargs):
+        _alert = AlertBase(**kwargs)
+        _alert.offline_mode(offline)
+        return _alert
+
     def __init__(self, identifier: typing.Optional[str] = None, **kwargs) -> None:
         self._label = "alert"
         super().__init__(identifier, **kwargs)
 
     def get_alert(self) -> dict[str, typing.Any]:
         try:
-            return self._get()["alert"]
-        except KeyError as e:
-            raise RuntimeError("Expected key 'alert' in alert retrieval") from e
+            return self._get_attribute("alert")
+        except AttributeError:
+            return {}
 
     @property
     def name(self) -> str:
-        try:
-            return self._get()["name"]
-        except KeyError as e:
-            raise RuntimeError("Expected key 'name' in alert retrieval") from e
+        return self._get_attribute("name")
 
     @name.setter
     @pydantic.validate_call
@@ -32,10 +35,7 @@ class AlertBase(SimvueObject):
     @property
     @staging_check
     def description(self) -> str | None:
-        try:
-            return self._get()["description"]
-        except KeyError as e:
-            raise RuntimeError("Expected key 'description' in alert retrieval") from e
+        return self._get_attribute("description")
 
     @description.setter
     @pydantic.validate_call
@@ -45,10 +45,7 @@ class AlertBase(SimvueObject):
     @property
     @staging_check
     def tags(self) -> list[str]:
-        try:
-            return self._get()["tags"] or []
-        except KeyError as e:
-            raise RuntimeError("Expected key 'tags' in alert retrieval") from e
+        return self._get_attribute("tags")
 
     @tags.setter
     @pydantic.validate_call
@@ -58,10 +55,7 @@ class AlertBase(SimvueObject):
     @property
     @staging_check
     def notification(self) -> typing.Literal["none", "email"]:
-        try:
-            return self._get()["notification"]
-        except KeyError as e:
-            raise RuntimeError("Expected key 'notification' in alert retrieval") from e
+        return self._get_attribute("notification")
 
     @notification.setter
     @pydantic.validate_call
@@ -70,18 +64,12 @@ class AlertBase(SimvueObject):
 
     @property
     def source(self) -> typing.Literal["events", "metrics", "user"]:
-        try:
-            return self._get()["source"]
-        except KeyError as e:
-            raise RuntimeError("Expected key 'source' in alert retrieval") from e
+        return self._get_attribute("source")
 
     @property
     @staging_check
     def enabled(self) -> bool:
-        try:
-            return self._get()["enabled"]
-        except KeyError as e:
-            raise RuntimeError("Expected key 'enabled' in alert retrieval") from e
+        return self._get_attribute("enabled")
 
     @enabled.setter
     @pydantic.validate_call
@@ -91,10 +79,7 @@ class AlertBase(SimvueObject):
     @property
     @staging_check
     def abort(self) -> bool:
-        try:
-            return self._get()["abort"]
-        except KeyError as e:
-            raise RuntimeError("Expected key 'abort' in alert retrieval") from e
+        return self._get_attribute("abort")
 
     @abort.setter
     @pydantic.validate_call

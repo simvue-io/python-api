@@ -50,12 +50,12 @@ class SimvueConfiguration(pydantic.BaseModel):
         )
 
         if not _pyproject_toml:
-            return
+            return None
 
         _project_data = toml.load(_pyproject_toml)
 
         if not (_simvue_setup := _project_data.get("tool", {}).get("simvue")):
-            return
+            return None
 
         # Do not allow reading of authentication credentials within a project file
         _server_credentials = _simvue_setup.get("server", {})

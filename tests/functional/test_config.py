@@ -125,7 +125,7 @@ tags = {_tags}
         elif use_file and use_file != "pyproject.toml":
             assert _config.server.url == _url
             assert _config.server.token == _token
-            assert _config.offline.cache == temp_d
+            assert f"{_config.offline.cache}" == temp_d
 
         if use_file == "extended":
             assert _config.run.description == _description

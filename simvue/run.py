@@ -405,19 +405,19 @@ class Run:
             run_id: typing.Optional[str] = self._id,
             uuid: str = self._uuid,
         ) -> None:
-            _offline_directory = self._user_config.offline.cache
-            if not os.path.exists(_offline_directory):
+            _offline_directory: pathlib.Path = self._user_config.offline.cache
+            if not _offline_directory.exists():
                 logger.error(
                     f"Cannot write to offline directory '{_offline_directory}', directory not found."
                 )
                 return
-            _directory = os.path.join(_offline_directory, uuid)
+            _directory = _offline_directory.joinpath(uuid)
 
             unique_id = time.time()
-            filename = f"{_directory}/{category}-{unique_id}"
+            filename = _directory.joinpath(f"{category}-{unique_id}")
             _data = {category: buffer, "run": run_id}
             try:
-                with open(filename, "w") as fh:
+                with filename.open("w") as fh:
                     json.dump(_data, fh)
             except Exception as err:
                 if self._suppress_errors:
