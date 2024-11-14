@@ -48,38 +48,48 @@ def staging_check(member_func: typing.Callable) -> typing.Callable:
 
 
 class Visibility:
+    """Interface for object visibility definition"""
+
     def __init__(self, sv_obj: "SimvueObject") -> None:
+        """Initialise visibility with target object"""
         self._sv_obj = sv_obj
 
     def _update_visibility(self, key: str, value: typing.Any) -> None:
+        """Update the visibility configuration for this object"""
         _visibility = self._sv_obj._get_visibility() | {key: value}
         self._sv_obj._staging["visibility"] = _visibility
 
     @property
     @staging_check
     def users(self) -> list[str]:
+        """Retrieve the list of users able to see this object"""
         return self._sv_obj._get_visibility().get("users", [])
 
     @users.setter
     def users(self, users: list[str]) -> None:
+        """Set the list of users able to see this object"""
         self._update_visibility("users", users)
 
     @property
     @staging_check
     def public(self) -> bool:
+        """Retrieve if this object is publically visible"""
         return self._sv_obj._get_visibility().get("public", False)
 
     @public.setter
     def public(self, public: bool) -> None:
+        """Set if this object is publically visible"""
         self._update_visibility("public", public)
 
     @property
     @staging_check
     def tenant(self) -> bool:
+        """Retrieve the tenant group this object is visible to"""
         return self._sv_obj._get_visibility().get("tenant", False)
 
     @tenant.setter
     def tenant(self, tenant: bool) -> None:
+        """Set the tenant group this object is visible to"""
         self._update_visibility("tenant", tenant)
 
 
@@ -87,6 +97,7 @@ class SimvueObject(abc.ABC):
     def __init__(self, identifier: typing.Optional[str] = None, **kwargs) -> None:
         self._logger = logging.getLogger(f"simvue.{self.__class__.__name__}")
         self._label: str = getattr(self, "_label", self.__class__.__name__.lower())
+        self._endpoint: str = f"{self._label}s"
         self._identifier: typing.Optional[str] = (
             identifier if identifier is not None else f"offline_{uuid.uuid1()}"
         )
@@ -188,7 +199,7 @@ class SimvueObject(abc.ABC):
 
     @property
     def _url_path(self) -> pathlib.Path:
-        return pathlib.Path(f"api/{self._label}s")
+        return pathlib.Path(f"api/{self._endpoint}")
 
     @property
     def _base_url(self) -> str:
@@ -208,6 +219,12 @@ class SimvueObject(abc.ABC):
         _response = sv_post(
             url=self._base_url, headers=self._headers, data=kwargs, is_json=True
         )
+
+        if _response.status_code == http.HTTPStatus.FORBIDDEN:
+            raise RuntimeError(
+                f"Forbidden: You do not have permission to create object of type '{self._label}'"
+            )
+
         _json_response = get_json_from_response(
             response=_response,
             expected_status=[http.HTTPStatus.OK],
@@ -232,6 +249,12 @@ class SimvueObject(abc.ABC):
         _response = sv_put(
             url=self.url, headers=self._headers, data=kwargs, is_json=True
         )
+
+        if _response.status_code == http.HTTPStatus.FORBIDDEN:
+            raise RuntimeError(
+                f"Forbidden: You do not have permission to create object of type '{self._label}'"
+            )
+
         _json_response = get_json_from_response(
             response=_response,
             expected_status=[http.HTTPStatus.OK],

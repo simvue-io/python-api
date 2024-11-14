@@ -12,17 +12,11 @@ class Tag(SimvueObject):
         cls,
         *,
         name: str,
-        description: str | None = None,
-        color: pydantic.color.Color | None = None,
         offline: bool = False,
     ):
         """Create a new Tag on the Simvue server"""
         _data: dict[str, typing.Any] = {"name": name}
-        if description:
-            _data["description"] = description
-        if color:
-            _data["description"] = color.as_hex()
-        _tag = Tag(**_data)
+        _tag = Tag(name=name)
         _tag.offline_mode(offline)
         return _tag
 
