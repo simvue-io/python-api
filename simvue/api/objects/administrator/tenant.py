@@ -1,6 +1,8 @@
 import typing
 
 import pydantic
+
+from simvue.api.objects.base import write_only
 from .base import SimvueObject, staging_check
 
 
@@ -26,6 +28,7 @@ class Tenant(SimvueObject):
         return self._get_attribute("enabled")
 
     @enabled.setter
+    @write_only
     @pydantic.validate_call
     def enabled(self, enabled: str) -> None:
         """Enable/disable alert"""

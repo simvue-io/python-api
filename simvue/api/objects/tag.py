@@ -1,6 +1,6 @@
 import pydantic.color
 import typing
-from .base import SimvueObject, staging_check
+from .base import SimvueObject, staging_check, write_only
 
 __all__ = ["Tag"]
 
@@ -26,6 +26,7 @@ class Tag(SimvueObject):
         return self._get_attribute("name")
 
     @name.setter
+    @write_only
     @pydantic.validate_call
     def name(self, name: str) -> None:
         self._staging["name"] = name
@@ -36,6 +37,7 @@ class Tag(SimvueObject):
         return pydantic.color.parse_str(self._get_attribute("colour"))
 
     @color.setter
+    @write_only
     @pydantic.validate_call
     def color(self, color: pydantic.color.Color) -> None:
         self._staging["colour"] = color.as_hex()
@@ -46,6 +48,7 @@ class Tag(SimvueObject):
         return self._get_attribute("description")
 
     @description.setter
+    @write_only
     @pydantic.validate_call
     def description(self, description: str) -> None:
         self._staging["description"] = description

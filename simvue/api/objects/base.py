@@ -44,6 +44,21 @@ def staging_check(member_func: typing.Callable) -> typing.Callable:
             )
         return member_func(self)
 
+    _wrapper.__name__ = member_func.__name__
+    return _wrapper
+
+
+def write_only(attribute_func: typing.Callable) -> typing.Callable:
+    def _wrapper(self: "SimvueObject", *args, **kwargs) -> typing.Any:
+        _sv_obj = getattr(self, "_sv_obj", self)
+        if _sv_obj._read_only:
+            raise AssertionError(
+                f"Cannot set property '{attribute_func.__name__}' "
+                f"on read-only object of type '{self._label}'"
+            )
+        return attribute_func(self, *args, **kwargs)
+
+    _wrapper.__name__ = attribute_func.__name__
     return _wrapper
 
 
@@ -66,6 +81,7 @@ class Visibility:
         return self._sv_obj._get_visibility().get("users", [])
 
     @users.setter
+    @write_only
     def users(self, users: list[str]) -> None:
         """Set the list of users able to see this object"""
         self._update_visibility("users", users)
@@ -77,6 +93,7 @@ class Visibility:
         return self._sv_obj._get_visibility().get("public", False)
 
     @public.setter
+    @write_only
     def public(self, public: bool) -> None:
         """Set if this object is publically visible"""
         self._update_visibility("public", public)
@@ -88,15 +105,19 @@ class Visibility:
         return self._sv_obj._get_visibility().get("tenant", False)
 
     @tenant.setter
+    @write_only
     def tenant(self, tenant: bool) -> None:
         """Set the tenant group this object is visible to"""
         self._update_visibility("tenant", tenant)
 
 
 class SimvueObject(abc.ABC):
-    def __init__(self, identifier: typing.Optional[str] = None, **kwargs) -> None:
+    def __init__(
+        self, identifier: typing.Optional[str] = None, read_only: bool = False, **kwargs
+    ) -> None:
         self._logger = logging.getLogger(f"simvue.{self.__class__.__name__}")
         self._label: str = getattr(self, "_label", self.__class__.__name__.lower())
+        self._read_only: bool = read_only
         self._endpoint: str = f"{self._label}s"
         self._identifier: typing.Optional[str] = (
             identifier if identifier is not None else f"offline_{uuid.uuid1()}"
@@ -115,8 +136,12 @@ class SimvueObject(abc.ABC):
             self._user_config.offline.cache.joinpath("staging.json")
         )
 
-        # Recover any locally staged changes
-        self._staging: dict[str, typing.Any] = self._get_local_staged() | kwargs
+        # Recover any locally staged changes if not read-only
+        self._staging: dict[str, typing.Any] = (
+            self._get_local_staged() if read_only else {}
+        )
+
+        self._staging |= kwargs
 
         self._headers: dict[str, str] = {
             "Authorization": f"Bearer {self._user_config.server.token}",
@@ -134,6 +159,13 @@ class SimvueObject(abc.ABC):
         return _staged_data.get(self._label, {}).get(self._identifier, {})
 
     def _get_attribute(self, attribute: str) -> typing.Any:
+        # In the case where the object is read-only, staging is the data
+        # already retrieved from the server
+        if (_attr := getattr(self, "_read_only", None)) and isinstance(
+            type(_attr), staging_check
+        ):
+            return self._staging[attribute]
+
         try:
             return self._get()[attribute]
         except KeyError as e:
@@ -173,6 +205,47 @@ class SimvueObject(abc.ABC):
     @abc.abstractclassmethod
     def new(cls, offline: bool = False, **kwargs):
         pass
+
+    @classmethod
+    def get_all(
+        cls, count: int | None = None, offset: int | None = None
+    ) -> typing.Generator[tuple[str, "SimvueObject"], None, None]:
+        _class_instance = cls(read_only=True)
+        _url = f"{_class_instance._base_url}"
+        _response = sv_get(
+            _url,
+            headers=_class_instance._headers,
+            params={"start": offset, "count": count},
+        )
+        _json_response = get_json_from_response(
+            response=_response,
+            expected_status=[http.HTTPStatus.OK],
+            scenario=f"Retrieval of {_class_instance.__class__.__name__.lower()}s",
+        )
+
+        if not isinstance(_json_response, dict):
+            raise RuntimeError(
+                f"Expected dict from JSON response during {_class_instance.__class__.__name__.lower()}s retrieval "
+                f"but got '{type(_json_response)}'"
+            )
+
+        if not (_data := _json_response.get("data")):
+            raise RuntimeError(
+                f"Expected key 'data' for retrieval of {_class_instance.__class__.__name__.lower()}s"
+            )
+
+        for _entry in _json_response["data"]:
+            yield _entry["id"], cls(read_only=True, **_entry)
+
+    def read_only(self, is_read_only: bool) -> None:
+        self._read_only = is_read_only
+
+        # If using writable mode, clear the staging dictionary as
+        # in this context it contains existing data retrieved
+        # from the server/local entry which we dont want token
+        # repush unnecessarily then read any locally staged changes
+        if not self._read_only:
+            self._staging = self._get_local_staged()
 
     def commit(self) -> None:
         if not self._staging:

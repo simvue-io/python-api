@@ -11,7 +11,7 @@ import pathlib
 import typing
 
 import pydantic
-from .base import SimvueObject, Visibility, staging_check
+from .base import SimvueObject, Visibility, staging_check, write_only
 from simvue.models import FOLDER_REGEX
 
 
@@ -25,7 +25,9 @@ class Folder(SimvueObject):
 
     """
 
-    def __init__(self, identifier: typing.Optional[str] = None, **kwargs) -> None:
+    def __init__(
+        self, identifier: typing.Optional[str] = None, read_only: bool = False, **kwargs
+    ) -> None:
         """Initialise a Folder
 
         If an identifier is provided a connection will be made to the
@@ -36,11 +38,13 @@ class Folder(SimvueObject):
         ----------
         identifier : str, optional
             the remote server unique id for the target folder
+        read_only : bool, optional
+            create object in read-only mode
         **kwargs : dict
             any additional arguments to be passed to the object initialiser
         """
         self.visibility = Visibility(self)
-        super().__init__(identifier, **kwargs)
+        super().__init__(identifier, read_only, **kwargs)
 
     @classmethod
     @pydantic.validate_call
@@ -62,6 +66,7 @@ class Folder(SimvueObject):
         return self._get_attribute("tags")
 
     @tags.setter
+    @write_only
     @pydantic.validate_call
     def tags(self, tags: list[str]) -> None:
         """Set tags assigned to this folder"""
@@ -79,6 +84,7 @@ class Folder(SimvueObject):
         return self._get().get("description")
 
     @description.setter
+    @write_only
     @pydantic.validate_call
     def description(self, description: str) -> None:
         """Update the folder description"""
@@ -91,6 +97,7 @@ class Folder(SimvueObject):
         return self._get().get("name")
 
     @name.setter
+    @write_only
     @pydantic.validate_call
     def name(self, name: str) -> None:
         """Update the folder name"""
@@ -103,6 +110,7 @@ class Folder(SimvueObject):
         return self._get().get("starred", False)
 
     @star.setter
+    @write_only
     @pydantic.validate_call
     def star(self, is_true: bool = True) -> None:
         """Star this folder as a favourite"""
@@ -115,6 +123,7 @@ class Folder(SimvueObject):
         return self._get_attribute("ttl")
 
     @ttl.setter
+    @write_only
     @pydantic.validate_call
     def ttl(self, time_seconds: int) -> None:
         """Update the retention period for this folder"""

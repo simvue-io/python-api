@@ -17,6 +17,13 @@ def test_folder_creation_online() -> None:
     assert not _folder.visibility.public
     assert not _folder.visibility.tenant
     assert not _folder.visibility.users
+    _folders = Folder.get_all(count=10)
+    assert _folders
+    assert _folders[_folder.id]
+    assert _folders[_folder.id]._read_only
+    with pytest.raises(AssertionError):
+        _folders[_folder.id].name = "hello"
+    _folder.delete()
 
 
 @pytest.mark.api

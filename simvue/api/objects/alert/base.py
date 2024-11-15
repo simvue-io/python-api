@@ -6,7 +6,6 @@ Contains general definitions for Simvue Alert objects.
 
 """
 
-import abc
 import pydantic
 import typing
 from simvue.api.objects.base import SimvueObject, staging_check
@@ -19,15 +18,18 @@ class AlertBase(SimvueObject):
     Contains properties common to all alert types.
     """
 
-    @abc.abstractclassmethod
+    @classmethod
     def new(cls, **kwargs):
         pass
 
-    def __init__(self, identifier: typing.Optional[str] = None, **kwargs) -> None:
+    def __init__(
+        self, identifier: typing.Optional[str] = None, read_only: bool = False, **kwargs
+    ) -> None:
         """Retrieve an alert from the Simvue server by identifier"""
         self._label = "alert"
-        super().__init__(identifier, **kwargs)
+        super().__init__(identifier, read_only, **kwargs)
 
+    @staging_check
     def get_alert(self) -> dict[str, typing.Any]:
         """Retrieve alert definition"""
         try:

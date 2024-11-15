@@ -9,6 +9,8 @@ locally or on a Simvue server
 
 import pydantic
 import typing
+
+from simvue.api.objects.base import write_only
 from .base import AlertBase, staging_check
 from simvue.models import NAME_REGEX
 
@@ -19,10 +21,18 @@ Rule = typing.Literal["is above", "is below", "is inside range", "is outside ran
 class MetricsThresholdAlert(AlertBase):
     """Class for connecting to/creating a local or remotely defined metric threshold alert"""
 
-    def __init__(self, identifier: str | None = None, **kwargs) -> None:
+    def __init__(
+        self, identifier: str | None = None, read_only: bool = False, **kwargs
+    ) -> None:
         """Connect to a local or remote threshold alert by identifier"""
         self.alert = MetricThresholdAlertDefinition(self)
-        super().__init__(identifier, **kwargs)
+        super().__init__(identifier, read_only, **kwargs)
+
+    @classmethod
+    def get_all(
+        cls, count: int | None = None, offset: int | None = None
+    ) -> dict[str, typing.Any]:
+        raise NotImplementedError("Retrieve of only metric alerts is not yet supported")
 
     @classmethod
     @pydantic.validate_call
@@ -207,6 +217,7 @@ class MetricsAlertDefinition:
             ) from e
 
     @frequency.setter
+    @write_only
     @pydantic.validate_call
     def frequency(self, frequency: int) -> None:
         """Set the monitor frequency for this alert"""

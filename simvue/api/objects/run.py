@@ -1,7 +1,7 @@
 import typing
 import pydantic
 import datetime
-from .base import SimvueObject, staging_check, Visibility
+from .base import SimvueObject, staging_check, Visibility, write_only
 from simvue.models import FOLDER_REGEX, NAME_REGEX, DATETIME_FORMAT
 
 Status = typing.Literal[
@@ -12,7 +12,9 @@ __all__ = ["Run"]
 
 
 class Run(SimvueObject):
-    def __init__(self, identifier: typing.Optional[str] = None, **kwargs) -> None:
+    def __init__(
+        self, identifier: typing.Optional[str] = None, read_only: bool = False, **kwargs
+    ) -> None:
         """Initialise a Run
 
         If an identifier is provided a connection will be made to the
@@ -23,11 +25,13 @@ class Run(SimvueObject):
         ----------
         identifier : str, optional
             the remote server unique id for the target run
+        read_only : bool, optional
+            create object in read-only mode
         **kwargs : dict
             any additional arguments to be passed to the object initialiser
         """
         self.visibility = Visibility(self)
-        super().__init__(identifier, **kwargs)
+        super().__init__(identifier, read_only, **kwargs)
 
     @classmethod
     @pydantic.validate_call
@@ -48,6 +52,7 @@ class Run(SimvueObject):
         return self._get_attribute("name")
 
     @name.setter
+    @write_only
     @pydantic.validate_call
     def name(
         self, name: typing.Annotated[str, pydantic.Field(pattern=NAME_REGEX)]
@@ -60,6 +65,7 @@ class Run(SimvueObject):
         return self._get_attribute("tags")
 
     @tags.setter
+    @write_only
     @pydantic.validate_call
     def tags(self, tags: list[str]) -> None:
         self._staging["tags"] = tags
@@ -70,6 +76,7 @@ class Run(SimvueObject):
         return self._get_attribute("status")
 
     @status.setter
+    @write_only
     @pydantic.validate_call
     def status(self, status: Status) -> None:
         self._staging["status"] = status
@@ -81,6 +88,7 @@ class Run(SimvueObject):
         return self._get_attribute("ttl")
 
     @ttl.setter
+    @write_only
     @pydantic.validate_call
     def ttl(self, time_seconds: int) -> None:
         """Update the retention period for this run"""
@@ -92,6 +100,7 @@ class Run(SimvueObject):
         return self._get_attribute("folder")
 
     @folder.setter
+    @write_only
     @pydantic.validate_call
     def folder(
         self, folder: typing.Annotated[str, pydantic.Field(pattern=FOLDER_REGEX)]
@@ -104,6 +113,7 @@ class Run(SimvueObject):
         return self._get_attribute("metadata")
 
     @metadata.setter
+    @write_only
     @pydantic.validate_call
     def metadata(self, metadata: dict[str, typing.Any]) -> None:
         self._staging["metadata"] = metadata
@@ -114,6 +124,7 @@ class Run(SimvueObject):
         return self._get_attribute("description")
 
     @description.setter
+    @write_only
     @pydantic.validate_call
     def description(self, description: str) -> None:
         self._staging["description"] = description
@@ -128,6 +139,7 @@ class Run(SimvueObject):
         return self._get_attribute("heartbeat_timeout")
 
     @heartbeat_timeout.setter
+    @write_only
     @pydantic.validate_call
     def heartbeat_timeout(self, time_seconds: int) -> None:
         self._staging["heartbeat_timeout"] = time_seconds
@@ -138,6 +150,7 @@ class Run(SimvueObject):
         return self._get_attribute("notifications")
 
     @notifications.setter
+    @write_only
     @pydantic.validate_call
     def notifications(self, notifications: typing.Literal["none", "email"]) -> None:
         self._staging["notifications"] = notifications
@@ -148,6 +161,7 @@ class Run(SimvueObject):
         return self._get_attribute("alerts")
 
     @alerts.setter
+    @write_only
     @pydantic.validate_call
     def alerts(self, alerts: list[str]) -> None:
         self._staging["alerts"] = alerts
@@ -160,6 +174,7 @@ class Run(SimvueObject):
         )
 
     @created.setter
+    @write_only
     @pydantic.validate_call
     def created(self, created: datetime.datetime) -> None:
         self._staging["created"] = created.strftime(DATETIME_FORMAT)
@@ -172,6 +187,7 @@ class Run(SimvueObject):
         )
 
     @started.setter
+    @write_only
     @pydantic.validate_call
     def started(self, started: datetime.datetime) -> None:
         self._staging["started"] = started.strftime(DATETIME_FORMAT)
@@ -184,6 +200,7 @@ class Run(SimvueObject):
         )
 
     @endtime.setter
+    @write_only
     @pydantic.validate_call
     def endtime(self, endtime: datetime.datetime) -> None:
         self._staging["endtime"] = endtime.strftime(DATETIME_FORMAT)

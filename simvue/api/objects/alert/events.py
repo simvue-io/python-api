@@ -8,6 +8,8 @@ Interface to event-based Simvue alerts.
 
 import typing
 import pydantic
+
+from simvue.api.objects.base import write_only
 from .base import AlertBase, staging_check
 from simvue.models import NAME_REGEX
 
@@ -15,10 +17,18 @@ from simvue.models import NAME_REGEX
 class EventsAlert(AlertBase):
     """Connect to an event-based alert either locally or on a server"""
 
-    def __init__(self, identifier: str | None = None, **kwargs) -> None:
+    def __init__(
+        self, identifier: str | None = None, read_only: bool = False, **kwargs
+    ) -> None:
         """Initialise a connection to an event alert by identifier"""
         self.alert = EventAlertDefinition(self)
-        super().__init__(identifier, **kwargs)
+        super().__init__(identifier, read_only, **kwargs)
+
+    @classmethod
+    def get_all(
+        cls, count: int | None = None, offset: int | None = None
+    ) -> dict[str, typing.Any]:
+        raise NotImplementedError("Retrieve of only event alerts is not yet supported")
 
     @classmethod
     @pydantic.validate_call
@@ -94,6 +104,7 @@ class EventAlertDefinition:
             ) from e
 
     @frequency.setter
+    @write_only
     @pydantic.validate_call
     def frequency(self, frequency: int) -> None:
         """Set the update frequency for this alert"""
