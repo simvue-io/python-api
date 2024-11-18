@@ -30,16 +30,15 @@ import uuid
 import click
 import msgpack
 import psutil
-from pydantic import ValidationError
+
 
 from .config.user import SimvueConfiguration
 import simvue.api.request as sv_api
 
 from .factory.dispatch import Dispatcher
 from .executor import Executor
-from .factory.proxy import Simvue
 from .metrics import get_gpu_metrics, get_process_cpu, get_process_memory
-from .models import RunInput, FOLDER_REGEX, NAME_REGEX, MetricKeyString
+from .models import FOLDER_REGEX, NAME_REGEX, MetricKeyString
 from .serialization import serialize_object
 from .system import get_system
 from .metadata import git_info, environment
@@ -51,6 +50,7 @@ from .utilities import (
     validate_timestamp,
     simvue_timestamp,
 )
+from .api.objects import Run as RunObject, Artifact
 
 try:
     from typing import Self
@@ -59,7 +59,6 @@ except ImportError:
 
 
 if typing.TYPE_CHECKING:
-    from .factory.proxy import SimvueBaseClass
     from .factory.dispatch import DispatcherBaseClass
 
 UPLOAD_TIMEOUT: int = 30
@@ -173,7 +172,7 @@ class Run:
         self._headers: dict[str, str] = {
             "Authorization": f"Bearer {self._user_config.server.token}"
         }
-        self._simvue: typing.Optional[SimvueBaseClass] = None
+        self._sv_obj: typing.Optional[RunObject] = None
         self._pid: typing.Optional[int] = 0
         self._shutdown_event: typing.Optional[threading.Event] = None
         self._configuration_lock = threading.Lock()
@@ -356,7 +355,7 @@ class Run:
 
                 # Check if the user has aborted the run
                 with self._configuration_lock:
-                    if self._simvue and self._simvue.get_abort_status():
+                    if self._sv_obj and self._sv_obj.abort_trigger:
                         self._alert_raised_trigger.set()
                         logger.debug("Received abort request from server")
 
@@ -379,8 +378,8 @@ class Run:
                         if self._abort_on_alert == "terminate":
                             os._exit(1)
 
-                if self._simvue:
-                    self._simvue.send_heartbeat()
+                if self._sv_obj:
+                    self._sv_obj.send_heartbeat()
 
         return _heartbeat
 
@@ -479,14 +478,13 @@ class Run:
 
         logger.debug("Starting run")
 
-        data: dict[str, typing.Any] = {"status": self._status}
+        if self._sv_obj:
+            self._sv_obj.status = self._status
 
-        if reconnect:
-            data["system"] = get_system()
+            if reconnect:
+                self._sv_obj.system = get_system()
 
-            if self._simvue and not self._simvue.update(data):
-                return False
-
+        self._sv_obj.commit()
         self._start_time = time.time()
 
         if self._pid == 0:
@@ -559,13 +557,15 @@ class Run:
 
         if not self._suppress_errors:
             raise RuntimeError(message)
-        else:
-            # Simvue support now terminated as the instance of Run has entered
-            # the dormant state due to exception throw so set listing to be 'lost'
-            if self._status == "running" and self._simvue:
-                self._simvue.update({"name": self._name, "status": "lost"})
 
-            logger.error(message)
+        # Simvue support now terminated as the instance of Run has entered
+        # the dormant state due to exception throw so set listing to be 'lost'
+        if self._status == "running" and self._sv_obj:
+            self._sv_obj.name = self._name
+            self._sv_obj.status = "lost"
+            self._sv_obj.commit()
+
+        logger.error(message)
 
         self._aborted = True
 
@@ -680,40 +680,25 @@ class Run:
 
         self._timer = time.time()
 
-        data: dict[str, typing.Any] = {
-            "metadata": (metadata or {}) | git_info(os.getcwd()) | environment(),
-            "tags": tags or [],
-            "status": self._status,
-            "ttl": self._retention,
-            "folder": folder,
-            "name": name,
-            "description": description,
-            "system": get_system() if self._status == "running" else None,
-            "visibility": {
-                "users": [] if not isinstance(visibility, list) else visibility,
-                "tenant": visibility == "tenant",
-                "public": visibility == "public",
-            },
-            "heartbeat_timeout": timeout,
+        self._sv_obj = RunObject.new(folder=folder)
+        self._sv_obj.description = description
+        self._sv_obj.name = name
+        self._sv_obj.visibility = {
+            "users": visibility if isinstance(visibility, list) else [],
+            "tenant": visibility == "tenant",
+            "public": visibility == "public",
         }
-
-        # Check against the expected run input
-        try:
-            RunInput(**data)
-        except ValidationError as err:
-            self._error(f"{err}")
-            return False
-
-        self._simvue = Simvue(
-            name=self._name,
-            uniq_id=self._uuid,
-            mode=self._mode,
-            config=self._user_config,
-            suppress_errors=self._suppress_errors,
+        self._sv_obj.ttl = self._retention
+        self._sv_obj.status = self._status
+        self._sv_obj.metadata = (
+            (metadata or {}) | git_info(os.getcwd()) | environment(),
         )
-        name, self._id = self._simvue.create_run(data)
+        self._sv_obj.heartbeat_timeout = timeout
+        self._sv_obj.system = get_system() if self._status == "running" else None
+        self._data = self._sv_obj._staging
+        self._sv_obj.commit()
 
-        self._data = data
+        name, self._id = self._sv_obj.name, self._sv_obj.id
 
         if not name:
             return False
@@ -938,9 +923,7 @@ class Run:
         self._status = "running"
 
         self._id = run_id
-        self._simvue = Simvue(
-            self._name, self._id, self._mode, self._user_config, self._suppress_errors
-        )
+        self._sv_obj = RunObject(identifier=self._id)
         self._start(reconnect=True)
 
         return True
@@ -1065,7 +1048,7 @@ class Run:
         bool
             if the update was successful
         """
-        if not self._simvue:
+        if not self._sv_obj:
             self._error("Cannot update metadata, run not initialised")
             return False
 
@@ -1073,12 +1056,12 @@ class Run:
             self._error("metadata must be a dict")
             return False
 
-        data: dict[str, dict[str, typing.Any]] = {"metadata": metadata}
-
-        if self._simvue and self._simvue.update(data):
+        if self._sv_obj:
+            self._sv_obj.metadata = metadata
+            self._sv_obj.commit()
             return True
 
-        return False
+        return True
 
     @skip_if_failed("_aborted", "_suppress_errors", False)
     @check_run_initialised
@@ -1096,16 +1079,14 @@ class Run:
         bool
             whether the update was successful
         """
-        if not self._simvue:
+        if not self._sv_obj:
             self._error("Cannot update tags, run not initialised")
             return False
 
-        data: dict[str, list[str]] = {"tags": tags}
+        self._sv_obj.tags = tags
+        self._sv_obj.commit()
 
-        if self._simvue and self._simvue.update(data):
-            return True
-
-        return False
+        return True
 
     @skip_if_failed("_aborted", "_suppress_errors", False)
     @check_run_initialised
@@ -1123,11 +1104,11 @@ class Run:
         bool
             whether the update was successful
         """
-        if not self._simvue:
+        if not self._sv_obj:
             return False
 
         try:
-            current_tags: list[str] = self._simvue.list_tags() or []
+            current_tags: list[str] = self._sv_obj.tags
         except RuntimeError as e:
             self._error(f"{e.args[0]}")
             return False
@@ -1161,7 +1142,7 @@ class Run:
         if self._aborted:
             return False
 
-        if not self._simvue or not self._dispatcher:
+        if not self._sv_obj or not self._dispatcher:
             self._error("Cannot log events, run not initialised")
             return False
 
@@ -1197,7 +1178,7 @@ class Run:
         if not metrics:
             return True
 
-        if not self._simvue or not self._dispatcher:
+        if not self._sv_obj or not self._dispatcher:
             self._error("Cannot log metrics, run not initialised", join_on_fail)
             return False
 
@@ -1315,7 +1296,7 @@ class Run:
 
         # Register file
         try:
-            return self._simvue is not None and self._simvue.save_file(data) is not None
+            return self._sv_obj is not None and self._simvue.save_file(data) is not None
         except RuntimeError as e:
             self._error(f"{e.args[0]}")
             return False
@@ -1402,6 +1383,19 @@ class Run:
             return True
 
         # Register file
+        _artifact = Artifact.new(
+            name=name or stored_file_name,
+            run=self._sv_obj.id,
+            storage=self._storage_id,
+            file_path=file_path,
+            offline=self._mode == "offline",
+            file_type=None,
+            category=category,
+        )
+        _artifact.commit()
+
+        _storage_id = _artifact.storage
+
         try:
             return self._simvue.save_file(data) is not None
         except RuntimeError as e:
@@ -1522,15 +1516,12 @@ class Run:
             self._error("Run is not active")
             return False
 
-        data: dict[str, str] = {"name": self._name, "status": status}
         self._status = status
 
-        try:
-            if self._simvue and self._simvue.update(data):
-                return True
-        except RuntimeError as e:
-            self._error(f"{e.args[0]}")
-            return False
+        if self._sv_obj:
+            self._sv_obj.status = status
+            self._sv_obj.commit()
+            return True
 
         return False
 

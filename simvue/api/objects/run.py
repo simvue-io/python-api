@@ -1,7 +1,11 @@
+import http
 import typing
 import pydantic
 import datetime
+import boltons.urlutils as bo_url
+
 from .base import SimvueObject, staging_check, Visibility, write_only
+from simvue.api.request import get as sv_get, put as sv_put, get_json_from_response
 from simvue.models import FOLDER_REGEX, NAME_REGEX, DATETIME_FORMAT
 
 Status = typing.Literal[
@@ -204,3 +208,43 @@ class Run(SimvueObject):
     @pydantic.validate_call
     def endtime(self, endtime: datetime.datetime) -> None:
         self._staging["endtime"] = endtime.strftime(DATETIME_FORMAT)
+
+    @write_only
+    def send_heartbeat(self) -> dict[str, typing.Any] | None:
+        if self._offline:
+            return None
+
+        _url = bo_url.URL(self._user_config.server.url)
+        _url.path = f"{self._url_path / 'heartbeat' / self._identifier}"
+        _response = sv_put(f"{_url}", headers=self._headers, data={})
+        _json_response = get_json_from_response(
+            response=_response,
+            expected_status=[http.HTTPStatus.OK],
+            scenario="Retrieving abort status",
+        )
+        if not isinstance(_json_response, dict):
+            raise RuntimeError(
+                f"Expected dictionary from JSON response during {self._label} abort status check "
+                f"but got '{type(_json_response)}'"
+            )
+        return _json_response
+
+    @property
+    def abort_trigger(self) -> bool:
+        if self._offline:
+            return False
+
+        _url = bo_url.URL(self._user_config.server.url)
+        _url.path = f"{self._url_path}/abort"
+        _response = sv_get(f"{_url}", headers=self._headers)
+        _json_response = get_json_from_response(
+            response=_response,
+            expected_status=[http.HTTPStatus.OK],
+            scenario="Retrieving abort status",
+        )
+        if not isinstance(_json_response, dict):
+            raise RuntimeError(
+                f"Expected dictionary from JSON response during {self._label} abort status check "
+                f"but got '{type(_json_response)}'"
+            )
+        return _json_response.get("status", False)
