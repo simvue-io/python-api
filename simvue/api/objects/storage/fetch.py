@@ -8,6 +8,7 @@ with an identifier, use a generic storage object.
 
 import typing
 import http
+import pydantic
 
 from simvue.api.request import get_json_from_response
 from simvue.api.request import get as sv_get
@@ -31,10 +32,14 @@ class Storage:
         raise RuntimeError(f"Unknown type '{_storage_pre.type}'")
 
     @classmethod
-    def get_all(
-        cls, count: int | None = None, offset: int | None = None
+    @pydantic.validate_call
+    def get(
+        cls, count: int | None = None, offset: int | None = None, **kwargs
     ) -> typing.Generator[tuple[str, FileStorage | S3Storage], None, None]:
-        _class_instance = StorageBase(read_only=True)
+        # Currently no storage filters
+        kwargs.pop("filters", None)
+
+        _class_instance = StorageBase(read_only=True, **kwargs)
         _url = f"{_class_instance._base_url}"
         _response = sv_get(
             _url,

@@ -14,6 +14,7 @@ import http
 
 from codecarbon.external.logger import logging
 from codecarbon.output_methods.emissions_data import json
+from requests.models import HTTPError
 
 from simvue.config.user import SimvueConfiguration
 from simvue.version import __version__
@@ -113,12 +114,12 @@ class Visibility:
 
 class SimvueObject(abc.ABC):
     def __init__(
-        self, identifier: typing.Optional[str] = None, read_only: bool = False, **kwargs
+        self, identifier: typing.Optional[str] = None, _read_only: bool = True, **kwargs
     ) -> None:
         self._logger = logging.getLogger(f"simvue.{self.__class__.__name__}")
         self._label: str = getattr(self, "_label", self.__class__.__name__.lower())
-        self._read_only: bool = read_only
-        self._endpoint: str = f"{self._label}s"
+        self._read_only: bool = _read_only
+        self._endpoint: str = getattr(self, "_endpoint", f"{self._label}s")
         self._identifier: typing.Optional[str] = (
             identifier if identifier is not None else f"offline_{uuid.uuid1()}"
         )
@@ -138,7 +139,7 @@ class SimvueObject(abc.ABC):
 
         # Recover any locally staged changes if not read-only
         self._staging: dict[str, typing.Any] = (
-            self._get_local_staged() if read_only else {}
+            self._get_local_staged() if _read_only else {}
         )
 
         self._staging |= kwargs
@@ -147,6 +148,16 @@ class SimvueObject(abc.ABC):
             "Authorization": f"Bearer {self._user_config.server.token}",
             "User-Agent": f"Simvue Python client {__version__}",
         }
+
+        if identifier:
+            try:
+                self._get_attribute("id")
+            except HTTPError as e:
+                if e.response.status_code == http.HTTPStatus.NOT_FOUND:
+                    raise ValueError(
+                        f"Failed to retrieve {self._label} '{identifier}', "
+                        "no such object"
+                    ) from e
 
     def _get_local_staged(self) -> dict[str, typing.Any]:
         """Retrieve any locally staged data for this identifier"""
@@ -162,7 +173,7 @@ class SimvueObject(abc.ABC):
         # In the case where the object is read-only, staging is the data
         # already retrieved from the server
         if (_attr := getattr(self, "_read_only", None)) and isinstance(
-            type(_attr), staging_check
+            type(_attr), type(staging_check)
         ):
             return self._staging[attribute]
 
@@ -207,15 +218,15 @@ class SimvueObject(abc.ABC):
         pass
 
     @classmethod
-    def get_all(
-        cls, count: int | None = None, offset: int | None = None
+    def get(
+        cls, count: int | None = None, offset: int | None = None, **kwargs
     ) -> typing.Generator[tuple[str, "SimvueObject"], None, None]:
         _class_instance = cls(read_only=True)
         _url = f"{_class_instance._base_url}"
         _response = sv_get(
             _url,
             headers=_class_instance._headers,
-            params={"start": offset, "count": count},
+            params={"start": offset, "count": count} | kwargs,
         )
         _json_response = get_json_from_response(
             response=_response,
@@ -248,8 +259,8 @@ class SimvueObject(abc.ABC):
             self._staging = self._get_local_staged()
 
     def commit(self) -> None:
-        if not self._staging:
-            return
+        if self._read_only:
+            raise AttributeError("Cannot commit object in 'read-only' mode")
 
         if self._offline:
             _offline_dir: pathlib.Path = self._user_config.offline.cache
@@ -258,9 +269,10 @@ class SimvueObject(abc.ABC):
             return
 
         # Initial commit is creation of object
+        # if staging is empty then we do not need to use PUT
         if not self._identifier or self._identifier.startswith("offline_"):
             self._post(**self._staging)
-        else:
+        elif self._staging:
             self._put(**self._staging)
 
         # Clear staged changes
@@ -309,8 +321,9 @@ class SimvueObject(abc.ABC):
                 f"Expected dictionary from JSON response during {self._label} creation "
                 f"but got '{type(_json_response)}'"
             )
-        self._logger.debug("'%s' created successfully", _json_response["id"])
-        self._identifier = _json_response["id"]
+        if _id := _json_response.get("id"):
+            self._logger.debug("'%s' created successfully", _id)
+            self._identifier = _id
 
         return _json_response
 
@@ -343,7 +356,7 @@ class SimvueObject(abc.ABC):
 
         return _json_response
 
-    def delete(self) -> dict[str, typing.Any]:
+    def delete(self, **kwargs) -> dict[str, typing.Any]:
         if self._get_local_staged():
             with self._local_staging_file.open() as in_f:
                 _local_data = json.load(in_f)
@@ -360,7 +373,7 @@ class SimvueObject(abc.ABC):
             raise RuntimeError(
                 f"Identifier for instance of {self.__class__.__name__} Unknown"
             )
-        _response = sv_delete(url=self.url, headers=self._headers)
+        _response = sv_delete(url=self.url, headers=self._headers, params=kwargs)
         _json_response = get_json_from_response(
             response=_response,
             expected_status=[http.HTTPStatus.OK, http.HTTPStatus.NO_CONTENT],

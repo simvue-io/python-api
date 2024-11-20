@@ -29,7 +29,7 @@ def test_create_s3_online() -> None:
     assert _storage.status.status
     assert _storage.status.timestamp
     assert _storage.user
-    assert dict(Storage.get_all())
+    assert dict(Storage.get())
     _storage.delete()
 
 

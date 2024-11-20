@@ -140,11 +140,7 @@ def put(
     else:
         data_sent = data
 
-    response = requests.put(url, headers=headers, data=data_sent, timeout=timeout)
-
-    response.raise_for_status()
-
-    return response
+    return requests.put(url, headers=headers, data=data_sent, timeout=timeout)
 
 
 @retry(
@@ -156,7 +152,7 @@ def put(
 def get(
     url: str,
     headers: dict[str, str],
-    params: dict[str, str | int | float] | None = None,
+    params: dict[str, str | int | float | None] | None = None,
     timeout: int = DEFAULT_API_TIMEOUT,
 ) -> requests.Response:
     """HTTP GET
@@ -175,10 +171,7 @@ def get(
     requests.Response
         response from executing GET
     """
-    response = requests.get(url, headers=headers, timeout=timeout, params=params)
-    response.raise_for_status()
-
-    return response
+    return requests.get(url, headers=headers, timeout=timeout, params=params)
 
 
 @retry(
@@ -188,7 +181,10 @@ def get(
     reraise=True,
 )
 def delete(
-    url: str, headers: dict[str, str], timeout: int = DEFAULT_API_TIMEOUT
+    url: str,
+    headers: dict[str, str],
+    timeout: int = DEFAULT_API_TIMEOUT,
+    params: dict[str, typing.Any] | None = None,
 ) -> requests.Response:
     """HTTP DELETE
 
@@ -200,16 +196,15 @@ def delete(
         headers for the post request
     timeout : int, optional
         timeout of request, by default DEFAULT_API_TIMEOUT
+    params : dict, optional
+        parameters for deletion
 
     Returns
     -------
     requests.Response
         response from executing DELETE
     """
-    response = requests.delete(url, headers=headers, timeout=timeout)
-    response.raise_for_status()
-
-    return response
+    return requests.delete(url, headers=headers, timeout=timeout, params=params)
 
 
 def get_json_from_response(
@@ -231,7 +226,7 @@ def get_json_from_response(
         details = "could not request JSON response"
     else:
         error_str += f"with status {_status_code}"
-        details = (json_response or {}).get("details")
+        details = (json_response or {}).get("detail")
 
     try:
         txt_response = response.text

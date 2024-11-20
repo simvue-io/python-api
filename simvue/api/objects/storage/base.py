@@ -10,10 +10,10 @@ class StorageBase(SimvueObject):
         self, identifier: typing.Optional[str] = None, read_only: bool = False, **kwargs
     ) -> None:
         """Retrieve an alert from the Simvue server by identifier"""
-        super().__init__(identifier, read_only, **kwargs)
-        self.status = Status(self)
         self._label = "storage"
         self._endpoint = self._label
+        super().__init__(identifier, read_only, **kwargs)
+        self.status = Status(self)
 
     @classmethod
     def new(cls, **kwargs):

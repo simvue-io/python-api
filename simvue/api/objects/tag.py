@@ -16,7 +16,7 @@ class Tag(SimvueObject):
     ):
         """Create a new Tag on the Simvue server"""
         _data: dict[str, typing.Any] = {"name": name}
-        _tag = Tag(name=name)
+        _tag = Tag(name=name, _read_only=False)
         _tag.offline_mode(offline)
         return _tag
 
@@ -52,3 +52,12 @@ class Tag(SimvueObject):
     @pydantic.validate_call
     def description(self, description: str) -> None:
         self._staging["description"] = description
+
+    @classmethod
+    def get(
+        cls, *, count: int | None = None, offset: int | None = None, **kwargs
+    ) -> dict[str, "SimvueObject"]:
+        # There are currently no tag filters
+        kwargs.pop("filters", None)
+
+        return super().get(count=count, offset=offset, **kwargs)

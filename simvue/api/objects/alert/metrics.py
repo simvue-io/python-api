@@ -21,15 +21,13 @@ Rule = typing.Literal["is above", "is below", "is inside range", "is outside ran
 class MetricsThresholdAlert(AlertBase):
     """Class for connecting to/creating a local or remotely defined metric threshold alert"""
 
-    def __init__(
-        self, identifier: str | None = None, read_only: bool = False, **kwargs
-    ) -> None:
+    def __init__(self, identifier: str | None = None, **kwargs) -> None:
         """Connect to a local or remote threshold alert by identifier"""
         self.alert = MetricThresholdAlertDefinition(self)
-        super().__init__(identifier, read_only, **kwargs)
+        super().__init__(identifier, **kwargs)
 
     @classmethod
-    def get_all(
+    def get(
         cls, count: int | None = None, offset: int | None = None
     ) -> dict[str, typing.Any]:
         raise NotImplementedError("Retrieve of only metric alerts is not yet supported")
@@ -92,6 +90,7 @@ class MetricsThresholdAlert(AlertBase):
             source="metrics",
             alert=_alert_definition,
             enabled=enabled,
+            _read_only=False,
         )
         _alert.offline_mode(offline)
         return _alert
@@ -104,6 +103,9 @@ class MetricsRangeAlert(AlertBase):
         """Connect to a local or remote threshold alert by identifier"""
         self.alert = MetricRangeAlertDefinition(self)
         super().__init__(identifier, **kwargs)
+
+    def compare(self, other: "MetricsRangeAlert") -> bool:
+        return all([self.alert.compare(other.alert), super().compare(other)])
 
     @classmethod
     @pydantic.validate_call
@@ -144,7 +146,7 @@ class MetricsRangeAlert(AlertBase):
             the value defining the upper limit
         range_low : float | int
             the value defining the lower limit
-        frequency : int
+        frequency : int | None
             how often to monitor the metric
         enabled : bool, optional
             whether this alert is enabled upon creation, default is True
@@ -181,6 +183,16 @@ class MetricsAlertDefinition:
     def __init__(self, alert: MetricsRangeAlert) -> None:
         """Initialise definition with target alert"""
         self._sv_obj = alert
+
+    def compare(self, other: "MetricsAlertDefinition") -> bool:
+        return all(
+            [
+                self.aggregation == other.aggregation,
+                self.frequency == other.frequency,
+                self.rule == other.rule,
+                self.window == other.window,
+            ]
+        )
 
     @property
     def aggregation(self) -> Aggregate:
@@ -228,6 +240,9 @@ class MetricsAlertDefinition:
 class MetricThresholdAlertDefinition(MetricsAlertDefinition):
     """Alert definition for metric threshold alerts"""
 
+    def compare(self, other: "MetricThresholdAlertDefinition") -> bool:
+        return all([super().compare(other), self.threshold == other.threshold])
+
     @property
     def threshold(self) -> float:
         """Retrieve the threshold value for this alert"""
@@ -238,6 +253,15 @@ class MetricThresholdAlertDefinition(MetricsAlertDefinition):
 
 class MetricRangeAlertDefinition(MetricsAlertDefinition):
     """Alert definition for metric range alerts"""
+
+    def compare(self, other: "MetricRangeAlertDefinition") -> bool:
+        return all(
+            [
+                super().compare(other),
+                self.range_high == other.range_high,
+                self.range_low == other.range_low,
+            ]
+        )
 
     @property
     def range_low(self) -> float:

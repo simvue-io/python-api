@@ -6,6 +6,7 @@ Contains a Simvue client class for interacting with existing objects on the
 server including deletion and retrieval.
 """
 
+import contextlib
 import json
 import logging
 import os
@@ -28,6 +29,7 @@ from .utilities import check_extra, prettify_pydantic
 from .models import FOLDER_REGEX, NAME_REGEX
 from .config.user import SimvueConfiguration
 from .api.request import get_json_from_response
+from .api.objects import Run, Folder, Tag, Artifact
 
 
 CONCURRENT_DOWNLOADS = 10
@@ -146,42 +148,22 @@ class Client:
             if either information could not be retrieved from the server,
             or multiple/no runs are found
         """
-        params: dict[str, str] = {"filters": json.dumps([f"name == {name}"])}
+        _runs = Run.get(filters=json.dumps([f"name == {name}"]))
 
-        response: requests.Response = requests.get(
-            f"{self._user_config.server.url}/api/runs",
-            headers=self._headers,
-            params=params,
-        )
-
-        json_response = get_json_from_response(
-            expected_status=[http.HTTPStatus.OK],
-            scenario="Retrieval of run ID from name",
-            response=response,
-        )
-
-        if not isinstance(json_response, dict):
-            raise RuntimeError(
-                "Expected dictionary as response for ID "
-                f"retrieval but got {type(json_response)}"
-            )
-
-        if not (response_data := json_response.get("data")):
-            raise RuntimeError(f"No ID found for run '{name}'")
-
-        if len(response_data) == 0:
+        if len(_runs) == 0:
             raise RuntimeError("Could not collect ID - no run found with this name.")
-        if len(response_data) > 1:
+        if len(_runs) > 1:
             raise RuntimeError(
                 "Could not collect ID - more than one run exists with this name."
             )
-        if not (first_id := response_data[0].get("id")):
-            raise RuntimeError("Failed to retrieve identifier for run.")
-        return first_id
+
+        _id, _ = next(_runs)
+
+        return _id
 
     @prettify_pydantic
     @pydantic.validate_call
-    def get_run(self, run_id: str) -> typing.Optional[dict[str, typing.Any]]:
+    def get_run(self, run_id: str) -> typing.Optional[Run]:
         """Retrieve a single run
 
         Parameters
@@ -199,26 +181,7 @@ class Client:
         RuntimeError
             if retrieval of information from the server on this run failed
         """
-
-        response: requests.Response = requests.get(
-            f"{self._user_config.server.url}/api/runs/{run_id}", headers=self._headers
-        )
-
-        json_response = get_json_from_response(
-            expected_status=[http.HTTPStatus.OK, http.HTTPStatus.NOT_FOUND],
-            scenario=f"Retrieval of run '{run_id}'",
-            response=response,
-        )
-
-        if response.status_code == http.HTTPStatus.NOT_FOUND:
-            return None
-
-        if not isinstance(json_response, dict):
-            raise RuntimeError(
-                "Expected dictionary from JSON response during run retrieval "
-                f"but got '{type(json_response)}'"
-            )
-        return json_response
+        return Run(identifier=run_id, read_only=True)
 
     @prettify_pydantic
     @pydantic.validate_call
@@ -235,17 +198,7 @@ class Client:
         str
             the registered name for the run
         """
-        if not run_id:
-            raise ValueError("Expected value for run_id but got None")
-
-        _run_data = self.get_run(run_id)
-
-        if not _run_data:
-            raise RuntimeError(f"Failed to retrieve data for run '{run_id}'")
-
-        if not (_name := _run_data.get("name")):
-            raise RuntimeError("Expected key 'name' in server response")
-        return _name
+        return Run(identifier=run_id).name
 
     @prettify_pydantic
     @pydantic.validate_call
@@ -367,27 +320,7 @@ class Client:
         RuntimeError
             if the deletion failed due to server request error
         """
-
-        response = requests.delete(
-            f"{self._user_config.server.url}/api/runs/{run_id}",
-            headers=self._headers,
-        )
-
-        json_response = get_json_from_response(
-            expected_status=[http.HTTPStatus.OK],
-            scenario=f"Deletion of run '{run_id}'",
-            response=response,
-        )
-
-        logger.debug(f"Run '{run_id}' deleted successfully")
-
-        if not isinstance(json_response, dict):
-            raise RuntimeError(
-                "Expected dictionary from JSON response during run deletion "
-                f"but got '{type(json_response)}'"
-            )
-
-        return json_response or None
+        return Run(identifier=run_id).delete() or None
 
     def _get_folder_id_from_path(self, path: str) -> typing.Optional[str]:
         """Retrieve folder identifier for the specified path if found
@@ -402,22 +335,10 @@ class Client:
         str | None
             if a match is found, return the identifier of the folder
         """
-        params: dict[str, str] = {"filters": json.dumps([f"path == {path}"])}
+        _folders = Folder.get(filters=json.dumps([f"path == {path}"]))
+        _id, _ = next(_folders)
 
-        response: requests.Response = requests.get(
-            f"{self._user_config.server.url}/api/folders",
-            headers=self._headers,
-            params=params,
-        )
-
-        if (
-            response.status_code == http.HTTPStatus.OK
-            and (response_data := response.json().get("data"))
-            and (identifier := response_data[0].get("id"))
-        ):
-            return identifier
-
-        return None
+        return _id
 
     @prettify_pydantic
     @pydantic.validate_call
@@ -511,30 +432,11 @@ class Client:
                     f"Deletion of folder '{folder_path}' failed, "
                     "folder does not exist."
                 )
-
-        params: dict[str, bool] = {"runs": True} if remove_runs else {}
-        params |= {"recursive": recursive}
-
-        response = requests.delete(
-            f"{self._user_config.server.url}/api/folders/{folder_id}",
-            headers=self._headers,
-            params=params,
+        _response = Folder(identifier=folder_id).delete(
+            delete_runs=remove_runs, recursive=recursive
         )
 
-        json_response = get_json_from_response(
-            expected_status=[http.HTTPStatus.OK, http.HTTPStatus.NOT_FOUND],
-            scenario=f"Deletion of folder '{folder_path}'",
-            response=response,
-        )
-
-        if not isinstance(json_response, dict):
-            raise RuntimeError(
-                "Expected dictionary from JSON response during folder deletion "
-                f"but got '{type(json_response)}'"
-            )
-
-        runs: list[dict] = json_response.get("runs", [])
-        return runs
+        return _response.get("runs", [])
 
     @prettify_pydantic
     @pydantic.validate_call
@@ -606,30 +508,7 @@ class Client:
         run_id: str,
         name: str,
     ) -> typing.Union[dict, list]:
-        params: dict[str, str | None] = {"name": name}
-
-        response = requests.get(
-            f"{self._user_config.server.url}/api/runs/{run_id}/artifacts",
-            headers=self._headers,
-            params=params,
-        )
-
-        json_response = get_json_from_response(
-            expected_status=[http.HTTPStatus.OK, http.HTTPStatus.NOT_FOUND],
-            scenario=f"Retrieval of artifact '{name}' for run '{run_id}'",
-            response=response,
-        )
-
-        if isinstance(json_response, dict) and (detail := json_response.get("detail")):
-            raise RuntimeError(f"Failed to retrieve artifact '{name}': {detail}")
-
-        if not isinstance(json_response, list):
-            raise RuntimeError(
-                "Expected list from JSON response during retrieval of "
-                f"artifact but got '{type(json_response)}'"
-            )
-
-        return json_response
+        return Artifact.get(runs=[run_id], name=name)
 
     @prettify_pydantic
     @pydantic.validate_call
@@ -1463,31 +1342,12 @@ class Client:
         RuntimeError
             if the deletion failed due to a server request error
         """
-
-        response = requests.delete(
-            f"{self._user_config.server.url}/api/tags/{tag_id}",
-            headers=self._headers,
-        )
-
-        json_response = get_json_from_response(
-            expected_status=[http.HTTPStatus.OK],
-            scenario=f"Deletion of tag '{tag_id}'",
-            response=response,
-        )
-
-        logger.debug(f"Tag '{tag_id}' deleted successfully")
-
-        if not isinstance(json_response, dict):
-            raise RuntimeError(
-                "Expected dictionary from JSON response during run deletion "
-                f"but got '{type(json_response)}'"
-            )
-
-        return json_response or None
+        with contextlib.suppress(ValueError):
+            Tag(identifier=tag_id).delete()
 
     @prettify_pydantic
     @pydantic.validate_call
-    def get_tag(self, tag_id: str) -> typing.Optional[dict[str, typing.Any]]:
+    def get_tag(self, tag_id: str) -> Tag | None:
         """Retrieve a single tag
 
         Parameters
@@ -1497,7 +1357,7 @@ class Client:
 
         Returns
         -------
-        dict[str, Any]
+        Tag
             response containing information on the given tag
 
         Raises
@@ -1505,23 +1365,7 @@ class Client:
         RuntimeError
             if retrieval of information from the server on this tag failed
         """
-
-        response: requests.Response = requests.get(
-            f"{self._user_config.server.url}/api/tag/{tag_id}", headers=self._headers
-        )
-
-        json_response = get_json_from_response(
-            expected_status=[http.HTTPStatus.OK, http.HTTPStatus.NOT_FOUND],
-            scenario=f"Retrieval of tag '{tag_id}'",
-            response=response,
-        )
-
-        if response.status_code == http.HTTPStatus.NOT_FOUND:
+        try:
+            return Tag(identifier=tag_id)
+        except ValueError:
             return None
-
-        if not isinstance(json_response, dict):
-            raise RuntimeError(
-                "Expected dictionary from JSON response during tag retrieval "
-                f"but got '{type(json_response)}'"
-            )
-        return json_response

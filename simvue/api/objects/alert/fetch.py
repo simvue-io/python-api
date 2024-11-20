@@ -22,7 +22,7 @@ AlertType = EventsAlert | UserAlert | MetricsThresholdAlert | MetricsRangeAlert
 class Alert:
     """Generic Simvue alert retrieval class"""
 
-    def __new__(cls, identifier: str | None = None, **kwargs):
+    def __new__(cls, identifier: str | None = None, **kwargs) -> AlertType:
         """Retrieve an object representing an alert either locally or on the server by id"""
         _alert_pre = AlertBase(identifier=identifier, **kwargs)
         if _alert_pre.source == "events":
@@ -35,10 +35,13 @@ class Alert:
         raise RuntimeError(f"Unknown source type '{_alert_pre.source}'")
 
     @classmethod
-    def get_all(
-        cls, count: int | None = None, offset: int | None = None
+    def get(
+        cls, count: int | None = None, offset: int | None = None, **kwargs
     ) -> typing.Generator[tuple[str, AlertType], None, None]:
-        _class_instance = AlertBase(read_only=True)
+        # Currently no alert filters
+        kwargs.pop("filters", None)
+
+        _class_instance = AlertBase(read_only=True, **kwargs)
         _url = f"{_class_instance._base_url}"
         _response = sv_get(
             _url,

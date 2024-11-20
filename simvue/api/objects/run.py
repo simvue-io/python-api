@@ -16,9 +16,7 @@ __all__ = ["Run"]
 
 
 class Run(SimvueObject):
-    def __init__(
-        self, identifier: typing.Optional[str] = None, read_only: bool = False, **kwargs
-    ) -> None:
+    def __init__(self, identifier: typing.Optional[str] = None, **kwargs) -> None:
         """Initialise a Run
 
         If an identifier is provided a connection will be made to the
@@ -29,13 +27,11 @@ class Run(SimvueObject):
         ----------
         identifier : str, optional
             the remote server unique id for the target run
-        read_only : bool, optional
-            create object in read-only mode
         **kwargs : dict
             any additional arguments to be passed to the object initialiser
         """
         self.visibility = Visibility(self)
-        super().__init__(identifier, read_only, **kwargs)
+        super().__init__(identifier, **kwargs)
 
     @classmethod
     @pydantic.validate_call
@@ -46,7 +42,7 @@ class Run(SimvueObject):
         offline: bool = False,
     ):
         """Create a new Folder on the Simvue server with the given path"""
-        _run = Run(folder=folder, system=None, status="created")
+        _run = Run(folder=folder, system=None, status="created", _read_only=False)
         _run.offline_mode(offline)
         return _run
 

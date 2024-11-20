@@ -30,9 +30,17 @@ class User(SimvueObject):
             "admin": admin,
             "enabled": enabled,
         }
-        _user = User(user=_user_info, tenant=tenant, offline=offline)
+        _user = User(user=_user_info, tenant=tenant, offline=offline, read_only=False)
         _user.offline_mode(offline)
         return _user  # type: ignore
+
+    @classmethod
+    def get(
+        cls, *, count: int | None = None, offset: int | None = None, **kwargs
+    ) -> dict[str, "User"]:
+        # Currently no user filters
+        kwargs.pop("filters", None)
+        return super().get(count=count, offset=offset, **kwargs)
 
     @property
     @staging_check

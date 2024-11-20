@@ -31,6 +31,8 @@ import click
 import msgpack
 import psutil
 
+from simvue.api.objects.alert.fetch import Alert
+
 
 from .config.user import SimvueConfiguration
 import simvue.api.request as sv_api
@@ -45,12 +47,18 @@ from .metadata import git_info, environment
 from .eco import SimvueEmissionsTracker
 from .utilities import (
     calculate_sha256,
-    compare_alerts,
     skip_if_failed,
     validate_timestamp,
     simvue_timestamp,
 )
-from .api.objects import Run as RunObject, Artifact
+from .api.objects import (
+    Run as RunObject,
+    Artifact,
+    MetricsThresholdAlert,
+    MetricsRangeAlert,
+    UserAlert,
+    EventsAlert,
+)
 
 try:
     from typing import Self
@@ -80,7 +88,7 @@ def check_run_initialised(
             self._active = False
             raise RuntimeError("Cannot update expired Simvue Run")
 
-        if not self._simvue:
+        if not self._sv_obj:
             raise RuntimeError(
                 "Simvue Run must be initialised before calling "
                 f"'{function.__name__}'"
@@ -480,11 +488,8 @@ class Run:
 
         if self._sv_obj:
             self._sv_obj.status = self._status
+            self._sv_obj.commit()
 
-            if reconnect:
-                self._sv_obj.system = get_system()
-
-        self._sv_obj.commit()
         self._start_time = time.time()
 
         if self._pid == 0:
@@ -1334,7 +1339,7 @@ class Run:
         bool
             whether the upload was successful
         """
-        if not self._simvue:
+        if not self._sv_obj:
             self._error("Cannot save files, run not initialised")
             return False
 
@@ -1430,7 +1435,7 @@ class Run:
         bool
             if the directory save was successful
         """
-        if not self._simvue:
+        if not self._sv_obj:
             self._error("Cannot save directory, run not inirialised")
             return False
 
@@ -1576,7 +1581,7 @@ class Run:
         """
         self._executor.wait_for_completion()
 
-        if not self._simvue:
+        if not self._sv_obj:
             self._error("Cannot close run, not initialised")
             return False
 
@@ -1616,7 +1621,7 @@ class Run:
         bool
             returns True if update was successful
         """
-        if not self._simvue:
+        if not self._sv_obj:
             self._error("Cannot update folder details, run was not initialised")
             return False
 
@@ -1666,7 +1671,7 @@ class Run:
         bool
             returns True if successful
         """
-        if not self._simvue:
+        if not self._sv_obj:
             self._error("Cannot add alerts, run not initialised")
             return False
 
@@ -1675,10 +1680,10 @@ class Run:
 
         if names and not ids:
             try:
-                if alerts := self._simvue.list_alerts():
+                if alerts := Alert.get():
                     for alert in alerts:
-                        if alert["name"] in names:
-                            ids.append(alert["id"])
+                        if alert.name in names:
+                            ids.append(alert.id)
             except RuntimeError as e:
                 self._error(f"{e.args[0]}")
                 return False
@@ -1689,14 +1694,8 @@ class Run:
             self._error("Need to provide alert ids or alert names")
             return False
 
-        data: dict[str, typing.Any] = {"id": self._id, "alerts": ids}
-
-        try:
-            if self._simvue.update(data):
-                return True
-        except RuntimeError as e:
-            self._error(f"{e.args[0]}")
-            return False
+        self._sv_obj.alerts = self._sv_obj.alerts + [ids]
+        self._sv_obj.commit()
 
         return False
 
@@ -1792,7 +1791,7 @@ class Run:
         str | None
             returns the created alert ID if successful
         """
-        if not self._simvue:
+        if not self._sv_obj:
             self._error("Cannot add alert, run not initialised")
             return None
 
@@ -1808,74 +1807,93 @@ class Run:
             )
             return None
 
-        alert_definition = {}
+        _alert: EventsAlert | MetricsRangeAlert | MetricsThresholdAlert | UserAlert
 
-        if source == "metrics":
-            alert_definition["aggregation"] = aggregation
-            alert_definition["metric"] = metric
-            alert_definition["window"] = window
-            alert_definition["rule"] = rule
-            alert_definition["frequency"] = frequency
-            if threshold is not None:
-                alert_definition["threshold"] = threshold
-            elif range_low is not None and range_high is not None:
-                alert_definition["range_low"] = range_low
-                alert_definition["range_high"] = range_high
+        if source == "metrics" and threshold:
+            if not metric or not aggregation or not rule:
+                self._error("Missing arguments for alert of type 'metric threshold'")
+                return None
+
+            _alert = MetricsThresholdAlert.new(
+                name=name,
+                metric=metric,
+                window=window,
+                aggregation=aggregation,
+                rule=rule,
+                notification=notification,
+                threshold=threshold,
+                frequency=frequency or 60,
+                offline=self._mode == "offline",
+            )
+        elif source == "metrics":
+            if (
+                not metric
+                or not aggregation
+                or not rule
+                or not range_low
+                or not range_high
+            ):
+                self._error("Missing arguments for alert of type 'metric range'")
+                return None
+
+            _alert = MetricsRangeAlert.new(
+                name=name,
+                metric=metric,
+                window=window,
+                aggregation=aggregation,
+                notification=notification,
+                rule=rule,
+                range_low=range_low,
+                range_high=range_high,
+                frequency=frequency or 60,
+                offline=self._mode == "offline",
+            )
         elif source == "events":
-            alert_definition["pattern"] = pattern
-            alert_definition["frequency"] = frequency
-        else:
-            alert_definition = None
+            if not pattern:
+                self._error("Missing arguments for alert of type 'events'")
+                return None
 
-        alert: dict[str, typing.Any] = {
-            "name": name,
-            "notification": notification,
-            "source": source,
-            "alert": alert_definition,
-            "description": description,
-            "abort": trigger_abort,
-        }
+            _alert = EventsAlert.new(
+                name=name,
+                pattern=pattern,
+                notification=notification,
+                frequency=frequency or 60,
+                offline=self._mode == "offline",
+            )
+        else:
+            _alert = UserAlert.new(
+                name=name, notification=notification, offline=self._mode == "offline"
+            )
+
+        _alert.abort = trigger_abort
 
         # Check if the alert already exists
-        alert_id: typing.Optional[str] = None
+        _alert_id: typing.Optional[str] = None
+
         try:
-            alerts = self._simvue.list_alerts()
+            _alerts = Alert.get()
         except RuntimeError as e:
             self._error(f"{e.args[0]}")
             return None
 
-        if alerts:
-            for existing_alert in alerts:
-                if existing_alert["name"] == alert["name"]:
-                    if compare_alerts(existing_alert, alert):
-                        alert_id = existing_alert["id"]
-                        logger.info("Existing alert found with id: %s", alert_id)
-                        break
+        if _alerts:
+            for _, _existing_alert in _alerts:
+                if _existing_alert.name == _alert.name and _existing_alert.compare(
+                    _alert
+                ):
+                    _alert_id = _existing_alert.id
+                    logger.info("Existing alert found with id: %s", _existing_alert.id)
+                    break
 
-        if not alert_id:
-            try:
-                logger.debug(f"Creating new alert with definition: {alert}")
-                response = self._simvue.add_alert(alert)
-            except RuntimeError as e:
-                self._error(f"{e.args[0]}")
-                return None
+        if not _alert_id:
+            _alert.commit()
+            _alert_id = _alert.id
 
-            if not (alert_id := (response or {}).get("id")):
-                self._error("unable to create alert")
-                return None
+        self._sv_obj.alerts = self._sv_obj.alerts + [_alert_id]
 
-        if alert_id:
-            # TODO: What if we keep existing alerts/add a new one later?
-            data = {"id": self._id, "alerts": [alert_id]}
-            logger.debug(f"Updating run with info: {data}")
+        self._sv_obj.commit()
 
-            try:
-                self._simvue.update(data)
-            except RuntimeError as e:
-                self._error(f"{e.args[0]}")
-                return None
-
-        return alert_id
+        return _alert_id
 
     @skip_if_failed("_aborted", "_suppress_errors", False)
     @check_run_initialised
@@ -1900,14 +1918,9 @@ class Run:
         if state not in ("ok", "critical"):
             self._error('state must be either "ok" or "critical"')
             return False
-        if not self._simvue:
-            self._error("Cannot log alert, run not initialised")
-            return False
 
-        try:
-            self._simvue.set_alert_state(identifier, state)
-        except RuntimeError as e:
-            self._error(f"{e.args[0]}")
-            return False
+        _alert = Alert(identifier=identifier)
+        _alert.state = state
+        _alert.commit()
 
         return True

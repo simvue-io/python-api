@@ -29,6 +29,9 @@ class AlertBase(SimvueObject):
         self._label = "alert"
         super().__init__(identifier, read_only, **kwargs)
 
+    def compare(self, other: "AlertBase") -> bool:
+        return type(self) is type(other) and self.name == other.name
+
     @staging_check
     def get_alert(self) -> dict[str, typing.Any]:
         """Retrieve alert definition"""

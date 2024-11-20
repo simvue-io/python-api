@@ -17,15 +17,13 @@ from simvue.models import NAME_REGEX
 class EventsAlert(AlertBase):
     """Connect to an event-based alert either locally or on a server"""
 
-    def __init__(
-        self, identifier: str | None = None, read_only: bool = False, **kwargs
-    ) -> None:
+    def __init__(self, identifier: str | None = None, **kwargs) -> None:
         """Initialise a connection to an event alert by identifier"""
         self.alert = EventAlertDefinition(self)
-        super().__init__(identifier, read_only, **kwargs)
+        super().__init__(identifier, **kwargs)
 
     @classmethod
-    def get_all(
+    def get(
         cls, count: int | None = None, offset: int | None = None
     ) -> dict[str, typing.Any]:
         raise NotImplementedError("Retrieve of only event alerts is not yet supported")
@@ -70,6 +68,7 @@ class EventsAlert(AlertBase):
             source="events",
             alert=_alert_definition,
             enabled=enabled,
+            _read_only=False,
         )
         _alert.offline_mode(offline)
         return _alert

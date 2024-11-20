@@ -46,12 +46,13 @@ class UserAlert(AlertBase):
             notification=notification,
             source="user",
             enabled=enabled,
+            _read_only=False,
         )
         _alert.offline_mode(offline)
         return _alert
 
     @classmethod
-    def get_all(
+    def get(
         cls, count: int | None = None, offset: int | None = None
     ) -> dict[str, typing.Any]:
         raise NotImplementedError("Retrieve of only user alerts is not yet supported")

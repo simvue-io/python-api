@@ -12,7 +12,7 @@ class Tenant(SimvueObject):
     def new(
         cls, *, name: str, enabled: bool = True, offline: bool = False
     ) -> typing.Self:
-        _tenant = Tenant(name=name, enabled=enabled, offline=offline)
+        _tenant = Tenant(name=name, enabled=enabled, offline=offline, read_only=False)
         _tenant.offline_mode(offline)
         return _tenant  # type: ignore
 

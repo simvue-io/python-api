@@ -43,6 +43,7 @@ class S3Storage(StorageBase):
             disable_check=disable_check,
             tenant_useable=tenant_usable,
             default=default,
+            _read_only=False,
         )
         _storage.offline_mode(offline)
         return _storage

@@ -5,6 +5,7 @@ Object Serialization
 Contains serializers for storage of objects on the Simvue server
 """
 
+import contextlib
 import typing
 import pickle
 import pandas
@@ -76,13 +77,11 @@ def serialize_object(
     elif _is_torch_tensor(data):
         return _serialize_torch_tensor(data)
     elif module_name == "builtins" and class_name == "module" and not allow_pickle:
-        try:
+        with contextlib.suppress(ImportError):
             import matplotlib.pyplot
 
             if data == matplotlib.pyplot:
                 return _serialize_matplotlib(data)
-        except ImportError:
-            pass
     elif serialized := _serialize_json(data):
         return serialized
 

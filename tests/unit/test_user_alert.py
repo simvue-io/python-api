@@ -16,7 +16,7 @@ def test_user_alert_creation_online() -> None:
     assert _alert.source == "user"
     assert _alert.name == f"users_alert_{_uuid}"
     assert _alert.notification == "none"
-    assert dict(Alert.get_all())
+    assert dict(Alert.get())
     _alert.delete()
 
 

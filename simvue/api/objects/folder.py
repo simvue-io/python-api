@@ -11,6 +11,7 @@ import pathlib
 import typing
 
 import pydantic
+
 from .base import SimvueObject, Visibility, staging_check, write_only
 from simvue.models import FOLDER_REGEX
 
@@ -25,9 +26,7 @@ class Folder(SimvueObject):
 
     """
 
-    def __init__(
-        self, identifier: typing.Optional[str] = None, read_only: bool = False, **kwargs
-    ) -> None:
+    def __init__(self, identifier: typing.Optional[str] = None, **kwargs) -> None:
         """Initialise a Folder
 
         If an identifier is provided a connection will be made to the
@@ -44,7 +43,7 @@ class Folder(SimvueObject):
             any additional arguments to be passed to the object initialiser
         """
         self.visibility = Visibility(self)
-        super().__init__(identifier, read_only, **kwargs)
+        super().__init__(identifier, **kwargs)
 
     @classmethod
     @pydantic.validate_call
@@ -55,7 +54,7 @@ class Folder(SimvueObject):
         offline: bool = False,
     ):
         """Create a new Folder on the Simvue server with the given path"""
-        _folder = Folder(path=path)
+        _folder = Folder(path=path, _read_only=False)
         _folder.offline_mode(offline)
         return _folder
 
@@ -128,3 +127,6 @@ class Folder(SimvueObject):
     def ttl(self, time_seconds: int) -> None:
         """Update the retention period for this folder"""
         self._staging["ttl"] = time_seconds
+
+    def delete(self, *, recursive: bool, delete_runs: bool) -> dict[str, typing.Any]:
+        return super().delete(recursive=recursive, runs=delete_runs)
