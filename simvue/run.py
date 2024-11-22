@@ -447,7 +447,7 @@ class Run:
                 return
             _data = {category: buffer, "run": run_id}
             _data_bin = msgpack.packb(_data, use_bin_type=True)
-            _url: str = f"{url}/api/{category}"
+            _url: str = f"{url}/{category}"
 
             _msgpack_header = headers | {"Content-Type": "application/msgpack"}
 

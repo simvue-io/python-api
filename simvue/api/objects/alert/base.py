@@ -22,12 +22,10 @@ class AlertBase(SimvueObject):
     def new(cls, **kwargs):
         pass
 
-    def __init__(
-        self, identifier: typing.Optional[str] = None, read_only: bool = False, **kwargs
-    ) -> None:
+    def __init__(self, identifier: typing.Optional[str] = None, **kwargs) -> None:
         """Retrieve an alert from the Simvue server by identifier"""
         self._label = "alert"
-        super().__init__(identifier, read_only, **kwargs)
+        super().__init__(identifier, **kwargs)
 
     def compare(self, other: "AlertBase") -> bool:
         return type(self) is type(other) and self.name == other.name

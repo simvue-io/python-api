@@ -9,7 +9,6 @@ import abc
 import pathlib
 import typing
 import uuid
-import boltons.urlutils as bo_url
 import http
 
 from codecarbon.external.logger import logging
@@ -25,6 +24,7 @@ from simvue.api.request import (
     delete as sv_delete,
     get_json_from_response,
 )
+from simvue.api.url import URL
 
 
 def staging_check(member_func: typing.Callable) -> typing.Callable:
@@ -169,7 +169,7 @@ class SimvueObject(abc.ABC):
 
         return _staged_data.get(self._label, {}).get(self._identifier, {})
 
-    def _get_attribute(self, attribute: str) -> typing.Any:
+    def _get_attribute(self, attribute: str, *default) -> typing.Any:
         # In the case where the object is read-only, staging is the data
         # already retrieved from the server
         if (_attr := getattr(self, "_read_only", None)) and isinstance(
@@ -180,6 +180,9 @@ class SimvueObject(abc.ABC):
         try:
             return self._get()[attribute]
         except KeyError as e:
+            if default:
+                return default[0]
+
             if self._offline:
                 raise AttributeError(
                     f"A value for attribute '{attribute}' has "
@@ -283,26 +286,18 @@ class SimvueObject(abc.ABC):
         return self._identifier
 
     @property
-    def _url_path(self) -> pathlib.Path:
-        return pathlib.Path(f"api/{self._endpoint}")
+    def _base_url(self) -> URL:
+        return URL(self._user_config.server.url) / self._endpoint
 
     @property
-    def _base_url(self) -> str:
-        _url = bo_url.URL(self._user_config.server.url)
-        _url.path = self._url_path
-        return f"{_url}"
-
-    @property
-    def url(self) -> typing.Optional[str]:
+    def url(self) -> typing.Optional[URL]:
         if self._identifier is None:
             return None
-        _url = bo_url.URL(self._user_config.server.url)
-        _url.path = f"{self._url_path / self._identifier}"
-        return f"{_url}"
+        return self._base_url / self._identifier
 
     def _post(self, **kwargs) -> dict[str, typing.Any]:
         _response = sv_post(
-            url=self._base_url, headers=self._headers, data=kwargs, is_json=True
+            url=f"{self._base_url}", headers=self._headers, data=kwargs, is_json=True
         )
 
         if _response.status_code == http.HTTPStatus.FORBIDDEN:
@@ -313,7 +308,7 @@ class SimvueObject(abc.ABC):
         _json_response = get_json_from_response(
             response=_response,
             expected_status=[http.HTTPStatus.OK],
-            scenario=f"Creation of {self.__class__.__name__.lower()} '{kwargs}'",
+            scenario=f"Creation of {self._label} '{kwargs}'",
         )
 
         if not isinstance(_json_response, dict):
@@ -329,9 +324,7 @@ class SimvueObject(abc.ABC):
 
     def _put(self, **kwargs) -> dict[str, typing.Any]:
         if not self.url:
-            raise RuntimeError(
-                f"Identifier for instance of {self.__class__.__name__} Unknown"
-            )
+            raise RuntimeError(f"Identifier for instance of {self._label} Unknown")
         _response = sv_put(
             url=self.url, headers=self._headers, data=kwargs, is_json=True
         )
@@ -344,7 +337,7 @@ class SimvueObject(abc.ABC):
         _json_response = get_json_from_response(
             response=_response,
             expected_status=[http.HTTPStatus.OK],
-            scenario=f"Creation of {self.__class__.__name__.lower()} '{self._identifier}",
+            scenario=f"Creation of {self._label} '{self._identifier}",
         )
 
         if not isinstance(_json_response, dict):
@@ -370,14 +363,12 @@ class SimvueObject(abc.ABC):
             return {"id": self._identifier}
 
         if not self.url:
-            raise RuntimeError(
-                f"Identifier for instance of {self.__class__.__name__} Unknown"
-            )
-        _response = sv_delete(url=self.url, headers=self._headers, params=kwargs)
+            raise RuntimeError(f"Identifier for instance of {self._label} Unknown")
+        _response = sv_delete(url=f"{self.url}", headers=self._headers, params=kwargs)
         _json_response = get_json_from_response(
             response=_response,
             expected_status=[http.HTTPStatus.OK, http.HTTPStatus.NO_CONTENT],
-            scenario=f"Deletion of {self.__class__.__name__.lower()} '{self._identifier}'",
+            scenario=f"Deletion of {self._label} '{self._identifier}'",
         )
         self._logger.debug("'%s' deleted successfully", self._identifier)
 
@@ -388,19 +379,17 @@ class SimvueObject(abc.ABC):
             )
         return _json_response
 
-    def _get(self) -> dict[str, typing.Any]:
+    def _get(self, **kwargs) -> dict[str, typing.Any]:
         if self._offline:
             return self._get_local_staged()
 
         if not self.url:
-            raise RuntimeError(
-                f"Identifier for instance of {self.__class__.__name__} Unknown"
-            )
-        _response = sv_get(url=self.url, headers=self._headers)
+            raise RuntimeError(f"Identifier for instance of {self._label} Unknown")
+        _response = sv_get(url=f"{self.url}", headers=self._headers, params=kwargs)
         _json_response = get_json_from_response(
             response=_response,
             expected_status=[http.HTTPStatus.OK],
-            scenario=f"Retrieval of {self.__class__.__name__.lower()} '{self._identifier}'",
+            scenario=f"Retrieval of {self._label} '{self._identifier}'",
         )
         self._logger.debug("'%s' retrieved successfully", self._identifier)
 

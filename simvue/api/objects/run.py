@@ -2,10 +2,10 @@ import http
 import typing
 import pydantic
 import datetime
-import boltons.urlutils as bo_url
 
 from .base import SimvueObject, staging_check, Visibility, write_only
 from simvue.api.request import get as sv_get, put as sv_put, get_json_from_response
+from simvue.api.url import URL
 from simvue.models import FOLDER_REGEX, NAME_REGEX, DATETIME_FORMAT
 
 Status = typing.Literal[
@@ -207,11 +207,11 @@ class Run(SimvueObject):
 
     @write_only
     def send_heartbeat(self) -> dict[str, typing.Any] | None:
-        if self._offline:
+        if self._offline or not self._identifier:
             return None
 
-        _url = bo_url.URL(self._user_config.server.url)
-        _url.path = f"{self._url_path / 'heartbeat' / self._identifier}"
+        _url = self._base_url
+        _url /= f"heartbeat/{self._identifier}"
         _response = sv_put(f"{_url}", headers=self._headers, data={})
         _json_response = get_json_from_response(
             response=_response,
@@ -226,17 +226,31 @@ class Run(SimvueObject):
         return _json_response
 
     @property
+    def _abort_url(self) -> URL | None:
+        if not self._identifier:
+            return None
+        _url = self._base_url
+        _url /= f"abort/{self._identifier}"
+        return _url
+
+    @property
+    def _artifact_url(self) -> URL | None:
+        if not self._identifier or not self.url:
+            return None
+        _url = self.url
+        _url /= "artifacts"
+        return _url
+
+    @property
     def abort_trigger(self) -> bool:
-        if self._offline:
+        if self._offline or not self._identifier:
             return False
 
-        _url = bo_url.URL(self._user_config.server.url)
-        _url.path = f"{self._url_path}/abort"
-        _response = sv_get(f"{_url}", headers=self._headers)
+        _response = sv_get(f"{self._abort_url}", headers=self._headers)
         _json_response = get_json_from_response(
             response=_response,
             expected_status=[http.HTTPStatus.OK],
-            scenario="Retrieving abort status",
+            scenario=f"Retrieving abort status for run '{self.id}'",
         )
         if not isinstance(_json_response, dict):
             raise RuntimeError(
@@ -244,3 +258,49 @@ class Run(SimvueObject):
                 f"but got '{type(_json_response)}'"
             )
         return _json_response.get("status", False)
+
+    @property
+    def artifacts(self) -> list[dict[str, typing.Any]]:
+        """Retrieve the artifacts for this run"""
+        if self._offline or not self._artifact_url:
+            return []
+
+        _response = sv_get(url=self._artifact_url, headers=self._headers)
+
+        _json_response = get_json_from_response(
+            response=_response,
+            expected_status=[http.HTTPStatus.OK],
+            scenario=f"Retrieving artifacts for run '{self.id}'",
+        )
+
+        if not isinstance(_json_response, list):
+            raise RuntimeError(
+                f"Expected list from JSON response during {self._label} "
+                f"'{self.id}' artifact retrieval "
+                f"but got '{type(_json_response)}'"
+            )
+
+        return _json_response
+
+    @pydantic.validate_call
+    def abort(self, reason: str) -> dict[str, typing.Any]:
+        if not self._abort_url:
+            return {}
+
+        _url = self._abort_url / self._identifier
+
+        _response = sv_put(f"{_url}", headers=self._headers, data={"reason": reason})
+
+        _json_response = get_json_from_response(
+            expected_status=[http.HTTPStatus.OK, http.HTTPStatus.NOT_FOUND],
+            scenario=f"Abort of run '{self.id}'",
+            response=_response,
+        )
+
+        if not isinstance(_json_response, dict):
+            raise RuntimeError(
+                "Expected dict from JSON response during abort of "
+                f"run but got '{type(_json_response)}'"
+            )
+
+        return _json_response

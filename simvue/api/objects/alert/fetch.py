@@ -31,6 +31,8 @@ class Alert:
             return MetricsThresholdAlert(identifier=identifier, **kwargs)
         elif _alert_pre.source == "metrics":
             return MetricsRangeAlert(identifier=identifier, **kwargs)
+        elif _alert_pre.source == "user":
+            return UserAlert(identifier=identifier, **kwargs)
 
         raise RuntimeError(f"Unknown source type '{_alert_pre.source}'")
 

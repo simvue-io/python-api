@@ -29,7 +29,7 @@ from .utilities import check_extra, prettify_pydantic
 from .models import FOLDER_REGEX, NAME_REGEX
 from .config.user import SimvueConfiguration
 from .api.request import get_json_from_response
-from .api.objects import Run, Folder, Tag, Artifact
+from .api.objects import Run, Folder, Tag, Artifact, Alert
 
 
 CONCURRENT_DOWNLOADS = 10
@@ -271,7 +271,7 @@ class Client:
         }
 
         response = requests.get(
-            f"{self._user_config.server.url}/api/runs",
+            f"{self._user_config.server.url}/runs",
             headers=self._headers,
             params=params,
         )
@@ -371,7 +371,7 @@ class Client:
         params: dict[str, bool] = {"runs_only": True, "runs": True}
 
         response = requests.delete(
-            f"{self._user_config.server.url}/api/folders/{folder_id}",
+            f"{self._user_config.server.url}/folders/{folder_id}",
             headers=self._headers,
             params=params,
         )
@@ -448,19 +448,7 @@ class Client:
         alert_id : str
             the unique identifier for the alert
         """
-        response = requests.delete(
-            f"{self._user_config.server.url}/api/alerts/{alert_id}",
-            headers=self._headers,
-        )
-
-        if response.status_code == http.HTTPStatus.OK:
-            logger.debug(f"Alert '{alert_id}' deleted successfully")
-            return
-
-        raise RuntimeError(
-            f"Deletion of alert '{alert_id}' failed"
-            f"with code {response.status_code}: {response.text}"
-        )
+        Alert(identifier=alert_id).delete()
 
     @prettify_pydantic
     @pydantic.validate_call
@@ -485,7 +473,7 @@ class Client:
         params: dict[str, str] = {"runs": json.dumps([run_id])}
 
         response: requests.Response = requests.get(
-            f"{self._user_config.server.url}/api/artifacts",
+            f"{self._user_config.server.url}/artifacts",
             headers=self._headers,
             params=params,
         )
@@ -527,27 +515,7 @@ class Client:
         dict | list
             response from server
         """
-        body: dict[str, str | None] = {"id": run_id, "reason": reason}
-
-        response = requests.put(
-            f"{self._user_config.server.url}/api/runs/abort",
-            headers=self._headers,
-            json=body,
-        )
-
-        json_response = get_json_from_response(
-            expected_status=[http.HTTPStatus.OK, http.HTTPStatus.NOT_FOUND],
-            scenario=f"Abort of run '{run_id}'",
-            response=response,
-        )
-
-        if not isinstance(json_response, dict):
-            raise RuntimeError(
-                "Expected list from JSON response during retrieval of "
-                f"artifact but got '{type(json_response)}'"
-            )
-
-        return json_response
+        return Run(identifier=run_id).abort(reason=reason)
 
     @prettify_pydantic
     @pydantic.validate_call
@@ -724,7 +692,7 @@ class Client:
         params: dict[str, typing.Optional[str]] = {"category": category}
 
         response: requests.Response = requests.get(
-            f"{self._user_config.server.url}/api/runs/{run_id}/artifacts",
+            f"{self._user_config.server.url}/runs/{run_id}/artifacts",
             headers=self._headers,
             params=params,
         )
@@ -817,7 +785,7 @@ class Client:
         }
 
         response: requests.Response = requests.get(
-            f"{self._user_config.server.url}/api/folders",
+            f"{self._user_config.server.url}/folders",
             headers=self._headers,
             params=params,
         )
@@ -864,7 +832,7 @@ class Client:
         params = {"runs": json.dumps([run_id])}
 
         response: requests.Response = requests.get(
-            f"{self._user_config.server.url}/api/metrics/names",
+            f"{self._user_config.server.url}/metrics/names",
             headers=self._headers,
             params=params,
         )
@@ -900,7 +868,7 @@ class Client:
         }
 
         metrics_response: requests.Response = requests.get(
-            f"{self._user_config.server.url}/api/metrics",
+            f"{self._user_config.server.url}/metrics",
             headers=self._headers,
             params=params,
         )
@@ -1162,7 +1130,7 @@ class Client:
         }
 
         response = requests.get(
-            f"{self._user_config.server.url}/api/events",
+            f"{self._user_config.server.url}/events",
             headers=self._headers,
             params=params,
         )
@@ -1219,7 +1187,7 @@ class Client:
         params: dict[str, int] = {"count": count_limit or 0, "start": start_index or 0}
         if not run_id:
             response = requests.get(
-                f"{self._user_config.server.url}/api/alerts/",
+                f"{self._user_config.server.url}/alerts/",
                 headers=self._headers,
                 params=params,
             )
@@ -1231,7 +1199,7 @@ class Client:
             )
         else:
             response = requests.get(
-                f"{self._user_config.server.url}/api/runs/{run_id}",
+                f"{self._user_config.server.url}/runs/{run_id}",
                 headers=self._headers,
                 params=params,
             )
@@ -1308,7 +1276,7 @@ class Client:
         """
         params = {"count": count_limit or 0, "start": start_index or 0}
         response = requests.get(
-            f"{self._user_config.server.url}/api/tags",
+            f"{self._user_config.server.url}/tags",
             headers=self._headers,
             params=params,
         )

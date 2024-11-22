@@ -19,6 +19,7 @@ import simvue.models as sv_models
 from simvue.utilities import get_expiry
 from simvue.version import __version__
 from simvue.api.request import get
+from simvue.api.url import URL
 
 
 logger = logging.getLogger(__file__)
@@ -30,8 +31,9 @@ class ServerSpecifications(pydantic.BaseModel):
 
     @pydantic.field_validator("url")
     @classmethod
-    def url_to_str(cls, v: typing.Any) -> str:
-        return f"{v}"
+    def url_to_api_url(cls, v: typing.Any) -> str:
+        _url = URL(f"{v}") / "api"
+        return f"{_url}"
 
     @pydantic.field_validator("token")
     def check_token(cls, v: typing.Any) -> str:
@@ -50,7 +52,7 @@ class ServerSpecifications(pydantic.BaseModel):
             "User-Agent": f"Simvue Python client {__version__}",
         }
         try:
-            response = get(f"{url}/api/version", headers)
+            response = get(f"{url}/version", headers)
 
             if response.status_code != http.HTTPStatus.OK or not response.json().get(
                 "version"

@@ -10,6 +10,7 @@ import time
 import tempfile
 import simvue.client as svc
 import simvue.run as sv_run
+import simvue.api.objects as sv_api_obj
 
 
 @pytest.mark.dependency
@@ -306,3 +307,34 @@ def test_multiple_metric_retrieval(
         aggregate=aggregate,
         output_format=output_format,
     )
+
+
+@pytest.mark.client
+def test_alert_deletion() -> None:
+    _alert = sv_api_obj.UserAlert.new(name="test_alert", notification="none")
+    _alert.commit()
+    _client = svc.Client()
+    time.sleep(1)
+    _client.delete_alert(alert_id=_alert.id)
+
+    with pytest.raises(RuntimeError) as e:
+        sv_api_obj.Alert(identifier=_alert.id)
+
+
+@pytest.mark.client
+def test_abort_run() -> None:
+    _uuid = f"{uuid.uuid4()}".split("-")[0]
+    _folder = sv_api_obj.Folder.new(path=f"/simvue_unit_testing/{_uuid}")
+    _run = sv_api_obj.Run.new(folder=f"/simvue_unit_testing/{_uuid}")
+    _run.status = "running"
+    _folder.commit()
+    _run.commit()
+    time.sleep(1)
+    _client = svc.Client()
+    _client.abort_run(_run.id, reason="Test abort")
+    time.sleep(1)
+    assert _run.abort_trigger
+    _run.delete()
+    _folder.delete()
+
+

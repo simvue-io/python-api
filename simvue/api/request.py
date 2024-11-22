@@ -211,19 +211,22 @@ def get_json_from_response(
     expected_status: list[int],
     scenario: str,
     response: requests.Response,
+    allow_parse_failure: bool = False,
 ) -> typing.Union[dict, list]:
     try:
         json_response = response.json()
         json_response = json_response or {}
-    except json.JSONDecodeError:
-        json_response = None
+        decode_error = ""
+    except json.JSONDecodeError as e:
+        json_response = {} if allow_parse_failure else None
+        decode_error = f"{e}"
 
-    error_str = f"{scenario} failed "
+    error_str = f"{scenario} failed for url '{response.url}'"
 
     if (_status_code := response.status_code) in expected_status:
         if json_response is not None:
             return json_response
-        details = "could not request JSON response"
+        details = f"could not request JSON response: {decode_error}"
     else:
         error_str += f"with status {_status_code}"
         details = (json_response or {}).get("detail")

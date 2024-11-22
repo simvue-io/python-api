@@ -12,6 +12,7 @@ import pydantic
 import os.path
 import sys
 
+from simvue.api.url import URL
 from simvue.models import NAME_REGEX
 from simvue.utilities import get_mimetype_for_file, get_mimetypes, calculate_sha256
 from simvue.api.objects.base import SimvueObject
@@ -29,6 +30,7 @@ class Artifact(SimvueObject):
     def __init__(self, identifier: typing.Optional[str] = None, **kwargs) -> None:
         super().__init__(identifier, **kwargs)
         self._storage_url: str | None = None
+        self._storage: str | None = None
         self._label = "artifact"
 
     @classmethod
@@ -92,6 +94,8 @@ class Artifact(SimvueObject):
         }
 
         _artifact = Artifact(_read_only=False, **_upload_data)
+        _artifact._storage = storage
+        _artifact._post(**_artifact._staging)
 
         _artifact.offline_mode(offline)
 
@@ -158,6 +162,8 @@ class Artifact(SimvueObject):
         }
 
         _artifact = Artifact(read_only=False, **_upload_data)
+        _artifact._storage = storage
+        _artifact._post(**_artifact._staging)
         _artifact.offline_mode(offline)
         _artifact._upload(artifact_data=_serialized, run_id=run, **_upload_data)
         return _artifact
@@ -167,6 +173,7 @@ class Artifact(SimvueObject):
         # to server was successful (else offline_ prefix kept)
         _identifier = self._staging["checksum"]
         _response = super()._post(**kwargs)
+        self._storage = _response.get("storage_id")
         self._storage_url = _response.get("url")
         self._identifier = _identifier
         return _response
@@ -181,11 +188,13 @@ class Artifact(SimvueObject):
         if not self.storage_url or self._offline:
             return
 
-        # NOTE: Assumes URL for Run is always same format as Artifact
-        _run_artifacts_url: str = self._base_url.replace(self._label, "run")
+        # NOTE: Assumes URL for Run artifacts is always same
+        _run_artifacts_url: URL = (
+            URL(self._user_config.server.url) / f"runs/{run_id}/artifacts"
+        )
 
         _response = sv_put(
-            url=self._storage_url,
+            url=f"{self._storage_url}",
             headers={},
             data=artifact_data,
             is_json=False,
@@ -199,21 +208,25 @@ class Artifact(SimvueObject):
 
         get_json_from_response(
             expected_status=[http.HTTPStatus.OK],
-            scenario=f"uploading artifact '{self.name}' to object storage",
+            allow_parse_failure=True,  # JSON response from S3 not parsible
+            scenario=f"uploading artifact '{_obj_parameters['name']}' to object storage",
             response=_response,
         )
 
-        sv_put(
-            url=_run_artifacts_url,
+        _response = sv_put(
+            url=f"{_run_artifacts_url}",
             headers=self._headers,
-            data=_obj_parameters | {self.storage},
+            data=_obj_parameters | {"storage": self.storage},
         )
 
         get_json_from_response(
             expected_status=[http.HTTPStatus.OK],
-            scenario=f"adding artifact '{self.name}' to run '{run_id}'",
+            scenario=f"adding artifact '{_obj_parameters['name']}' to run '{run_id}'",
             response=_response,
         )
+
+    def _get(self, storage: str | None = None) -> dict[str, typing.Any]:
+        return super()._get(storage=self._storage)
 
     @property
     def name(self) -> str:
@@ -236,9 +249,9 @@ class Artifact(SimvueObject):
         return self._get_attribute("originalPath")
 
     @property
-    def storage(self) -> str:
+    def storage(self) -> str | None:
         """Retrieve the storage identifier for this artifact"""
-        return self._get_attribute("storage")
+        return self._storage
 
     @property
     def type(self) -> str:
