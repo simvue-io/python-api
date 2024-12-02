@@ -438,7 +438,7 @@ def test_set_folder_details(request: pytest.FixtureRequest) -> None:
         run.set_folder_details(tags=tags, description=description)
 
     client = sv_cl.Client()
-    assert (folder := client.get_folders(filters=[f"path == {folder_name}"])[0])["tags"] == tags
+    assert sorted((folder := client.get_folders(filters=[f"path == {folder_name}"])[0])["tags"]) == sorted(tags)
     assert folder["description"] == description
 
 
@@ -602,7 +602,7 @@ def test_update_tags_created(
     time.sleep(1)
     client = sv_cl.Client()
     run_data = client.get_run(simvue_run._id)
-    assert run_data["tags"] == tags
+    assert sorted(run_data["tags"]) == sorted(tags)
 
     simvue_run.update_tags(["additional"])
 
