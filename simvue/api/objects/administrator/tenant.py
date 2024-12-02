@@ -2,8 +2,7 @@ import typing
 
 import pydantic
 
-from simvue.api.objects.base import write_only
-from .base import SimvueObject, staging_check
+from simvue.api.objects.base import write_only, SimvueObject, staging_check
 
 
 class Tenant(SimvueObject):

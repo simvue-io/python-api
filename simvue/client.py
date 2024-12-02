@@ -18,6 +18,8 @@ from pandas import DataFrame
 
 import requests
 
+from simvue.api.objects.alert.base import AlertBase
+
 from .converters import (
     aggregated_metrics_to_dataframe,
     to_dataframe,
@@ -720,7 +722,7 @@ class Client:
                     raise RuntimeError(
                         f"Download of file {download['url']} "
                         f"failed with exception: {e}"
-                    )
+                    ) from e
 
     @prettify_pydantic
     @pydantic.validate_call
@@ -967,7 +969,7 @@ class Client:
                 "Expected either argument 'run_ids' or 'run_filters' for get_metric_values"
             )
 
-        if not run_ids or any(not i for i in run_ids):
+        if not run_ids or not all(run_ids):
             raise ValueError(
                 f"Expected list of run identifiers for 'run_ids' but got '{run_ids}'"
             )
@@ -975,26 +977,27 @@ class Client:
         if not use_run_names:
             run_labels = run_ids
 
-        # Now get the metrics for each run
-        run_metrics = self._get_run_metrics_from_server(
+        if run_metrics := self._get_run_metrics_from_server(
             metric_names=metric_names,
             run_ids=run_ids,
             xaxis=xaxis,
             aggregate=aggregate,
             max_points=max_points,
-        )
-
-        if not run_metrics:
-            return None
-
-        if aggregate:
-            return aggregated_metrics_to_dataframe(
-                run_metrics, xaxis=xaxis, parse_to=output_format
+        ):
+            return (
+                aggregated_metrics_to_dataframe(
+                    run_metrics, xaxis=xaxis, parse_to=output_format
+                )
+                if aggregate
+                else parse_run_set_metrics(
+                    run_metrics,
+                    xaxis=xaxis,
+                    run_labels=run_labels,
+                    parse_to=output_format,
+                )
             )
         else:
-            return parse_run_set_metrics(
-                run_metrics, xaxis=xaxis, run_labels=run_labels, parse_to=output_format
-            )
+            return None
 
     @check_extra("plot")
     @prettify_pydantic
@@ -1158,7 +1161,7 @@ class Client:
         names_only: bool = True,
         start_index: typing.Optional[pydantic.NonNegativeInt] = None,
         count_limit: typing.Optional[pydantic.PositiveInt] = None,
-    ) -> list[dict[str, typing.Any]]:
+    ) -> list[AlertBase] | list[str | None]:
         """Retrieve alerts for a given run
 
         Parameters
@@ -1184,68 +1187,15 @@ class Client:
         RuntimeError
             if there was a failure retrieving data from the server
         """
-        params: dict[str, int] = {"count": count_limit or 0, "start": start_index or 0}
+
         if not run_id:
-            response = requests.get(
-                f"{self._user_config.server.url}/alerts/",
-                headers=self._headers,
-                params=params,
-            )
+            return [alert.name if names_only else alert for _, alert in Alert.get()]  # type: ignore
 
-            json_response = get_json_from_response(
-                expected_status=[http.HTTPStatus.OK],
-                scenario=f"Retrieval of alerts for run '{run_id}'",
-                response=response,
-            )
-        else:
-            response = requests.get(
-                f"{self._user_config.server.url}/runs/{run_id}",
-                headers=self._headers,
-                params=params,
-            )
-
-            json_response = get_json_from_response(
-                expected_status=[200],
-                scenario=f"Retrieval of alerts for run '{run_id}'",
-                response=response,
-            )
-
-        if not isinstance(json_response, dict):
-            raise RuntimeError(
-                "Expected dictionary from JSON response when retrieving alerts"
-            )
-
-        if run_id and (alerts := json_response.get("alerts")) is None:
-            raise RuntimeError(
-                "Expected key 'alerts' in response when retrieving "
-                f"alerts for run '{run_id}': {json_response}"
-            )
-        elif not run_id and (alerts := json_response.get("data")) is None:
-            raise RuntimeError(
-                "Expected key 'data' in response when retrieving "
-                f"alerts: {json_response}"
-            )
-
-        if run_id and critical_only:
-            if names_only:
-                return [
-                    alert["alert"].get("name")
-                    for alert in alerts
-                    if alert["status"].get("current") == "critical"
-                ]
-            else:
-                return [
-                    alert
-                    for alert in alerts
-                    if alert["status"].get("current") == "critical"
-                ]
-        if names_only:
-            if run_id:
-                return [alert["alert"].get("name") for alert in alerts]
-            else:
-                return [alert.get("name") for alert in alerts]
-
-        return alerts
+        return [
+            alert.get("name") if names_only else Alert(**alert)
+            for alert in Run(identifier=run_id).get_alert_details()
+            if not critical_only or alert["status"].get("current") == "critical"
+        ]  # type: ignore
 
     @prettify_pydantic
     @pydantic.validate_call
@@ -1254,7 +1204,7 @@ class Client:
         *,
         start_index: typing.Optional[pydantic.NonNegativeInt] = None,
         count_limit: typing.Optional[pydantic.PositiveInt] = None,
-    ) -> list[dict]:
+    ) -> list[str]:
         """Retrieve tags
 
         Parameters
@@ -1266,34 +1216,15 @@ class Client:
 
         Returns
         -------
-        list[dict[str, Any]]
-            a list of all tags for this run which match the constrains specified
+        list[str]
+            a list of all tag ids for this run
 
         Raises
         ------
         RuntimeError
             if there was a failure retrieving data from the server
         """
-        params = {"count": count_limit or 0, "start": start_index or 0}
-        response = requests.get(
-            f"{self._user_config.server.url}/tags",
-            headers=self._headers,
-            params=params,
-        )
-
-        json_response = get_json_from_response(
-            expected_status=[200],
-            scenario="Retrieval of tags",
-            response=response,
-        )
-
-        if not isinstance(json_response, dict):
-            raise RuntimeError("Expected list from JSON response when retrieving tags")
-
-        if not (data := json_response.get("data")):
-            raise RuntimeError("Expected key 'data' in response during tags retrieval")
-
-        return data
+        return Tag.ids(count=count_limit, offset=start_index)
 
     @prettify_pydantic
     @pydantic.validate_call

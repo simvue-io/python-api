@@ -37,7 +37,6 @@ def test_get_alerts(create_test_run: tuple[sv_run.Run, dict], from_run: bool) ->
                 assert alert["alert"]["status"]["current"] == "critical"
     else:
         assert (triggered_alerts_full := client.get_alerts(names_only=True, critical_only=False))
-        print(triggered_alerts_full, run_data["created_alerts"])
         assert all(a in triggered_alerts_full for a in run_data['created_alerts'])
 
 

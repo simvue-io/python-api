@@ -164,8 +164,13 @@ class Run(SimvueObject):
     @property
     @staging_check
     def alerts(self) -> typing.Generator[str, None, None]:
+        for alert in self.get_alert_details():
+            yield alert["id"]
+
+    def get_alert_details(self) -> typing.Generator[dict[str, typing.Any], None, None]:
+        """Retrieve the full details of alerts for this run"""
         for alert in self._get_attribute("alerts"):
-            yield alert["alert"]["id"]
+            yield alert["alert"]
 
     @alerts.setter
     @write_only

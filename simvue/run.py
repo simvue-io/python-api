@@ -703,6 +703,7 @@ class Run:
         }
         self._sv_obj.ttl = self._retention
         self._sv_obj.status = self._status
+        self._sv_obj.tags = tags
         self._sv_obj.metadata = (metadata or {}) | git_info(os.getcwd()) | environment()
         self._sv_obj.heartbeat_timeout = timeout
 

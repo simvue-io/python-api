@@ -8,12 +8,12 @@ Contains base class for interacting with objects on the Simvue server
 import abc
 import pathlib
 import typing
+import inspect
 import uuid
 import http
 
 from codecarbon.external.logger import logging
 from codecarbon.output_methods.emissions_data import json
-from requests.models import HTTPError
 
 from simvue.config.user import SimvueConfiguration
 from simvue.exception import ObjectNotFoundError
@@ -124,6 +124,11 @@ class SimvueObject(abc.ABC):
         self._identifier: typing.Optional[str] = (
             identifier if identifier is not None else f"offline_{uuid.uuid1()}"
         )
+        self._properties = [
+            name
+            for name, member in inspect.getmembers(self.__class__)
+            if isinstance(member, property)
+        ]
         self._offline: bool = identifier is not None and identifier.startswith(
             "offline_"
         )
@@ -140,7 +145,7 @@ class SimvueObject(abc.ABC):
 
         # Recover any locally staged changes if not read-only
         self._staging: dict[str, typing.Any] = (
-            self._get_local_staged() if not _read_only else {}
+            {} if _read_only else self._get_local_staged()
         )
 
         self._staging |= kwargs
@@ -149,16 +154,6 @@ class SimvueObject(abc.ABC):
             "Authorization": f"Bearer {self._user_config.server.token}",
             "User-Agent": f"Simvue Python client {__version__}",
         }
-
-        if identifier:
-            try:
-                self._get_attribute("id")
-            except HTTPError as e:
-                if e.response.status_code == http.HTTPStatus.NOT_FOUND:
-                    raise ValueError(
-                        f"Failed to retrieve {self._label} '{identifier}', "
-                        "no such object"
-                    ) from e
 
     def _get_local_staged(self) -> dict[str, typing.Any]:
         """Retrieve any locally staged data for this identifier"""
@@ -173,12 +168,13 @@ class SimvueObject(abc.ABC):
     def _get_attribute(self, attribute: str, *default) -> typing.Any:
         # In the case where the object is read-only, staging is the data
         # already retrieved from the server
-        if (
-            (_attr := getattr(self, "_read_only", None))
-            and isinstance(type(_attr), type(staging_check))
-            or self._identifier
-            and self._identifier.startswith("offline_")
-        ):
+        _attribute_is_property: bool = attribute in self._properties
+        _state_is_read_only: bool = getattr(self, "_read_only", True)
+        _offline_state: bool = (
+            self._identifier is not None and self._identifier.startswith("offline_")
+        )
+
+        if (_attribute_is_property and _state_is_read_only) or _offline_state:
             return self._staging[attribute]
 
         try:
@@ -223,6 +219,18 @@ class SimvueObject(abc.ABC):
     @abc.abstractclassmethod
     def new(cls, **_):
         pass
+
+    @classmethod
+    def ids(
+        cls, count: int | None = None, offset: int | None = None, **kwargs
+    ) -> list[str]:
+        """Retrieve a list of all object identifiers"""
+        _class_instance = cls(read_only=True)
+        if (_data := cls._get_all_objects(count, offset, **kwargs).get("data")) is None:
+            raise RuntimeError(
+                f"Expected key 'data' for retrieval of {_class_instance.__class__.__name__.lower()}s"
+            )
+        return [_entry["id"] for _entry in _data]
 
     @classmethod
     def get(
@@ -316,9 +324,7 @@ class SimvueObject(abc.ABC):
 
     @property
     def url(self) -> typing.Optional[URL]:
-        if self._identifier is None:
-            return None
-        return self._base_url / self._identifier
+        return None if self._identifier is None else self._base_url / self._identifier
 
     def _post(self, **kwargs) -> dict[str, typing.Any]:
         _response = sv_post(
