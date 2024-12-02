@@ -112,3 +112,6 @@ ignore-init-method = true
 fail-under = 95
 verbose = 1
 exclude = ["docs", "tests"]
+
+[tool.mypy]
+ignore_missing_imports = true

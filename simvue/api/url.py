@@ -5,14 +5,13 @@ import copy
 
 class URL:
     def __init__(self, url: str) -> None:
+        if url.endswith("/"):
+            url = url[:-1]
+
         _url = urllib.parse.urlparse(url)
         self._scheme: str = _url.scheme
         self._path: str = _url.path
         self._host: str | None = _url.hostname
-
-        if self._host and self._host.endswith("/"):
-            self._host = self._host[:-1]
-
         self._port: int | None = _url.port
         self._fragment: str = _url.fragment
 

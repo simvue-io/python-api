@@ -112,6 +112,6 @@ class AlertBase(SimvueObject):
 
     @abort.setter
     @pydantic.validate_call
-    def abort(self, abort: str) -> None:
+    def abort(self, abort: bool) -> None:
         """Configure alert to trigger aborts"""
         self._staging["abort"] = abort

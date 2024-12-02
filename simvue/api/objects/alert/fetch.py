@@ -50,6 +50,7 @@ class Alert:
             headers=_class_instance._headers,
             params={"start": offset, "count": count},
         )
+
         _json_response = get_json_from_response(
             response=_response,
             expected_status=[http.HTTPStatus.OK],
@@ -62,7 +63,7 @@ class Alert:
                 f"but got '{type(_json_response)}'"
             )
 
-        if not (_data := _json_response.get("data")):
+        if (_data := _json_response.get("data")) is None:
             raise RuntimeError(
                 f"Expected key 'data' for retrieval of {_class_instance.__class__.__name__.lower()}s"
             )
@@ -70,17 +71,21 @@ class Alert:
         _out_dict: dict[str, AlertType] = {}
 
         for _entry in _json_response["data"]:
+            _id = _entry.pop("id")
             if _entry["source"] == "events":
-                yield _entry["id"], EventsAlert(read_only=True, **_entry)
+                yield _id, EventsAlert(read_only=True, identifier=_id, **_entry)
             elif _entry["source"] == "user":
-                yield _entry["id"], UserAlert(read_only=True, **_entry)
+                yield _id, UserAlert(read_only=True, identifier=_id, **_entry)
             elif _entry["source"] == "metrics" and _entry.get("alert", {}).get(
                 "threshold"
             ):
-                yield _entry["id"], MetricsThresholdAlert(read_only=True, **_entry)
+                yield (
+                    _id,
+                    MetricsThresholdAlert(read_only=True, identifier=_id, **_entry),
+                )
             elif _entry["source"] == "metrics" and _entry.get("alert", {}).get(
                 "range_low"
             ):
-                yield _entry["id"], MetricsRangeAlert(read_only=True, **_entry)
+                yield _id, MetricsRangeAlert(read_only=True, identifier=_id, **_entry)
             else:
                 raise RuntimeError(f"Unrecognised alert source '{_entry['source']}'")

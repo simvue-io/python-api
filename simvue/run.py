@@ -32,6 +32,8 @@ import msgpack
 import psutil
 
 from simvue.api.objects.alert.fetch import Alert
+from simvue.api.objects.folder import Folder, get_folder_from_path
+from simvue.exception import ObjectNotFoundError, SimvueRunError
 
 
 from .config.user import SimvueConfiguration
@@ -41,12 +43,10 @@ from .factory.dispatch import Dispatcher
 from .executor import Executor
 from .metrics import get_gpu_metrics, get_process_cpu, get_process_memory
 from .models import FOLDER_REGEX, NAME_REGEX, MetricKeyString
-from .serialization import serialize_object
 from .system import get_system
 from .metadata import git_info, environment
 from .eco import SimvueEmissionsTracker
 from .utilities import (
-    calculate_sha256,
     skip_if_failed,
     validate_timestamp,
     simvue_timestamp,
@@ -155,6 +155,7 @@ class Run:
         self._emissions_tracker: typing.Optional[SimvueEmissionsTracker] = None
 
         self._id: typing.Optional[str] = None
+        self._folder: Folder | None = None
         self._term_color: bool = True
         self._suppress_errors: bool = False
         self._queue_blocking: bool = False
@@ -561,7 +562,7 @@ class Run:
                 self._dispatcher.join()
 
         if not self._suppress_errors:
-            raise RuntimeError(message)
+            raise SimvueRunError(message)
 
         # Simvue support now terminated as the instance of Run has entered
         # the dormant state due to exception throw so set listing to be 'lost'
@@ -578,13 +579,9 @@ class Run:
     @pydantic.validate_call
     def init(
         self,
-        name: typing.Optional[
-            typing.Annotated[str, pydantic.Field(pattern=NAME_REGEX)]
-        ] = None,
+        name: typing.Annotated[str | None, pydantic.Field(pattern=NAME_REGEX)] = None,
         *,
-        metadata: typing.Optional[
-            dict[str, typing.Union[str, int, float, bool]]
-        ] = None,
+        metadata: dict[str, typing.Any] = None,
         tags: typing.Optional[list[str]] = None,
         description: typing.Optional[str] = None,
         folder: typing.Annotated[
@@ -648,6 +645,12 @@ class Run:
 
         self._term_color = not no_color
 
+        try:
+            self._folder = get_folder_from_path(path=folder)
+        except ObjectNotFoundError:
+            self._folder = Folder.new(path=folder, offline=self._mode == "offline")
+            self._folder.commit()  # type: ignore
+
         if isinstance(visibility, str) and visibility not in ("public", "tenant"):
             self._error(
                 "invalid visibility option, must be either None, 'public', 'tenant' or a list of users"
@@ -685,9 +688,14 @@ class Run:
 
         self._timer = time.time()
 
-        self._sv_obj = RunObject.new(folder=folder)
-        self._sv_obj.description = description
-        self._sv_obj.name = name
+        self._sv_obj = RunObject.new(folder=folder, offline=self._mode == "offline")
+
+        if description:
+            self._sv_obj.description = description
+
+        if name:
+            self._sv_obj.name = name
+
         self._sv_obj.visibility = {
             "users": visibility if isinstance(visibility, list) else [],
             "tenant": visibility == "tenant",
@@ -695,11 +703,12 @@ class Run:
         }
         self._sv_obj.ttl = self._retention
         self._sv_obj.status = self._status
-        self._sv_obj.metadata = (
-            (metadata or {}) | git_info(os.getcwd()) | environment(),
-        )
+        self._sv_obj.metadata = (metadata or {}) | git_info(os.getcwd()) | environment()
         self._sv_obj.heartbeat_timeout = timeout
-        self._sv_obj.system = get_system() if self._status == "running" else None
+
+        if self._status == "running":
+            self._sv_obj.system = get_system()
+
         self._data = self._sv_obj._staging
         self._sv_obj.commit()
 
@@ -1275,36 +1284,26 @@ class Run:
         bool
             whether object upload was successful
         """
-        serialized = serialize_object(obj, allow_pickle)
-
-        if not serialized or not (pickled := serialized[0]):
-            self._error(f"Failed to serialize '{obj}'")
+        if not self._sv_obj or not self.id:
+            self._error("Cannot save files, run not initialised")
             return False
 
-        data_type = serialized[1]
+        _name: str = name or f"{obj.__class__.__name__.lower()}_{id(obj)}"
 
-        if not data_type and not allow_pickle:
-            self._error("Unable to save Python object, set allow_pickle to True")
-            return False
-
-        data: dict[str, typing.Any] = {
-            "pickled": pickled,
-            "type": data_type,
-            "checksum": calculate_sha256(pickled, False),
-            "originalPath": "",
-            "size": sys.getsizeof(pickled),
-            "name": name,
-            "run": self._name,
-            "category": category,
-            "storage": self._storage_id,
-        }
-
-        # Register file
         try:
-            return self._sv_obj is not None and self._simvue.save_file(data) is not None
-        except RuntimeError as e:
-            self._error(f"{e.args[0]}")
+            Artifact.new_object(
+                run=self.id,
+                name=_name,
+                category=category,
+                obj=obj,
+                allow_pickling=allow_pickle,
+                storage=self._storage_id,
+            )
+        except (ValueError, RuntimeError) as e:
+            self._error(f"Failed to save object '{_name}' to run '{self.id}': {e}")
             return False
+
+        return True
 
     @skip_if_failed("_aborted", "_suppress_errors", False)
     @check_run_initialised
@@ -1339,20 +1338,12 @@ class Run:
         bool
             whether the upload was successful
         """
-        if not self._sv_obj:
+        if not self._sv_obj or not self.id:
             self._error("Cannot save files, run not initialised")
             return False
 
         if self._status == "created" and category == "output":
             self._error("Cannot upload output files for runs in the created state")
-            return False
-
-        mimetypes.init()
-        mimetypes_valid = ["application/vnd.plotly.v1+json"]
-        mimetypes_valid += list(mimetypes.types_map.values())
-
-        if filetype and filetype not in mimetypes_valid:
-            self._error(f"Invalid MIME type '{filetype}' specified")
             return False
 
         stored_file_name: str = f"{file_path}"
@@ -1362,50 +1353,22 @@ class Run:
         elif not preserve_path:
             stored_file_name = os.path.basename(file_path)
 
-        # Determine mimetype
-        if not (mimetype := filetype):
-            mimetype = mimetypes.guess_type(file_path)[0] or "application/octet-stream"
-
-        data: dict[str, typing.Any] = {
-            "name": name or stored_file_name,
-            "run": self._name,
-            "type": mimetype,
-            "storage": self._storage_id,
-            "category": category,
-            "size": (file_size := os.path.getsize(file_path)),
-            "originalPath": os.path.abspath(
-                os.path.expanduser(os.path.expandvars(file_path))
-            ),
-            "checksum": calculate_sha256(f"{file_path}", True),
-        }
-
-        if not file_size:
-            click.secho(
-                "[simvue] WARNING: saving zero-sized files not currently supported",
-                bold=self._term_color,
-                fg="yellow" if self._term_color else None,
-            )
-            return True
-
-        # Register file
-        _artifact = Artifact.new(
-            name=name or stored_file_name,
-            run=self._sv_obj.id,
-            storage=self._storage_id,
-            file_path=file_path,
-            offline=self._mode == "offline",
-            file_type=None,
-            category=category,
-        )
-        _artifact.commit()
-
-        _storage_id = _artifact.storage
-
         try:
-            return self._simvue.save_file(data) is not None
-        except RuntimeError as e:
-            self._error(f"{e.args[0]}")
+            # Register file
+            Artifact.new_file(
+                name=name or stored_file_name,
+                run=self.id,
+                storage=self._storage_id,
+                file_path=file_path,
+                offline=self._mode == "offline",
+                file_type=filetype,
+                category=category,
+            )
+        except (ValueError, RuntimeError) as e:
+            self._error(f"Failed to save file: {e}")
             return False
+
+        return True
 
     @skip_if_failed("_aborted", "_suppress_errors", False)
     @check_run_initialised
@@ -1598,7 +1561,6 @@ class Run:
     @pydantic.validate_call
     def set_folder_details(
         self,
-        path: typing.Annotated[str, pydantic.Field(pattern=FOLDER_REGEX)],
         metadata: typing.Optional[dict[str, typing.Union[int, str, float]]] = None,
         tags: typing.Optional[list[str]] = None,
         description: typing.Optional[str] = None,
@@ -1607,8 +1569,6 @@ class Run:
 
         Parameters
         ----------
-        path : str
-            folder path
         metadata : dict[str, int | str | float], optional
             additional metadata to attach to this folder, by default None
         tags : list[str], optional
@@ -1621,7 +1581,7 @@ class Run:
         bool
             returns True if update was successful
         """
-        if not self._sv_obj:
+        if not self._folder:
             self._error("Cannot update folder details, run was not initialised")
             return False
 
@@ -1629,25 +1589,21 @@ class Run:
             self._error("Run is not active")
             return False
 
-        data: dict[str, typing.Any] = {"path": path}
-
-        if metadata:
-            data["metadata"] = metadata or {}
-
-        if tags:
-            data["tags"] = tags or []
-
-        if description:
-            data["description"] = description
-
         try:
-            if self._simvue.set_folder_details(data):
-                return True
-        except RuntimeError as e:
-            self._error(f"{e.args[0]}")
+            self._folder.read_only(False)
+            if metadata:
+                self._folder.metadata = metadata
+            if tags:
+                self._folder.tags = tags
+            if description:
+                self._folder.description = description
+            self._folder.commit()
+            self._folder.read_only(True)
+        except (RuntimeError, ValueError, pydantic.ValidationError) as e:
+            self._error(f"Failed to update folder '{self._folder.name}' details: {e}")
             return False
 
-        return False
+        return True
 
     @skip_if_failed("_aborted", "_suppress_errors", False)
     @check_run_initialised
@@ -1870,26 +1826,17 @@ class Run:
         # Check if the alert already exists
         _alert_id: typing.Optional[str] = None
 
-        try:
-            _alerts = Alert.get()
-        except RuntimeError as e:
-            self._error(f"{e.args[0]}")
-            return None
-
-        if _alerts:
-            for _, _existing_alert in _alerts:
-                if _existing_alert.name == _alert.name and _existing_alert.compare(
-                    _alert
-                ):
-                    _alert_id = _existing_alert.id
-                    logger.info("Existing alert found with id: %s", _existing_alert.id)
-                    break
+        for _, _existing_alert in Alert.get():
+            if _existing_alert.compare(_alert):
+                _alert_id = _existing_alert.id
+                logger.info("Existing alert found with id: %s", _existing_alert.id)
+                break
 
         if not _alert_id:
             _alert.commit()
             _alert_id = _alert.id
 
-        self._sv_obj.alerts = self._sv_obj.alerts + [_alert_id]
+        self._sv_obj.alerts = list(self._sv_obj.alerts) + [_alert_id]
 
         self._sv_obj.commit()
 

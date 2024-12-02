@@ -10,7 +10,10 @@ a new folder given relevant arguments.
 import pathlib
 import typing
 
+from codecarbon.output_methods.emissions_data import json
 import pydantic
+
+from simvue.exception import ObjectNotFoundError
 
 from .base import SimvueObject, Visibility, staging_check, write_only
 from simvue.models import FOLDER_REGEX
@@ -104,6 +107,19 @@ class Folder(SimvueObject):
 
     @property
     @staging_check
+    def metadata(self) -> dict[str, int | str | None | float | dict] | None:
+        """Return the folder metadata"""
+        return self._get().get("metadata")
+
+    @metadata.setter
+    @write_only
+    @pydantic.validate_call
+    def metadata(self, metadata: dict[str, int | str | None | float | dict]) -> None:
+        """Update the folder metadata"""
+        self._staging["metadata"] = metadata
+
+    @property
+    @staging_check
     def star(self) -> bool:
         """Return if this folder is starred"""
         return self._get().get("starred", False)
@@ -130,3 +146,16 @@ class Folder(SimvueObject):
 
     def delete(self, *, recursive: bool, delete_runs: bool) -> dict[str, typing.Any]:
         return super().delete(recursive=recursive, runs=delete_runs)
+
+
+@pydantic.validate_call
+def get_folder_from_path(
+    path: typing.Annotated[str, pydantic.Field(pattern=FOLDER_REGEX)],
+) -> Folder:
+    _folders = Folder.get(filters=json.dumps([f"path == {path}"]), count=1)
+
+    try:
+        _, _folder = next(_folders)
+    except StopIteration as e:
+        raise ObjectNotFoundError(obj_type="folder", name=path) from e
+    return _folder  # type: ignore

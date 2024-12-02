@@ -160,14 +160,25 @@ def check_extra(extra_name: str) -> typing.Callable:
     return decorator
 
 
-def parse_pydantic_error(class_name: str, error: pydantic.ValidationError) -> str:
+def parse_pydantic_error(error: pydantic.ValidationError) -> str:
     out_table: list[str] = []
     for data in json.loads(error.json()):
+        _input = data.get("input") if data["input"] is not None else "None"
+        _input_str = (
+            _input_str
+            if len((_input_str := f"{_input}")) < 50
+            else f"{_input_str[:50]}..."
+        )
+        _type: str = data["type"]
+
+        if (_input_type := type(_input)) != _type:
+            _type = f"{_input_type.__name__} != {_type}"
+
         out_table.append(
             [
-                data.get("input") if data["input"] is not None else "None",
+                _input_str,
                 data["loc"],
-                data["type"],
+                _type,
                 data["msg"],
             ]
         )
@@ -176,7 +187,7 @@ def parse_pydantic_error(class_name: str, error: pydantic.ValidationError) -> st
         headers=["Input", "Location", "Type", "Message"],
         tablefmt="fancy_grid",
     )
-    return f"`{class_name}` Validation:\n{err_table}"
+    return f"`{error.title}` Validation:\n{err_table}"
 
 
 def skip_if_failed(
@@ -223,7 +234,7 @@ def skip_if_failed(
             try:
                 return class_func(self, *args, **kwargs)
             except pydantic.ValidationError as e:
-                error_str = parse_pydantic_error(class_func.__name__, e)
+                error_str = parse_pydantic_error(e)
                 if getattr(self, ignore_exc_attr, True):
                     setattr(self, failure_attr, True)
                     logger.error(error_str)
@@ -260,7 +271,7 @@ def prettify_pydantic(class_func: typing.Callable) -> typing.Callable:
         try:
             return class_func(self, *args, **kwargs)
         except pydantic.ValidationError as e:
-            error_str = parse_pydantic_error(class_func.__name__, e)
+            error_str = parse_pydantic_error(e)
             raise RuntimeError(error_str)
 
     return wrapper

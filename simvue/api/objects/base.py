@@ -16,6 +16,7 @@ from codecarbon.output_methods.emissions_data import json
 from requests.models import HTTPError
 
 from simvue.config.user import SimvueConfiguration
+from simvue.exception import ObjectNotFoundError
 from simvue.version import __version__
 from simvue.api.request import (
     get as sv_get,
@@ -39,7 +40,7 @@ def staging_check(member_func: typing.Callable) -> typing.Callable:
             raise RuntimeError(
                 f"Cannot use 'staging_check' decorator on type '{type(self).__name__}'"
             )
-        if member_func.__name__ in _sv_obj._staging:
+        if not _sv_obj._read_only and member_func.__name__ in _sv_obj._staging:
             _sv_obj._logger.warning(
                 f"Uncommitted change found for attribute '{member_func.__name__}'"
             )
@@ -91,7 +92,7 @@ class Visibility:
     @staging_check
     def public(self) -> bool:
         """Retrieve if this object is publically visible"""
-        return self._sv_obj._get_visibility().get("public", False)
+        return self._sv_obj._get_visibility().get("public", False)  # type: ignore
 
     @public.setter
     @write_only
@@ -103,7 +104,7 @@ class Visibility:
     @staging_check
     def tenant(self) -> bool:
         """Retrieve the tenant group this object is visible to"""
-        return self._sv_obj._get_visibility().get("tenant", False)
+        return self._sv_obj._get_visibility().get("tenant", False)  # type: ignore
 
     @tenant.setter
     @write_only
@@ -139,7 +140,7 @@ class SimvueObject(abc.ABC):
 
         # Recover any locally staged changes if not read-only
         self._staging: dict[str, typing.Any] = (
-            self._get_local_staged() if _read_only else {}
+            self._get_local_staged() if not _read_only else {}
         )
 
         self._staging |= kwargs
@@ -172,8 +173,11 @@ class SimvueObject(abc.ABC):
     def _get_attribute(self, attribute: str, *default) -> typing.Any:
         # In the case where the object is read-only, staging is the data
         # already retrieved from the server
-        if (_attr := getattr(self, "_read_only", None)) and isinstance(
-            type(_attr), type(staging_check)
+        if (
+            (_attr := getattr(self, "_read_only", None))
+            and isinstance(type(_attr), type(staging_check))
+            or self._identifier
+            and self._identifier.startswith("offline_")
         ):
             return self._staging[attribute]
 
@@ -217,13 +221,40 @@ class SimvueObject(abc.ABC):
             return {}
 
     @abc.abstractclassmethod
-    def new(cls, offline: bool = False, **kwargs):
+    def new(cls, **_):
         pass
 
     @classmethod
     def get(
         cls, count: int | None = None, offset: int | None = None, **kwargs
     ) -> typing.Generator[tuple[str, "SimvueObject"], None, None]:
+        _class_instance = cls(read_only=True)
+        if (_data := cls._get_all_objects(count, offset, **kwargs).get("data")) is None:
+            raise RuntimeError(
+                f"Expected key 'data' for retrieval of {_class_instance.__class__.__name__.lower()}s"
+            )
+
+        for _entry in _data:
+            _id = _entry.pop("id")
+            yield _id, cls(read_only=True, identifier=_id, **_entry)
+
+    @classmethod
+    def count(cls, **kwargs) -> int:
+        _class_instance = cls(read_only=True)
+        if (
+            _count := cls._get_all_objects(count=None, offset=None, **kwargs).get(
+                "count"
+            )
+        ) is None:
+            raise RuntimeError(
+                f"Expected key 'count' for retrieval of {_class_instance.__class__.__name__.lower()}s"
+            )
+        return _count
+
+    @classmethod
+    def _get_all_objects(
+        cls, count: int | None, offset: int | None, **kwargs
+    ) -> dict[str, typing.Any]:
         _class_instance = cls(read_only=True)
         _url = f"{_class_instance._base_url}"
         _response = sv_get(
@@ -243,13 +274,7 @@ class SimvueObject(abc.ABC):
                 f"but got '{type(_json_response)}'"
             )
 
-        if not (_data := _json_response.get("data")):
-            raise RuntimeError(
-                f"Expected key 'data' for retrieval of {_class_instance.__class__.__name__.lower()}s"
-            )
-
-        for _entry in _json_response["data"]:
-            yield _entry["id"], cls(read_only=True, **_entry)
+        return _json_response
 
     def read_only(self, is_read_only: bool) -> None:
         self._read_only = is_read_only
@@ -326,7 +351,7 @@ class SimvueObject(abc.ABC):
         if not self.url:
             raise RuntimeError(f"Identifier for instance of {self._label} Unknown")
         _response = sv_put(
-            url=self.url, headers=self._headers, data=kwargs, is_json=True
+            url=f"{self.url}", headers=self._headers, data=kwargs, is_json=True
         )
 
         if _response.status_code == http.HTTPStatus.FORBIDDEN:
@@ -380,12 +405,18 @@ class SimvueObject(abc.ABC):
         return _json_response
 
     def _get(self, **kwargs) -> dict[str, typing.Any]:
-        if self._offline:
+        if self._identifier.startswith("offline_"):
             return self._get_local_staged()
 
         if not self.url:
             raise RuntimeError(f"Identifier for instance of {self._label} Unknown")
         _response = sv_get(url=f"{self.url}", headers=self._headers, params=kwargs)
+
+        if _response.status_code == http.HTTPStatus.NOT_FOUND:
+            raise ObjectNotFoundError(
+                obj_type=self._label, name=self._identifier or "Unknown"
+            )
+
         _json_response = get_json_from_response(
             response=_response,
             expected_status=[http.HTTPStatus.OK],
@@ -417,3 +448,8 @@ class SimvueObject(abc.ABC):
 
         with self._local_staging_file.open("w", encoding="utf-8") as out_f:
             json.dump(_local_data, out_f, indent=2)
+
+    @property
+    def staged(self) -> dict[str, typing.Any] | None:
+        """Return currently staged changes to this object"""
+        return self._staging or None

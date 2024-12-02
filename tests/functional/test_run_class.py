@@ -15,6 +15,7 @@ import concurrent.futures
 import random
 
 import simvue
+from simvue.exception import SimvueRunError
 import simvue.run as sv_run
 import simvue.client as sv_cl
 import simvue.sender as sv_send
@@ -62,7 +63,7 @@ def test_log_metrics(
     run.config(suppress_errors=False)
 
     if visibility == "bad_option":
-        with pytest.raises(RuntimeError):
+        with pytest.raises(SimvueRunError, match="visibility") as e:
             run.init(
                 name=f"test_run_{str(uuid.uuid4()).split('-', 1)[0]}",
                 tags=[
@@ -202,7 +203,7 @@ def test_update_metadata_running(create_test_run: tuple[sv_run.Run, dict]) -> No
     run_info = client.get_run(run.id)
 
     for key, value in METADATA.items():
-        assert run_info.get("metadata", {}).get(key) == value
+        assert run_info.metadata.get(key) == value
 
 
 @pytest.mark.run
@@ -215,7 +216,7 @@ def test_update_metadata_created(create_pending_run: tuple[sv_run.Run, dict]) ->
     run_info = client.get_run(run.id)
 
     for key, value in METADATA.items():
-        assert run_info.get("metadata", {}).get(key) == value
+        assert run_info.metadata.get(key) == value
 
 
 @pytest.mark.run
@@ -434,7 +435,7 @@ def test_set_folder_details(request: pytest.FixtureRequest) -> None:
             request.node.name.replace("[", "_").replace("]", "_"),
         ]
         run.init(folder=folder_name)
-        run.set_folder_details(path=folder_name, tags=tags, description=description)
+        run.set_folder_details(tags=tags, description=description)
 
     client = sv_cl.Client()
     assert (folder := client.get_folders(filters=[f"path == {folder_name}"])[0])["tags"] == tags

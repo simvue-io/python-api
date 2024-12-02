@@ -61,9 +61,13 @@ class Storage:
         _out_dict: dict[str, FileStorage | S3Storage] = {}
 
         for _entry in _json_response:
+            _id = _entry.pop("id")
             if _entry["type"] == "S3":
-                yield _entry["id"], S3Storage(read_only=True, **_entry)
+                yield _entry["id"], S3Storage(read_only=True, identifier=_id, **_entry)
             elif _entry["type"] == "File":
-                yield _entry["id"], FileStorage(read_only=True, **_entry)
+                yield (
+                    _entry["id"],
+                    FileStorage(read_only=True, identifier=_id, **_entry),
+                )
             else:
                 raise RuntimeError(f"Unrecognised storage type '{_entry['type']}'")

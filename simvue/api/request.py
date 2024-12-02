@@ -228,7 +228,7 @@ def get_json_from_response(
             return json_response
         details = f"could not request JSON response: {decode_error}"
     else:
-        error_str += f"with status {_status_code}"
+        error_str += f" with status {_status_code}"
         details = (json_response or {}).get("detail")
 
     try:

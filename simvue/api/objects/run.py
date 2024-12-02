@@ -40,7 +40,7 @@ class Run(SimvueObject):
         *,
         folder: typing.Annotated[str, pydantic.Field(pattern=FOLDER_REGEX)],
         offline: bool = False,
-    ):
+    ) -> typing.Self:
         """Create a new Folder on the Simvue server with the given path"""
         _run = Run(folder=folder, system=None, status="created", _read_only=False)
         _run.offline_mode(offline)
@@ -90,7 +90,7 @@ class Run(SimvueObject):
     @ttl.setter
     @write_only
     @pydantic.validate_call
-    def ttl(self, time_seconds: int) -> None:
+    def ttl(self, time_seconds: int | None) -> None:
         """Update the retention period for this run"""
         self._staging["ttl"] = time_seconds
 
@@ -133,6 +133,12 @@ class Run(SimvueObject):
     def system(self) -> dict[str, typing.Any]:
         return self._get_attribute("system")
 
+    @system.setter
+    @write_only
+    @pydantic.validate_call
+    def system(self, system: dict[str, typing.Any]) -> None:
+        self._staging["system"] = system
+
     @property
     @staging_check
     def heartbeat_timeout(self) -> int:
@@ -157,8 +163,9 @@ class Run(SimvueObject):
 
     @property
     @staging_check
-    def alerts(self) -> list[str]:
-        return self._get_attribute("alerts")
+    def alerts(self) -> typing.Generator[str, None, None]:
+        for alert in self._get_attribute("alerts"):
+            yield alert["alert"]["id"]
 
     @alerts.setter
     @write_only
