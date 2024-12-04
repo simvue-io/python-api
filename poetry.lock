@@ -272,13 +272,13 @@ colorama = {version = "*", markers = "platform_system == \"Windows\""}
 
 [[package]]
 name = "codecarbon"
-version = "2.8.0"
+version = "2.8.1"
 description = ""
 optional = false
 python-versions = ">=3.7"
 files = [
-    {file = "codecarbon-2.8.0-py3-none-any.whl", hash = "sha256:e8d843f8d29a2bf7ccad97c48580dcfd4923472936dc8c3d443df949f77aa881"},
-    {file = "codecarbon-2.8.0.tar.gz", hash = "sha256:b309996cc03e5bae5254c18de6d296bec3e01f9f85c0c60b99c2fdd74c894487"},
+    {file = "codecarbon-2.8.1-py3-none-any.whl", hash = "sha256:18abef94263724639fc1c2af808d5ad77f877c2812d691b30064f76743e2f660"},
+    {file = "codecarbon-2.8.1.tar.gz", hash = "sha256:a5652293c82092abe6ee8fac8e4b7b90b7efa3e5eded56382e3ef472471a7395"},
 ]
 
 [package.dependencies]
