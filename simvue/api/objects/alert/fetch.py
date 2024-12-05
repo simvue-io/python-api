@@ -57,12 +57,6 @@ class Alert:
             scenario=f"Retrieval of {_class_instance.__class__.__name__.lower()}s",
         )
 
-        if not isinstance(_json_response, dict):
-            raise RuntimeError(
-                f"Expected dict from JSON response during {_class_instance.__class__.__name__.lower()}s retrieval "
-                f"but got '{type(_json_response)}'"
-            )
-
         if (_data := _json_response.get("data")) is None:
             raise RuntimeError(
                 f"Expected key 'data' for retrieval of {_class_instance.__class__.__name__.lower()}s"

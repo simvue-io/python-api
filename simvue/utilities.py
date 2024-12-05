@@ -17,9 +17,6 @@ import jwt
 
 from datetime import timezone
 
-if typing.TYPE_CHECKING:
-    pass
-
 
 CHECKSUM_BLOCK_SIZE = 4096
 EXTRAS: tuple[str, ...] = ("plot", "torch")
@@ -40,7 +37,6 @@ def find_first_instance_of_file(
 
     Parameters
     ----------
-    file_name: list[str] | str
         candidate names of file to locate
     check_user_space: bool, optional
         check the users home area if current working directory is not

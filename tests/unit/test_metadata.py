@@ -16,3 +16,18 @@ def test_python_env() -> None:
     assert re.findall(r"\d+\.\d+\.\d+", metadata["python.environment.click"])
     assert metadata["python.project.name"] == "spam-eggs"
 
+
+@pytest.mark.metadata
+def test_julia_env() -> None:
+    metadata = sv_meta._julia_env(pathlib.Path(__file__).parents[1].joinpath("example_data"))
+    assert metadata["julia.project.name"] == "Julia Demo Project"
+    assert re.findall(r"\d+\.\d+\.\d+", metadata["julia.environment.AbstractDifferentiation"])
+
+
+@pytest.mark.metadata
+def test_js_env() -> None:
+    metadata = sv_meta._node_js_env(pathlib.Path(__file__).parents[1].joinpath("example_data"))
+    assert metadata["javascript.project.name"] == "my-awesome-project"
+    assert re.findall(r"\d+\.\d+\.\d+", metadata["javascript.environment.node_modules/dotenv"])
+
+

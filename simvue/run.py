@@ -7,7 +7,6 @@ This forms the central API for users.
 """
 
 import contextlib
-import json
 import logging
 import pathlib
 import mimetypes
@@ -28,7 +27,6 @@ import warnings
 import uuid
 
 import click
-import msgpack
 import psutil
 
 from simvue.api.objects.alert.fetch import Alert
@@ -37,7 +35,6 @@ from simvue.exception import ObjectNotFoundError, SimvueRunError
 
 
 from .config.user import SimvueConfiguration
-import simvue.api.request as sv_api
 
 from .factory.dispatch import Dispatcher
 from .executor import Executor
@@ -404,67 +401,17 @@ class Run:
         if self._mode == "online" and not self._id:
             raise RuntimeError("Expected identifier for run")
 
-        if not self._user_config.server.url:
+        if not self._user_config.server.url or not self._sv_obj:
             raise RuntimeError("Cannot commence dispatch, run not initialised")
 
-        def _offline_dispatch_callback(
+        def _dispatch_callback(
             buffer: list[typing.Any],
             category: str,
-            run_id: typing.Optional[str] = self._id,
-            uuid: str = self._uuid,
+            run_obj: RunObject = self._sv_obj,
         ) -> None:
-            _offline_directory: pathlib.Path = self._user_config.offline.cache
-            if not _offline_directory.exists():
-                logger.error(
-                    f"Cannot write to offline directory '{_offline_directory}', directory not found."
-                )
-                return
-            _directory = _offline_directory.joinpath(uuid)
+            run_obj.log_entries(entries=buffer, entry_type=category)
 
-            unique_id = time.time()
-            filename = _directory.joinpath(f"{category}-{unique_id}")
-            _data = {category: buffer, "run": run_id}
-            try:
-                with filename.open("w") as fh:
-                    json.dump(_data, fh)
-            except Exception as err:
-                if self._suppress_errors:
-                    logger.error(
-                        "Got exception writing offline update for %s: %s",
-                        category,
-                        str(err),
-                    )
-                else:
-                    raise err
-
-        def _online_dispatch_callback(
-            buffer: list[typing.Any],
-            category: str,
-            url: str = self._user_config.server.url,
-            run_id: typing.Optional[str] = self._id,
-            headers: dict[str, str] = self._headers,
-        ) -> None:
-            if not buffer:
-                return
-            _data = {category: buffer, "run": run_id}
-            _data_bin = msgpack.packb(_data, use_bin_type=True)
-            _url: str = f"{url}/{category}"
-
-            _msgpack_header = headers | {"Content-Type": "application/msgpack"}
-
-            try:
-                sv_api.post(
-                    url=_url, headers=_msgpack_header, data=_data_bin, is_json=False
-                )
-            except (ValueError, RuntimeError) as e:
-                self._error(f"{e}", join_threads=False)
-                return
-
-        return (
-            _online_dispatch_callback
-            if self._mode == "online"
-            else _offline_dispatch_callback
-        )
+        return _dispatch_callback
 
     def _start(self, reconnect: bool = False) -> bool:
         """Start a run
@@ -1030,6 +977,11 @@ class Run:
                     "simvue", self, self._emission_metrics_interval
                 )
 
+                # If the main Run API object is initialised the run is active
+                # hence the tracker should start too
+                if self._sv_obj:
+                    self._emissions_tracker.start()
+
             if resources_metrics_interval:
                 self._resources_metrics_interval = resources_metrics_interval
 
@@ -1139,7 +1091,7 @@ class Run:
     @skip_if_failed("_aborted", "_suppress_errors", False)
     @check_run_initialised
     @pydantic.validate_call
-    def log_event(self, message: str, timestamp: typing.Optional[str] = None) -> bool:
+    def log_event(self, message: str, timestamp: str | None = None) -> bool:
         """Log event to the server
 
         Parameters
@@ -1834,8 +1786,12 @@ class Run:
                 break
 
         if not _alert_id:
-            _alert.commit()
             _alert_id = _alert.id
+        else:
+            _alert = Alert(identifier=_alert_id)
+            _alert.read_only(False)
+
+        _alert.commit()
 
         self._sv_obj.alerts = list(self._sv_obj.alerts) + [_alert_id]
 
@@ -1868,6 +1824,7 @@ class Run:
             return False
 
         _alert = Alert(identifier=identifier)
+        _alert.read_only(False)
         _alert.state = state
         _alert.commit()
 

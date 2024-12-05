@@ -1,4 +1,5 @@
 import time
+import contextlib
 import pytest
 import uuid
 import json
@@ -64,3 +65,20 @@ def test_tag_modification_offline() -> None:
     assert _new_tag.description == "modified test tag"
     _tag.delete()
 
+@pytest.mark.api
+def test_tag_get_properties() -> None:
+    _uuid: str = f"{uuid.uuid4()}".split("-")[0]
+    _tag = Tag.new(name=f"test_tag_{_uuid}")
+    _tag.commit()
+    _failed = []
+
+    for member in _tag._properties:
+        try:
+            getattr(_tag, member)
+        except Exception as e:
+            _failed.append((member, f"{e}"))
+    with contextlib.suppress(Exception):
+        _tag.delete()
+
+    if _failed:
+        raise AssertionError("\n" + "\n\t- ".join(": ".join(i) for i in _failed))

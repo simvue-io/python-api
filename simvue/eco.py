@@ -81,3 +81,4 @@ class SimvueEmissionsTracker(EmissionsTracker):
     def post_init(self) -> None:
         self._set_from_conf(self._simvue_run._id, "experiment_id")
         self._set_from_conf(self._simvue_run._name, "experiment_name")
+        self.start()

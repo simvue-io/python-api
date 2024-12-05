@@ -1,5 +1,6 @@
 import time
 import pytest
+import contextlib
 import uuid
 
 from simvue.api.objects import Alert, EventsAlert
@@ -89,4 +90,29 @@ def test_event_alert_modification_offline() -> None:
     _new_alert.commit()
     assert _new_alert.description == "updated!"
     _new_alert.delete()
+
+
+@pytest.mark.api
+def test_event_alert_properties() -> None:
+    _uuid: str = f"{uuid.uuid4()}".split("-")[0]
+    _alert = EventsAlert.new(
+        name=f"events_alert_{_uuid}",
+        frequency=1,
+        pattern="completed",
+        notification="none"
+    )
+    _alert.commit()
+
+    _failed = []
+
+    for member in _alert._properties:
+        try:
+            getattr(_alert, member)
+        except Exception as e:
+            _failed.append((member, f"{e}"))
+    with contextlib.suppress(Exception):
+        _alert.delete()
+
+    if _failed:
+        raise AssertionError("\n" + "\n\t- ".join(": ".join(i) for i in _failed))
 

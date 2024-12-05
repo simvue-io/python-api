@@ -55,6 +55,7 @@ tabulate = "^0.9.0"
 randomname = "^0.2.1"
 codecarbon = "^2.7.1"
 numpy = "^2.1.2"
+flatdict = "^4.0.1"
 
 [tool.poetry.extras]
 plot = ["matplotlib", "plotly"]
@@ -104,7 +105,8 @@ markers = [
     "api: tests of RestAPI functionality",
     "unix: tests for UNIX systems only",
     "metadata: tests of metadata gathering functions",
-    "proxies: tests for remote/offline Simvue proxies"
+    "proxies: tests for remote/offline Simvue proxies",
+    "offline: tests for offline functionality"
 ]
 
 [tool.interrogate]

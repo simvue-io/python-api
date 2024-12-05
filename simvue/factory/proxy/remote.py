@@ -484,7 +484,7 @@ class Remote(SimvueBaseClass):
 
     @skip_if_failed("_aborted", "_suppress_errors", False)
     def get_abort_status(self) -> bool:
-        logger.debug("Retrieving alert status")
+        logger.debug("Retrieving abort status")
 
         try:
             response = get(

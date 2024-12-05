@@ -172,6 +172,7 @@ class MetricsRangeAlert(AlertBase):
             source="metrics",
             enabled=enabled,
             alert=_alert_definition,
+            _read_only=False,
         )
         _alert.offline_mode(offline)
         return _alert

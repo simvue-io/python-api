@@ -7,21 +7,25 @@ Class for defining and interacting with artifact objects.
 """
 
 import http
+import pathlib
 import typing
 import pydantic
 import os.path
 import sys
+import requests
 
 from simvue.api.url import URL
 from simvue.models import NAME_REGEX
 from simvue.utilities import get_mimetype_for_file, get_mimetypes, calculate_sha256
 from simvue.api.objects.base import SimvueObject
 from simvue.serialization import serialize_object
-from simvue.api.request import put as sv_put, get_json_from_response
+from simvue.api.request import put as sv_put, get_json_from_response, get as sv_get
 
 Category = typing.Literal["code", "input", "output"]
 
 UPLOAD_TIMEOUT: int = 30
+DOWNLOAD_TIMEOUT: int = 30
+DOWNLOAD_CHUNK_SIZE: int = 8192
 
 
 class Artifact(SimvueObject):
@@ -225,8 +229,44 @@ class Artifact(SimvueObject):
             response=_response,
         )
 
-    def _get(self, storage: str | None = None) -> dict[str, typing.Any]:
-        return super()._get(storage=self._storage)
+    def _get(self, storage: str | None = None, **kwargs) -> dict[str, typing.Any]:
+        return super()._get(storage=self._storage, **kwargs)
+
+    @classmethod
+    def _get_all_objects(
+        cls, count: int | None, offset: int | None, **kwargs
+    ) -> list[dict[str, typing.Any]]:
+        _class_instance = cls(read_only=True)
+        _url = f"{_class_instance._base_url}"
+
+        _response = sv_get(
+            _url,
+            headers=_class_instance._headers,
+            params={"start": offset, "count": count} | kwargs,
+        )
+
+        _json_response = get_json_from_response(
+            response=_response,
+            expected_status=[http.HTTPStatus.OK],
+            scenario=f"Retrieval of {_class_instance.__class__.__name__.lower()}s",
+            expected_type=list,
+        )
+
+        return _json_response
+
+    @classmethod
+    def get(
+        cls, *, count: int | None = None, offset: int | None = None, **kwargs
+    ) -> typing.Generator[tuple[str, "SimvueObject"], None, None]:
+        _class_instance = cls(read_only=True)
+        if (_data := cls._get_all_objects(count, offset, **kwargs)) is None:
+            raise RuntimeError(
+                f"Expected key 'data' for retrieval of {_class_instance.__class__.__name__.lower()}s"
+            )
+
+        for _entry in _data:
+            _id = _entry.pop("id")
+            yield _id, cls(read_only=True, identifier=_id, **_entry)
 
     @property
     def name(self) -> str:
@@ -262,3 +302,44 @@ class Artifact(SimvueObject):
     def storage_url(self) -> str | None:
         """Retrieve storage URL for the artifact"""
         return self._storage_url
+
+    def download_content(self) -> typing.Any:
+        """Download content of artifact from storage"""
+        _response = requests.get(f"{self.storage_url}", timeout=DOWNLOAD_TIMEOUT)
+
+        get_json_from_response(
+            response=_response,
+            expected_status=[http.HTTPStatus.OK],
+            scenario=f"Retrieval of content for {self._label} '{self._identifier}'",
+        )
+
+        return _response.content
+
+    @pydantic.validate_call
+    def download(self, output_file: pathlib.Path) -> pathlib.Path | None:
+        _response = requests.get(
+            f"{self.storage_url}", stream=True, timeout=DOWNLOAD_TIMEOUT
+        )
+
+        get_json_from_response(
+            response=_response,
+            allow_parse_failure=True,
+            expected_status=[http.HTTPStatus.OK],
+            scenario=f"Retrieval of file for {self._label} '{self._identifier}'",
+        )
+
+        _total_length: str | None = _response.headers.get("content-length")
+
+        if not output_file.parent.is_dir():
+            raise ValueError(
+                f"Cannot write to '{output_file.parent}', not a directory."
+            )
+
+        with output_file.open("wb") as out_f:
+            if _total_length is None:
+                out_f.write(_response.content)
+            else:
+                for data in _response.iter_content(chunk_size=DOWNLOAD_CHUNK_SIZE):
+                    out_f.write(data)
+
+        return output_file if output_file.exists() else None

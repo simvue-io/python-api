@@ -32,6 +32,8 @@ class ServerSpecifications(pydantic.BaseModel):
     @pydantic.field_validator("url")
     @classmethod
     def url_to_api_url(cls, v: typing.Any) -> str:
+        if f"{v}".endswith("/api"):
+            return URL(f"{v}")
         _url = URL(f"{v}") / "api"
         return f"{_url}"
 

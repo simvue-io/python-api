@@ -8,6 +8,8 @@ data types including creation of DataFrames for metrics
 
 import typing
 import pandas
+import flatdict
+
 
 if typing.TYPE_CHECKING:
     from pandas import DataFrame
@@ -195,44 +197,30 @@ def to_dataframe(data):
     """
 
     metadata = []
+    system_columns = []
     for run in data:
-        if "metadata" in run:
-            for item in run["metadata"]:
-                if item not in metadata:
-                    metadata.append(item)
-
-    columns = {}
-    for run in data:
-        for item in ("name", "status", "folder", "created", "started", "ended"):
-            if item not in columns:
-                columns[item] = []
-            if item in run:
-                columns[item].append(run[item])
+        for item in run.get("metadata", []):
+            if item not in metadata:
+                metadata.append(item)
+        for item, value in (run.get("system", {}) or {}).items():
+            if isinstance(value, dict):
+                system_columns += [
+                    col_name
+                    for sub_item in value.keys()
+                    if (col_name := f"system.{item}.{sub_item}") not in system_columns
+                ]
             else:
-                columns[item].append(None)
+                if f"system.{item}" not in system_columns:
+                    system_columns.append(f"system.{item}")
 
-        if "system" in run:
-            for section in run["system"]:
-                if section in ("cpu", "gpu", "platform"):
-                    for item in run["system"][section]:
-                        if "system.%s.%s" % (section, item) not in columns:
-                            columns["system.%s.%s" % (section, item)] = []
-                        columns["system.%s.%s" % (section, item)].append(
-                            run["system"][section][item]
-                        )
-                else:
-                    if "system.%s" % section not in columns:
-                        columns["system.%s" % section] = []
-                    columns["system.%s" % section].append(run["system"][section])
+    columns = {f"metadata.{column}": [] for column in metadata}
+    columns |= {column: [] for column in system_columns}
 
-        if "metadata" in run:
-            for item in metadata:
-                if "metadata.%s" % item not in columns:
-                    columns["metadata.%s" % item] = []
-                if item in run["metadata"]:
-                    columns["metadata.%s" % item].append(run["metadata"][item])
-                else:
-                    columns["metadata.%s" % item].append(None)
+    for run in data:
+        run_info = flatdict.FlatDict(run, delimiter=".").as_dict()
+
+        for column in columns:
+            columns[column].append(run_info.get(column))
 
     return pandas.DataFrame(data=columns)
 

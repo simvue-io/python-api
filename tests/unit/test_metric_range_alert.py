@@ -1,4 +1,4 @@
-
+import contextlib
 import time
 import pytest
 import json
@@ -10,7 +10,7 @@ from simvue.api.objects import MetricsRangeAlert, Alert
 def test_metric_range_alert_creation_online() -> None:
     _uuid: str = f"{uuid.uuid4()}".split("-")[0]
     _alert = MetricsRangeAlert.new(
-        name=f"metrics_threshold_alert_{_uuid}",
+        name=f"metrics_range_alert_{_uuid}",
         frequency=1,
         notification="none",
         metric="x",
@@ -23,7 +23,7 @@ def test_metric_range_alert_creation_online() -> None:
     _alert.commit()
     assert _alert.source == "metrics"
     assert _alert.alert.frequency == 1
-    assert _alert.name == f"metrics_threshold_alert_{_uuid}"
+    assert _alert.name == f"metrics_range_alert_{_uuid}"
     assert _alert.notification == "none"
     _alert.delete()
 
@@ -32,7 +32,7 @@ def test_metric_range_alert_creation_online() -> None:
 def test_metric_range_alert_creation_offline() -> None:
     _uuid: str = f"{uuid.uuid4()}".split("-")[0]
     _alert = MetricsRangeAlert.new(
-        name=f"metrics_threshold_alert_{_uuid}",
+        name=f"metrics_range_alert_{_uuid}",
         frequency=1,
         notification="none",
         metric="x",
@@ -46,7 +46,7 @@ def test_metric_range_alert_creation_offline() -> None:
     _alert.commit()
     assert _alert.source == "metrics"
     assert _alert.alert.frequency == 1
-    assert _alert.name == f"metrics_threshold_alert_{_uuid}"
+    assert _alert.name == f"metrics_range_alert_{_uuid}"
     assert _alert.notification == "none"
     _alert.delete()
 
@@ -57,10 +57,10 @@ def test_metric_range_alert_creation_offline() -> None:
 
 
 @pytest.mark.api
-def test_metric_threshold_alert_modification_online() -> None:
+def test_metric_range_alert_modification_online() -> None:
     _uuid: str = f"{uuid.uuid4()}".split("-")[0]
     _alert = MetricsRangeAlert.new(
-        name=f"metrics_threshold_alert_{_uuid}",
+        name=f"metrics_range_alert_{_uuid}",
         frequency=1,
         notification="none",
         metric="x",
@@ -82,10 +82,10 @@ def test_metric_threshold_alert_modification_online() -> None:
 
 
 @pytest.mark.api
-def test_metric_threshold_alert_modification_offline() -> None:
+def test_metric_range_alert_modification_offline() -> None:
     _uuid: str = f"{uuid.uuid4()}".split("-")[0]
     _alert = MetricsRangeAlert.new(
-        name=f"metrics_threshold_alert_{_uuid}",
+        name=f"metrics_range_alert_{_uuid}",
         frequency=1,
         notification="none",
         metric="x",
@@ -105,4 +105,33 @@ def test_metric_threshold_alert_modification_offline() -> None:
     _new_alert.commit()
     assert _new_alert.description == "updated!"
     _new_alert.delete()
+
+@pytest.mark.api
+def test_metric_range_alert_properties() -> None:
+    _uuid: str = f"{uuid.uuid4()}".split("-")[0]
+    _alert = MetricsRangeAlert.new(
+        name=f"metrics_range_alert_{_uuid}",
+        frequency=1,
+        notification="none",
+        metric="x",
+        range_low=10,
+        range_high=15,
+        window=1,
+        aggregation="average",
+        rule="is inside range"
+    )
+    _alert.commit()
+
+    _failed = []
+
+    for member in _alert._properties:
+        try:
+            getattr(_alert, member)
+        except Exception as e:
+            _failed.append((member, f"{e}"))
+    with contextlib.suppress(Exception):
+        _alert.delete()
+
+    if _failed:
+        raise AssertionError("\n" + "\n\t- ".join(": ".join(i) for i in _failed))
 

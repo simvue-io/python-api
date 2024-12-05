@@ -30,7 +30,7 @@ class User(SimvueObject):
             "admin": admin,
             "enabled": enabled,
         }
-        _user = User(user=_user_info, tenant=tenant, offline=offline, read_only=False)
+        _user = User(user=_user_info, tenant=tenant, offline=offline, _read_only=False)
         _user.offline_mode(offline)
         return _user  # type: ignore
 

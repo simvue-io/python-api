@@ -1,4 +1,5 @@
-from codecarbon.output_methods.emissions_data import json
+import contextlib
+import json
 import pytest
 import time
 import datetime
@@ -99,3 +100,27 @@ def test_run_modification_offline() -> None:
     _run.delete()
     _folder.delete()
 
+
+@pytest.mark.api
+def test_run_get_properties() -> None:
+    _uuid: str = f"{uuid.uuid4()}".split("-")[0]
+    _folder_name = f"/simvue_unit_testing/{_uuid}"
+    _folder = Folder.new(path=_folder_name)
+    _run = Run.new(folder=_folder_name)
+    _run.status = "running"
+    _run.ttl = 60
+    _folder.commit()
+    _run.commit()
+    _failed = []
+
+    for member in _run._properties:
+        try:
+            getattr(_run, member)
+        except Exception as e:
+            _failed.append((member, f"{e}"))
+    with contextlib.suppress(Exception):
+        _run.delete()
+        _folder.delete()
+
+    if _failed:
+        raise AssertionError("\n" + "\n\t- ".join(": ".join(i) for i in _failed))

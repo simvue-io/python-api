@@ -7,12 +7,15 @@ from simvue.models import NAME_REGEX
 
 class StorageBase(SimvueObject):
     def __init__(
-        self, identifier: typing.Optional[str] = None, read_only: bool = False, **kwargs
+        self,
+        identifier: typing.Optional[str] = None,
+        _read_only: bool = False,
+        **kwargs,
     ) -> None:
         """Retrieve an alert from the Simvue server by identifier"""
         self._label = "storage"
         self._endpoint = self._label
-        super().__init__(identifier, read_only, **kwargs)
+        super().__init__(identifier, _read_only=_read_only, **kwargs)
         self.status = Status(self)
 
     @classmethod

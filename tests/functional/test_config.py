@@ -117,13 +117,13 @@ tags = {_tags}
             assert _config.config_file() == _config_file
 
         if use_env:
-            assert _config.server.url == _other_url
+            assert _config.server.url == f"{_other_url}api"
             assert _config.server.token == _other_token
         elif use_args:
-            assert _config.server.url == _arg_url
+            assert _config.server.url == f"{_arg_url}api"
             assert _config.server.token == _arg_token
         elif use_file and use_file != "pyproject.toml":
-            assert _config.server.url == _url
+            assert _config.server.url == f"{_url}api"
             assert _config.server.token == _token
             assert f"{_config.offline.cache}" == temp_d
 

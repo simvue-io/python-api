@@ -10,6 +10,7 @@ import contextlib
 import json
 import logging
 import os
+import pathlib
 import typing
 import http
 import pydantic
@@ -36,57 +37,16 @@ from .api.objects import Run, Folder, Tag, Artifact, Alert
 
 CONCURRENT_DOWNLOADS = 10
 DOWNLOAD_CHUNK_SIZE = 8192
-DOWNLOAD_TIMEOUT = 30
 
 logger = logging.getLogger(__file__)
 
 
-def downloader(job: dict[str, str]) -> bool:
-    """Download a job output to the location specified within the definition
-
-    Parameters
-    ----------
-    job : dict[str, str]
-        a dictionary containing information on URL and path for a given job
-        this information is then used to perform the download
-
-    Returns
-    -------
-    bool
-        whether the file was created successfully
-    """
-    # Check to make sure all requirements have been retrieved first
-    for key in ("url", "path", "filename"):
-        if key not in job:
-            logger.warning(f"Expected key '{key}' during job object retrieval")
-            raise RuntimeError(
-                "Failed to retrieve required information during job download"
-            )
-
-    try:
-        response = requests.get(job["url"], stream=True, timeout=DOWNLOAD_TIMEOUT)
-        response = requests.get(job["url"], stream=True, timeout=DOWNLOAD_TIMEOUT)
-    except requests.exceptions.RequestException:
-        return False
-
-    total_length = response.headers.get("content-length")
-    total_length = response.headers.get("content-length")
-
-    save_location: str = os.path.join(job["path"], job["filename"])
-
-    if not os.path.isdir(job["path"]):
-        raise ValueError(f"Cannot write to '{job['path']}', not a directory.")
-
-    logger.debug(f"Writing file '{save_location}'")
-
-    with open(save_location, "wb") as fh:
-        if total_length is None:
-            fh.write(response.content)
-        else:
-            for data in response.iter_content(chunk_size=DOWNLOAD_CHUNK_SIZE):
-                fh.write(data)
-
-    return os.path.exists(save_location)
+def _download_artifact_to_file(
+    artifact: Artifact, output_dir: pathlib.Path | None
+) -> None:
+    _file_name = os.path.basename(artifact.name)
+    _output_file = (output_dir or pathlib.Path.cwd()).joinpath(_file_name)
+    artifact.download(_output_file)
 
 
 class Client:
@@ -152,14 +112,20 @@ class Client:
         """
         _runs = Run.get(filters=json.dumps([f"name == {name}"]))
 
-        if len(_runs) == 0:
-            raise RuntimeError("Could not collect ID - no run found with this name.")
-        if len(_runs) > 1:
+        try:
+            _id, _ = next(_runs)
+        except StopIteration as e:
+            raise RuntimeError(
+                "Could not collect ID - no run found with this name."
+            ) from e
+
+        try:
+            next(_runs)
             raise RuntimeError(
                 "Could not collect ID - more than one run exists with this name."
             )
-
-        _id, _ = next(_runs)
+        except StopIteration:
+            pass
 
         return _id
 
@@ -212,13 +178,11 @@ class Client:
         metrics: bool = False,
         alerts: bool = False,
         metadata: bool = False,
-        output_format: typing.Literal["dict", "dataframe"] = "dict",
+        output_format: typing.Literal["dict", "objects", "dataframe"] = "objects",
         count_limit: typing.Optional[pydantic.PositiveInt] = 100,
         start_index: typing.Optional[pydantic.PositiveInt] = 0,
         show_shared: bool = False,
-    ) -> typing.Union[
-        DataFrame, list[dict[str, typing.Union[int, str, float, None]]], None
-    ]:
+    ) -> typing.Union[DataFrame, list[Run], None]:
         """Retrieve all runs matching filters.
 
         Parameters
@@ -235,9 +199,9 @@ class Client:
         alerts : bool, optional
             whether to include alert information in the response.
             Default False.
-        output_format : Literal['dict', 'dataframe'], optional
-            the structure of the response, either a dictionary or a dataframe.
-            Default is 'dict'. Pandas must be installed for 'dataframe'.
+        output_format : Literal['objects', 'dataframe'], optional
+            the structure of the response, either a dictionary of objects or a dataframe.
+            Default is 'objects'. Pandas must be installed for 'dataframe'.
         count_limit : int, optional
             maximum number of entries to return. Default is 100.
         start_index : int, optional
@@ -261,21 +225,32 @@ class Client:
         if not show_shared:
             filters = (filters or []) + ["user == self"]
 
-        params = {
+        if output_format == "objects":
+            return dict(
+                Run.get(
+                    count=count_limit,
+                    offset=start_index,
+                    filters=json.dumps(filters),
+                    return_basic=True,
+                    return_metrics=metrics,
+                    return_alerts=alerts,
+                    return_system=system,
+                    return_metadata=metadata,
+                )
+            )
+        _params: dict[str, bool | str] = {
             "filters": json.dumps(filters),
             "return_basic": True,
             "return_metrics": metrics,
             "return_alerts": alerts,
             "return_system": system,
             "return_metadata": metadata,
-            "count": count_limit,
-            "start": start_index,
         }
 
         response = requests.get(
             f"{self._user_config.server.url}/runs",
             headers=self._headers,
-            params=params,
+            params=_params,
         )
 
         response.raise_for_status()
@@ -289,18 +264,13 @@ class Client:
             response=response,
         )
 
-        if not isinstance(json_response, dict):
-            raise RuntimeError(
-                "Expected dictionary from JSON response during retrieval of runs "
-                f"but got '{type(json_response)}'"
-            )
-
-        if (response_data := json_response.get("data")) is not None:
-            return response_data
-        elif output_format == "dataframe":
-            return to_dataframe(response.json())
-        else:
+        if (response_data := json_response.get("data")) is None:
             raise RuntimeError("Failed to retrieve runs data")
+
+        if output_format == "dict":
+            return response_data
+
+        return to_dataframe(response_data)
 
     @prettify_pydantic
     @pydantic.validate_call
@@ -324,6 +294,27 @@ class Client:
         """
         return Run(identifier=run_id).delete() or None
 
+    def _get_folder_from_path(self, path: str) -> typing.Optional[Folder]:
+        """Retrieve folder for the specified path if found
+
+        Parameters
+        ----------
+        path : str
+            the path to search for
+
+        Returns
+        -------
+        Folder | None
+            if a match is found, return the folder
+        """
+        _folders = Folder.get(filters=json.dumps([f"path == {path}"]))
+
+        try:
+            _, _folder = next(_folders)
+            return _folder  # type: ignore
+        except StopIteration:
+            return None
+
     def _get_folder_id_from_path(self, path: str) -> typing.Optional[str]:
         """Retrieve folder identifier for the specified path if found
 
@@ -337,10 +328,9 @@ class Client:
         str | None
             if a match is found, return the identifier of the folder
         """
-        _folders = Folder.get(filters=json.dumps([f"path == {path}"]))
-        _id, _ = next(_folders)
+        _ids = Folder.ids(filters=json.dumps([f"path == {path}"]))
 
-        return _id
+        return _ids[0] if _ids else None
 
     @prettify_pydantic
     @pydantic.validate_call
@@ -365,30 +355,10 @@ class Client:
         RuntimeError
             if deletion fails due to server request error
         """
-        folder_id = self._get_folder_id_from_path(folder_path)
-
-        if not folder_id:
+        if not (_folder := self._get_folder_from_path(folder_path)):
             raise ValueError(f"Could not find a folder matching '{folder_path}'")
-
-        params: dict[str, bool] = {"runs_only": True, "runs": True}
-
-        response = requests.delete(
-            f"{self._user_config.server.url}/folders/{folder_id}",
-            headers=self._headers,
-            params=params,
-        )
-
-        if response.status_code == http.HTTPStatus.OK:
-            if runs := response.json().get("runs", []):
-                logger.debug(f"Runs from '{folder_path}' deleted successfully: {runs}")
-            else:
-                logger.debug("Folder empty, no runs deleted.")
-            return runs
-
-        raise RuntimeError(
-            f"Deletion of runs from folder '{folder_path}' failed"
-            f"with code {response.status_code}: {response.text}"
-        )
+        _delete = _folder.delete(runs_only=True, delete_runs=True, recursive=False)
+        return _delete.get("runs", [])
 
     @prettify_pydantic
     @pydantic.validate_call
@@ -435,7 +405,7 @@ class Client:
                     "folder does not exist."
                 )
         _response = Folder(identifier=folder_id).delete(
-            delete_runs=remove_runs, recursive=recursive
+            delete_runs=remove_runs, recursive=recursive, runs_only=False
         )
 
         return _response.get("runs", [])
@@ -450,11 +420,11 @@ class Client:
         alert_id : str
             the unique identifier for the alert
         """
-        Alert(identifier=alert_id).delete()
+        Alert(identifier=alert_id).delete()  # type: ignore
 
     @prettify_pydantic
     @pydantic.validate_call
-    def list_artifacts(self, run_id: str) -> list[dict[str, typing.Any]]:
+    def list_artifacts(self, run_id: str) -> dict[str, Artifact]:
         """Retrieve artifacts for a given run
 
         Parameters
@@ -464,7 +434,7 @@ class Client:
 
         Returns
         -------
-        list[dict[str, typing.Any]]
+        dict[str, Artifact]
             list of relevant artifacts
 
         Raises
@@ -472,33 +442,12 @@ class Client:
         RuntimeError
             if retrieval of artifacts failed when communicating with the server
         """
-        params: dict[str, str] = {"runs": json.dumps([run_id])}
+        return dict(Artifact.get(runs=json.dumps([run_id])))  # type: ignore
 
-        response: requests.Response = requests.get(
-            f"{self._user_config.server.url}/artifacts",
-            headers=self._headers,
-            params=params,
-        )
-
-        json_response = get_json_from_response(
-            expected_status=[http.HTTPStatus.OK],
-            scenario=f"Retrieval of artifacts for run '{run_id}",
-            response=response,
-        )
-
-        if not isinstance(json_response, list):
-            raise RuntimeError(
-                "Expected list of entries from JSON response during artifact "
-                f"retrieval but got '{type(json_response)}'"
-            )
-        return json_response
-
-    def _retrieve_artifact_from_server(
-        self,
-        run_id: str,
-        name: str,
-    ) -> typing.Union[dict, list]:
-        return Artifact.get(runs=[run_id], name=name)
+    def _retrieve_artifacts_from_server(
+        self, run_id: str, name: str, count: int | None = None
+    ) -> typing.Generator[tuple[str, Artifact], None, None]:
+        return Artifact.get(runs=[run_id], name=name, count=count)  # type: ignore
 
     @prettify_pydantic
     @pydantic.validate_call
@@ -546,31 +495,30 @@ class Client:
         RuntimeError
             if retrieval of artifact from the server failed
         """
-        json_response = self._retrieve_artifact_from_server(run_id, name)
+        _artifacts = self._retrieve_artifacts_from_server(run_id, name, count=1)
 
-        if not json_response:
-            return None
+        try:
+            _id, _artifact = next(_artifacts)
+        except StopIteration as e:
+            raise ValueError(f"No artifact '{name}' found for run '{run_id}'") from e
 
-        url = json_response[0]["url"]
-        mimetype = json_response[0]["type"]
-        url = json_response[0]["url"]
-        mimetype = json_response[0]["type"]
+        _content = _artifact.download_content()
 
-        response = requests.get(url, timeout=DOWNLOAD_TIMEOUT)
-        response.raise_for_status()
-
-        content: typing.Optional[DeserializedContent] = deserialize_data(
-            response.content, mimetype, allow_pickle
+        _deserialized_content: typing.Optional[DeserializedContent] = deserialize_data(
+            _content, _artifact.type, allow_pickle
         )
 
         # Numpy array return means just 'if content' will be ambiguous
         # so must explicitly check if None
-        return response.content if content is None else content
+        return _content if _deserialized_content is None else _deserialized_content
 
     @prettify_pydantic
     @pydantic.validate_call
     def get_artifact_as_file(
-        self, run_id: str, name: str, path: typing.Optional[str] = None
+        self,
+        run_id: str,
+        name: str,
+        output_dir: typing.Optional[pydantic.DirectoryPath] = None,
     ) -> None:
         """Retrieve the specified artifact in the form of a file
 
@@ -582,7 +530,7 @@ class Client:
             unique identifier for the run to be queried
         name : str
             the name of the artifact to be retrieved
-        path : str | None, optional
+        output_dir: str | None, optional
             path to download retrieved content to, the default of None
             uses the current working directory.
 
@@ -592,83 +540,25 @@ class Client:
             if there was a failure during retrieval of information from the
             server
         """
-        json_response = self._retrieve_artifact_from_server(run_id, name)
+        _artifacts = self._retrieve_artifacts_from_server(run_id, name)
 
-        if not json_response:
-            raise RuntimeError(
-                f"Failed to download artifact '{name}' from run '{run_id}',"
-                " no results found."
-            )
+        try:
+            _id, _artifact = next(_artifacts)
+        except StopIteration:
+            raise ValueError(f"No artifact '{name}' found for run '{run_id}'")
 
-        if not (url := json_response[0].get("url")):
-            raise RuntimeError(
-                "Failed to download artifacts, "
-                "expected URL for retrieval but server "
-                "did not return result"
-            )
-
-        downloader(
-            {
-                "url": url,
-                "filename": os.path.basename(name),
-                "path": path or os.getcwd(),
-            }
-        )
-
-    def _assemble_artifact_downloads(
-        self,
-        request_response: requests.Response,
-        startswith: typing.Optional[str],
-        endswith: typing.Optional[str],
-        contains: typing.Optional[str],
-        out_path: str,
-    ) -> list[dict[str, str]]:
-        downloads: list[dict[str, str]] = []
-
-        for item in request_response.json():
-            for key in ("url", "name"):
-                if key not in item:
-                    raise RuntimeError(
-                        f"Expected key '{key}' in request "
-                        "response during file retrieval"
-                    )
-
-            if startswith and not item["name"].startswith(startswith):
-                continue
-            if contains and contains not in item["name"]:
-                continue
-            if endswith and not item["name"].endswith(endswith):
-                continue
-
-            file_name: str = os.path.basename(item["name"])
-            file_dir: str = os.path.join(out_path, os.path.dirname(item["name"]))
-
-            job: dict[str, str] = {
-                "url": item["url"],
-                "filename": file_name,
-                "path": file_dir,
-            }
-
-            if os.path.isfile(file_path := os.path.join(file_dir, file_name)):
-                logger.warning(f"File '{file_path}' exists, skipping")
-                continue
-
-            os.makedirs(job["path"], exist_ok=True)
-
-            downloads.append(job)
-
-        return downloads
+        _download_artifact_to_file(_artifact, output_dir)
 
     @prettify_pydantic
     @pydantic.validate_call
     def get_artifacts_as_files(
         self,
         run_id: str,
-        category: typing.Optional[typing.Literal["input", "output", "code"]] = None,
-        path: typing.Optional[str] = None,
-        startswith: typing.Optional[str] = None,
-        contains: typing.Optional[str] = None,
-        endswith: typing.Optional[str] = None,
+        category: typing.Literal["input", "output", "code"] | None = None,
+        output_dir: pydantic.DirectoryPath | None = None,
+        startswith: str | None = None,
+        contains: str | None = None,
+        endswith: str | None = None,
     ) -> None:
         """Retrieve artifacts from the given run as a set of files
 
@@ -676,7 +566,7 @@ class Client:
         ----------
         run_id : str
             the unique identifier for the run
-        path : str | None, optional
+        output_dir : str | None, optional
             location to download files to, the default of None will download
             them to the current working directory
         startswith : str, optional
@@ -691,36 +581,21 @@ class Client:
         RuntimeError
             if there was a failure retrieving artifacts from the server
         """
-        params: dict[str, typing.Optional[str]] = {"category": category}
-
-        response: requests.Response = requests.get(
-            f"{self._user_config.server.url}/runs/{run_id}/artifacts",
-            headers=self._headers,
-            params=params,
-        )
-
-        get_json_from_response(
-            expected_status=[http.HTTPStatus.OK],
-            scenario=f"Download of artifacts for run '{run_id}'",
-            response=response,
-        )
-
-        downloads: list[dict[str, str]] = self._assemble_artifact_downloads(
-            request_response=response,
-            startswith=startswith,
-            endswith=endswith,
-            contains=contains,
-            out_path=path or os.getcwd(),
-        )
+        _artifacts: typing.Generator[tuple[str, Artifact], None, None] = Artifact.get(
+            runs=[run_id], category=category
+        )  # type: ignore
 
         with ThreadPoolExecutor(CONCURRENT_DOWNLOADS) as executor:
-            futures = [executor.submit(downloader, item) for item in downloads]
-            for future, download in zip(as_completed(futures), downloads):
+            futures = [
+                executor.submit(_download_artifact_to_file, artifact, output_dir)
+                for _, artifact in _artifacts
+            ]
+            for future, (_, artifact) in zip(as_completed(futures), _artifacts):
                 try:
                     future.result()
                 except Exception as e:
                     raise RuntimeError(
-                        f"Download of file {download['url']} "
+                        f"Download of file {artifact.storage_url} "
                         f"failed with exception: {e}"
                     ) from e
 
@@ -728,7 +603,7 @@ class Client:
     @pydantic.validate_call
     def get_folder(
         self, folder_path: typing.Annotated[str, pydantic.Field(pattern=FOLDER_REGEX)]
-    ) -> typing.Optional[dict[str, typing.Any]]:
+    ) -> Folder | None:
         """Retrieve a folder by identifier
 
         Parameters
@@ -739,7 +614,7 @@ class Client:
 
         Returns
         -------
-        dict[str, typing.Any] | None
+        Folder | None
             data for the requested folder if it exists else None
 
         Raises
@@ -747,9 +622,15 @@ class Client:
         RuntimeError
             if there was a failure when retrieving information from the server
         """
-        if not (_folders := self.get_folders(filters=[f"path == {folder_path}"])):
+        _folders: typing.Generator[tuple[str, Folder], None, None] = Folder.get(
+            path=folder_path
+        )  # type: ignore
+
+        try:
+            _, _folder = next(_folders)
+            return _folder
+        except StopIteration:
             return None
-        return _folders[0]
 
     @pydantic.validate_call
     def get_folders(
@@ -758,7 +639,7 @@ class Client:
         filters: typing.Optional[list[str]] = None,
         count: pydantic.PositiveInt = 100,
         start_index: pydantic.NonNegativeInt = 0,
-    ) -> list[dict[str, typing.Any]]:
+    ) -> typing.Generator[tuple[str, Folder], None, None]:
         """Retrieve folders from the server
 
         Parameters
@@ -772,48 +653,21 @@ class Client:
 
         Returns
         -------
-        list[dict[str, Any]]
-            all data for folders matching the filter request
+        Generator[str, Folder]
+            all data for folders matching the filter request in form (id, Folder)
 
         Raises
         ------
         RuntimeError
             if there was a failure retrieving data from the server
         """
-        params: dict[str, typing.Union[str, int]] = {
-            "filters": json.dumps(filters or []),
-            "count": count,
-            "start": start_index,
-        }
-
-        response: requests.Response = requests.get(
-            f"{self._user_config.server.url}/folders",
-            headers=self._headers,
-            params=params,
-        )
-
-        json_response = get_json_from_response(
-            expected_status=[http.HTTPStatus.OK],
-            scenario="Retrieval of folders",
-            response=response,
-        )
-
-        if not isinstance(json_response, dict):
-            raise RuntimeError(
-                "Expected dictionary from JSON response during folder retrieval "
-                f"but got '{type(json_response)}'"
-            )
-
-        if (data := json_response.get("data")) is None:
-            raise RuntimeError(
-                "Expected key 'data' in response during folder retrieval"
-            )
-
-        return data
+        return Folder.get(
+            filters=json.dumps(filters or []), count=count, offset=start_index
+        )  # type: ignore
 
     @prettify_pydantic
     @pydantic.validate_call
-    def get_metrics_names(self, run_id: str) -> list[str]:
+    def get_metrics_names(self, run_id: str) -> typing.Generator[str, None, None]:
         """Return information on all metrics within a run
 
         Parameters
@@ -823,7 +677,7 @@ class Client:
 
         Returns
         -------
-        list[str]
+        Generator[str, None, None]
             names of metrics in the given run
 
         Raises
@@ -831,27 +685,10 @@ class Client:
         RuntimeError
             if there was a failure retrieving information from the server
         """
-        params = {"runs": json.dumps([run_id])}
+        _run = Run(identifier=run_id)
 
-        response: requests.Response = requests.get(
-            f"{self._user_config.server.url}/metrics/names",
-            headers=self._headers,
-            params=params,
-        )
-
-        json_response = get_json_from_response(
-            expected_status=[http.HTTPStatus.OK],
-            scenario=f"Request for metric names for run '{run_id}'",
-            response=response,
-        )
-
-        if not isinstance(json_response, list):
-            raise RuntimeError(
-                "Expected list from JSON response during folder retrieval "
-                f"but got '{type(json_response)}'"
-            )
-
-        return json_response
+        for metric in _run.metrics:
+            yield metric.name
 
     def _get_run_metrics_from_server(
         self,
@@ -880,11 +717,6 @@ class Client:
             scenario=f"Retrieval of metrics '{metric_names}' in " f"runs '{run_ids}'",
             response=metrics_response,
         )
-
-        if not isinstance(json_response, dict):
-            raise RuntimeError(
-                "Expected dictionary from JSON response for metric retrieval"
-            )
 
         return json_response
 
@@ -1144,12 +976,7 @@ class Client:
             response=response,
         )
 
-        if not isinstance(json_response, dict):
-            raise RuntimeError(
-                "Expected dictionary from JSON response when retrieving events"
-            )
-
-        return response.json().get("data", [])
+        return json_response.get("data", [])
 
     @prettify_pydantic
     @pydantic.validate_call
@@ -1204,7 +1031,7 @@ class Client:
         *,
         start_index: typing.Optional[pydantic.NonNegativeInt] = None,
         count_limit: typing.Optional[pydantic.PositiveInt] = None,
-    ) -> list[str]:
+    ) -> typing.Generator[Tag, None, None]:
         """Retrieve tags
 
         Parameters
@@ -1216,15 +1043,15 @@ class Client:
 
         Returns
         -------
-        list[str]
-            a list of all tag ids for this run
+        list[Tag]
+            a list of all tags for this run
 
         Raises
         ------
         RuntimeError
             if there was a failure retrieving data from the server
         """
-        return Tag.ids(count=count_limit, offset=start_index)
+        return Tag.get(count=count_limit, offset=start_index)
 
     @prettify_pydantic
     @pydantic.validate_call

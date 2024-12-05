@@ -50,13 +50,8 @@ class Storage:
             response=_response,
             expected_status=[http.HTTPStatus.OK],
             scenario=f"Retrieval of {_class_instance.__class__.__name__.lower()}s",
+            expected_type=list,
         )
-
-        if not isinstance(_json_response, list):
-            raise RuntimeError(
-                f"Expected list from JSON response during {_class_instance.__class__.__name__.lower()}s retrieval "
-                f"but got '{type(_json_response)}'"
-            )
 
         _out_dict: dict[str, FileStorage | S3Storage] = {}
 

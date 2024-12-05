@@ -1,4 +1,5 @@
 import time
+import contextlib
 import pytest
 import json
 import uuid
@@ -102,3 +103,30 @@ def test_metric_threshold_alert_modification_offline() -> None:
     assert _new_alert.description == "updated!"
     _new_alert.delete()
 
+@pytest.mark.api
+def test_metric_range_alert_properties() -> None:
+    _uuid: str = f"{uuid.uuid4()}".split("-")[0]
+    _alert = MetricsThresholdAlert.new(
+        name=f"metrics_threshold_alert_{_uuid}",
+        frequency=1,
+        notification="none",
+        metric="x",
+        threshold=10,
+        window=1,
+        rule="is above",
+        aggregation="average"
+    )
+    _alert.commit()
+
+    _failed = []
+
+    for member in _alert._properties:
+        try:
+            getattr(_alert, member)
+        except Exception as e:
+            _failed.append((member, f"{e}"))
+    with contextlib.suppress(Exception):
+        _alert.delete()
+
+    if _failed:
+        raise AssertionError("\n" + "\n\t- ".join(": ".join(i) for i in _failed))

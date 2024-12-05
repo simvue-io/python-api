@@ -114,7 +114,7 @@ def test_get_artifact_as_file(
         client.get_artifact_as_file(
             create_test_run[1]["run_id"],
             name=create_test_run[1][f"file_{file_id}"],
-            path=tempd,
+            output_dir=tempd,
         )
         assert create_test_run[1][f"file_{file_id}"] in [
             os.path.basename(i) for i in glob.glob(os.path.join(tempd, "*"))
@@ -131,7 +131,7 @@ def test_get_artifacts_as_files(
     with tempfile.TemporaryDirectory() as tempd:
         client = svc.Client()
         client.get_artifacts_as_files(
-            create_test_run[1]["run_id"], category=category, path=tempd
+            create_test_run[1]["run_id"], category=category, output_dir=tempd
         )
         files = [os.path.basename(i) for i in glob.glob(os.path.join(tempd, "*"))]
         if not category or category == "input":
@@ -144,9 +144,16 @@ def test_get_artifacts_as_files(
 
 @pytest.mark.dependency
 @pytest.mark.client
-def test_get_runs(create_test_run: tuple[sv_run.Run, dict]) -> None:
+@pytest.mark.parametrize("output_format", ("dict", "dataframe", "objects"))
+def test_get_runs(create_test_run: tuple[sv_run.Run, dict], output_format: str) -> None:
     client = svc.Client()
-    assert client.get_runs(filters=None)
+
+    _result = client.get_runs(filters=None, output_format=output_format, count_limit=10)
+
+    if output_format == "dataframe":
+        assert not _result.empty
+    else:
+        assert _result
 
 
 @pytest.mark.dependency
@@ -161,8 +168,9 @@ def test_get_run(create_test_run: tuple[sv_run.Run, dict]) -> None:
 def test_get_folder(create_test_run: tuple[sv_run.Run, dict]) -> None:
     client = svc.Client()
     assert (folders := client.get_folders())
-    assert (folder_id := folders[1].get("path"))
-    assert client.get_folder(folder_id)
+    _id, _folder = next(folders)
+    assert _folder.path
+    assert client.get_folder(_folder.path)
 
 
 @pytest.mark.dependency
@@ -170,8 +178,7 @@ def test_get_folder(create_test_run: tuple[sv_run.Run, dict]) -> None:
 def test_get_metrics_names(create_test_run: tuple[sv_run.Run, dict]) -> None:
     client = svc.Client()
     time.sleep(1)
-    assert client.get_metrics_names(create_test_run[1]["run_id"])
-
+    assert list(client.get_metrics_names(create_test_run[1]["run_id"]))
 
 
 @pytest.mark.dependency
@@ -180,7 +187,7 @@ def test_get_tag(create_plain_run: tuple[sv_run.Run, dict]) -> None:
     _, run_data = create_plain_run
     client = svc.Client()
     time.sleep(1.0)
-    assert any(tag["name"] == run_data["tags"][-1] for tag in client.get_tags())
+    assert any(tag.name == run_data["tags"][-1] for _, tag in client.get_tags())
 
 
 PRE_DELETION_TESTS: list[str] = [
@@ -225,7 +232,7 @@ def test_get_tags(create_plain_run: tuple[sv_run.Run, dict]) -> None:
     run.close()
     time.sleep(1.0)
     client = svc.Client()
-    retrieved = [t["name"] for t in client.get_tags()]
+    retrieved = [t.name for _, t in client.get_tags()]
     assert all(t in retrieved for t in tags)
 
 

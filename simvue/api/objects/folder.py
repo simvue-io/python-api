@@ -144,8 +144,12 @@ class Folder(SimvueObject):
         """Update the retention period for this folder"""
         self._staging["ttl"] = time_seconds
 
-    def delete(self, *, recursive: bool, delete_runs: bool) -> dict[str, typing.Any]:
-        return super().delete(recursive=recursive, runs=delete_runs)
+    def delete(
+        self, *, recursive: bool, delete_runs: bool, runs_only: bool
+    ) -> dict[str, typing.Any]:
+        return super().delete(
+            recursive=recursive, runs=delete_runs, runs_only=runs_only
+        )
 
 
 @pydantic.validate_call

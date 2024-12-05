@@ -1,5 +1,6 @@
 import time
 import json
+import contextlib
 import pytest
 import uuid
 
@@ -78,4 +79,26 @@ def test_user_alert_modification_offline() -> None:
     _new_alert.commit()
     assert _new_alert.description == "updated!"
     _new_alert.delete()
+
+@pytest.mark.api
+def test_user_alert_properties() -> None:
+    _uuid: str = f"{uuid.uuid4()}".split("-")[0]
+    _alert = UserAlert.new(
+        name=f"users_alert_{_uuid}",
+        notification="none"
+    )
+    _alert.commit()
+
+    _failed = []
+
+    for member in _alert._properties:
+        try:
+            getattr(_alert, member)
+        except Exception as e:
+            _failed.append((member, f"{e}"))
+    with contextlib.suppress(Exception):
+        _alert.delete()
+
+    if _failed:
+        raise AssertionError("\n" + "\n\t- ".join(": ".join(i) for i in _failed))
 

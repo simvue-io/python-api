@@ -56,7 +56,7 @@ class Tag(SimvueObject):
     @classmethod
     def get(
         cls, *, count: int | None = None, offset: int | None = None, **kwargs
-    ) -> dict[str, "SimvueObject"]:
+    ) -> typing.Generator[tuple[str, "SimvueObject"], None, None]:
         # There are currently no tag filters
         kwargs.pop("filters", None)
 

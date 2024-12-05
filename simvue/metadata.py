@@ -11,10 +11,14 @@ import typing
 import re
 import json
 import toml
+import logging
 import importlib.metadata
 import pathlib
+import flatdict
 
 from simvue.utilities import simvue_timestamp
+
+logger = logging.getLogger(__file__)
 
 
 def git_info(repository: str) -> dict[str, typing.Any]:
@@ -148,6 +152,62 @@ def _rust_env(repository: pathlib.Path) -> dict[str, typing.Any]:
     }
 
 
+def _julia_env(repository: pathlib.Path) -> dict[str, typing.Any]:
+    """Retrieve a dictionary of Julia dependencies if a project file is available"""
+    julia_meta: dict[str, str] = {}
+    if (project_file := pathlib.Path(repository).joinpath("Project.toml")).exists():
+        content = toml.load(project_file)
+        julia_meta |= {
+            f"julia.project.{key}": value
+            for key, value in content.items()
+            if not isinstance(value, dict)
+        }
+        julia_meta |= {
+            f"julia.environment.{key}": value
+            for key, value in content.get("compat", {}).items()
+        }
+    return julia_meta
+
+
+def _node_js_env(repository: pathlib.Path) -> dict[str, typing.Any]:
+    js_meta: dict[str, str] = {}
+    if (
+        project_file := pathlib.Path(repository).joinpath("package-lock.json")
+    ).exists():
+        content = json.load(project_file.open())
+        if (lfv := content["lockfileVersion"]) not in (1, 2, 3):
+            logger.warning(
+                f"Unsupported package-lock.json lockfileVersion {lfv}, ignoring JS project metadata"
+            )
+            return {}
+
+        js_meta |= {
+            f"javascript.project.{key}": value
+            for key, value in content.items()
+            if key in ("name", "version")
+        }
+        js_meta |= {
+            f"javascript.environment.{key.replace('@', '')}": value["version"]
+            for key, value in content.get(
+                "packages" if lfv in (2, 3) else "dependencies", {}
+            ).items()
+            if key and not value.get("dev", True)
+        }
+    return js_meta
+
+
 def environment(repository: pathlib.Path = pathlib.Path.cwd()) -> dict[str, typing.Any]:
     """Retrieve environment metadata"""
-    return _python_env(repository) | _rust_env(repository)
+    _environment_meta = flatdict.FlatDict(
+        _python_env(repository), delimiter="."
+    ).as_dict()
+    _environment_meta |= flatdict.FlatDict(
+        _rust_env(repository), delimiter="."
+    ).as_dict()
+    _environment_meta |= flatdict.FlatDict(
+        _julia_env(repository), delimiter="."
+    ).as_dict()
+    _environment_meta |= flatdict.FlatDict(
+        _node_js_env(repository), delimiter="."
+    ).as_dict()
+    return _environment_meta

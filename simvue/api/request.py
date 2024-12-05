@@ -12,6 +12,7 @@ import json
 import typing
 import http
 
+from codecarbon.external.logger import logging
 import requests
 from tenacity import (
     retry,
@@ -88,6 +89,7 @@ def post(
     else:
         data_sent = data
 
+    logging.debug(f"POST: {url}\n\tdata={data_sent}")
     response = requests.post(
         url, headers=headers, data=data_sent, timeout=DEFAULT_API_TIMEOUT
     )
@@ -140,6 +142,8 @@ def put(
     else:
         data_sent = data
 
+    logging.debug(f"PUT: {url}\n\tdata={data_sent}")
+
     return requests.put(url, headers=headers, data=data_sent, timeout=timeout)
 
 
@@ -171,6 +175,7 @@ def get(
     requests.Response
         response from executing GET
     """
+    logging.debug(f"GET: {url}\n\tparams={params}")
     return requests.get(url, headers=headers, timeout=timeout, params=params)
 
 
@@ -204,6 +209,7 @@ def delete(
     requests.Response
         response from executing DELETE
     """
+    logging.debug(f"DELETE: {url}\n\tparams={params}")
     return requests.delete(url, headers=headers, timeout=timeout, params=params)
 
 
@@ -212,10 +218,11 @@ def get_json_from_response(
     scenario: str,
     response: requests.Response,
     allow_parse_failure: bool = False,
+    expected_type: typing.Literal[list, dict] = dict,
 ) -> typing.Union[dict, list]:
     try:
         json_response = response.json()
-        json_response = json_response or {}
+        json_response = json_response or ({} if expected_type is dict else [])
         decode_error = ""
     except json.JSONDecodeError as e:
         json_response = {} if allow_parse_failure else None
@@ -224,12 +231,15 @@ def get_json_from_response(
     error_str = f"{scenario} failed for url '{response.url}'"
 
     if (_status_code := response.status_code) in expected_status:
-        if json_response is not None:
+        if not isinstance(json_response, expected_type):
+            details = f"expected type '{expected_type.__name__}' but got '{type(json_response).__name__}'"
+        elif json_response is not None:
             return json_response
-        details = f"could not request JSON response: {decode_error}"
+        else:
+            details = f"could not request JSON response: {decode_error}"
     else:
         error_str += f" with status {_status_code}"
-        details = (json_response or {}).get("detail")
+        details = (json_response or ({} if expected_type is dict else [])).get("detail")
 
     try:
         txt_response = response.text

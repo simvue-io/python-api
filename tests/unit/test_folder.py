@@ -1,6 +1,7 @@
 import typing
 import pytest
 import uuid
+import contextlib
 import json
 import time
 
@@ -89,3 +90,23 @@ def test_folder_modification_offline() -> None:
     assert _folder_new.visibility.tenant
     _folder_new.delete()
 
+
+@pytest.mark.api
+def test_folder_get_properties() -> None:
+    _uuid: str = f"{uuid.uuid4()}".split("-")[0]
+    _path = f"/simvue_unit_testing/objects/folder/{_uuid}"
+    _folder = Folder.new(path=_path)
+    _folder.commit()
+
+    _failed = []
+
+    for member in _folder._properties:
+        try:
+            getattr(_folder, member)
+        except Exception as e:
+            _failed.append((member, f"{e}"))
+    with contextlib.suppress(Exception):
+        _folder.delete()
+
+    if _failed:
+        raise AssertionError("\n" + "\n\t- ".join(": ".join(i) for i in _failed))

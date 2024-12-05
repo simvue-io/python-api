@@ -20,6 +20,8 @@ import simvue.run as sv_run
 import simvue.client as sv_cl
 import simvue.sender as sv_send
 
+from simvue.api.objects import Run as RunObject
+
 if typing.TYPE_CHECKING:
     from .conftest import CountingLogHandler
 
@@ -28,6 +30,8 @@ if typing.TYPE_CHECKING:
 def test_created_run() -> None:
     with sv_run.Run() as run_created:
         run_created.init(running=False)
+        _run = RunObject(identifier=run_created.id)
+        assert _run.status == "created"
 
 
 @pytest.mark.run
@@ -39,6 +43,16 @@ def test_check_run_initialised_decorator() -> None:
             with pytest.raises(RuntimeError) as e:
                 getattr(run, method_name)()
             assert "Simvue Run must be initialised" in str(e.value)
+
+
+@pytest.mark.run
+def test_run_with_emissions() -> None:
+    with sv_run.Run() as run_created:
+        run_created.init()
+        run_created.config(enable_emission_metrics=True, emission_metrics_interval=1)
+        time.sleep(5)
+        _run = RunObject(identifier=run_created.id)
+        assert list(_run.metrics)
 
 
 @pytest.mark.run
@@ -111,6 +125,8 @@ def test_log_metrics(
     with contextlib.suppress(RuntimeError):
         client.delete_run(run._id)
 
+    assert _data
+
     assert sorted(set(METRICS.keys())) == sorted(set(_data.keys()))
     _steps = []
     for entry in _data.values():
@@ -130,6 +146,7 @@ def test_log_metrics(
 
 
 @pytest.mark.run
+@pytest.mark.offline
 def test_log_metrics_offline(create_plain_run_offline: tuple[sv_run.Run, dict]) -> None:
     METRICS = {"a": 10, "b": 1.2, "c": 2}
     run, _ = create_plain_run_offline
@@ -168,6 +185,7 @@ def test_log_events(create_test_run: tuple[sv_run.Run, dict]) -> None:
 
 
 @pytest.mark.run
+@pytest.mark.offline
 def test_log_events_offline(create_plain_run_offline: tuple[sv_run.Run, dict]) -> None:
     EVENT_MSG = "Hello offline world!"
     run, _ = create_plain_run_offline
@@ -181,6 +199,7 @@ def test_log_events_offline(create_plain_run_offline: tuple[sv_run.Run, dict]) -
 
 
 @pytest.mark.run
+@pytest.mark.offline
 def test_offline_tags(create_plain_run_offline: tuple[sv_run.Run, dict]) -> None:
     run, run_data = create_plain_run_offline
     run_id, *_ = sv_send.sender()
@@ -220,6 +239,7 @@ def test_update_metadata_created(create_pending_run: tuple[sv_run.Run, dict]) ->
 
 
 @pytest.mark.run
+@pytest.mark.offline
 def test_update_metadata_offline(
     create_plain_run_offline: tuple[sv_run.Run, dict],
 ) -> None:
@@ -438,8 +458,13 @@ def test_set_folder_details(request: pytest.FixtureRequest) -> None:
         run.set_folder_details(tags=tags, description=description)
 
     client = sv_cl.Client()
-    assert sorted((folder := client.get_folders(filters=[f"path == {folder_name}"])[0])["tags"]) == sorted(tags)
-    assert folder["description"] == description
+    _folder = client.get_folder(folder_path=folder_name)
+    print(_folder)
+
+    assert _folder.tags
+    assert sorted(_folder.tags) == sorted(tags)
+
+    assert _folder.description == description
 
 
 @pytest.mark.run
@@ -510,11 +535,12 @@ def test_save_file_online(
             out_loc = pathlib.Path(tempd)
             stored_name = pathlib.Path(base_name)
         out_file = out_loc.joinpath(name or out_name.name)
-        client.get_artifact_as_file(run_id=simvue_run.id, name=f"{name or stored_name}", path=tempd)
+        client.get_artifact_as_file(run_id=simvue_run.id, name=f"{name or stored_name}", output_dir=tempd)
         assert out_loc.joinpath(name if name else out_name.name).exists()
 
 
 @pytest.mark.run
+@pytest.mark.offline
 @pytest.mark.parametrize(
     "preserve_path", (True, False), ids=("preserve_path", "modified_path")
 )
@@ -576,13 +602,13 @@ def test_update_tags_running(
     time.sleep(1)
     client = sv_cl.Client()
     run_data = client.get_run(simvue_run._id)
-    assert run_data["tags"] == tags
+    assert run_data.tags == tags
 
     simvue_run.update_tags(["additional"])
 
     time.sleep(1)
     run_data = client.get_run(simvue_run._id)
-    assert sorted(run_data["tags"]) == sorted(tags + ["additional"])
+    assert sorted(run_data.tags) == sorted(tags + ["additional"])
 
 
 @pytest.mark.run
@@ -602,13 +628,13 @@ def test_update_tags_created(
     time.sleep(1)
     client = sv_cl.Client()
     run_data = client.get_run(simvue_run._id)
-    assert sorted(run_data["tags"]) == sorted(tags)
+    assert sorted(run_data.tags) == sorted(tags)
 
     simvue_run.update_tags(["additional"])
 
     time.sleep(1)
     run_data = client.get_run(simvue_run._id)
-    assert sorted(run_data["tags"]) == sorted(tags + ["additional"])
+    assert sorted(run_data.tags) == sorted(tags + ["additional"])
 
 
 @pytest.mark.run
@@ -715,6 +741,7 @@ def test_abort_on_alert_raise(create_plain_run: typing.Tuple[sv_run.Run, dict], 
     counter = 0
     while run._status != "terminated" and counter < 15:
         time.sleep(1)
+        assert run._sv_obj.abort_trigger, "Abort trigger was not set"
         counter += 1
     if counter >= 15:
         run.kill_all_processes()
