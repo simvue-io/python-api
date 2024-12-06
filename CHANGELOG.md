@@ -1,5 +1,7 @@
 # Change log
 
+## Unreleased
+* Fixed bug with `requirements.txt` metadata read.
 ## [v1.1.2](https://github.com/simvue-io/client/releases/tag/v1.1.2) - 2024-11-06
 
 * Fix bug in offline mode directory retrieval.
