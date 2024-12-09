@@ -84,11 +84,13 @@ def get_json(filename, run_id=None, artifact=False):
     return data
 
 
-def sender() -> str:
+def sender(
+    server_url: typing.Optional[str] = None, server_token: typing.Optional[str] = None
+) -> str:
     """
     Asynchronous upload of runs to Simvue server
     """
-    directory = SimvueConfiguration.fetch().offline.cache
+    directory = SimvueConfiguration.fetch(mode="offline").offline.cache
 
     # Clean up old runs after waiting 5 mins
     runs = glob.glob(f"{directory}/*/sent")
@@ -116,13 +118,17 @@ def sender() -> str:
         logger.info("Lauching %d workers", NUM_PARALLEL_WORKERS)
         with ThreadPoolExecutor(NUM_PARALLEL_WORKERS) as executor:
             for run in runs:
-                executor.submit(process(run))
+                executor.submit(
+                    process(run, server_token=server_token, server_url=server_url)
+                )
         return [executor.result() for _ in runs]
     else:
         return [process(run) for run in runs]
 
 
-def process(run) -> typing.Optional[str]:
+def process(
+    run, server_url: typing.Optional[str], server_token: typing.Optional[str]
+) -> typing.Optional[str]:
     """
     Handle updates for the specified run
     """
@@ -173,7 +179,9 @@ def process(run) -> typing.Optional[str]:
     # Create run if it hasn't previously been created
     created_file = f"{current}/init"
     name = None
-    config = SimvueConfiguration.fetch()
+    config = SimvueConfiguration.fetch(
+        mode="online", server_token=server_token, server_url=server_url
+    )
     if not os.path.isfile(created_file):
         remote = Remote(
             name=run_init["name"], uniq_id=id, config=config, suppress_errors=False
