@@ -14,9 +14,10 @@ import pathlib
 import configparser
 import contextlib
 import warnings
-
+import http
 import pydantic
 import toml
+import semver
 
 import simvue.utilities as sv_util
 from simvue.config.parameters import (
@@ -31,8 +32,15 @@ from simvue.config.files import (
     CONFIG_INI_FILE_NAMES,
     DEFAULT_OFFLINE_DIRECTORY,
 )
+from simvue.version import __version__
+from simvue.api import get
 
 logger = logging.getLogger(__name__)
+
+SIMVUE_SERVER_UPPER_CONSTRAINT: typing.Optional[semver.Version] = semver.Version.parse(
+    "2.0.0"
+)
+SIMVUE_SERVER_LOWER_CONSTRAINT: typing.Optional[semver.Version] = None
 
 
 class SimvueConfiguration(pydantic.BaseModel):
@@ -71,11 +79,64 @@ class SimvueConfiguration(pydantic.BaseModel):
         return config_dict
 
     @classmethod
+    @functools.lru_cache
+    def _check_server(
+        cls, token: str, url: str, mode: typing.Literal["offline", "online", "disabled"]
+    ) -> None:
+        if mode in ("offline", "disabled"):
+            return
+
+        headers: dict[str, str] = {
+            "Authorization": f"Bearer {token}",
+            "User-Agent": f"Simvue Python client {__version__}",
+        }
+        try:
+            response = get(f"{url}/api/version", headers)
+
+            if response.status_code != http.HTTPStatus.OK or not (
+                _version_str := response.json().get("version")
+            ):
+                raise AssertionError
+
+            if response.status_code == http.HTTPStatus.UNAUTHORIZED:
+                raise AssertionError("Unauthorised token")
+
+        except Exception as err:
+            raise AssertionError(f"Exception retrieving server version: {str(err)}")
+
+        _version = semver.Version.parse(_version_str)
+
+        if (
+            SIMVUE_SERVER_UPPER_CONSTRAINT
+            and _version >= SIMVUE_SERVER_UPPER_CONSTRAINT
+        ):
+            raise AssertionError(
+                f"Python API v{_version_str} is not compatible with Simvue server versions "
+                f">= {SIMVUE_SERVER_UPPER_CONSTRAINT}"
+            )
+        if SIMVUE_SERVER_LOWER_CONSTRAINT and _version < SIMVUE_SERVER_LOWER_CONSTRAINT:
+            raise AssertionError(
+                f"Python API v{_version_str} is not compatible with Simvue server versions "
+                f"< {SIMVUE_SERVER_LOWER_CONSTRAINT}"
+            )
+
+    @pydantic.model_validator(mode="after")
+    @classmethod
+    def check_valid_server(cls, values: "SimvueConfiguration") -> bool:
+        if os.environ.get("SIMVUE_NO_SERVER_CHECK"):
+            return values
+
+        cls._check_server(values.server.token, values.server.url, values.server.mode)
+
+        return values
+
+    @classmethod
     @sv_util.prettify_pydantic
     def fetch(
         cls,
         server_url: typing.Optional[str] = None,
         server_token: typing.Optional[str] = None,
+        mode: typing.Literal["offline", "online", "disabled"] = "online",
     ) -> "SimvueConfiguration":
         """Retrieve the Simvue configuration from this project
 
@@ -88,6 +149,8 @@ class SimvueConfiguration(pydantic.BaseModel):
             override the URL used for this session
         server_token : str, optional
             override the token used for this session
+        mode : 'online' | 'offline' | 'disabled'
+            set the run mode for this session
 
         Return
         ------
@@ -115,6 +178,8 @@ class SimvueConfiguration(pydantic.BaseModel):
 
         _config_dict["offline"] = _config_dict.get("offline", {})
 
+        _config_dict["run"] = _config_dict.get("run", {})
+
         # Allow override of specification of offline directory via environment variable
         if not (_default_dir := os.environ.get("SIMVUE_OFFLINE_DIRECTORY")):
             _default_dir = _config_dict["offline"].get(
@@ -134,6 +199,8 @@ class SimvueConfiguration(pydantic.BaseModel):
             "SIMVUE_TOKEN", server_token or _config_dict["server"].get("token")
         )
 
+        _run_mode = mode or _config_dict["run"].get("mode")
+
         if not _server_url:
             raise RuntimeError("No server URL was specified")
 
@@ -142,6 +209,7 @@ class SimvueConfiguration(pydantic.BaseModel):
 
         _config_dict["server"]["token"] = _server_token
         _config_dict["server"]["url"] = _server_url
+        _config_dict["run"]["mode"] = _run_mode
 
         return SimvueConfiguration(**_config_dict)
 

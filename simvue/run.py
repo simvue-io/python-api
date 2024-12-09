@@ -159,7 +159,9 @@ class Run:
         self._data: dict[str, typing.Any] = {}
         self._step: int = 0
         self._active: bool = False
-        self._user_config = SimvueConfiguration.fetch()
+        self._user_config = SimvueConfiguration.fetch(
+            server_url=server_url, server_token=server_token, mode=mode
+        )
 
         logging.getLogger(self.__class__.__module__).setLevel(
             logging.DEBUG
