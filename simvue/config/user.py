@@ -126,7 +126,7 @@ class SimvueConfiguration(pydantic.BaseModel):
         if os.environ.get("SIMVUE_NO_SERVER_CHECK"):
             return values
 
-        cls._check_server(values.server.token, values.server.url, values.server.mode)
+        cls._check_server(values.server.token, values.server.url, values.run.mode)
 
         return values
 
