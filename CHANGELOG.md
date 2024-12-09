@@ -5,6 +5,7 @@
 * Fixed bug with `requirements.txt` metadata read.
 * Added Simvue server version check.
 * Remove checking of server version in offline mode and add default run mode to configuration options.
+* Fix offline mode class initialisation, and propagation of configuration.
 
 ## [v1.1.2](https://github.com/simvue-io/client/releases/tag/v1.1.2) - 2024-11-06
 
