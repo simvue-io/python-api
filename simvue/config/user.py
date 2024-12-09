@@ -38,7 +38,7 @@ from simvue.api import get
 logger = logging.getLogger(__name__)
 
 SIMVUE_SERVER_UPPER_CONSTRAINT: typing.Optional[semver.Version] = semver.Version.parse(
-    "2.0.0"
+    "1.0.0"
 )
 SIMVUE_SERVER_LOWER_CONSTRAINT: typing.Optional[semver.Version] = None
 
