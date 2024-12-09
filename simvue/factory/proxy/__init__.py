@@ -23,7 +23,9 @@ def Simvue(
     suppress_errors: bool = True,
 ) -> "SimvueBaseClass":
     if mode == "offline":
-        return Offline(name=name, uniq_id=uniq_id, suppress_errors=suppress_errors)
+        return Offline(
+            name=name, uniq_id=uniq_id, suppress_errors=suppress_errors, config=config
+        )
     else:
         return Remote(
             name=name, uniq_id=uniq_id, config=config, suppress_errors=suppress_errors

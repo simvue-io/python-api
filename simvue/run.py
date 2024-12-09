@@ -78,7 +78,7 @@ def check_run_initialised(
 ) -> typing.Callable[..., typing.Any]:
     @functools.wraps(function)
     def _wrapper(self: Self, *args: typing.Any, **kwargs: typing.Any) -> typing.Any:
-        if self._mode == "disabled":
+        if self._user_config.run.mode == "disabled":
             return True
 
         if self._retention and time.time() - self._timer > self._retention:
@@ -133,7 +133,6 @@ class Run:
             run in debug mode, default is False
         """
         self._uuid: str = f"{uuid.uuid4()}"
-        self._mode: typing.Literal["online", "offline", "disabled"] = mode
         self._name: typing.Optional[str] = None
 
         # monitor duration with respect to retention period
@@ -164,7 +163,9 @@ class Run:
         self._data: dict[str, typing.Any] = {}
         self._step: int = 0
         self._active: bool = False
-        self._user_config = SimvueConfiguration.fetch(server_url, server_token)
+        self._user_config = SimvueConfiguration.fetch(
+            server_url=server_url, server_token=server_token, mode=mode
+        )
 
         logging.getLogger(self.__class__.__module__).setLevel(
             logging.DEBUG
@@ -205,7 +206,9 @@ class Run:
         )
         _is_running: bool = self._status == "running"
         _is_running_online: bool = self._id is not None and _is_running
-        _is_running_offline: bool = self._mode == "offline" and _is_running
+        _is_running_offline: bool = (
+            self._user_config.run.mode == "offline" and _is_running
+        )
         _is_terminated: bool = (
             _exception_thrown is not None and _exception_thrown == "KeyboardInterrupt"
         )
@@ -253,7 +256,7 @@ class Run:
     ) -> None:
         logger.debug(
             "Automatically closing run '%s' in status %s",
-            self._id if self._mode == "online" else "unregistered",
+            self._id if self._user_config.run.mode == "online" else "unregistered",
             self._status,
         )
 
@@ -318,7 +321,7 @@ class Run:
         self,
     ) -> typing.Callable[[threading.Event], None]:
         if (
-            self._mode == "online"
+            self._user_config.run.mode == "online"
             and (not self._user_config.server.url or not self._id)
         ) or not self._heartbeat_termination_trigger:
             raise RuntimeError("Could not commence heartbeat, run not initialised")
@@ -398,7 +401,7 @@ class Run:
         executed on metrics and events objects held in a buffer.
         """
 
-        if self._mode == "online" and not self._id:
+        if self._user_config.run.mode == "online" and not self._id:
             raise RuntimeError("Expected identifier for run")
 
         if not self._user_config.server.url or not self._sv_obj:
@@ -426,10 +429,10 @@ class Run:
         bool
             if successful
         """
-        if self._mode == "disabled":
+        if self._user_config.run.mode == "disabled":
             return True
 
-        if self._mode != "offline":
+        if self._user_config.run.mode != "offline":
             self._uuid = "notused"
 
         logger.debug("Starting run")
@@ -578,7 +581,7 @@ class Run:
         bool
             whether the initialisation was successful
         """
-        if self._mode == "disabled":
+        if self._user_config.run.mode == "disabled":
             logger.warning(
                 "Simvue monitoring has been deactivated for this run, metrics and artifacts will not be recorded."
             )
@@ -603,7 +606,7 @@ class Run:
                 "invalid visibility option, must be either None, 'public', 'tenant' or a list of users"
             )
 
-        if self._mode not in ("online", "offline"):
+        if self._user_config.run.mode not in ("online", "offline"):
             self._error("invalid mode specified, must be online, offline or disabled")
             return False
 
@@ -671,7 +674,7 @@ class Run:
         if self._status == "running":
             self._start()
 
-        if self._mode == "online":
+        if self._user_config.run.mode == "online":
             click.secho(
                 f"[simvue] Run {self._name} created",
                 bold=self._term_color,
@@ -1138,7 +1141,7 @@ class Run:
         timestamp: typing.Optional[str] = None,
         join_on_fail: bool = True,
     ) -> bool:
-        if self._mode == "disabled":
+        if self._user_config.run.mode == "disabled":
             return True
 
         # If there are no metrics to log just ignore
