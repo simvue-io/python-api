@@ -1433,7 +1433,7 @@ class Run:
         bool
             if status update was successful
         """
-        if not self._active or not self._name:
+        if not self._active:
             self._error("Run is not active")
             return False
 
