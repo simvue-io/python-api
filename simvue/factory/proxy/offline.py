@@ -28,11 +28,15 @@ class Offline(SimvueBaseClass):
     """
 
     def __init__(
-        self, name: typing.Optional[str], uniq_id: str, suppress_errors: bool = True
+        self,
+        name: typing.Optional[str],
+        uniq_id: str,
+        config: SimvueConfiguration,
+        suppress_errors: bool = True,
     ) -> None:
-        super().__init__(name, uniq_id, suppress_errors)
+        super().__init__(name=name, uniq_id=uniq_id, suppress_errors=suppress_errors)
 
-        _offline_dir = SimvueConfiguration.fetch().offline.cache
+        _offline_dir = config.offline.cache
         self._directory: str = os.path.join(_offline_dir, self._uuid)
 
         os.makedirs(self._directory, exist_ok=True)
