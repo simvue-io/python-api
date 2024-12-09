@@ -1,6 +1,6 @@
 # Change log
 
-## Unreleased
+## [v1.1.3](https://github.com/simvue-io/client/releases/tag/v1.1.3) - 2024-12-09
 
 * Fixed bug with `requirements.txt` metadata read.
 * Added Simvue server version check.
