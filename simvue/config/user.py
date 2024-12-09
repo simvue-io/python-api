@@ -136,7 +136,7 @@ class SimvueConfiguration(pydantic.BaseModel):
         cls,
         server_url: typing.Optional[str] = None,
         server_token: typing.Optional[str] = None,
-        mode: typing.Literal["offline", "online", "disabled"] = "online",
+        mode: typing.Optional[typing.Literal["offline", "online", "disabled"]] = None,
     ) -> "SimvueConfiguration":
         """Retrieve the Simvue configuration from this project
 
