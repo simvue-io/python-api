@@ -325,14 +325,12 @@ class Run(SimvueObject):
 
         _response = sv_get(url=self._artifact_url, headers=self._headers)
 
-        _json_response = get_json_from_response(
+        return get_json_from_response(
             response=_response,
             expected_status=[http.HTTPStatus.OK],
             scenario=f"Retrieving artifacts for run '{self.id}'",
             expected_type=list,
         )
-
-        return _json_response
 
     @pydantic.validate_call
     def abort(self, reason: str) -> dict[str, typing.Any]:
@@ -343,10 +341,8 @@ class Run(SimvueObject):
             f"{self._abort_url}", headers=self._headers, data={"reason": reason}
         )
 
-        _json_response = get_json_from_response(
+        return get_json_from_response(
             expected_status=[http.HTTPStatus.OK, http.HTTPStatus.NOT_FOUND],
             scenario=f"Abort of run '{self.id}'",
             response=_response,
         )
-
-        return _json_response

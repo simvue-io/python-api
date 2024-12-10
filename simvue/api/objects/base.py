@@ -137,6 +137,7 @@ class SimvueObject(abc.ABC):
         _config_args = {
             "server_url": kwargs.pop("server_url", None),
             "server_token": kwargs.pop("server_token", None),
+            "mode": kwargs.pop("mode", "online"),
         }
 
         self._user_config = SimvueConfiguration.fetch(**_config_args)
@@ -173,6 +174,9 @@ class SimvueObject(abc.ABC):
         """Stage a change to another object type"""
         with self._local_staging_file.open() as in_f:
             _staged_data = json.load(in_f)
+
+        if obj_label not in _staged_data:
+            _staged_data[obj_label] = {}
 
         if key not in _staged_data[obj_label]:
             _staged_data[obj_label][key] = value
@@ -396,15 +400,11 @@ class SimvueObject(abc.ABC):
                 f"Forbidden: You do not have permission to create object of type '{self._label}'"
             )
 
-        _json_response = get_json_from_response(
+        return get_json_from_response(
             response=_response,
             expected_status=[http.HTTPStatus.OK],
             scenario=f"Creation of {self._label} '{self._identifier}",
         )
-
-        self._logger.debug("'%s' modified successfully", self._identifier)
-
-        return _json_response
 
     def delete(
         self, _linked_objects: list[str] | None = None, **kwargs

@@ -148,7 +148,6 @@ class Run:
 
         self._executor = Executor(self)
         self._dispatcher: typing.Optional[DispatcherBaseClass] = None
-        self._emissions_tracker: typing.Optional[SimvueEmissionsTracker] = None
 
         self._id: typing.Optional[str] = None
         self._folder: Folder | None = None
@@ -175,7 +174,11 @@ class Run:
         )
 
         self._aborted: bool = False
-        self._resources_metrics_interval: typing.Optional[int] = HEARTBEAT_INTERVAL
+        self._resources_metrics_interval: typing.Optional[int] = (
+            HEARTBEAT_INTERVAL
+            if self._user_config.metrics.resources_metrics_interval < 1
+            else self._user_config.metrics.resources_metrics_interval
+        )
         self._headers: dict[str, str] = {
             "Authorization": f"Bearer {self._user_config.server.token}"
         }
@@ -188,7 +191,19 @@ class Run:
         self._heartbeat_thread: typing.Optional[threading.Thread] = None
 
         self._heartbeat_interval: int = HEARTBEAT_INTERVAL
-        self._emission_metrics_interval: int = HEARTBEAT_INTERVAL
+        self._emission_metrics_interval: int | None = (
+            HEARTBEAT_INTERVAL
+            if (
+                (_interval := self._user_config.metrics.emission_metrics_interval)
+                and _interval < 1
+            )
+            else self._user_config.metrics.emission_metrics_interval
+        )
+        self._emissions_tracker: typing.Optional[SimvueEmissionsTracker] = (
+            SimvueEmissionsTracker("simvue", self, self._emission_metrics_interval)
+            if self._user_config.metrics.enable_emission_metrics
+            else None
+        )
 
     def __enter__(self) -> Self:
         return self
@@ -598,7 +613,9 @@ class Run:
         try:
             self._folder = get_folder_from_path(path=folder)
         except ObjectNotFoundError:
-            self._folder = Folder.new(path=folder, offline=self._mode == "offline")
+            self._folder = Folder.new(
+                path=folder, offline=self._user_config.run.mode == "offline"
+            )
             self._folder.commit()  # type: ignore
 
         if isinstance(visibility, str) and visibility not in ("public", "tenant"):
@@ -638,7 +655,9 @@ class Run:
 
         self._timer = time.time()
 
-        self._sv_obj = RunObject.new(folder=folder, offline=self._mode == "offline")
+        self._sv_obj = RunObject.new(
+            folder=folder, offline=self._user_config.run.mode == "offline"
+        )
 
         if description:
             self._sv_obj.description = description
@@ -686,7 +705,7 @@ class Run:
                 fg="green" if self._term_color else None,
             )
 
-        if self._emissions_tracker:
+        if self._emissions_tracker and self._status == "running":
             self._emissions_tracker.post_init()
             self._emissions_tracker.start()
 
@@ -774,11 +793,8 @@ class Run:
                 "due to function pickling restrictions for multiprocessing"
             )
 
-        if isinstance(executable, pathlib.Path):
-            if not executable.is_file():
-                raise FileNotFoundError(
-                    f"Executable '{executable}' is not a valid file"
-                )
+        if isinstance(executable, pathlib.Path) and not executable.is_file():
+            raise FileNotFoundError(f"Executable '{executable}' is not a valid file")
 
         cmd_list: typing.List[str] = []
         pos_args = list(cmd_args)
@@ -799,13 +815,13 @@ class Run:
                 if isinstance(val, bool) and val:
                     cmd_list += [f"-{kwarg}"]
                 else:
-                    cmd_list += [f"-{kwarg}{(' '+ _quoted_val) if val else ''}"]
+                    cmd_list += [f"-{kwarg}{(f' {_quoted_val}') if val else ''}"]
             else:
                 kwarg = kwarg.replace("_", "-")
                 if isinstance(val, bool) and val:
                     cmd_list += [f"--{kwarg}"]
                 else:
-                    cmd_list += [f"--{kwarg}{(' '+_quoted_val) if val else ''}"]
+                    cmd_list += [f"--{kwarg}{(f' {_quoted_val}') if val else ''}"]
 
         cmd_list += pos_args
         cmd_str = " ".join(cmd_list)
@@ -984,6 +1000,8 @@ class Run:
                 # hence the tracker should start too
                 if self._sv_obj:
                     self._emissions_tracker.start()
+            elif enable_emission_metrics is False and self._emissions_tracker:
+                self._error("Cannot disable emissions tracker once it has been started")
 
             if resources_metrics_interval:
                 self._resources_metrics_interval = resources_metrics_interval
@@ -1316,7 +1334,7 @@ class Run:
                 run=self.id,
                 storage=self._storage_id,
                 file_path=file_path,
-                offline=self._mode == "offline",
+                offline=self._user_config.run.mode == "offline",
                 file_type=filetype,
                 category=category,
             )
@@ -1359,11 +1377,8 @@ class Run:
             return False
 
         if filetype:
-            mimetypes_valid = []
             mimetypes.init()
-            for _, value in mimetypes.types_map.items():
-                mimetypes_valid.append(value)
-
+            mimetypes_valid = [value for _, value in mimetypes.types_map.items()]
             if filetype not in mimetypes_valid:
                 self._error("Invalid MIME type specified")
                 return False
@@ -1735,7 +1750,7 @@ class Run:
                 notification=notification,
                 threshold=threshold,
                 frequency=frequency or 60,
-                offline=self._mode == "offline",
+                offline=self._user_config.run.mode == "offline",
             )
         elif source == "metrics":
             if (
@@ -1758,7 +1773,7 @@ class Run:
                 range_low=range_low,
                 range_high=range_high,
                 frequency=frequency or 60,
-                offline=self._mode == "offline",
+                offline=self._user_config.run.mode == "offline",
             )
         elif source == "events":
             if not pattern:
@@ -1770,11 +1785,13 @@ class Run:
                 pattern=pattern,
                 notification=notification,
                 frequency=frequency or 60,
-                offline=self._mode == "offline",
+                offline=self._user_config.run.mode == "offline",
             )
         else:
             _alert = UserAlert.new(
-                name=name, notification=notification, offline=self._mode == "offline"
+                name=name,
+                notification=notification,
+                offline=self._user_config.run.mode == "offline",
             )
 
         _alert.abort = trigger_abort
@@ -1789,12 +1806,8 @@ class Run:
                 break
 
         if not _alert_id:
+            _alert.commit()
             _alert_id = _alert.id
-        else:
-            _alert = Alert(identifier=_alert_id)
-            _alert.read_only(False)
-
-        _alert.commit()
 
         self._sv_obj.alerts = list(self._sv_obj.alerts) + [_alert_id]
 

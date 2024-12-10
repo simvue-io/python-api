@@ -8,6 +8,8 @@ Class for connecting with a local/remote user defined alert.
 
 import pydantic
 import typing
+
+from simvue.api.objects.base import staging_check
 from .base import AlertBase
 from simvue.models import NAME_REGEX
 
@@ -56,3 +58,14 @@ class UserAlert(AlertBase):
         cls, count: int | None = None, offset: int | None = None
     ) -> dict[str, typing.Any]:
         raise NotImplementedError("Retrieve of only user alerts is not yet supported")
+
+    @property
+    @staging_check
+    def state(self) -> typing.Literal["ok", "critical", "no_data"]:
+        return self._get_attribute("state")
+
+    @state.setter
+    @pydantic.validate_call
+    def state(self, state: typing.Literal["ok", "critical"]) -> None:
+        """Set alert name"""
+        self._staging["state"] = state

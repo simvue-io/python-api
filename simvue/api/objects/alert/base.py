@@ -115,3 +115,15 @@ class AlertBase(SimvueObject):
     def abort(self, abort: bool) -> None:
         """Configure alert to trigger aborts"""
         self._staging["abort"] = abort
+
+    @property
+    @staging_check
+    def state(self) -> typing.Literal["ok", "critical", "no_data"]:
+        return self._get_attribute("state")
+
+    @state.setter
+    @pydantic.validate_call
+    def state(self, state: typing.Literal["ok", "critical"]) -> None:
+        raise AttributeError(
+            f"Cannot update state for alert of type '{self.__class__.__name__}'"
+        )

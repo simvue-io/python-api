@@ -1,5 +1,6 @@
 import os
 from os.path import basename
+from numpy import identity
 import pytest
 import pytest_mock
 import time
@@ -15,6 +16,7 @@ import concurrent.futures
 import random
 
 import simvue
+from simvue.api.objects.alert.fetch import Alert
 from simvue.exception import SimvueRunError
 import simvue.run as sv_run
 import simvue.client as sv_cl
@@ -109,10 +111,10 @@ def test_log_metrics(
 
     if overload_buffer:
         for i in range(run._dispatcher._max_buffer_size * 3):
-            run.log_metrics({key: i for key in METRICS.keys()})
+            run.log_metrics({key: i for key in METRICS})
     else:
         run.log_metrics(METRICS)
-    time.sleep(1.0 if not overload_buffer else 2.0)
+    time.sleep(2.0 if overload_buffer else 1.0)
     run.close()
     client = sv_cl.Client()
     _data = client.get_metric_values(
@@ -130,16 +132,14 @@ def test_log_metrics(
     assert sorted(set(METRICS.keys())) == sorted(set(_data.keys()))
     _steps = []
     for entry in _data.values():
-        _steps += list(i[0] for i in entry.keys())
+        _steps += [i[0] for i in entry.keys()]
     _steps = set(_steps)
     assert (
-        len(_steps) == 1
-        if not overload_buffer
-        else run._dispatcher._max_buffer_size * 3
+        run._dispatcher._max_buffer_size * 3 if overload_buffer else len(_steps) == 1
     )
 
     # Check metrics have been set
-    assert setup_logging.counts[0] == 1 if not overload_buffer else 3
+    assert 3 if overload_buffer else setup_logging.counts[0] == 1
 
     # Check heartbeat has been called at least once (so sysinfo sent)
     assert setup_logging.counts[1] > 0
@@ -164,7 +164,7 @@ def test_log_metrics_offline(create_plain_run_offline: tuple[sv_run.Run, dict]) 
     assert sorted(set(METRICS.keys())) == sorted(set(_data.keys()))
     _steps = []
     for entry in _data.values():
-        _steps += list(i[0] for i in entry.keys())
+        _steps += [i[0] for i in entry.keys()]
     _steps = set(_steps)
     assert (
         len(_steps) == 1
@@ -172,7 +172,7 @@ def test_log_metrics_offline(create_plain_run_offline: tuple[sv_run.Run, dict]) 
 
 
 @pytest.mark.run
-def test_log_events(create_test_run: tuple[sv_run.Run, dict]) -> None:
+def test_log_events_online(create_test_run: tuple[sv_run.Run, dict]) -> None:
     EVENT_MSG = "Hello world!"
     run, _ = create_test_run
     run.log_event(EVENT_MSG)
@@ -181,7 +181,6 @@ def test_log_events(create_test_run: tuple[sv_run.Run, dict]) -> None:
     client = sv_cl.Client()
     event_data = client.get_events(run.id, count_limit=1)
     assert event_data[0].get("message", EVENT_MSG)
-
 
 
 @pytest.mark.run
@@ -495,7 +494,7 @@ def test_save_file_online(
             (out_name := pathlib.Path(tempd).joinpath("test_file.txt")),
             "w",
         ) as out_f:
-            out_f.write("test data entry" if not empty_file else "")
+            out_f.write("" if empty_file else "test data entry")
 
         if valid_mimetype:
             simvue_run.save_file(
@@ -536,7 +535,7 @@ def test_save_file_online(
             stored_name = pathlib.Path(base_name)
         out_file = out_loc.joinpath(name or out_name.name)
         client.get_artifact_as_file(run_id=simvue_run.id, name=f"{name or stored_name}", output_dir=tempd)
-        assert out_loc.joinpath(name if name else out_name.name).exists()
+        assert out_loc.joinpath(name or out_name.name).exists()
 
 
 @pytest.mark.run
@@ -582,7 +581,7 @@ def test_save_file_offline(
             stored_name = pathlib.Path(base_name)
         out_file = out_loc.joinpath(name or out_name.name)
         client.get_artifact_as_file(run_id=run_id, name=f"{name or stored_name}", path=tempd)
-        assert out_loc.joinpath(name if name else out_name.name).exists()
+        assert out_loc.joinpath(name or out_name.name).exists()
 
 
 @pytest.mark.run
@@ -602,7 +601,7 @@ def test_update_tags_running(
     time.sleep(1)
     client = sv_cl.Client()
     run_data = client.get_run(simvue_run._id)
-    assert run_data.tags == tags
+    assert sorted(run_data.tags) == sorted(tags)
 
     simvue_run.update_tags(["additional"])
 
@@ -694,11 +693,11 @@ def test_abort_on_alert_process(mocker: pytest_mock.MockerFixture) -> None:
     assert run._resources_metrics_interval == 1
     for child in child_processes:
         assert not child.is_running()
-    if not run._status == "terminated":
+    if run._status != "terminated":
         run.kill_all_processes()
         raise AssertionError("Run was not terminated")
     assert trigger.is_set()
-    
+
 
 @pytest.mark.run
 def test_abort_on_alert_python(create_plain_run: typing.Tuple[sv_run.Run, dict], mocker: pytest_mock.MockerFixture) -> None:
@@ -738,6 +737,8 @@ def test_abort_on_alert_raise(create_plain_run: typing.Tuple[sv_run.Run, dict], 
     run.add_process(identifier="forever_long", executable="bash", c="sleep 10")
     time.sleep(2)
     run.log_alert(alert_id, "critical")
+    _alert = Alert(identifier=alert_id)
+    assert _alert.state == "critical"
     counter = 0
     while run._status != "terminated" and counter < 15:
         time.sleep(1)

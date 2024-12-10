@@ -46,6 +46,12 @@ class OfflineSpecifications(pydantic.BaseModel):
     cache: typing.Optional[pathlib.Path] = None
 
 
+class MetricsSpecifications(pydantic.BaseModel):
+    resources_metrics_interval: pydantic.PositiveInt | None = -1
+    emission_metrics_interval: pydantic.PositiveInt | None = None
+    enable_emission_metrics: bool = False
+
+
 class DefaultRunSpecifications(pydantic.BaseModel):
     name: typing.Optional[str] = None
     description: typing.Optional[str] = None

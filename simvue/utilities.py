@@ -167,7 +167,7 @@ def parse_pydantic_error(error: pydantic.ValidationError) -> str:
         )
         _type: str = data["type"]
 
-        if (_input_type := type(_input)) != _type:
+        if (_input_type := type(_input)) != _type and "error" not in _type:
             _type = f"{_input_type.__name__} != {_type}"
 
         out_table.append(

@@ -20,6 +20,7 @@ import simvue.utilities as sv_util
 from simvue.config.parameters import (
     ClientGeneralOptions,
     DefaultRunSpecifications,
+    MetricsSpecifications,
     ServerSpecifications,
     OfflineSpecifications,
 )
@@ -30,14 +31,17 @@ from simvue.config.files import (
     DEFAULT_OFFLINE_DIRECTORY,
 )
 from simvue.version import __version__
-from simvue.api import get
+from simvue.api.request import get as sv_get
+from simvue.api.url import URL
 
 logger = logging.getLogger(__name__)
 
 SIMVUE_SERVER_UPPER_CONSTRAINT: typing.Optional[semver.Version] = semver.Version.parse(
+    "2.0.0"
+)
+SIMVUE_SERVER_LOWER_CONSTRAINT: typing.Optional[semver.Version] = semver.Version.parse(
     "1.0.0"
 )
-SIMVUE_SERVER_LOWER_CONSTRAINT: typing.Optional[semver.Version] = None
 
 
 class SimvueConfiguration(pydantic.BaseModel):
@@ -49,6 +53,7 @@ class SimvueConfiguration(pydantic.BaseModel):
     )
     run: DefaultRunSpecifications = DefaultRunSpecifications()
     offline: OfflineSpecifications = OfflineSpecifications()
+    metrics: MetricsSpecifications = MetricsSpecifications()
 
     @classmethod
     def _load_pyproject_configs(cls) -> typing.Optional[dict]:
@@ -95,18 +100,21 @@ class SimvueConfiguration(pydantic.BaseModel):
             "User-Agent": f"Simvue Python client {__version__}",
         }
         try:
-            response = get(f"{url}/api/version", headers)
+            _url = URL(url) / "version"
+            _response = sv_get(f"{_url}", headers)
 
-            if response.status_code != http.HTTPStatus.OK or not (
-                _version_str := response.json().get("version")
+            if _response.status_code != http.HTTPStatus.OK or not (
+                _version_str := _response.json().get("version")
             ):
                 raise AssertionError
 
-            if response.status_code == http.HTTPStatus.UNAUTHORIZED:
+            if _response.status_code == http.HTTPStatus.UNAUTHORIZED:
                 raise AssertionError("Unauthorised token")
 
         except Exception as err:
-            raise AssertionError(f"Exception retrieving server version: {str(err)}")
+            raise AssertionError(
+                f"Exception retrieving server version: {str(err)}"
+            ) from err
 
         _version = semver.Version.parse(_version_str)
 
@@ -200,7 +208,7 @@ class SimvueConfiguration(pydantic.BaseModel):
             "SIMVUE_TOKEN", server_token or _config_dict["server"].get("token")
         )
 
-        _run_mode = mode or _config_dict["run"].get("mode")
+        _run_mode = mode or _config_dict["run"].get("mode") or "online"
 
         if not _server_url:
             raise RuntimeError("No server URL was specified")
