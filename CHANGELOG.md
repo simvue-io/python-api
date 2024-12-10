@@ -1,5 +1,9 @@
 # Change log
 
+## Unreleased
+
+* Remove incorrect identifier reference for latest Simvue servers during reconnection.
+
 ## [v1.1.3](https://github.com/simvue-io/client/releases/tag/v1.1.3) - 2024-12-09
 
 * Fixed bug with `requirements.txt` metadata read.
