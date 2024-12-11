@@ -1,6 +1,6 @@
 # Change log
 
-## Unreleased
+## [v1.1.4](https://github.com/simvue-io/client/releases/tag/v1.1.4) - 2024-12-11
 
 * Remove incorrect identifier reference for latest Simvue servers during reconnection.
 * Fixed missing online mode selection when retrieving configuration for `Client` class.
