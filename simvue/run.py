@@ -39,7 +39,7 @@ from .factory.dispatch import Dispatcher
 from .executor import Executor
 from .factory.proxy import Simvue
 from .metrics import get_gpu_metrics, get_process_cpu, get_process_memory
-from .models import RunInput, FOLDER_REGEX, NAME_REGEX, MetricKeyString
+from .models import RunInput, AlertValidator, FOLDER_REGEX, NAME_REGEX, MetricKeyString
 from .serialization import serialize_object
 from .system import get_system
 from .metadata import git_info, environment
@@ -1851,6 +1851,12 @@ class Run:
             "description": description,
             "abort": trigger_abort,
         }
+        
+        try:
+            AlertValidator(**alert_definition, notification=notification, source=source, description=description, abort=trigger_abort)
+        except ValidationError as err:
+            self._error(f"{err}")
+            return None
 
         # Check if the alert already exists
         alert_id: typing.Optional[str] = None
