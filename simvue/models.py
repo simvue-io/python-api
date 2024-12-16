@@ -60,8 +60,9 @@ def check_input(
     return value_to_check
 
 class AlertValidator(BaseModel, extra='forbid'):
-    source: Literal["metrics", "events"]
-    frequency: PositiveInt
+    name: Optional[str] = Field(None, pattern=NAME_REGEX)
+    source: Literal["metrics", "events", "user"]
+    frequency: Optional[PositiveInt] = Field(default=None, validate_default=True)
     notification: Optional[Literal["none", "email"]] = Field(default="none")
     description: Optional[str] = Field(default=None)
     # For event based alerts:
@@ -75,8 +76,13 @@ class AlertValidator(BaseModel, extra='forbid'):
     # For 'is outside range' or 'is inside range'
     range_low: Optional[Union[int, float]] = Field(default=None, validate_default=True)
     range_high: Optional[Union[int, float]] = Field(default=None, validate_default=True)
-    aggregation: Optional[Literal["average", "sum", "at least one", "all"]] = Field(default="average", validate_default=True)
+    aggregation: Optional[Literal["average", "sum", "at least one", "all"]] = Field(default="average")
     trigger_abort: Optional[bool] = Field(default=None, validate_default=True)
+    
+    @field_validator("frequency")
+    def check_frequency(cls, v, validation_info):
+        """Checks that frequency is specified if the alert source is metrics or events."""
+        return check_input(v, validation_info, "frequency", "source", ["metrics", "events"])
         
     @field_validator("pattern")
     def check_pattern(cls, v, validation_info):

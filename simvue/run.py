@@ -1853,7 +1853,12 @@ class Run:
         }
         
         try:
-            AlertValidator(**alert_definition, notification=notification, source=source, description=description, abort=trigger_abort)
+            to_validate = alert
+            to_validate["trigger_abort"] = to_validate.pop("abort")
+            if definition := to_validate.pop("alert", None):
+                to_validate = {**to_validate, **definition}
+            AlertValidator(**to_validate)
+            
         except ValidationError as err:
             self._error(f"{err}")
             return None
