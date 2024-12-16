@@ -11,10 +11,20 @@ def test_cargo_env() -> None:
     assert metadata["rust.project.name"] == "example_project"
 
 @pytest.mark.metadata
-def test_python_env() -> None:
-    metadata = sv_meta._python_env(pathlib.Path(__file__).parents[1].joinpath("example_data"))
-    assert re.findall(r"\d+\.\d+\.\d+", metadata["python.environment.click"])
-    assert metadata["python.project.name"] == "spam-eggs"
+@pytest.mark.parametrize(
+    "backend", ("poetry", "uv", None)
+)
+def test_python_env(backend: str | None) -> None:
+    if backend == "poetry":
+        metadata = sv_meta._python_env(pathlib.Path(__file__).parents[1].joinpath("example_data", "python_poetry"))
+        assert metadata["python.project.name"] == "example-repo"
+    elif backend == "uv":
+        metadata = sv_meta._python_env(pathlib.Path(__file__).parents[1].joinpath("example_data", "python_uv"))
+        assert metadata["python.project.name"] == "example-repo"
+    else:
+        metadata = sv_meta._python_env(pathlib.Path(__file__).parents[1].joinpath("example_data"))
+
+    assert re.findall(r"\d+\.\d+\.\d+", metadata["python.environment.numpy"])
 
 
 @pytest.mark.metadata
