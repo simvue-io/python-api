@@ -1812,18 +1812,6 @@ class Run:
             self._error("Cannot add alert, run not initialised")
             return None
 
-        if rule in ("is below", "is above") and threshold is None:
-            self._error("threshold must be defined for the specified alert type")
-            return None
-
-        if rule in ("is outside range", "is inside range") and (
-            range_low is None or range_high is None
-        ):
-            self._error(
-                "range_low and range_high must be defined for the specified alert type"
-            )
-            return None
-
         alert_definition = {}
 
         if source == "metrics":
