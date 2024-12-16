@@ -242,6 +242,14 @@ class Run(SimvueObject):
             self._logger.warning(f"Uncommitted metrics found for run '{self.id}'")
         yield from self._get_attribute("metrics").items()
 
+    @property
+    def events(
+        self,
+    ) -> typing.Generator[tuple[str, dict[str, int | float | bool]], None, None]:
+        if self._staged_metrics:
+            self._logger.warning(f"Uncommitted metrics found for run '{self.id}'")
+        yield from self._get_attribute("events").items()
+
     @pydantic.validate_call
     def log_entries(
         self,

@@ -219,7 +219,7 @@ class Artifact(SimvueObject):
 
         _response = sv_put(
             url=f"{_run_artifacts_url}",
-            headers={},
+            headers=self._headers,
             data=_obj_parameters | {"storage": self.storage},
         )
 
