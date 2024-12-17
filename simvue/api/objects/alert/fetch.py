@@ -9,6 +9,8 @@ with an identifier, use a generic alert object.
 import typing
 import http
 
+import pydantic
+
 from simvue.api.objects.alert.user import UserAlert
 from simvue.api.request import get_json_from_response
 from simvue.api.request import get as sv_get
@@ -22,8 +24,11 @@ AlertType = EventsAlert | UserAlert | MetricsThresholdAlert | MetricsRangeAlert
 class Alert:
     """Generic Simvue alert retrieval class"""
 
-    def __new__(cls, identifier: str | None = None, **kwargs) -> AlertType:
+    @pydantic.validate_call()
+    def __new__(cls, identifier: str, **kwargs) -> AlertType:
         """Retrieve an object representing an alert either locally or on the server by id"""
+        if identifier.startswith("offline_"):
+            raise ValueError("Cannot retrieve offline run from server")
         _alert_pre = AlertBase(identifier=identifier, **kwargs)
         if _alert_pre.source == "events":
             return EventsAlert(identifier=identifier, **kwargs)

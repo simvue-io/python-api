@@ -49,34 +49,33 @@ def test_processes_cwd(create_plain_run: dict[Run, dict]) -> None:
     """
     run, _ = create_plain_run
     with tempfile.TemporaryDirectory() as temp_dir:
-       with tempfile.NamedTemporaryFile(dir=temp_dir, suffix=".py") as temp_file:
-           with open(temp_file.name, "w") as out_f:
-               out_f.writelines([
-                   "import os\n",
-                   "f = open('new_file.txt', 'w')\n",
-                   "f.write('Test Line')\n",
-                   "f.close()"
-               ])
+        with tempfile.NamedTemporaryFile(dir=temp_dir, suffix=".py") as temp_file:
+            with open(temp_file.name, "w") as out_f:
+                out_f.writelines([
+                    "import os\n",
+                    "f = open('new_file.txt', 'w')\n",
+                    "f.write('Test Line')\n",
+                    "f.close()"
+                ])
 
-           run_id = run.id
-           run.add_process(
-               identifier="sleep_10_process",
-               executable="python",
-               script=temp_file.name,
-               cwd=temp_dir
-           )
-           time.sleep(1)
-           run.save_file(os.path.join(temp_dir, "new_file.txt"), 'output')
+            run_id = run.id
+            run.add_process(
+                identifier="sleep_10_process",
+                executable="python",
+                script=temp_file.name,
+                cwd=temp_dir
+            )
+            time.sleep(1)
+            run.save_file(os.path.join(temp_dir, "new_file.txt"), 'output')
 
-           client = Client()
+            client = Client()
 
-           # Check that the script was uploaded to the run correctly
-           os.makedirs(os.path.join(temp_dir, "downloaded"))
-           client.get_artifact_as_file(run_id, os.path.basename(temp_file.name), output_dir=os.path.join(temp_dir, "downloaded"))
-           assert filecmp.cmp(os.path.join(temp_dir, "downloaded", os.path.basename(temp_file.name)), temp_file.name)
+            # Check that the script was uploaded to the run correctly
+            os.makedirs(os.path.join(temp_dir, "downloaded"))
+            client.get_artifact_as_file(run_id, os.path.basename(temp_file.name), output_dir=os.path.join(temp_dir, "downloaded"))
+            assert filecmp.cmp(os.path.join(temp_dir, "downloaded", os.path.basename(temp_file.name)), temp_file.name)
 
-           client.get_artifact_as_file(run_id, "new_file.txt", path=os.path.join(temp_dir, "downloaded"))
-           new_file = open(os.path.join(temp_dir, "downloaded", "new_file.txt"), "r")
-           assert new_file.read() == "Test Line"
-           new_file.close()
+            client.get_artifact_as_file(run_id, "new_file.txt", path=os.path.join(temp_dir, "downloaded"))
+            with open(os.path.join(temp_dir, "downloaded", "new_file.txt"), "r") as new_file:
+                assert new_file.read() == "Test Line"
 

@@ -59,7 +59,7 @@ def upload(name: str, values_per_run: int, shared_dict) -> None:
 def test_uploaded_data_immediately_accessible(
     values_per_run: int, processing: str, run_deleter
 ) -> None:
-    name = "Test-" + str(random.randint(0, 1000000000))
+    name = f"Test-{str(random.randint(0, 1000000000))}"
     manager = Manager()
     shared_dict = manager.dict()
 

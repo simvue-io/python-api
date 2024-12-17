@@ -46,9 +46,7 @@ def _is_torch_tensor(data: typing.Any) -> bool:
     return False
 
 
-def serialize_object(
-    data: typing.Any, allow_pickle: bool
-) -> typing.Optional[tuple[str, str]]:
+def serialize_object(data: typing.Any, allow_pickle: bool) -> tuple[str, str] | None:
     """Determine which serializer to use for the given object
 
     Parameters
@@ -85,13 +83,11 @@ def serialize_object(
     elif serialized := _serialize_json(data):
         return serialized
 
-    if allow_pickle:
-        return _serialize_pickle(data)
-    return None
+    return _serialize_pickle(data) if allow_pickle else None
 
 
 @check_extra("plot")
-def _serialize_plotly_figure(data: typing.Any) -> typing.Optional[tuple[str, str]]:
+def _serialize_plotly_figure(data: typing.Any) -> tuple[str, str]:
     try:
         import plotly
     except ImportError:

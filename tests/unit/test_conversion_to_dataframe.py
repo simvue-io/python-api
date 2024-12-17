@@ -33,13 +33,13 @@ def test_run_conversion_to_dataframe():
                                          'metadata.b2'])
 
     data = runs_df.to_dict('records')
-    for i in range(0, len(runs)):
+    for i in range(len(runs)):
         assert(runs[i]['name'] == data[i]['name'])
         assert(runs[i]['folder'] == data[i]['folder'])
         assert(runs[i]['created'] == data[i]['created'])
         assert(runs[i]['started'] == data[i]['started'])
         assert(runs[i]['ended'] == data[i]['ended'])
         for item in runs[i]['metadata']:
-            index = 'metadata.%s' % item
+            index = f'metadata.{item}'
             assert(index in data[i])
             assert(runs[i]['metadata'][item] == data[i][index])

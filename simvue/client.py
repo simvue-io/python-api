@@ -20,6 +20,7 @@ from pandas import DataFrame
 import requests
 
 from simvue.api.objects.alert.base import AlertBase
+from simvue.exception import ObjectNotFoundError
 
 from .converters import (
     aggregated_metrics_to_dataframe,
@@ -57,7 +58,7 @@ class Client:
     def __init__(
         self,
         *,
-        server_token: typing.Optional[str] = None,
+        server_token: typing.Optional[pydantic.SecretStr] = None,
         server_url: typing.Optional[str] = None,
     ) -> None:
         """Initialise an instance of the Simvue client
@@ -81,7 +82,7 @@ class Client:
                 logger.warning(f"No {label} specified")
 
         self._headers: dict[str, str] = {
-            "Authorization": f"Bearer {self._user_config.server.token}"
+            "Authorization": f"Bearer {self._user_config.server.token.get_secret_value()}"
         }
 
     @prettify_pydantic
@@ -424,7 +425,7 @@ class Client:
 
     @prettify_pydantic
     @pydantic.validate_call
-    def list_artifacts(self, run_id: str) -> dict[str, Artifact]:
+    def list_artifacts(self, run_id: str) -> typing.Generator[Artifact, None, None]:
         """Retrieve artifacts for a given run
 
         Parameters
@@ -432,17 +433,17 @@ class Client:
         run_id : str
             unique identifier for the run
 
-        Returns
-        -------
-        dict[str, Artifact]
-            list of relevant artifacts
+        Yields
+        ------
+        str, Artifact
+            ID and artifact entry for relevant artifacts
 
         Raises
         ------
         RuntimeError
             if retrieval of artifacts failed when communicating with the server
         """
-        return dict(Artifact.get(runs=json.dumps([run_id])))  # type: ignore
+        return Artifact.get(runs=json.dumps([run_id]))  # type: ignore
 
     def _retrieve_artifacts_from_server(
         self, run_id: str, name: str, count: int | None = None
@@ -1019,7 +1020,9 @@ class Client:
             return [alert.name if names_only else alert for _, alert in Alert.get()]  # type: ignore
 
         return [
-            alert.get("name") if names_only else Alert(**alert)
+            alert.get("name")
+            if names_only
+            else Alert(identifier=alert.get("id"), **alert)
             for alert in Run(identifier=run_id).get_alert_details()
             if not critical_only or alert["status"].get("current") == "critical"
         ]  # type: ignore
@@ -1093,5 +1096,5 @@ class Client:
         """
         try:
             return Tag(identifier=tag_id)
-        except ValueError:
+        except ObjectNotFoundError:
             return None

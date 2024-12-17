@@ -146,7 +146,7 @@ class SimvueObject(abc.ABC):
         )
 
         self._headers: dict[str, str] = {
-            "Authorization": f"Bearer {self._user_config.server.token}",
+            "Authorization": f"Bearer {self._user_config.server.token.get_secret_value()}",
             "User-Agent": f"Simvue Python client {__version__}",
         }
 
@@ -307,21 +307,19 @@ class SimvueObject(abc.ABC):
             headers=_class_instance._headers,
             params={"start": offset, "count": count} | kwargs,
         )
-        _json_response = get_json_from_response(
+        return get_json_from_response(
             response=_response,
             expected_status=[http.HTTPStatus.OK],
             scenario=f"Retrieval of {_class_instance.__class__.__name__.lower()}s",
         )
-
-        return _json_response
 
     def read_only(self, is_read_only: bool) -> None:
         self._read_only = is_read_only
 
         # If using writable mode, clear the staging dictionary as
         # in this context it contains existing data retrieved
-        # from the server/local entry which we dont want token
-        # repush unnecessarily then read any locally staged changes
+        # from the server/local entry which we dont want to
+        # re-push unnecessarily, then read any locally staged changes
         if not self._read_only:
             self._staging = self._get_local_staged()
 
@@ -379,7 +377,7 @@ class SimvueObject(abc.ABC):
         _json_response = get_json_from_response(
             response=_response,
             expected_status=[http.HTTPStatus.OK],
-            scenario=f"Creation of {self._label} '{kwargs}'",
+            scenario=f"Creation of {self._label}",
         )
 
         if _id := _json_response.get("id"):

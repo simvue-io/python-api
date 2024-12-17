@@ -19,7 +19,7 @@ from simvue.models import NAME_REGEX
 from simvue.utilities import get_mimetype_for_file, get_mimetypes, calculate_sha256
 from simvue.api.objects.base import SimvueObject
 from simvue.serialization import serialize_object
-from simvue.api.request import put as sv_put, get_json_from_response, get as sv_get
+from simvue.api.request import put as sv_put, get_json_from_response, post as sv_post
 
 Category = typing.Literal["code", "input", "output"]
 
@@ -104,7 +104,7 @@ class Artifact(SimvueObject):
         _artifact.offline_mode(offline)
 
         with open(file_path, "rb") as out_f:
-            _artifact._upload(artifact_data=out_f, run_id=run, **_upload_data)
+            _artifact._upload(artifact_data={"file": out_f}, run_id=run, **_upload_data)
 
         return _artifact
 
@@ -172,16 +172,6 @@ class Artifact(SimvueObject):
         _artifact._upload(artifact_data=_serialized, run_id=run, **_upload_data)
         return _artifact
 
-    def _post(self, **kwargs) -> dict[str, typing.Any]:
-        # The ID is the checksum, set this only if the post
-        # to server was successful (else offline_ prefix kept)
-        _identifier = self._staging["checksum"]
-        _response = super()._post(**kwargs)
-        self._storage = _response.get("storage_id")
-        self._storage_url = _response.get("url")
-        self._identifier = _identifier
-        return _response
-
     def commit(self) -> None:
         raise TypeError("Cannot call method 'commit' on write-once type 'Artifact'")
 
@@ -194,10 +184,11 @@ class Artifact(SimvueObject):
 
         # NOTE: Assumes URL for Run artifacts is always same
         _run_artifacts_url: URL = (
-            URL(self._user_config.server.url) / f"runs/{run_id}/artifacts"
+            URL(self._user_config.server.url)
+            / f"runs/{run_id}/artifacts/{self._identifier}"
         )
 
-        _response = sv_put(
+        _response = sv_post(
             url=f"{self._storage_url}",
             headers={},
             data=artifact_data,
@@ -211,7 +202,7 @@ class Artifact(SimvueObject):
         )
 
         get_json_from_response(
-            expected_status=[http.HTTPStatus.OK],
+            expected_status=[http.HTTPStatus.OK, http.HTTPStatus.NO_CONTENT],
             allow_parse_failure=True,  # JSON response from S3 not parsible
             scenario=f"uploading artifact '{_obj_parameters['name']}' to object storage",
             response=_response,
@@ -232,46 +223,44 @@ class Artifact(SimvueObject):
     def _get(self, storage: str | None = None, **kwargs) -> dict[str, typing.Any]:
         return super()._get(storage=self._storage, **kwargs)
 
-    @classmethod
-    def _get_all_objects(
-        cls, count: int | None, offset: int | None, **kwargs
-    ) -> list[dict[str, typing.Any]]:
-        _class_instance = cls(read_only=True)
-        _url = f"{_class_instance._base_url}"
+    # @classmethod
+    # def _get_all_objects(
+    #    cls, count: int | None, offset: int | None, **kwargs
+    # ) -> list[dict[str, typing.Any]]:
+    #    _class_instance = cls(read_only=True)
+    #    _url = f"{_class_instance._base_url}"
 
-        _response = sv_get(
-            _url,
-            headers=_class_instance._headers,
-            params={"start": offset, "count": count} | kwargs,
-        )
+    #    _response = sv_get(
+    #        _url,
+    #        headers=_class_instance._headers,
+    #        params={"start": offset, "count": count} | kwargs,
+    #    )
 
-        _json_response = get_json_from_response(
-            response=_response,
-            expected_status=[http.HTTPStatus.OK],
-            scenario=f"Retrieval of {_class_instance.__class__.__name__.lower()}s",
-            expected_type=list,
-        )
+    #    return get_json_from_response(
+    #        response=_response,
+    #        expected_status=[http.HTTPStatus.OK],
+    #        scenario=f"Retrieval of {_class_instance.__class__.__name__.lower()}s",
+    #        expected_type=list,
+    #    )
 
-        return _json_response
+    # @classmethod
+    # def get(
+    #     cls, *, count: int | None = None, offset: int | None = None, **kwargs
+    # ) -> typing.Generator[tuple[str, "SimvueObject"], None, None]:
+    #     _class_instance = cls(read_only=True)
+    #     if (_data := cls._get_all_objects(count, offset, **kwargs)) is None:
+    #         raise RuntimeError(
+    #             f"Expected key 'data' for retrieval of {_class_instance.__class__.__name__.lower()}s"
+    #         )
+    #     import pdb;pdb.set_trace()
+    #     for _entry in _data:
+    #         _id = _entry.pop("id")
+    #         yield _id, cls(read_only=True, identifier=_id, **_entry)
 
-    @classmethod
-    def get(
-        cls, *, count: int | None = None, offset: int | None = None, **kwargs
-    ) -> typing.Generator[tuple[str, "SimvueObject"], None, None]:
-        _class_instance = cls(read_only=True)
-        if (_data := cls._get_all_objects(count, offset, **kwargs)) is None:
-            raise RuntimeError(
-                f"Expected key 'data' for retrieval of {_class_instance.__class__.__name__.lower()}s"
-            )
-
-        for _entry in _data:
-            _id = _entry.pop("id")
-            yield _id, cls(read_only=True, identifier=_id, **_entry)
-
-    @property
-    def name(self) -> str:
-        """Retrieve the name for this artifact"""
-        return self._get_attribute("name")
+    # @property
+    # def name(self) -> str:
+    #     """Retrieve the name for this artifact"""
+    #     return self._get_attribute("name")
 
     @property
     def checksum(self) -> str:

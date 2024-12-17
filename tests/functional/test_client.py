@@ -9,6 +9,7 @@ import glob
 import time
 import tempfile
 import simvue.client as svc
+from simvue.exception import ObjectNotFoundError
 import simvue.run as sv_run
 import simvue.api.objects as sv_api_obj
 
@@ -33,7 +34,7 @@ def test_get_alerts(create_test_run: tuple[sv_run.Run, dict], from_run: bool) ->
         triggered_alerts_full = client.get_alerts(run_id=create_test_run[1]["run_id"], critical_only=False, names_only=False)
         assert len(triggered_alerts_full) == 7
         for alert in triggered_alerts_full:
-            if alert["alert"].get("name") == "value_above_1":
+            if alert.name == "value_above_1":
                 assert alert["alert"]["status"]["current"] == "critical"
     else:
         assert (triggered_alerts_full := client.get_alerts(names_only=True, critical_only=False))
@@ -70,12 +71,12 @@ def test_get_metric_values(
     _first_entry: dict = next(iter(_metrics_dict.values()))
     assert create_test_run[1]["metrics"][0] in _metrics_dict.keys()
     if aggregate:
-        _value_types = set(i[1] for i in _first_entry.keys())
+        _value_types = {i[1] for i in _first_entry}
         assert all(
             i in _value_types for i in ("average", "min", "max")
         ), f"Expected ('average', 'min', 'max') in {_value_types}"
     else:
-        _runs = set(i[1] for i in _first_entry.keys())
+        _runs = {i[1] for i in _first_entry}
         assert create_test_run[1]["run_id"] in _runs
 
 
@@ -97,9 +98,9 @@ def test_plot_metrics(create_test_run: tuple[sv_run.Run, dict]) -> None:
 
 @pytest.mark.dependency
 @pytest.mark.client
-def test_get_artifacts(create_test_run: tuple[sv_run.Run, dict]) -> None:
+def test_get_artifacts_entries(create_test_run: tuple[sv_run.Run, dict]) -> None:
     client = svc.Client()
-    assert client.list_artifacts(create_test_run[1]["run_id"])
+    assert dict(client.list_artifacts(create_test_run[1]["run_id"]))
     assert client.get_artifact(create_test_run[1]["run_id"], name="test_attributes")
 
 
@@ -251,13 +252,13 @@ def test_folder_deletion(create_test_run: tuple[sv_run.Run, dict]) -> None:
 def test_run_folder_metadata_find(create_plain_run: tuple[sv_run.Run, dict]) -> None:
     run, run_data = create_plain_run
     rand_val = random.randint(0, 1000)
-    run.set_folder_details(path=run_data["folder"], metadata={'atest': rand_val})
+    run.set_folder_details(metadata={'atest': rand_val})
     run.close()
     time.sleep(1.0)
     client = svc.Client()
     data = client.get_folders(filters=[f'metadata.atest == {rand_val}'])
 
-    assert run_data["folder"] in [i["path"] for i in data]
+    assert run_data["folder"] in [i.path for _, i in data]
 
 
 @pytest.mark.client
@@ -271,7 +272,7 @@ def test_tag_deletion(create_plain_run: tuple[sv_run.Run, dict]) -> None:
     tags = client.get_tags()
     client.delete_run(run.id)
     time.sleep(1.0)
-    tag_identifier = [tag["id"] for tag in tags if tag["name"] == f"delete_me_{unique_id}"][0]
+    tag_identifier = [identifier for identifier, tag in tags if tag.name == f"delete_me_{unique_id}"][0]
     client.delete_tag(tag_identifier)
     time.sleep(1.0)
     assert not client.get_tag(tag_identifier)
@@ -323,7 +324,7 @@ def test_alert_deletion() -> None:
     time.sleep(1)
     _client.delete_alert(alert_id=_alert.id)
 
-    with pytest.raises(RuntimeError) as e:
+    with pytest.raises(ObjectNotFoundError) as e:
         sv_api_obj.Alert(identifier=_alert.id)
 
 
@@ -341,6 +342,6 @@ def test_abort_run() -> None:
     time.sleep(1)
     assert _run.abort_trigger
     _run.delete()
-    _folder.delete()
+    _folder.delete(recursive=True, delete_runs=True, runs_only=False)
 
 

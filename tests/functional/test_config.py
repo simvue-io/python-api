@@ -92,10 +92,7 @@ tags = {_tags}
 
 
         def _mocked_find(file_names: list[str], *_, ppt_file=_ppt_file, conf_file=_config_file, **__) -> str:
-            if "pyproject.toml" in file_names:
-                return ppt_file
-            else:
-                return conf_file
+            return ppt_file if "pyproject.toml" in file_names else conf_file
 
         mocker.patch("simvue.config.user.sv_util.find_first_instance_of_file", _mocked_find)
 
@@ -118,13 +115,13 @@ tags = {_tags}
 
         if use_env:
             assert _config.server.url == f"{_other_url}api"
-            assert _config.server.token == _other_token
+            assert _config.server.token.get_secret_value() == _other_token
         elif use_args:
             assert _config.server.url == f"{_arg_url}api"
-            assert _config.server.token == _arg_token
+            assert _config.server.token.get_secret_value() == _arg_token
         elif use_file and use_file != "pyproject.toml":
             assert _config.server.url == f"{_url}api"
-            assert _config.server.token == _token
+            assert _config.server.token.get_secret_value() == _token
             assert f"{_config.offline.cache}" == temp_d
 
         if use_file == "extended":

@@ -108,7 +108,7 @@ class Run:
         self,
         mode: typing.Literal["online", "offline", "disabled"] = "online",
         abort_callback: typing.Optional[typing.Callable[[Self], None]] = None,
-        server_token: typing.Optional[str] = None,
+        server_token: typing.Optional[pydantic.SecretStr] = None,
         server_url: typing.Optional[str] = None,
         debug: bool = False,
     ) -> None:
@@ -180,7 +180,7 @@ class Run:
             else self._user_config.metrics.resources_metrics_interval
         )
         self._headers: dict[str, str] = {
-            "Authorization": f"Bearer {self._user_config.server.token}"
+            "Authorization": f"Bearer {self._user_config.server.token.get_secret_value()}"
         }
         self._sv_obj: typing.Optional[RunObject] = None
         self._pid: typing.Optional[int] = 0
@@ -1621,7 +1621,8 @@ class Run:
             self._error("Need to provide alert ids or alert names")
             return False
 
-        self._sv_obj.alerts = self._sv_obj.alerts + [ids]
+        # Avoid duplication
+        self._sv_obj.alerts = list(set(self._sv_obj.alerts + [ids]))
         self._sv_obj.commit()
 
         return False
@@ -1809,7 +1810,7 @@ class Run:
             _alert.commit()
             _alert_id = _alert.id
 
-        self._sv_obj.alerts = list(self._sv_obj.alerts) + [_alert_id]
+        self._sv_obj.alerts = [_alert_id]
 
         self._sv_obj.commit()
 

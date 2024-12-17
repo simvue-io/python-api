@@ -160,6 +160,8 @@ def setup_test_run(run: sv_run.Run, create_objects: bool, request: pytest.Fixtur
 
     if create_objects:
         TEST_DATA["metrics"] = ("metric_counter", "metric_val")
+
+    assert not run._id.startswith("offline_")
     TEST_DATA["run_id"] = run._id
     TEST_DATA["run_name"] = run._name
     TEST_DATA["url"] = run._user_config.server.url

@@ -39,7 +39,7 @@ class ServerSpecifications(pydantic.BaseModel):
             raise AssertionError("Failed to parse Simvue token - invalid token form")
         if time.time() - expiry > 0:
             raise AssertionError("Simvue token has expired")
-        return value
+        return v
 
 
 class OfflineSpecifications(pydantic.BaseModel):
