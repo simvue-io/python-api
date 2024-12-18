@@ -8,8 +8,9 @@ Class for connecting with a local/remote user defined alert.
 
 import pydantic
 import typing
+import http
 
-from simvue.api.objects.base import staging_check
+from simvue.api.request import get_json_from_response, put as sv_put
 from .base import AlertBase
 from simvue.models import NAME_REGEX
 
@@ -59,13 +60,17 @@ class UserAlert(AlertBase):
     ) -> dict[str, typing.Any]:
         raise NotImplementedError("Retrieve of only user alerts is not yet supported")
 
-    @property
-    @staging_check
-    def state(self) -> typing.Literal["ok", "critical", "no_data"]:
-        return self._get_attribute("state")
-
-    @state.setter
     @pydantic.validate_call
-    def state(self, state: typing.Literal["ok", "critical"]) -> None:
+    def set_status(self, run_id: str, status: typing.Literal["ok", "critical"]) -> None:
         """Set alert name"""
-        self._staging["state"] = state
+        _response = sv_put(
+            url=self.url / "status" / run_id,
+            data={"status": status},
+            headers=self._headers,
+        )
+
+        get_json_from_response(
+            response=_response,
+            expected_status=[http.HTTPStatus.OK],
+            scenario=f"Updating state of alert '{self._identifier}' to '{status}'",
+        )

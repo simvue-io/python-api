@@ -4,7 +4,8 @@ import contextlib
 import pytest
 import uuid
 
-from simvue.api.objects import Alert, UserAlert
+from simvue.api.objects import Alert, UserAlert, Run
+from simvue.api.objects.folder import Folder
 
 @pytest.mark.api
 def test_user_alert_creation_online() -> None:
@@ -101,4 +102,25 @@ def test_user_alert_properties() -> None:
 
     if _failed:
         raise AssertionError("\n" + "\n\t- ".join(": ".join(i) for i in _failed))
+
+
+@pytest.mark.api
+def test_user_alert_status() -> None:
+    _uuid: str = f"{uuid.uuid4()}".split("-")[0]
+    _alert = UserAlert.new(
+        name=f"users_alert_{_uuid}",
+        notification="none"
+    )
+    _alert.commit()
+    _folder = Folder.new(path=f"/simvue_unit_tests/{_uuid}")
+    _run = Run.new(folder=f"/simvue_unit_tests/{_uuid}")
+    _folder.commit()
+    _run.alerts = [_alert.id]
+    _run.commit()
+    _alert.set_status(_run.id, "critical")
+    time.sleep(1)
+    assert _alert.get_status(_run.id) == "critical"
+    _run.delete()
+    _folder.delete(recursive=True, runs_only=False, delete_runs=True)
+    _alert.delete()
 

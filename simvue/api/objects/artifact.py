@@ -223,45 +223,6 @@ class Artifact(SimvueObject):
     def _get(self, storage: str | None = None, **kwargs) -> dict[str, typing.Any]:
         return super()._get(storage=self._storage, **kwargs)
 
-    # @classmethod
-    # def _get_all_objects(
-    #    cls, count: int | None, offset: int | None, **kwargs
-    # ) -> list[dict[str, typing.Any]]:
-    #    _class_instance = cls(read_only=True)
-    #    _url = f"{_class_instance._base_url}"
-
-    #    _response = sv_get(
-    #        _url,
-    #        headers=_class_instance._headers,
-    #        params={"start": offset, "count": count} | kwargs,
-    #    )
-
-    #    return get_json_from_response(
-    #        response=_response,
-    #        expected_status=[http.HTTPStatus.OK],
-    #        scenario=f"Retrieval of {_class_instance.__class__.__name__.lower()}s",
-    #        expected_type=list,
-    #    )
-
-    # @classmethod
-    # def get(
-    #     cls, *, count: int | None = None, offset: int | None = None, **kwargs
-    # ) -> typing.Generator[tuple[str, "SimvueObject"], None, None]:
-    #     _class_instance = cls(read_only=True)
-    #     if (_data := cls._get_all_objects(count, offset, **kwargs)) is None:
-    #         raise RuntimeError(
-    #             f"Expected key 'data' for retrieval of {_class_instance.__class__.__name__.lower()}s"
-    #         )
-    #     import pdb;pdb.set_trace()
-    #     for _entry in _data:
-    #         _id = _entry.pop("id")
-    #         yield _id, cls(read_only=True, identifier=_id, **_entry)
-
-    # @property
-    # def name(self) -> str:
-    #     """Retrieve the name for this artifact"""
-    #     return self._get_attribute("name")
-
     @property
     def checksum(self) -> str:
         """Retrieve the checksum for this artifact"""
@@ -291,6 +252,11 @@ class Artifact(SimvueObject):
     def storage_url(self) -> str | None:
         """Retrieve storage URL for the artifact"""
         return self._storage_url
+
+    @property
+    def name(self) -> str | None:
+        """Retrieve name for the artifact"""
+        return self._get_attribute("name")
 
     def download_content(self) -> typing.Any:
         """Download content of artifact from storage"""

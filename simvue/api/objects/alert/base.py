@@ -6,9 +6,11 @@ Contains general definitions for Simvue Alert objects.
 
 """
 
+import http
 import pydantic
 import typing
 from simvue.api.objects.base import SimvueObject, staging_check
+from simvue.api.request import get as sv_get, get_json_from_response
 from simvue.models import NAME_REGEX
 
 
@@ -116,14 +118,21 @@ class AlertBase(SimvueObject):
         """Configure alert to trigger aborts"""
         self._staging["abort"] = abort
 
-    @property
-    @staging_check
-    def state(self) -> typing.Literal["ok", "critical", "no_data"]:
-        return self._get_attribute("state")
+    def get_status(self, run_id: str) -> typing.Literal["ok", "critical", "no_data"]:
+        _response = sv_get(
+            url=self.url / "status", headers=self._headers, params={"run": run_id}
+        )
 
-    @state.setter
+        _json_response = get_json_from_response(
+            expected_status=[http.HTTPStatus.OK],
+            response=_response,
+            scenario=f"Retrieving status for alert '{self._identifier}'",
+        )
+
+        return _json_response["status"]
+
     @pydantic.validate_call
-    def state(self, state: typing.Literal["ok", "critical"]) -> None:
+    def set_status(self, run_id: str, status: typing.Literal["ok", "critical"]) -> None:
         raise AttributeError(
             f"Cannot update state for alert of type '{self.__class__.__name__}'"
         )

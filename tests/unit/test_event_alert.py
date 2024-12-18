@@ -60,6 +60,7 @@ def test_event_alert_modification_online() -> None:
     _alert.commit()
     time.sleep(1)
     _new_alert = Alert(_alert.id)
+    _new_alert.read_only(False)
     assert isinstance(_new_alert, EventsAlert)
     _new_alert.description = "updated!"
     assert _new_alert.description != "updated!"

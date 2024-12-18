@@ -1841,8 +1841,14 @@ class Run:
             return False
 
         _alert = Alert(identifier=identifier)
+        if not isinstance(_alert, UserAlert):
+            self._error(
+                f"Cannot update state for alert '{identifier}' "
+                f"of type '{_alert.__class__.__name__.lower()}'"
+            )
+            return False
         _alert.read_only(False)
-        _alert.state = state
+        _alert.set_state(run_id=self._id, state=state)
         _alert.commit()
 
         return True
