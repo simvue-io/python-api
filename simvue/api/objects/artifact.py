@@ -11,15 +11,22 @@ import pathlib
 import typing
 import pydantic
 import os.path
+import functools
 import sys
 import requests
 
 from simvue.api.url import URL
+from simvue.exception import ObjectNotFoundError
 from simvue.models import NAME_REGEX
 from simvue.utilities import get_mimetype_for_file, get_mimetypes, calculate_sha256
 from simvue.api.objects.base import SimvueObject
 from simvue.serialization import serialize_object
-from simvue.api.request import put as sv_put, get_json_from_response, post as sv_post
+from simvue.api.request import (
+    put as sv_put,
+    get_json_from_response,
+    post as sv_post,
+    get as sv_get,
+)
 
 Category = typing.Literal["code", "input", "output"]
 
@@ -31,10 +38,16 @@ DOWNLOAD_CHUNK_SIZE: int = 8192
 class Artifact(SimvueObject):
     """Connect to/create an artifact locally or on the server"""
 
-    def __init__(self, identifier: typing.Optional[str] = None, **kwargs) -> None:
+    def __init__(
+        self,
+        identifier: str | None = None,
+        storage: str | None = None,
+        run_id: str | None = None,
+        **kwargs,
+    ) -> None:
+        self._storage_id: str | None = storage
+        self._run_id: str | None = run_id
         super().__init__(identifier, **kwargs)
-        self._storage_url: str | None = None
-        self._storage: str | None = None
         self._label = "artifact"
 
     @classmethod
@@ -98,13 +111,29 @@ class Artifact(SimvueObject):
         }
 
         _artifact = Artifact(_read_only=False, **_upload_data)
-        _artifact._storage = storage
-        _artifact._post(**_artifact._staging)
-
         _artifact.offline_mode(offline)
 
+        if offline:
+            return _artifact
+
+        _response = _artifact._post(**_artifact._staging)
+
+        # Either use existing storage ID if provided from this point onwards
+        # or use the new ID provided
+        _storage_id = storage or _response["storage_id"]
+        _artifact._storage_id = _storage_id
+
+        _url = _response.get("url")
+
+        _fields = _response.get("fields")
+
         with open(file_path, "rb") as out_f:
-            _artifact._upload(artifact_data={"file": out_f}, run_id=run, **_upload_data)
+            _artifact._upload(
+                storage_url=_url,
+                artifact_data={"files": {"file": out_f}, "data": _fields},
+                run_id=run,
+                **_upload_data | {"storage": _storage_id},
+            )
 
         return _artifact
 
@@ -139,7 +168,7 @@ class Artifact(SimvueObject):
             object to serialize and upload
         allow_pickling : bool, optional
             whether to allow the object to be pickled if no other
-            serialiazation found. Default is True
+            serialization found. Default is True
         offline : bool, optional
             whether to define this artifact locally, default is False
 
@@ -166,52 +195,67 @@ class Artifact(SimvueObject):
         }
 
         _artifact = Artifact(read_only=False, **_upload_data)
-        _artifact._storage = storage
-        _artifact._post(**_artifact._staging)
         _artifact.offline_mode(offline)
-        _artifact._upload(artifact_data=_serialized, run_id=run, **_upload_data)
+
+        if offline:
+            return _artifact
+
+        _response = _artifact._post(**_artifact._staging)
+        _url = _response.get("url")
+
+        # Either use existing storage ID if provided from this point onwards
+        # or use the new ID provided
+        _storage_id = storage or _response["storage_id"]
+        _artifact._storage_id = _storage_id
+
+        _artifact._upload(
+            storage_url=_url,
+            artifact_data=_serialized,
+            run_id=run,
+            **_upload_data | {"storage": _storage_id},
+        )
         return _artifact
 
     def commit(self) -> None:
         raise TypeError("Cannot call method 'commit' on write-once type 'Artifact'")
 
     def _upload(
-        self, artifact_data: typing.Any, run_id: str, **_obj_parameters
+        self,
+        artifact_data: typing.Any,
+        run_id: str,
+        storage_url: str | None,
+        **_obj_parameters,
     ) -> None:
-        # If local file store then do nothing
-        if not self.storage_url or self._offline:
-            return
-
         # NOTE: Assumes URL for Run artifacts is always same
         _run_artifacts_url: URL = (
             URL(self._user_config.server.url)
             / f"runs/{run_id}/artifacts/{self._identifier}"
         )
 
-        _response = sv_post(
-            url=f"{self._storage_url}",
-            headers={},
-            data=artifact_data,
-            is_json=False,
-            timeout=UPLOAD_TIMEOUT,
-        )
+        if storage_url:
+            _response = sv_post(
+                url=storage_url, headers={}, is_json=False, **artifact_data
+            )
 
-        self._logger.debug(
-            "Got status code %d when uploading artifact",
-            _response.status_code,
-        )
+            self._logger.debug(
+                "Got status code %d when uploading artifact",
+                _response.status_code,
+            )
 
-        get_json_from_response(
-            expected_status=[http.HTTPStatus.OK, http.HTTPStatus.NO_CONTENT],
-            allow_parse_failure=True,  # JSON response from S3 not parsible
-            scenario=f"uploading artifact '{_obj_parameters['name']}' to object storage",
-            response=_response,
-        )
+            get_json_from_response(
+                expected_status=[http.HTTPStatus.OK, http.HTTPStatus.NO_CONTENT],
+                allow_parse_failure=True,  # JSON response from S3 not parsible
+                scenario=f"uploading artifact '{_obj_parameters['name']}' to object storage",
+                response=_response,
+            )
+
+        if not _obj_parameters.get("storage"):
+            return
 
         _response = sv_put(
             url=f"{_run_artifacts_url}",
             headers=self._headers,
-            data=_obj_parameters | {"storage": self.storage},
+            data=_obj_parameters,
         )
 
         get_json_from_response(
@@ -221,7 +265,7 @@ class Artifact(SimvueObject):
         )
 
     def _get(self, storage: str | None = None, **kwargs) -> dict[str, typing.Any]:
-        return super()._get(storage=self._storage, **kwargs)
+        return super()._get(storage=storage or self._storage_id, **kwargs)
 
     @property
     def checksum(self) -> str:
@@ -241,7 +285,7 @@ class Artifact(SimvueObject):
     @property
     def storage(self) -> str | None:
         """Retrieve the storage identifier for this artifact"""
-        return self._storage
+        return self._get_attribute("storage")
 
     @property
     def type(self) -> str:
@@ -249,31 +293,74 @@ class Artifact(SimvueObject):
         return self._get_attribute("type")
 
     @property
-    def storage_url(self) -> str | None:
-        """Retrieve storage URL for the artifact"""
-        return self._storage_url
-
-    @property
     def name(self) -> str | None:
         """Retrieve name for the artifact"""
         return self._get_attribute("name")
 
-    def download_content(self) -> typing.Any:
-        """Download content of artifact from storage"""
-        _response = requests.get(f"{self.storage_url}", timeout=DOWNLOAD_TIMEOUT)
-
-        get_json_from_response(
+    @classmethod
+    def from_name(
+        cls, run_id: str, name: str, **kwargs
+    ) -> typing.Union["Artifact", None]:
+        _temp = Artifact(**kwargs)
+        _url = _temp._base_url / f"runs/{run_id}/artifacts"
+        _response = sv_get(url=_url, params={"name": name}, headers=_temp._headers)
+        _json_response = get_json_from_response(
             response=_response,
-            expected_status=[http.HTTPStatus.OK],
+            expected_status=[http.HTTPStatus.OK, http.HTTPStatus.NOT_FOUND],
+            scenario=f"Retrieval of artifact '{name}' for run '{run_id}'",
+        )
+
+        if _response.status_code == http.HTTPStatus.NOT_FOUND:
+            raise ObjectNotFoundError(_temp._label, name, extra=f"for run '{run_id}'")
+
+        return Artifact(run_id=run_id, **_json_response)
+
+    @functools.lru_cache
+    def get_storage_url(self, run_id: str | None) -> typing.Any:
+        """Retrieve the storage location for a particular run"""
+        if not self._identifier:
+            raise ValueError("Cannot retrieve artifact, no ID specified")
+
+        _run_id = run_id or self._run_id
+
+        if not _run_id:
+            raise ValueError(
+                "A run identifier must be specified when downloading an artifact"
+            )
+
+        _url = self._base_url / "runs" / run_id / "artifacts" / self._identifier
+
+        _response = sv_get(
+            f"{_url}",
+            headers=self._headers,
+        )
+
+        _json_response = get_json_from_response(
+            response=_response,
+            expected_status=[http.HTTPStatus.OK, http.HTTPStatus.NOT_FOUND],
             scenario=f"Retrieval of content for {self._label} '{self._identifier}'",
         )
 
-        return _response.content
+        if _response.status_code == http.HTTPStatus.NOT_FOUND:
+            raise ObjectNotFoundError(
+                self._label, self.name, extra=f"for run '{run_id}'"
+            )
+
+        if not (_url := _json_response.get("url")):
+            raise RuntimeError(
+                f"Expected key 'url' for retrieval of artifact '{self.name}'"
+            )
+
+        return _url
 
     @pydantic.validate_call
-    def download(self, output_file: pathlib.Path) -> pathlib.Path | None:
+    def download(
+        self, output_file: pathlib.Path, run_id: str | None = None
+    ) -> pathlib.Path | None:
+        _storage_url = self.get_storage_url(run_id)
+
         _response = requests.get(
-            f"{self.storage_url}", stream=True, timeout=DOWNLOAD_TIMEOUT
+            f"{_storage_url}", stream=True, timeout=DOWNLOAD_TIMEOUT
         )
 
         get_json_from_response(
@@ -298,3 +385,16 @@ class Artifact(SimvueObject):
                     out_f.write(data)
 
         return output_file if output_file.exists() else None
+
+    def download_content(self, run_id: str | None = None) -> typing.Any:
+        """Download content of artifact from storage"""
+        _storage_url = self.get_storage_url(run_id)
+        _response = requests.get(_storage_url, timeout=DOWNLOAD_TIMEOUT)
+
+        get_json_from_response(
+            response=_response,
+            expected_status=[http.HTTPStatus.OK],
+            scenario=f"Retrieval of content for {self._label} '{self._identifier}'",
+        )
+
+        return _response.content

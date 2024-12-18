@@ -10,9 +10,11 @@ Custom exceptions for handling of Simvue request scenarions.
 class ObjectNotFoundError(Exception):
     """For failure retrieving Simvue object from server"""
 
-    def __init__(self, obj_type: str, name: str) -> None:
+    def __init__(self, obj_type: str, name: str, extra: str | None = None) -> None:
         super().__init__(
-            f"Failed to retrieve '{name}' of type '{obj_type}' " f"no such object"
+            f"Failed to retrieve '{name}' of type '{obj_type}' "
+            f"{f'{extra}, ' if extra else ''}"
+            "no such object"
         )
 
 

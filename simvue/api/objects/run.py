@@ -225,10 +225,10 @@ class Run(SimvueObject):
     @property
     @staging_check
     def endtime(self) -> datetime.datetime | None:
-        _endtime: str | None = self._get_attribute("endtime")
-        if not _endtime:
-            return None
-        return datetime.datetime.strptime(_endtime, DATETIME_FORMAT)
+        _endtime: str | None = self._get_attribute("endtime", None)
+        return (
+            datetime.datetime.strptime(_endtime, DATETIME_FORMAT) if _endtime else None
+        )
 
     @endtime.setter
     @write_only

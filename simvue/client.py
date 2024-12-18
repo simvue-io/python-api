@@ -120,13 +120,11 @@ class Client:
                 "Could not collect ID - no run found with this name."
             ) from e
 
-        try:
+        with contextlib.suppress(StopIteration):
             next(_runs)
             raise RuntimeError(
                 "Could not collect ID - more than one run exists with this name."
             )
-        except StopIteration:
-            pass
 
         return _id
 
@@ -448,7 +446,7 @@ class Client:
     def _retrieve_artifacts_from_server(
         self, run_id: str, name: str, count: int | None = None
     ) -> typing.Generator[tuple[str, Artifact], None, None]:
-        return Artifact.get(runs=[run_id], name=name, count=count)  # type: ignore
+        return Artifact.get(runs=json.dumps([run_id]), name=name, count=count)  # type: ignore
 
     @prettify_pydantic
     @pydantic.validate_call
@@ -496,12 +494,12 @@ class Client:
         RuntimeError
             if retrieval of artifact from the server failed
         """
-        _artifacts = self._retrieve_artifacts_from_server(run_id, name, count=1)
-
-        try:
-            _id, _artifact = next(_artifacts)
-        except StopIteration as e:
-            raise ValueError(f"No artifact '{name}' found for run '{run_id}'") from e
+        _artifact = Artifact.from_name(
+            run_id=run_id,
+            name=name,
+            server_url=self._user_config.server.url,
+            server_token=self._user_config.server.token,
+        )
 
         _content = _artifact.download_content()
 

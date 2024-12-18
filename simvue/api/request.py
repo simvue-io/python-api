@@ -62,7 +62,11 @@ def is_retryable_exception(exception: Exception) -> bool:
     reraise=True,
 )
 def post(
-    url: str, headers: dict[str, str], data: typing.Any, is_json: bool = True
+    url: str,
+    headers: dict[str, str],
+    data: typing.Any,
+    is_json: bool = True,
+    files: dict[str, typing.Any] | None = None,
 ) -> requests.Response:
     """HTTP POST with retries
 
@@ -91,7 +95,7 @@ def post(
 
     logging.debug(f"POST: {url}\n\tdata={data_sent}")
     response = requests.post(
-        url, headers=headers, data=data_sent, timeout=DEFAULT_API_TIMEOUT
+        url, headers=headers, data=data_sent, timeout=DEFAULT_API_TIMEOUT, files=files
     )
 
     if response.status_code == http.HTTPStatus.UNPROCESSABLE_ENTITY:

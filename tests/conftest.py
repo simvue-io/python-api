@@ -8,7 +8,9 @@ import os
 import json
 import pathlib
 import logging
+from simvue.api.objects.artifact import Artifact
 import simvue.run as sv_run
+import simvue.api.objects as sv_api_obj
 import simvue.utilities
 
 MAX_BUFFER_SIZE: int = 10
@@ -90,6 +92,17 @@ def create_plain_run_offline(mocker: pytest_mock.MockerFixture, request, monkeyp
     clear_out_files()
 
 
+@pytest.fixture
+def create_run_object() -> sv_api_obj.Run:
+    _fix_use_id: str = str(uuid.uuid4()).split('-', 1)[0]
+    _folder = sv_api_obj.Folder.new(path=f"/simvue_unit_testing/{_fix_use_id}")
+    _folder.commit()
+    _run = sv_api_obj.Run.new(folder=f"/simvue_unit_testing/{_fix_use_id}")
+    yield _run
+    _run.delete()
+    _folder.delete(recursive=True, runs_only=False, delete_runs=True)
+
+
 def setup_test_run(run: sv_run.Run, create_objects: bool, request: pytest.FixtureRequest, created_only: bool=False):
     fix_use_id: str = str(uuid.uuid4()).split('-', 1)[0]
     TEST_DATA = {
@@ -161,7 +174,6 @@ def setup_test_run(run: sv_run.Run, create_objects: bool, request: pytest.Fixtur
     if create_objects:
         TEST_DATA["metrics"] = ("metric_counter", "metric_val")
 
-    assert not run._id.startswith("offline_")
     TEST_DATA["run_id"] = run._id
     TEST_DATA["run_name"] = run._name
     TEST_DATA["url"] = run._user_config.server.url
