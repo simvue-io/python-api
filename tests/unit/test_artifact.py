@@ -1,3 +1,4 @@
+import os
 import pytest
 import uuid
 import time
@@ -21,13 +22,13 @@ def test_artifact_creation_online() -> None:
     with tempfile.NamedTemporaryFile(suffix=".txt") as temp_f:
         _path = pathlib.Path(temp_f.name)
         with _path.open("w") as out_f:
-            out_f.write("Hello World!")
+            out_f.write(f"Hello World! {_uuid}")
         _artifact = Artifact.new_file(
             name=f"test_artifact_{_uuid}",
-            run=_run.id,
+            run_id=_run.id,
             file_path=_path,
             category="input",
-            storage=None,
+            storage_id=None,
             file_type=None
         )
         time.sleep(1)
@@ -37,11 +38,12 @@ def test_artifact_creation_online() -> None:
             except Exception as e:
                 _failed.append((member, f"{e}"))
         assert _artifact.name == f"test_artifact_{_uuid}"
-        _artifact.delete()
+        os.remove(temp_f.name)
+        _artifact.download(temp_f.name)
     if _failed:
         raise AssertionError("\n" + "\n\t- ".join(": ".join(i) for i in _failed))
     _run.delete()
-    _folder.delete()
+    _folder.delete(recursive=True, delete_runs=True, runs_only=False)
 
 
 @pytest.mark.api
@@ -57,10 +59,10 @@ def test_artifact_creation_offline() -> None:
             out_f.write("Hello World!")
         _artifact = Artifact.new_file(
             name=f"test_artifact_{_uuid}",
-            run=_run.id,
+            run_id=_run.id,
             file_path=_path,
             category="input",
-            storage=None,
+            storage_id=None,
             file_type=None,
             offline=True
         )
@@ -69,7 +71,6 @@ def test_artifact_creation_offline() -> None:
         _artifact.commit()
         time.sleep(1)
         assert _artifact.name == f"test_artifact_{_uuid}"
-        _artifact.delete()
     _run.delete()
     _folder.delete()
 

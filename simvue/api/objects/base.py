@@ -196,7 +196,9 @@ class SimvueObject(abc.ABC):
         with self._local_staging_file.open("w") as out_f:
             json.dump(_staged_data, out_f, indent=2)
 
-    def _get_attribute(self, attribute: str, *default) -> typing.Any:
+    def _get_attribute(
+        self, attribute: str, *default, url: str | None = None
+    ) -> typing.Any:
         # In the case where the object is read-only, staging is the data
         # already retrieved from the server
         _attribute_is_property: bool = attribute in self._properties
@@ -215,7 +217,7 @@ class SimvueObject(abc.ABC):
                 ) from e
 
         try:
-            return self._get()[attribute]
+            return self._get(url=url)[attribute]
         except KeyError as e:
             if default:
                 return default[0]
@@ -437,14 +439,16 @@ class SimvueObject(abc.ABC):
         return _json_response
 
     def _get(
-        self, allow_parse_failure: bool = False, **kwargs
+        self, url: str | None = None, allow_parse_failure: bool = False, **kwargs
     ) -> dict[str, typing.Any]:
         if self._identifier.startswith("offline_"):
             return self._get_local_staged()
 
         if not self.url:
             raise RuntimeError(f"Identifier for instance of {self._label} Unknown")
-        _response = sv_get(url=f"{self.url}", headers=self._headers, params=kwargs)
+        _response = sv_get(
+            url=f"{url or self.url}", headers=self._headers, params=kwargs
+        )
 
         if _response.status_code == http.HTTPStatus.NOT_FOUND:
             raise ObjectNotFoundError(
