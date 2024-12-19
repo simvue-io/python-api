@@ -26,9 +26,9 @@ def test_add_artifact_to_run() -> None:
 
         _artifact = Artifact.new_file(
             name=f"test_{_uuid}",
-            run=_run.id,
+            run_id=_run.id,
             category="input",
-            storage=None,
+            storage_id=None,
             file_path=pathlib.Path(tempf.name),
             file_type=None
         )

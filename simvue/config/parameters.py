@@ -28,7 +28,7 @@ class ServerSpecifications(pydantic.BaseModel):
     @classmethod
     def url_to_api_url(cls, v: typing.Any) -> str:
         if f"{v}".endswith("/api"):
-            return URL(f"{v}")
+            return f"{v}"
         _url = URL(f"{v}") / "api"
         return f"{_url}"
 

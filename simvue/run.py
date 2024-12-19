@@ -1266,12 +1266,12 @@ class Run:
 
         try:
             Artifact.new_object(
-                run=self.id,
+                run_id=self.id,
                 name=_name,
                 category=category,
                 obj=obj,
                 allow_pickling=allow_pickle,
-                storage=self._storage_id,
+                storage_id=self._storage_id,
             )
         except (ValueError, RuntimeError) as e:
             self._error(f"Failed to save object '{_name}' to run '{self.id}': {e}")
@@ -1331,8 +1331,8 @@ class Run:
             # Register file
             Artifact.new_file(
                 name=name or stored_file_name,
-                run=self.id,
-                storage=self._storage_id,
+                run_id=self.id,
+                storage_id=self._storage_id,
                 file_path=file_path,
                 offline=self._user_config.run.mode == "offline",
                 file_type=filetype,

@@ -2,11 +2,13 @@ import typing
 import urllib.parse
 import copy
 
+import pydantic
+
 
 class URL:
+    @pydantic.validate_call
     def __init__(self, url: str) -> None:
-        if url.endswith("/"):
-            url = url[:-1]
+        url = url[:-1] if url.endswith("/") else url
 
         _url = urllib.parse.urlparse(url)
         self._scheme: str = _url.scheme
@@ -20,11 +22,11 @@ class URL:
         _new /= other
         return _new
 
+    @pydantic.validate_call
     def __itruediv__(self, other: str) -> typing.Self:
-        if other.startswith("/"):
-            other = other[1:]
-        if other.endswith("/"):
-            other = other[:-1]
+        other = other[1:] if other.startswith("/") else other
+        other = other[:-1] if other.endswith("/") else other
+
         self._path = f"{self._path}/{other}"
         return self
 

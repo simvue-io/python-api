@@ -76,10 +76,12 @@ class Artifact(SimvueObject):
         _response = _artifact._post(**_artifact._staging["server"])
 
         # If this artifact does not exist a URL will be returned
-        _artifact._staging["server"]["url"] = _response["url"]
+        _artifact._staging["server"]["url"] = _response.get("url")
 
         # If a storage ID has been provided store that else retrieve it
-        _artifact._staging["server"]["storage"] = storage_id or _response["storage_id"]
+        _artifact._staging["server"]["storage"] = storage_id or _response.get(
+            "storage_id"
+        )
         _artifact._staging["storage"]["data"] = _response.get("fields")
         _artifact._staging["storage"]["files"] = None
 
@@ -141,8 +143,7 @@ class Artifact(SimvueObject):
             offline=offline,
         )
 
-        if offline:
-            return _artifact
+        _artifact.offline_mode(offline)
 
         with open(file_path, "rb") as out_f:
             _artifact._staging["storage"]["files"] = {"file": out_f}
@@ -210,9 +211,6 @@ class Artifact(SimvueObject):
         )
         _artifact.offline_mode(offline)
 
-        if offline:
-            return _artifact
-
         _artifact._staging["storage"]["files"] = {"file": io.BytesIO(_serialized)}
         _artifact._upload()
         return _artifact
@@ -220,10 +218,15 @@ class Artifact(SimvueObject):
     def commit(self) -> None:
         raise TypeError("Cannot call method 'commit' on write-once type 'Artifact'")
 
-    def _upload(self, data: typing.Any) -> None:
+    def _upload(self) -> None:
+        if self._offline:
+            super().commit()
+            return
+
         _run_id = self._staging["server"]["run"]
         _files = self._staging["storage"]["files"]
         _name = self._staging["server"]["name"]
+        _data = self._staging["storage"].get("data")
 
         _run_artifacts_url: URL = (
             URL(self._user_config.server.url)
@@ -232,7 +235,7 @@ class Artifact(SimvueObject):
 
         if _url := self._staging["server"]["url"]:
             _response = sv_post(
-                url=_url, headers={}, is_json=False, files=_files, data=data
+                url=_url, headers={}, is_json=False, files=_files, data=_data
             )
 
             self._logger.debug(
@@ -263,7 +266,9 @@ class Artifact(SimvueObject):
         )
 
     def _get(self, storage: str | None = None, **kwargs) -> dict[str, typing.Any]:
-        return super()._get(storage=storage or self._storage_id, **kwargs)
+        return super()._get(
+            storage=storage or self._staging.get("server", {}).get("storage"), **kwargs
+        )
 
     @property
     def checksum(self) -> str:
@@ -301,7 +306,7 @@ class Artifact(SimvueObject):
     ) -> typing.Union["Artifact", None]:
         _temp = Artifact(**kwargs)
         _url = _temp._base_url / f"runs/{run_id}/artifacts"
-        _response = sv_get(url=_url, params={"name": name}, headers=_temp._headers)
+        _response = sv_get(url=f"{_url}", params={"name": name}, headers=_temp._headers)
         _json_response = get_json_from_response(
             response=_response,
             expected_status=[http.HTTPStatus.OK, http.HTTPStatus.NOT_FOUND],

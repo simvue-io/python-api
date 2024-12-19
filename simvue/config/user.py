@@ -146,9 +146,9 @@ class SimvueConfiguration(pydantic.BaseModel):
     @sv_util.prettify_pydantic
     def fetch(
         cls,
-        server_url: typing.Optional[str] = None,
-        server_token: typing.Optional[str] = None,
-        mode: typing.Optional[typing.Literal["offline", "online", "disabled"]] = None,
+        server_url: str | None = None,
+        server_token: str | None = None,
+        mode: typing.Literal["offline", "online", "disabled"] | None = None,
     ) -> "SimvueConfiguration":
         """Retrieve the Simvue configuration from this project
 
@@ -157,7 +157,7 @@ class SimvueConfiguration(pydantic.BaseModel):
 
         Parameters
         ----------
-        server_url : str, optional
+        server_url : str | URL, optional
             override the URL used for this session
         server_token : str, optional
             override the token used for this session
@@ -203,6 +203,9 @@ class SimvueConfiguration(pydantic.BaseModel):
         _server_url = os.environ.get(
             "SIMVUE_URL", server_url or _config_dict["server"].get("url")
         )
+
+        if isinstance(_server_url, URL):
+            _server_url = str(_server_url)
 
         _server_token = os.environ.get(
             "SIMVUE_TOKEN", server_token or _config_dict["server"].get("token")
