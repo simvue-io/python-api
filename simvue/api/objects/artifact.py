@@ -12,6 +12,7 @@ import typing
 import pydantic
 import os.path
 import functools
+import io
 import sys
 import requests
 
@@ -41,20 +42,48 @@ class Artifact(SimvueObject):
     def __init__(
         self,
         identifier: str | None = None,
-        storage: str | None = None,
-        run_id: str | None = None,
         **kwargs,
     ) -> None:
-        self._storage_id: str | None = storage
-        self._run_id: str | None = run_id
         super().__init__(identifier, **kwargs)
+        self._staging = {"server": kwargs, "storage": {}}
         self._label = "artifact"
 
     @classmethod
-    def new(cls, *_, **__) -> None:
-        raise NotImplementedError(
-            "No method 'new' for type 'artifact', use 'new_file' or 'new_object'"
+    def new(
+        cls,
+        *,
+        name: typing.Annotated[str, pydantic.Field(pattern=NAME_REGEX)],
+        run_id: str,
+        storage_id: str | None,
+        category: Category,
+        offline: bool = False,
+        **kwargs,
+    ) -> typing.Self:
+        _artifact = Artifact(
+            run=run_id,
+            name=name,
+            storage=storage_id,
+            category=category,
+            _read_only=False,
+            **kwargs,
         )
+        _artifact.offline_mode(offline)
+
+        if offline:
+            return _artifact
+
+        # Firstly submit a request for a new artifact
+        _response = _artifact._post(**_artifact._staging["server"])
+
+        # If this artifact does not exist a URL will be returned
+        _artifact._staging["server"]["url"] = _response["url"]
+
+        # If a storage ID has been provided store that else retrieve it
+        _artifact._staging["server"]["storage"] = storage_id or _response["storage_id"]
+        _artifact._staging["storage"]["data"] = _response.get("fields")
+        _artifact._staging["storage"]["files"] = None
+
+        return _artifact
 
     @classmethod
     @pydantic.validate_call
@@ -62,8 +91,8 @@ class Artifact(SimvueObject):
         cls,
         *,
         name: typing.Annotated[str, pydantic.Field(pattern=NAME_REGEX)],
-        run: str,
-        storage: str | None,
+        run_id: str,
+        storage_id: str | None,
         category: Category,
         file_path: pydantic.FilePath,
         file_type: str | None,
@@ -77,9 +106,9 @@ class Artifact(SimvueObject):
         ----------
         name : str
             the name for this artifact
-        run : str
+        run_id : str
             the identifier with which this artifact is associated
-        storage : str | None
+        storage_id : str | None
             the identifier for the storage location for this object
         category : "code" | "input" | "output"
             the category of this artifact
@@ -100,40 +129,24 @@ class Artifact(SimvueObject):
         _file_orig_path = file_path.expanduser().absolute()
         _file_checksum = calculate_sha256(f"{file_path}", is_file=True)
 
-        _upload_data = {
-            "name": name,
-            "storage": storage,
-            "category": category,
-            "originalPath": os.path.expandvars(_file_orig_path),
-            "size": _file_size,
-            "type": _file_type,
-            "checksum": _file_checksum,
-        }
-
-        _artifact = Artifact(_read_only=False, **_upload_data)
-        _artifact.offline_mode(offline)
+        _artifact = Artifact.new(
+            name=name,
+            run_id=run_id,
+            storage_id=storage_id,
+            category=category,
+            originalPath=os.path.expandvars(_file_orig_path),
+            size=_file_size,
+            type=_file_type,
+            checksum=_file_checksum,
+            offline=offline,
+        )
 
         if offline:
             return _artifact
 
-        _response = _artifact._post(**_artifact._staging)
-
-        # Either use existing storage ID if provided from this point onwards
-        # or use the new ID provided
-        _storage_id = storage or _response["storage_id"]
-        _artifact._storage_id = _storage_id
-
-        _url = _response.get("url")
-
-        _fields = _response.get("fields")
-
         with open(file_path, "rb") as out_f:
-            _artifact._upload(
-                storage_url=_url,
-                artifact_data={"files": {"file": out_f}, "data": _fields},
-                run_id=run,
-                **_upload_data | {"storage": _storage_id},
-            )
+            _artifact._staging["storage"]["files"] = {"file": out_f}
+            _artifact._upload()
 
         return _artifact
 
@@ -143,7 +156,7 @@ class Artifact(SimvueObject):
         cls,
         *,
         name: typing.Annotated[str, pydantic.Field(pattern=NAME_REGEX)],
-        run: str,
+        run_id: str,
         storage: str | None,
         category: Category,
         obj: typing.Any,
@@ -158,7 +171,7 @@ class Artifact(SimvueObject):
         ----------
         name : str
             the name for this artifact
-        run : str
+        run_id : str
             the identifier with which this artifact is associated
         storage : str | None
             the identifier for the storage location for this object
@@ -184,57 +197,42 @@ class Artifact(SimvueObject):
             )
 
         _checksum = calculate_sha256(_serialized, is_file=False)
-        _upload_data = {
-            "name": name,
-            "storage": storage,
-            "category": category,
-            "originalPath": "",
-            "size": sys.getsizeof(obj),
-            "type": _data_type,
-            "checksum": _checksum,
-        }
 
-        _artifact = Artifact(read_only=False, **_upload_data)
+        _artifact = Artifact.new(
+            run_id=run_id,
+            name=name,
+            storage=storage,
+            category=category,
+            originalPath="",
+            size=sys.getsizeof(obj),
+            type=_data_type,
+            checksum=_checksum,
+        )
         _artifact.offline_mode(offline)
 
         if offline:
             return _artifact
 
-        _response = _artifact._post(**_artifact._staging)
-        _url = _response.get("url")
-
-        # Either use existing storage ID if provided from this point onwards
-        # or use the new ID provided
-        _storage_id = storage or _response["storage_id"]
-        _artifact._storage_id = _storage_id
-
-        _artifact._upload(
-            storage_url=_url,
-            artifact_data=_serialized,
-            run_id=run,
-            **_upload_data | {"storage": _storage_id},
-        )
+        _artifact._staging["storage"]["files"] = {"file": io.BytesIO(_serialized)}
+        _artifact._upload()
         return _artifact
 
     def commit(self) -> None:
         raise TypeError("Cannot call method 'commit' on write-once type 'Artifact'")
 
-    def _upload(
-        self,
-        artifact_data: typing.Any,
-        run_id: str,
-        storage_url: str | None,
-        **_obj_parameters,
-    ) -> None:
-        # NOTE: Assumes URL for Run artifacts is always same
+    def _upload(self, data: typing.Any) -> None:
+        _run_id = self._staging["server"]["run"]
+        _files = self._staging["storage"]["files"]
+        _name = self._staging["server"]["name"]
+
         _run_artifacts_url: URL = (
             URL(self._user_config.server.url)
-            / f"runs/{run_id}/artifacts/{self._identifier}"
+            / f"runs/{_run_id}/artifacts/{self._identifier}"
         )
 
-        if storage_url:
+        if _url := self._staging["server"]["url"]:
             _response = sv_post(
-                url=storage_url, headers={}, is_json=False, **artifact_data
+                url=_url, headers={}, is_json=False, files=_files, data=data
             )
 
             self._logger.debug(
@@ -245,22 +243,22 @@ class Artifact(SimvueObject):
             get_json_from_response(
                 expected_status=[http.HTTPStatus.OK, http.HTTPStatus.NO_CONTENT],
                 allow_parse_failure=True,  # JSON response from S3 not parsible
-                scenario=f"uploading artifact '{_obj_parameters['name']}' to object storage",
+                scenario=f"uploading artifact '{_name}' to object storage",
                 response=_response,
             )
 
-        if not _obj_parameters.get("storage"):
+        if not self._staging["server"].get("storage"):
             return
 
         _response = sv_put(
             url=f"{_run_artifacts_url}",
             headers=self._headers,
-            data=_obj_parameters,
+            data=self._staging["server"],
         )
 
         get_json_from_response(
             expected_status=[http.HTTPStatus.OK],
-            scenario=f"adding artifact '{_obj_parameters['name']}' to run '{run_id}'",
+            scenario=f"adding artifact '{_name}' to run '{_run_id}'",
             response=_response,
         )
 
