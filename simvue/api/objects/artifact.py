@@ -6,19 +6,19 @@ Class for defining and interacting with artifact objects.
 
 """
 
+import datetime
 import http
 import pathlib
 import typing
 import pydantic
 import os.path
-import functools
 import io
 import sys
 import requests
 
 from simvue.api.url import URL
 from simvue.exception import ObjectNotFoundError
-from simvue.models import NAME_REGEX
+from simvue.models import NAME_REGEX, DATETIME_FORMAT
 from simvue.utilities import get_mimetype_for_file, get_mimetypes, calculate_sha256
 from simvue.api.objects.base import SimvueObject
 from simvue.serialization import serialize_object
@@ -284,6 +284,16 @@ class Artifact(SimvueObject):
         return self._get_attribute("checksum")
 
     @property
+    def uploaded(self) -> bool:
+        """Retrieve if the artifact has an upload"""
+        return self._get_attribute("uploaded")
+
+    @property
+    def storage_url(self) -> URL | None:
+        """Retrieve upload URL for artifact"""
+        return URL(_url) if (_url := self._get_attribute("url")) else None
+
+    @property
     def category(self) -> Category | None:
         """Retrieve the category for this artifact if applicable"""
         return self._get_from_run("category")
@@ -291,7 +301,7 @@ class Artifact(SimvueObject):
     @property
     def original_path(self) -> str:
         """Retrieve the original path of the file associated with this artifact"""
-        return self._get_from_run("originalPath")
+        return self._get_attribute("original_path")
 
     @property
     def storage(self) -> str | None:
@@ -304,6 +314,11 @@ class Artifact(SimvueObject):
         return self._get_attribute("type")
 
     @property
+    def size(self) -> int:
+        """Retrieve the size for this artifact in bytes"""
+        return self._get_attribute("size")
+
+    @property
     def run_id(self) -> str | None:
         """Retrieve ID for run relating to this artifact"""
         return self._run_id
@@ -312,6 +327,13 @@ class Artifact(SimvueObject):
     def name(self) -> str | None:
         """Retrieve name for the artifact"""
         return self._get_attribute("name")
+
+    @property
+    def created(self) -> datetime.datetime | None:
+        """Retrieve created datetime for the artifact"""
+        _created: str | None = self._get_attribute("created")
+        _format = DATETIME_FORMAT.replace(" ", "T")
+        return datetime.datetime.strptime(_created, _format) if _created else None
 
     @classmethod
     def from_name(
@@ -340,48 +362,22 @@ class Artifact(SimvueObject):
         _url /= f"runs/{self.run_id}/artifacts/{self._identifier}"
         return _url
 
-    @functools.lru_cache
-    def get_storage_url(self) -> typing.Any:
-        """Retrieve the storage location for a particular run"""
-        if not self._identifier:
-            raise ValueError("Cannot retrieve artifact, no ID specified")
-
-        if not self.run_id:
-            raise ValueError(
-                "A run identifier must be specified when downloading an artifact"
-            )
-
-        _response = sv_get(
-            f"{self.run_url}",
-            headers=self._headers,
-        )
-
-        _json_response = get_json_from_response(
-            response=_response,
-            expected_status=[http.HTTPStatus.OK, http.HTTPStatus.NOT_FOUND],
-            scenario=f"Retrieval of content for {self._label} '{self._identifier}'",
-        )
-
-        if _response.status_code == http.HTTPStatus.NOT_FOUND:
-            raise ObjectNotFoundError(
-                self._label,
-                self.name,
-                extra=f"with id '{self._identifier}' for run '{self._run_id}'",
-            )
-
-        if not (_url := _json_response.get("url")):
-            raise RuntimeError(
-                f"Expected key 'url' for retrieval of artifact '{self.name}'"
-            )
-
-        return _url
+    @property
+    def download_url(self) -> URL | None:
+        """Retrieve the URL for downloading this artifact"""
+        return self.url / "download" if self._identifier else None
 
     @pydantic.validate_call
     def download(self, output_file: pathlib.Path) -> pathlib.Path | None:
-        _storage_url = self.get_storage_url()
-
-        _response = requests.get(
-            f"{_storage_url}", stream=True, timeout=DOWNLOAD_TIMEOUT
+        if not self.download_url:
+            raise ValueError(
+                f"Could not retrieve URL for artifact '{self._identifier}'"
+            )
+        _response = sv_get(
+            f"{self.download_url}",
+            headers=self._headers,
+            timeout=DOWNLOAD_TIMEOUT,
+            params={"storage": self.storage},
         )
 
         get_json_from_response(
@@ -409,8 +405,12 @@ class Artifact(SimvueObject):
 
     def download_content(self) -> typing.Any:
         """Download content of artifact from storage"""
-        _storage_url = self.get_storage_url()
-        _response = requests.get(_storage_url, timeout=DOWNLOAD_TIMEOUT)
+        if not self.storage_url:
+            raise ValueError(
+                f"Could not retrieve URL for artifact '{self._identifier}'"
+            )
+
+        _response = requests.get(self.storage_url, timeout=DOWNLOAD_TIMEOUT)
 
         get_json_from_response(
             response=_response,

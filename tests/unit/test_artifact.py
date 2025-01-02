@@ -40,6 +40,9 @@ def test_artifact_creation_online() -> None:
         assert _artifact.name == f"test_artifact_{_uuid}"
         os.remove(temp_f.name)
         _artifact.download(temp_f.name)
+        assert os.path.exists(temp_f.name)
+        with open(temp_f.name) as in_f:
+            assert in_f.readline() == f"Hello World! {_uuid}\n"
     if _failed:
         raise AssertionError("\n" + "\n\t- ".join(": ".join(i) for i in _failed))
     _run.delete()
