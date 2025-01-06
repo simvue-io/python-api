@@ -8,6 +8,7 @@ from simvue.api.objects import Alert, UserAlert, Run
 from simvue.api.objects.folder import Folder
 
 @pytest.mark.api
+@pytest.mark.online
 def test_user_alert_creation_online() -> None:
     _uuid: str = f"{uuid.uuid4()}".split("-")[0]
     _alert = UserAlert.new(
@@ -23,6 +24,7 @@ def test_user_alert_creation_online() -> None:
 
 
 @pytest.mark.api
+@pytest.mark.offline
 def test_user_alert_creation_offline() -> None:
     _uuid: str = f"{uuid.uuid4()}".split("-")[0]
     _alert = UserAlert.new(
@@ -43,6 +45,7 @@ def test_user_alert_creation_offline() -> None:
 
 
 @pytest.mark.api
+@pytest.mark.online
 def test_user_alert_modification_online() -> None:
     _uuid: str = f"{uuid.uuid4()}".split("-")[0]
     _alert = UserAlert.new(
@@ -61,6 +64,7 @@ def test_user_alert_modification_online() -> None:
 
 
 @pytest.mark.api
+@pytest.mark.offline
 def test_user_alert_modification_offline() -> None:
     _uuid: str = f"{uuid.uuid4()}".split("-")[0]
     _alert = UserAlert.new(
@@ -82,6 +86,7 @@ def test_user_alert_modification_offline() -> None:
     _new_alert.delete()
 
 @pytest.mark.api
+@pytest.mark.online
 def test_user_alert_properties() -> None:
     _uuid: str = f"{uuid.uuid4()}".split("-")[0]
     _alert = UserAlert.new(
@@ -105,6 +110,7 @@ def test_user_alert_properties() -> None:
 
 
 @pytest.mark.api
+@pytest.mark.online
 def test_user_alert_status() -> None:
     _uuid: str = f"{uuid.uuid4()}".split("-")[0]
     _alert = UserAlert.new(

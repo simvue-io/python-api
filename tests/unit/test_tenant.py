@@ -8,6 +8,7 @@ from simvue.api.objects.administrator import Tenant
 
 
 @pytest.mark.api
+@pytest.mark.online
 def test_create_tenant_online() -> None:
     _uuid: str = f"{uuid.uuid4()}".split("-")[0]
     _tenant = Tenant.new(name=_uuid)
@@ -24,6 +25,7 @@ def test_create_tenant_online() -> None:
 
 
 @pytest.mark.api
+@pytest.mark.offline
 def test_create_tenant_offline() -> None:
     _uuid: str = f"{uuid.uuid4()}".split("-")[0]
     _tenant = Tenant.new(name=_uuid, offline=True)
@@ -36,6 +38,7 @@ def test_create_tenant_offline() -> None:
 
 
 @pytest.mark.api
+@pytest.mark.online
 def test_tag_get_properties() -> None:
     _uuid: str = f"{uuid.uuid4()}".split("-")[0]
     _tenant = Tenant.new(name=_uuid)

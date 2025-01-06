@@ -1,6 +1,8 @@
 from simvue.serialization import serialize_object, deserialize_data
 import numpy as np
+import pytest
 
+@pytest.mark.local
 def test_numpy_array_serialization():
     """
     Check that a numpy array can be serialized then deserialized successfully

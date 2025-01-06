@@ -3,6 +3,7 @@ import pytest
 from simvue.api.objects import Stats
 
 @pytest.mark.api
+@pytest.mark.local
 def test_stats() -> None:
     _statistics = Stats()
     assert isinstance(_statistics.runs.created, int)

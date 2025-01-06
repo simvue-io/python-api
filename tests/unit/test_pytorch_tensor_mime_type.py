@@ -6,7 +6,8 @@ try:
     import torch
 except ImportError:
     torch = None
-    
+
+@pytest.mark.local
 @pytest.mark.skipif(not torch, reason="Torch is not installed")
 def test_pytorch_tensor_mime_type():
     """

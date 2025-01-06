@@ -8,6 +8,7 @@ import uuid
 from simvue.api.objects import Run, Folder
 
 @pytest.mark.api
+@pytest.mark.online
 def test_run_creation_online() -> None:
     _uuid: str = f"{uuid.uuid4()}".split("-")[0]
     _folder_name = f"/simvue_unit_testing/{_uuid}"
@@ -21,6 +22,7 @@ def test_run_creation_online() -> None:
 
 
 @pytest.mark.api
+@pytest.mark.offline
 def test_run_creation_offline() -> None:
     _uuid: str = f"{uuid.uuid4()}".split("-")[0]
     _folder_name = f"/simvue_unit_testing/{_uuid}"
@@ -40,6 +42,7 @@ def test_run_creation_offline() -> None:
 
 
 @pytest.mark.api
+@pytest.mark.online
 def test_run_modification_online() -> None:
     _uuid: str = f"{uuid.uuid4()}".split("-")[0]
     _folder_name = f"/simvue_unit_testing/{_uuid}"
@@ -68,6 +71,7 @@ def test_run_modification_online() -> None:
 
 
 @pytest.mark.api
+@pytest.mark.offline
 def test_run_modification_offline() -> None:
     _uuid: str = f"{uuid.uuid4()}".split("-")[0]
     _folder_name = f"/simvue_unit_testing/{_uuid}"
@@ -102,6 +106,7 @@ def test_run_modification_offline() -> None:
 
 
 @pytest.mark.api
+@pytest.mark.online
 def test_run_get_properties() -> None:
     _uuid: str = f"{uuid.uuid4()}".split("-")[0]
     _folder_name = f"/simvue_unit_testing/{_uuid}"

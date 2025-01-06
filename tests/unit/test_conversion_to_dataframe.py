@@ -1,5 +1,7 @@
+import pytest
 from simvue.converters import to_dataframe
 
+@pytest.mark.local
 def test_run_conversion_to_dataframe():
     """
     Check that runs can be successfully converted to a dataframe

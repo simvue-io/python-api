@@ -13,7 +13,7 @@ try:
 except ImportError:
     plotly = None
 
-
+@pytest.mark.local
 @pytest.mark.skipif(not plt, reason="Matplotlib is not installed")
 @pytest.mark.skipif(not plotly, reason="Plotly is not installed")
 def test_plotly_figure_mime_type():

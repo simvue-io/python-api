@@ -1,6 +1,7 @@
 from simvue import Run
 import pytest
 
+@pytest.mark.local
 def test_run_init_tags():
     """
     Check that run.init throws an exception if tags are not a list
