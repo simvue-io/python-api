@@ -9,7 +9,7 @@ Contains general definitions for Simvue Alert objects.
 import http
 import pydantic
 import typing
-from simvue.api.objects.base import SimvueObject, staging_check
+from simvue.api.objects.base import SimvueObject, staging_check, write_only
 from simvue.api.request import get as sv_get, get_json_from_response
 from simvue.models import NAME_REGEX
 
@@ -46,6 +46,7 @@ class AlertBase(SimvueObject):
         return self._get_attribute("name")
 
     @name.setter
+    @write_only
     @pydantic.validate_call
     def name(
         self, name: typing.Annotated[str, pydantic.Field(pattern=NAME_REGEX)]
@@ -60,6 +61,7 @@ class AlertBase(SimvueObject):
         return self._get_attribute("description")
 
     @description.setter
+    @write_only
     @pydantic.validate_call
     def description(self, description: str | None) -> None:
         """Set alert description"""
@@ -72,6 +74,7 @@ class AlertBase(SimvueObject):
         return self._get_attribute("tags")
 
     @tags.setter
+    @write_only
     @pydantic.validate_call
     def tags(self, tags: list[str]) -> None:
         """Set alert tags"""
@@ -84,6 +87,7 @@ class AlertBase(SimvueObject):
         return self._get_attribute("notification")
 
     @notification.setter
+    @write_only
     @pydantic.validate_call
     def notification(self, notification: typing.Literal["none", "email"]) -> None:
         """Configure alert notification setting"""
@@ -101,6 +105,7 @@ class AlertBase(SimvueObject):
         return self._get_attribute("enabled")
 
     @enabled.setter
+    @write_only
     @pydantic.validate_call
     def enabled(self, enabled: str) -> None:
         """Enable/disable alert"""
@@ -113,6 +118,7 @@ class AlertBase(SimvueObject):
         return self._get_attribute("abort")
 
     @abort.setter
+    @write_only
     @pydantic.validate_call
     def abort(self, abort: bool) -> None:
         """Configure alert to trigger aborts"""

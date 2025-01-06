@@ -150,10 +150,10 @@ class SimvueObject(abc.ABC):
             "User-Agent": f"Simvue Python client {__version__}",
         }
 
-        self._staging: dict[str, typing.Any] = {}
+        if not self._identifier.startswith("offline_"):
+            self._cached: dict[str, typing.Any] = self._get()
 
-        if not self._identifier.startswith("offline_") and self._read_only:
-            self._staging = self._get()
+        self._staging: dict[str, typing.Any] = {}
 
         # Recover any locally staged changes if not read-only
         self._staging |= {} if _read_only else self._get_local_staged()
@@ -209,7 +209,7 @@ class SimvueObject(abc.ABC):
 
         if (_attribute_is_property and _state_is_read_only) or _offline_state:
             try:
-                return self._staging[attribute]
+                return self._cached[attribute]
             except KeyError as e:
                 raise AttributeError(
                     f"Could not retrieve attribute '{attribute}' "
