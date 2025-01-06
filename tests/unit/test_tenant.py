@@ -49,13 +49,13 @@ def test_tag_get_properties() -> None:
         return
     _failed = []
 
-    for member in _tag._properties:
+    for member in _tenant._properties:
         try:
-            getattr(_tag, member)
+            getattr(_tenant, member)
         except Exception as e:
             _failed.append((member, f"{e}"))
     with contextlib.suppress(Exception):
-        _tag.delete()
+        _tenant.delete()
 
     if _failed:
         raise AssertionError("\n" + "\n\t- ".join(": ".join(i) for i in _failed))
