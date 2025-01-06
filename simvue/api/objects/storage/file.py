@@ -1,4 +1,9 @@
 import typing
+
+try:
+    from typing import Self
+except ImportError:
+    from typing_extensions import Self
 import pydantic
 
 from .base import StorageBase
@@ -16,7 +21,7 @@ class FileStorage(StorageBase):
         tenant_usable: bool,
         default: bool,
         offline: bool = False,
-    ) -> typing.Self:
+    ) -> Self:
         """Create a new file storage object"""
         _storage = FileStorage(
             name=name,

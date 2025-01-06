@@ -16,6 +16,11 @@ import io
 import sys
 import requests
 
+try:
+    from typing import Self
+except ImportError:
+    from typing_extensions import Self
+
 from simvue.api.url import URL
 from simvue.exception import ObjectNotFoundError
 from simvue.models import NAME_REGEX, DATETIME_FORMAT
@@ -59,7 +64,7 @@ class Artifact(SimvueObject):
         category: Category,
         offline: bool = False,
         **kwargs,
-    ) -> typing.Self:
+    ) -> Self:
         _artifact = Artifact(
             run=run_id,
             name=name,
@@ -100,7 +105,7 @@ class Artifact(SimvueObject):
         file_path: pydantic.FilePath,
         file_type: str | None,
         offline: bool = False,
-    ) -> typing.Self:
+    ) -> Self:
         """Create a new artifact either locally or on the server
 
         Note all arguments are keyword arguments
@@ -164,7 +169,7 @@ class Artifact(SimvueObject):
         obj: typing.Any,
         allow_pickling: bool = True,
         offline: bool = False,
-    ) -> typing.Self:
+    ) -> Self:
         """Create a new artifact either locally or on the server
 
         Note all arguments are keyword arguments

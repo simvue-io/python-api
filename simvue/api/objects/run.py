@@ -4,6 +4,11 @@ import msgpack
 import pydantic
 import datetime
 
+try:
+    from typing import Self
+except ImportError:
+    from typing_extensions import Self
+
 from .base import SimvueObject, staging_check, Visibility, write_only
 from simvue.api.request import (
     get as sv_get,
@@ -52,7 +57,7 @@ class Run(SimvueObject):
         *,
         folder: typing.Annotated[str, pydantic.Field(pattern=FOLDER_REGEX)],
         offline: bool = False,
-    ) -> typing.Self:
+    ) -> Self:
         """Create a new Folder on the Simvue server with the given path"""
         _run = Run(folder=folder, system=None, status="created", _read_only=False)
         _run.offline_mode(offline)

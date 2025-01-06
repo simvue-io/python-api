@@ -1,5 +1,9 @@
 import pydantic
-import typing
+
+try:
+    from typing import Self
+except ImportError:
+    from typing_extensions import Self
 from simvue.api.objects.base import SimvueObject, staging_check, write_only
 
 
@@ -19,7 +23,7 @@ class User(SimvueObject):
         tenant: str,
         enabled: bool = True,
         offline: bool = False,
-    ) -> typing.Self:
+    ) -> Self:
         _user_info: dict[str, str | bool] = {
             "username": username,
             "fullname": fullname,

@@ -1,4 +1,9 @@
 import typing
+
+try:
+    from typing import Self
+except ImportError:
+    from typing_extensions import Self
 import pydantic
 
 from simvue.api.objects.base import write_only
@@ -27,7 +32,7 @@ class S3Storage(StorageBase):
         tenant_usable: bool,
         default: bool,
         offline: bool = False,
-    ) -> typing.Self:
+    ) -> Self:
         """Create a new S3 storage object"""
         _config: dict[str, str] = {
             "endpoint_url": endpoint_url.__str__(),
