@@ -23,12 +23,12 @@ class Tenant(SimvueObject):
     @property
     @staging_check
     def enabled(self) -> bool:
-        """Retrieve if alert is enabled"""
+        """Retrieve if tenant is enabled"""
         return self._get_attribute("enabled")
 
     @enabled.setter
     @write_only
     @pydantic.validate_call
     def enabled(self, enabled: str) -> None:
-        """Enable/disable alert"""
+        """Enable/disable tenant"""
         self._staging["enabled"] = enabled
