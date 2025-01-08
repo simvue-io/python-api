@@ -15,7 +15,7 @@ import pydantic
 
 from simvue.exception import ObjectNotFoundError
 
-from .base import SimvueObject, Visibility, staging_check, write_only
+from .base import SimvueObject, staging_check, write_only
 from simvue.models import FOLDER_REGEX
 
 
@@ -45,7 +45,6 @@ class Folder(SimvueObject):
         **kwargs : dict
             any additional arguments to be passed to the object initialiser
         """
-        self.visibility = Visibility(self)
         super().__init__(identifier, **kwargs)
 
     @classmethod

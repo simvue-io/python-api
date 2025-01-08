@@ -44,14 +44,12 @@ def aggregated_metrics_to_dataframe(
     """
 
     _all_steps: list[float] = sorted(
-        set(
-            (
-                d[xaxis]
-                for sublist in request_response_data.values()
-                for d in sublist
-                if xaxis in d
-            )
-        )
+        {
+            d[xaxis]
+            for sublist in request_response_data.values()
+            for d in sublist
+            if xaxis in d
+        }
     )
 
     # Get the keys from the aggregate which are not the xaxis label
@@ -61,7 +59,7 @@ def aggregated_metrics_to_dataframe(
     _value_types.remove(xaxis)
 
     result_dict: dict[str, dict[tuple[float, str], typing.Optional[float]]] = {
-        metric_name: {} for metric_name in request_response_data.keys()
+        metric_name: {} for metric_name in request_response_data
     }
 
     for metric_name, metrics in request_response_data.items():
@@ -123,31 +121,19 @@ def parse_run_set_metrics(
         if an unrecognised parse format is specified
     """
     if not request_response_data:
-        if parse_to == "dataframe":
-            return pandas.DataFrame({})
-        else:
-            return {}
-
+        return pandas.DataFrame({}) if parse_to == "dataframe" else {}
     _all_steps: list[float] = sorted(
-        set(
-            (
-                d[xaxis]
-                for run_data in request_response_data.values()
-                for sublist in run_data.values()
-                for d in sublist
-                if xaxis in d
-            )
-        )
+        {
+            d[xaxis]
+            for run_data in request_response_data.values()
+            for sublist in run_data.values()
+            for d in sublist
+            if xaxis in d
+        }
     )
 
     _all_metrics: list[str] = sorted(
-        set(
-            (
-                key
-                for run_data in request_response_data.values()
-                for key in run_data.keys()
-            )
-        )
+        {key for run_data in request_response_data.values() for key in run_data.keys()}
     )
 
     # Get the keys from the aggregate which are not the xaxis label
@@ -178,26 +164,34 @@ def parse_run_set_metrics(
                     result_dict[metric_name][step, run_label] = next_item.get("value")
 
     if parse_to == "dataframe":
-        _data_frame = pandas.DataFrame(
+        return pandas.DataFrame(
             result_dict,
             index=pandas.MultiIndex.from_product(
                 [_all_steps, run_labels], names=(xaxis, "run")
             ),
         )
-        return _data_frame
     elif parse_to == "dict":
         return result_dict
     else:
         raise ValueError(f"Unrecognised parse format '{parse_to}'")
 
 
-def to_dataframe(data):
+def to_dataframe(data) -> pandas.DataFrame:
     """
     Convert runs to dataframe
     """
 
     metadata = []
     system_columns = []
+    columns = {
+        "name": [],
+        "status": [],
+        "folder": [],
+        "created": [],
+        "started": [],
+        "ended": [],
+    }
+
     for run in data:
         for item in run.get("metadata", []):
             if item not in metadata:
@@ -209,18 +203,17 @@ def to_dataframe(data):
                     for sub_item in value.keys()
                     if (col_name := f"system.{item}.{sub_item}") not in system_columns
                 ]
-            else:
-                if f"system.{item}" not in system_columns:
-                    system_columns.append(f"system.{item}")
+            elif f"system.{item}" not in system_columns:
+                system_columns.append(f"system.{item}")
 
-    columns = {f"metadata.{column}": [] for column in metadata}
-    columns |= {column: [] for column in system_columns}
-
+    columns |= {f"metadata.{column}": [] for column in metadata} | {
+        column: [] for column in system_columns
+    }
     for run in data:
-        run_info = flatdict.FlatDict(run, delimiter=".").as_dict()
+        run_info = flatdict.FlatDict(run, delimiter=".")
 
-        for column in columns:
-            columns[column].append(run_info.get(column))
+        for column, value_ in columns.items():
+            value_.append(run_info.get(column))
 
     return pandas.DataFrame(data=columns)
 

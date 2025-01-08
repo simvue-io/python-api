@@ -16,16 +16,13 @@ def test_folder_creation_online() -> None:
     _folder.commit()
     assert _folder.id
     assert _folder.path == _path
-    assert not _folder.visibility.public
-    assert not _folder.visibility.tenant
-    assert not _folder.visibility.users
-    _folders = Folder.get(count=10)
+    _folders = dict(Folder.get(count=10))
     assert _folders
     assert _folders[_folder.id]
     assert _folders[_folder.id]._read_only
     with pytest.raises(AssertionError):
         _folders[_folder.id].name = "hello"
-    _folder.delete()
+    _folder.delete(recursive=True, delete_runs=True, runs_only=False)
 
 
 @pytest.mark.api
@@ -37,9 +34,6 @@ def test_folder_creation_offline() -> None:
     _folder.commit()
     assert _folder.id
     assert _folder.path == _path
-
-    with pytest.raises(AttributeError):
-        _folder.visibility.public
 
     _folder.delete()
 

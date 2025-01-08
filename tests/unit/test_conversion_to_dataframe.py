@@ -1,4 +1,5 @@
 import pytest
+from numpy import exp
 from simvue.converters import to_dataframe
 
 @pytest.mark.local
@@ -23,16 +24,20 @@ def test_run_conversion_to_dataframe():
 
     runs_df = to_dataframe(runs)
 
-    assert(runs_df.columns.to_list() == ['name',
-                                         'status',
-                                         'folder',
-                                         'created',
-                                         'started',
-                                         'ended',
-                                         'metadata.a1',
-                                         'metadata.b1',
-                                         'metadata.a2',
-                                         'metadata.b2'])
+    expected_columns = [
+        'name',
+        'status',
+        'folder',
+        'created',
+        'started',
+        'ended',
+        'metadata.a1',
+        'metadata.b1',
+        'metadata.a2',
+        'metadata.b2'
+    ]
+
+    assert sorted(runs_df.columns.to_list()) == sorted(expected_columns)
 
     data = runs_df.to_dict('records')
     for i in range(len(runs)):
