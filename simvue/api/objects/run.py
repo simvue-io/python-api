@@ -209,12 +209,6 @@ class Run(SimvueObject):
         _format = DATETIME_FORMAT.replace(" ", "T")
         return datetime.datetime.strptime(_created, _format) if _created else None
 
-    @created.setter
-    @write_only
-    @pydantic.validate_call
-    def created(self, created: datetime.datetime) -> None:
-        self._staging["created"] = created.strftime(DATETIME_FORMAT)
-
     @property
     @staging_check
     def started(self) -> datetime.datetime | None:
