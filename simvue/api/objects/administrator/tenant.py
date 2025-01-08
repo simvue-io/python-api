@@ -53,45 +53,45 @@ class Tenant(SimvueObject):
     @is_enabled.setter
     @write_only
     @pydantic.validate_call
-    def is_enabled(self, is_enabled: str) -> None:
+    def is_enabled(self, is_enabled: bool) -> None:
         """Enable/disable tenant"""
         self._staging["is_enabled"] = is_enabled
 
     @property
     @staging_check
-    def max_request_rate(self) -> bool:
+    def max_request_rate(self) -> int:
         """Retrieve the tenant's maximum request rate"""
         return self._get_attribute("max_request_rate")
 
     @max_request_rate.setter
     @write_only
     @pydantic.validate_call
-    def max_request_rate(self, max_request_rate: str) -> None:
+    def max_request_rate(self, max_request_rate: int) -> None:
         """Update tenant's maximum request rate"""
         self._staging["max_request_rate"] = max_request_rate
 
     @property
     @staging_check
-    def max_runs(self) -> bool:
+    def max_runs(self) -> int:
         """Retrieve the tenant's maximum runs"""
         return self._get_attribute("max_runs")
 
     @max_runs.setter
     @write_only
     @pydantic.validate_call
-    def max_runs(self, max_runs: str) -> None:
+    def max_runs(self, max_runs: int) -> None:
         """Update tenant's maximum runs"""
         self._staging["max_runs"] = max_runs
 
     @property
     @staging_check
-    def max_data_volume(self) -> bool:
+    def max_data_volume(self) -> int:
         """Retrieve the tenant's maximum data volume"""
         return self._get_attribute("max_data_volume")
 
     @max_data_volume.setter
     @write_only
     @pydantic.validate_call
-    def max_data_volume(self, max_data_volume: str) -> None:
+    def max_data_volume(self, max_data_volume: int) -> None:
         """Update tenant's maximum data volume"""
         self._staging["max_data_volume"] = max_data_volume
