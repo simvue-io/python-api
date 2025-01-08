@@ -8,8 +8,8 @@ __all__ = ["Stats"]
 class Stats(SimvueObject):
     def __init__(self) -> None:
         self.runs = RunStatistics(self)
-        super().__init__()
         self._label = "stat"
+        super().__init__()
 
         # Stats is a singular object (i.e. identifier is not applicable)
         # set it to empty string so not None
