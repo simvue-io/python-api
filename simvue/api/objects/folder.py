@@ -146,9 +146,9 @@ class Folder(SimvueObject):
     def delete(  # should params to this be optional and default to False?
         self,
         *,
-        recursive: typing.Optional[bool] = False,
-        delete_runs: typing.Optional[bool] = False,
-        runs_only: typing.Optional[bool] = False,
+        recursive: bool | None = False,
+        delete_runs: bool | None = False,
+        runs_only: bool | None = False,
     ) -> dict[str, typing.Any]:
         return super().delete(
             recursive=recursive, runs=delete_runs, runs_only=runs_only
