@@ -1,8 +1,10 @@
 import typing
 
 import pydantic
+import datetime
+
 from simvue.api.objects.base import SimvueObject, staging_check, write_only
-from simvue.models import NAME_REGEX
+from simvue.models import NAME_REGEX, DATETIME_FORMAT
 
 
 class StorageBase(SimvueObject):
@@ -81,9 +83,8 @@ class StorageBase(SimvueObject):
         self._staging["is_enabled"] = is_enabled
 
     @property
-    def usage(self) -> int | None:
-        return None if self._offline else self._get_attribute("usage")
-
-    @property
-    def user(self) -> str | None:
-        return None if self._offline else self._get_attribute("user")
+    def created(self) -> datetime.datetime | None:
+        """Retrieve created datetime for the artifact"""
+        _created: str | None = self._get_attribute("created")
+        _format = DATETIME_FORMAT.replace(" ", "T")
+        return datetime.datetime.strptime(_created, _format) if _created else None

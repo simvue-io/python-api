@@ -25,10 +25,7 @@ def test_create_s3_online() -> None:
     assert _storage.config.endpoint_url == "https://not_a_real_url.io/"
     assert _storage.config.region_name == "fictionsville"
     assert _storage.config.bucket == "dummy_bucket"
-    assert not _storage.usage
-    assert _storage.status.status
-    assert _storage.status.timestamp
-    assert _storage.user
+    assert _storage.created
     assert dict(Storage.get())
     _storage.delete()
 

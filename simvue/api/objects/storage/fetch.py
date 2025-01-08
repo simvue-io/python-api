@@ -58,10 +58,10 @@ class Storage:
         for _entry in _json_response:
             _id = _entry.pop("id")
             if _entry["type"] == "S3":
-                yield _entry["id"], S3Storage(read_only=True, identifier=_id, **_entry)
+                yield _id, S3Storage(read_only=True, identifier=_id, **_entry)
             elif _entry["type"] == "File":
                 yield (
-                    _entry["id"],
+                    _id,
                     FileStorage(read_only=True, identifier=_id, **_entry),
                 )
             else:
