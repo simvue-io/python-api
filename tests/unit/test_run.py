@@ -57,7 +57,6 @@ def test_run_modification_online() -> None:
     _new_run.read_only(False)
     _new_run.name = "simvue_test_run"
     _new_run.description = "Simvue test run"
-    _new_run.created = _now
     _new_run.tags = ["simvue", "test", "tag"]
     _new_run.ttl = 120
     assert _new_run.ttl != 120
@@ -66,7 +65,6 @@ def test_run_modification_online() -> None:
     time.sleep(1)
     assert _new_run.ttl == 120
     assert _new_run.description == "Simvue test run"
-    assert _new_run.created == _now
     assert sorted(_new_run.tags) == sorted(["simvue", "test", "tag"])
     assert _new_run.name == "simvue_test_run"
     _run.delete()
@@ -88,7 +86,6 @@ def test_run_modification_offline() -> None:
     _new_run = Run(identifier=_run.id)
     _new_run.name = "simvue_test_run"
     _new_run.description = "Simvue test run"
-    _new_run.created = _now
     _new_run.tags = ["simvue", "test", "tag"]
     _new_run.ttl = 120
 
@@ -101,7 +98,6 @@ def test_run_modification_offline() -> None:
 
     assert _new_run.ttl == 120
     assert _new_run.description == "Simvue test run"
-    assert _new_run.created == _now
     assert sorted(_new_run.tags) == sorted(["simvue", "test", "tag"])
     assert _new_run.name == "simvue_test_run"
     _run.delete()

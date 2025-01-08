@@ -208,12 +208,6 @@ class Run(SimvueObject):
             self._get_attribute("created"), DATETIME_FORMAT
         )
 
-    @created.setter
-    @write_only
-    @pydantic.validate_call
-    def created(self, created: datetime.datetime) -> None:
-        self._staging["created"] = created.strftime(DATETIME_FORMAT)
-
     @property
     @staging_check
     def started(self) -> datetime.datetime:
