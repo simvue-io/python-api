@@ -12,7 +12,7 @@ def test_create_s3_online() -> None:
     _uuid: str = f"{uuid.uuid4()}".split("-")[0]
     _storage = S3Storage.new(
         name=_uuid,
-        endpoint_url="https://not_a_real_url.io",
+        endpoint_url="https://not-a-real-url.io",
         disable_check=True,
         tenant_usable=False,
         default=False,
@@ -23,7 +23,7 @@ def test_create_s3_online() -> None:
     )
     _storage.commit()
     assert _storage.name == _uuid
-    assert _storage.config.endpoint_url == "https://not_a_real_url.io/"
+    assert _storage.config.endpoint_url == "https://not-a-real-url.io/"
     assert _storage.config.region_name == "fictionsville"
     assert _storage.config.bucket == "dummy_bucket"
     assert _storage.created
