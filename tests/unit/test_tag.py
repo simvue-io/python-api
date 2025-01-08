@@ -43,6 +43,7 @@ def test_tag_modification_online() -> None:
     _tag.commit()
     time.sleep(1)
     _new_tag = Tag(_tag.id)
+    _new_tag.read_only(False)
     _new_tag.name = _tag.name.replace("test", "test_modified")
     _new_tag.color = "rgb({r}, {g}, {b})".format(r=250, g=0, b=0)
     _new_tag.description = "modified test tag"
