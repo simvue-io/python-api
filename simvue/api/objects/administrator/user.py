@@ -28,11 +28,11 @@ class User(SimvueObject):
             "username": username,
             "fullname": fullname,
             "email": email,
-            "manager": manager,
-            "readonly": readonly,
+            "is_manager": manager,
+            "is_readonly": readonly,
             "welcome": welcome,
-            "admin": admin,
-            "enabled": enabled,
+            "is_admin": admin,
+            "is_enabled": enabled,
         }
         _user = User(user=_user_info, tenant=tenant, offline=offline, _read_only=False)
         _user.offline_mode(offline)
@@ -76,37 +76,43 @@ class User(SimvueObject):
     @staging_check
     def manager(self) -> bool:
         if self.id and self.id.startswith("offline_"):
-            return self._get_attribute("user")["manager"]
-        return self._get_attribute("manager")
+            return self._get_attribute("user")["is_manager"]
+        return self._get_attribute("is_manager")
 
     @manager.setter
     @write_only
     @pydantic.validate_call
-    def manager(self, manager: bool) -> None:
-        self._staging["manager"] = manager
+    def manager(self, is_manager: bool) -> None:
+        self._staging["is_manager"] = is_manager
 
     @property
     @staging_check
     def admin(self) -> bool:
         if self.id and self.id.startswith("offline_"):
-            return self._get_attribute("user")["admin"]
-        return self._get_attribute("admin")
+            return self._get_attribute("user")["is_admin"]
+        return self._get_attribute("is_admin")
 
     @admin.setter
     @write_only
     @pydantic.validate_call
-    def admin(self, admin: bool) -> None:
-        self._staging["admin"] = admin
+    def admin(self, is_admin: bool) -> None:
+        self._staging["is_admin"] = is_admin
+
+    @property
+    def deleted(self) -> bool:
+        if self.id and self.id.startswith("offline_"):
+            return self._get_attribute("user")["is_deleted"]
+        return self._get_attribute("is_deleted")
 
     @property
     @staging_check
     def readonly(self) -> bool:
         if self.id and self.id.startswith("offline_"):
-            return self._get_attribute("user")["readonly"]
-        return self._get_attribute("readonly")
+            return self._get_attribute("user")["is_readonly"]
+        return self._get_attribute("is_readonly")
 
     @readonly.setter
     @write_only
     @pydantic.validate_call
-    def readonly(self, readonly: bool) -> None:
-        self._staging["readonly"] = readonly
+    def readonly(self, is_readonly: bool) -> None:
+        self._staging["is_readonly"] = is_readonly
