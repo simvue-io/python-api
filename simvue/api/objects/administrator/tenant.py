@@ -14,7 +14,7 @@ class Tenant(SimvueObject):
         cls,
         *,
         name: str,
-        is_enabled: bool = True,
+        enabled: bool = True,
         max_request_rate: int = 0,
         max_runs: int = 0,
         max_data_volume: int = 0,
@@ -22,7 +22,7 @@ class Tenant(SimvueObject):
     ) -> Self:
         _tenant = Tenant(
             name=name,
-            is_enabled=is_enabled,
+            enabled=enabled,
             max_request_rate=max_request_rate,
             max_runs=max_runs,
             max_data_volume=max_data_volume,
