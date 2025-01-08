@@ -62,7 +62,7 @@ def test_folder_modification_online() -> None:
     assert _folder.tags == _tags
     assert _folder_new.description == _description
     assert _folder.description == _description
-    _folder.delete()
+    _folder.delete(recursive=True, delete_runs=True, runs_only=False)
 
 
 @pytest.mark.api

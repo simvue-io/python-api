@@ -111,7 +111,7 @@ class Run(SimvueObject):
     @ttl.setter
     @write_only
     @pydantic.validate_call
-    def ttl(self, time_seconds: int | None) -> None:
+    def ttl(self, time_seconds: pydantic.NonNegativeInt) -> None:
         """Update the retention period for this run"""
         self._staging["ttl"] = time_seconds
 

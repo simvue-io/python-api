@@ -116,13 +116,13 @@ class Visibility:
 
 class SimvueObject(abc.ABC):
     def __init__(
-        self, identifier: typing.Optional[str] = None, _read_only: bool = True, **kwargs
+        self, identifier: str | None = None, _read_only: bool = True, **kwargs
     ) -> None:
         self._logger = logging.getLogger(f"simvue.{self.__class__.__name__}")
         self._label: str = getattr(self, "_label", self.__class__.__name__.lower())
         self._read_only: bool = _read_only
         self._endpoint: str = getattr(self, "_endpoint", f"{self._label}s")
-        self._identifier: typing.Optional[str] = (
+        self._identifier: str | None = (
             identifier if identifier is not None else f"offline_{uuid.uuid1()}"
         )
         self._properties = [
@@ -355,7 +355,7 @@ class SimvueObject(abc.ABC):
         self._clear_staging()
 
     @property
-    def id(self) -> typing.Optional[str]:
+    def id(self) -> str | None:
         return self._identifier
 
     @property
@@ -363,7 +363,7 @@ class SimvueObject(abc.ABC):
         return URL(self._user_config.server.url) / self._endpoint
 
     @property
-    def url(self) -> typing.Optional[URL]:
+    def url(self) -> URL | None:
         return None if self._identifier is None else self._base_url / self._identifier
 
     def _post(self, **kwargs) -> dict[str, typing.Any]:
