@@ -75,6 +75,7 @@ def test_metric_threshold_alert_modification_online() -> None:
     time.sleep(1)
     _new_alert = Alert(_alert.id)
     assert isinstance(_new_alert, MetricsThresholdAlert)
+    _new_alert.read_only(False)
     _new_alert.description = "updated!"
     assert _new_alert.description != "updated!"
     _new_alert.commit()
