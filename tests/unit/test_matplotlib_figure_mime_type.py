@@ -8,6 +8,7 @@ except ImportError:
     plt = None
 
 @pytest.mark.skipif(not plt, reason="Matplotlib is not installed")
+@pytest.mark.local
 def test_matplotlib_figure_mime_type():
     """
     Check that a matplotlib figure has the correct mime-type

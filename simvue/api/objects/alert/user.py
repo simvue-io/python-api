@@ -8,6 +8,11 @@ Class for connecting with a local/remote user defined alert.
 
 import pydantic
 import typing
+
+try:
+    from typing import Self
+except ImportError:
+    from typing_extensions import Self
 import http
 
 from simvue.api.request import get_json_from_response, put as sv_put
@@ -27,7 +32,7 @@ class UserAlert(AlertBase):
         notification: typing.Literal["none", "email"],
         enabled: bool = True,
         offline: bool = False,
-    ) -> typing.Self:
+    ) -> Self:
         """Create a new user-defined alert
 
         Note all arguments are keyword arguments.

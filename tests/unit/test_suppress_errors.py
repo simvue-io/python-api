@@ -2,6 +2,7 @@ from simvue import Run
 import pytest
 import logging
 
+@pytest.mark.local
 def test_suppress_errors_false():
     """
     Check that exceptions are thrown if suppress_errors disabled
@@ -15,6 +16,7 @@ def test_suppress_errors_false():
         )
     assert "Input should be a valid boolean, unable to interpret input" in f"{e.value}"
         
+@pytest.mark.local
 def test_suppress_errors_true(caplog):
     """
     Check that no exceptions are thrown and messages are added to log if suppress_errors enabled
@@ -30,6 +32,7 @@ def test_suppress_errors_true(caplog):
     
     assert "Input should be a valid boolean, unable to interpret input" in caplog.text
 
+@pytest.mark.local
 def test_suppress_errors_default(caplog):
     """
     Check that by default no exceptions are thrown and messages are added to log

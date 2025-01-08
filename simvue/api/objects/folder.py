@@ -143,8 +143,12 @@ class Folder(SimvueObject):
         """Update the retention period for this folder"""
         self._staging["ttl"] = time_seconds
 
-    def delete(
-        self, *, recursive: bool, delete_runs: bool, runs_only: bool
+    def delete(  # should params to this be optional and default to False?
+        self,
+        *,
+        recursive: bool | None = False,
+        delete_runs: bool | None = False,
+        runs_only: bool | None = False,
     ) -> dict[str, typing.Any]:
         return super().delete(
             recursive=recursive, runs=delete_runs, runs_only=runs_only

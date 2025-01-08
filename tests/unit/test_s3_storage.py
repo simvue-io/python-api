@@ -7,6 +7,7 @@ from simvue.api.objects import S3Storage
 from simvue.api.objects.storage.fetch import Storage
 
 @pytest.mark.api
+@pytest.mark.online
 def test_create_s3_online() -> None:
     _uuid: str = f"{uuid.uuid4()}".split("-")[0]
     _storage = S3Storage.new(
@@ -31,6 +32,7 @@ def test_create_s3_online() -> None:
 
 
 @pytest.mark.api
+@pytest.mark.offline
 def test_create_s3_offline() -> None:
     _uuid: str = f"{uuid.uuid4()}".split("-")[0]
     _storage = S3Storage.new(

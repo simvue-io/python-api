@@ -110,7 +110,10 @@ def parse_validation_response(
             input_arg = body
             for loc in location:
                 try:
-                    input_arg = input_arg[loc]
+                    if obj_type == "missing":
+                        input_arg = None
+                    else:
+                        input_arg = input_arg[loc]
                 except TypeError:
                     break
             information.append(input_arg)

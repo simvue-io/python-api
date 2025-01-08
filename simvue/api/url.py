@@ -1,4 +1,7 @@
-import typing
+try:
+    from typing import Self
+except ImportError:
+    from typing_extensions import Self
 import urllib.parse
 import copy
 
@@ -17,13 +20,13 @@ class URL:
         self._port: int | None = _url.port
         self._fragment: str = _url.fragment
 
-    def __truediv__(self, other: str) -> typing.Self:
+    def __truediv__(self, other: str) -> Self:
         _new = copy.deepcopy(self)
         _new /= other
         return _new
 
     @pydantic.validate_call
-    def __itruediv__(self, other: str) -> typing.Self:
+    def __itruediv__(self, other: str) -> Self:
         other = other[1:] if other.startswith("/") else other
         other = other[:-1] if other.endswith("/") else other
 

@@ -6,6 +6,7 @@ import json
 from simvue.api.objects.tag import Tag
 
 @pytest.mark.api
+@pytest.mark.online
 def test_tag_creation_online() -> None:
     _uuid: str = f"{uuid.uuid4()}".split("-")[0]
     _tag = Tag.new(name=f"test_tag_{_uuid}")
@@ -17,6 +18,7 @@ def test_tag_creation_online() -> None:
 
 
 @pytest.mark.api
+@pytest.mark.offline
 def test_tag_creation_offline() -> None:
     _uuid: str = f"{uuid.uuid4()}".split("-")[0]
     _tag = Tag.new(name=f"test_tag_{_uuid}", offline=True)
@@ -34,6 +36,7 @@ def test_tag_creation_offline() -> None:
     assert not _local_data.get(_tag._label, {}).get(_tag.id)
 
 @pytest.mark.api
+@pytest.mark.online
 def test_tag_modification_online() -> None:
     _uuid: str = f"{uuid.uuid4()}".split("-")[0]
     _tag = Tag.new(name=f"test_tag_{_uuid}")
@@ -50,6 +53,7 @@ def test_tag_modification_online() -> None:
 
 
 @pytest.mark.api
+@pytest.mark.offline
 def test_tag_modification_offline() -> None:
     _uuid: str = f"{uuid.uuid4()}".split("-")[0]
     _tag = Tag.new(name=f"test_tag_{_uuid}", offline=True)
@@ -66,6 +70,7 @@ def test_tag_modification_offline() -> None:
     _tag.delete()
 
 @pytest.mark.api
+@pytest.mark.online
 def test_tag_get_properties() -> None:
     _uuid: str = f"{uuid.uuid4()}".split("-")[0]
     _tag = Tag.new(name=f"test_tag_{_uuid}")

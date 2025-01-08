@@ -9,6 +9,10 @@ Interface to event-based Simvue alerts.
 import typing
 import pydantic
 
+try:
+    from typing import Self
+except ImportError:
+    from typing_extensions import Self
 from simvue.api.objects.base import write_only
 from .base import AlertBase, staging_check
 from simvue.models import NAME_REGEX
@@ -39,7 +43,7 @@ class EventsAlert(AlertBase):
         frequency: pydantic.PositiveInt,
         enabled: bool = True,
         offline: bool = False,
-    ) -> typing.Self:
+    ) -> Self:
         """Create a new event-based alert
 
         Note parameters are keyword arguments only.

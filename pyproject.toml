@@ -107,7 +107,9 @@ markers = [
     "unix: tests for UNIX systems only",
     "metadata: tests of metadata gathering functions",
     "proxies: tests for remote/offline Simvue proxies",
-    "offline: tests for offline functionality"
+    "online: tests for online functionality",
+    "offline: tests for offline functionality",
+    "local: tests of functionality which do not involve a server or writing to an offline cache file"
 ]
 
 [tool.interrogate]

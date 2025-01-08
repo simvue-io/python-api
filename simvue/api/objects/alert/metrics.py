@@ -10,6 +10,11 @@ locally or on a Simvue server
 import pydantic
 import typing
 
+try:
+    from typing import Self
+except ImportError:
+    from typing_extensions import Self
+
 from simvue.api.objects.base import write_only
 from .base import AlertBase, staging_check
 from simvue.models import NAME_REGEX
@@ -47,7 +52,7 @@ class MetricsThresholdAlert(AlertBase):
         frequency: pydantic.PositiveInt,
         enabled: bool = True,
         offline: bool = False,
-    ) -> typing.Self:
+    ) -> Self:
         """Create a new metric threshold alert either locally or on the server
 
         Note all arguments are keyword arguments.
@@ -123,7 +128,7 @@ class MetricsRangeAlert(AlertBase):
         frequency: pydantic.PositiveInt,
         enabled: bool = True,
         offline: bool = False,
-    ) -> typing.Self:
+    ) -> Self:
         """Create a new metric range alert either locally or on the server
 
         Note all arguments are keyword arguments.
