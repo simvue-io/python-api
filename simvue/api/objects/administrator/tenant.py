@@ -22,7 +22,7 @@ class Tenant(SimvueObject):
     ) -> Self:
         _tenant = Tenant(
             name=name,
-            enabled=enabled,
+            is_enabled=enabled,
             max_request_rate=max_request_rate,
             max_runs=max_runs,
             max_data_volume=max_data_volume,
