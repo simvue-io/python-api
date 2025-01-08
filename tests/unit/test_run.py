@@ -17,7 +17,7 @@ def test_run_creation_online() -> None:
     _run.commit()
     assert _run.folder == _folder_name
     _run.delete()
-    _folder.delete()
+    _folder.delete(recursive=True, delete_runs=True, runs_only=False)
 
 
 @pytest.mark.api
@@ -30,7 +30,7 @@ def test_run_creation_offline() -> None:
     _run.commit()
     assert _run.folder == _folder_name
     _run.delete()
-    _folder.delete()
+    _folder.delete(recursive=True, delete_runs=True, runs_only=False)
 
     with _run._local_staging_file.open() as in_f:
         _local_data = json.load(in_f)
@@ -51,6 +51,7 @@ def test_run_modification_online() -> None:
     time.sleep(1)
     _now = datetime.datetime.now()
     _new_run = Run(identifier=_run.id)
+    _new_run.read_only(False)
     _new_run.name = "simvue_test_run"
     _new_run.description = "Simvue test run"
     _new_run.created = _now
@@ -64,7 +65,7 @@ def test_run_modification_online() -> None:
     assert sorted(_new_run.tags) == sorted(["simvue", "test", "tag"])
     assert _new_run.name == "simvue_test_run"
     _run.delete()
-    _folder.delete()
+    _folder.delete(recursive=True, delete_runs=True, runs_only=False)
 
 
 @pytest.mark.api

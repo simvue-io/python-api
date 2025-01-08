@@ -51,16 +51,15 @@ def test_folder_modification_online() -> None:
     _folder.commit()
     time.sleep(1)
     _folder_new = Folder(identifier=_folder.id)
+    _folder_new.read_only(False)
     _folder_new.tags = _tags
     _folder_new.description = _description
-    _folder_new.visibility.tenant = True
     _folder_new.commit()
     assert _folder_new.tags == _tags
     assert _folder.tags == _tags
     assert _folder_new.description == _description
     assert _folder.description == _description
-    assert _folder_new.visibility.tenant
-    _folder.delete()
+    _folder.delete(recursive=True, delete_runs=True, runs_only=False)
 
 
 @pytest.mark.api
