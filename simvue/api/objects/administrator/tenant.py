@@ -46,16 +46,16 @@ class Tenant(SimvueObject):
 
     @property
     @staging_check
-    def is_enabled(self) -> bool:
+    def enabled(self) -> bool:
         """Retrieve if tenant is enabled"""
         return self._get_attribute("is_enabled")
 
-    @is_enabled.setter
+    @enabled.setter
     @write_only
     @pydantic.validate_call
-    def is_enabled(self, is_enabled: bool) -> None:
+    def enabled(self, enabled: bool) -> None:
         """Enable/disable tenant"""
-        self._staging["is_enabled"] = is_enabled
+        self._staging["is_enabled"] = enabled
 
     @property
     @staging_check
