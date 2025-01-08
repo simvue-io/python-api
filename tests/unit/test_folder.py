@@ -21,7 +21,7 @@ def test_folder_creation_online() -> None:
     assert _folders[_folder.id]._read_only
     with pytest.raises(AssertionError):
         _folders[_folder.id].name = "hello"
-    _folder.delete()
+    _folder.delete(recursive=True, delete_runs=True, runs_only=False)
 
 
 @pytest.mark.api
