@@ -16,14 +16,10 @@ class StorageBase(SimvueObject):
         self._label = "storage"
         self._endpoint = self._label
         super().__init__(identifier, _read_only=_read_only, **kwargs)
-        self.status = Status(self)
 
     @classmethod
     def new(cls, **kwargs):
         pass
-
-    def get_status(self) -> dict[str, typing.Any]:
-        return {} if self._offline else self._get_attribute("status")
 
     @property
     @staging_check
@@ -49,20 +45,20 @@ class StorageBase(SimvueObject):
     @staging_check
     def default(self) -> bool:
         """Retrieve if this is the default storage for the user"""
-        return self._get_attribute("default")
+        return self._get_attribute("is_default")
 
     @default.setter
     @write_only
     @pydantic.validate_call
     def default(self, is_default: bool) -> None:
         """Set this storage to be the default"""
-        self._staging["default"] = is_default
+        self._staging["is_default"] = is_default
 
     @property
     @staging_check
     def tenant_usable(self) -> bool:
         """Retrieve if this is usable by the current user tenant"""
-        return self._get_attribute("tenant_usable")
+        return self._get_attribute("is_tenant_usable")
 
     @tenant_usable.setter
     @write_only
@@ -72,28 +68,22 @@ class StorageBase(SimvueObject):
         self._staging["tenant_usable"] = is_tenant_usable
 
     @property
+    @staging_check
+    def enabled(self) -> bool:
+        """Retrieve if this is enabled"""
+        return self._get_attribute("is_enabled")
+
+    @enabled.setter
+    @write_only
+    @pydantic.validate_call
+    def enabled(self, is_enabled: bool) -> None:
+        """Set this storage to be usable by the current user tenant"""
+        self._staging["is_enabled"] = is_enabled
+
+    @property
     def usage(self) -> int | None:
         return None if self._offline else self._get_attribute("usage")
 
     @property
     def user(self) -> str | None:
         return None if self._offline else self._get_attribute("user")
-
-
-class Status:
-    def __init__(self, storage: StorageBase) -> None:
-        self._sv_obj = storage
-
-    @property
-    def status(self) -> str:
-        try:
-            return self._sv_obj.get_status()["status"]
-        except KeyError as e:
-            raise RuntimeError("Expected key 'status' in status retrieval") from e
-
-    @property
-    def timestamp(self) -> str:
-        try:
-            return self._sv_obj.get_status()["timestamp"]
-        except KeyError as e:
-            raise RuntimeError("Expected key 'timestamp' in status retrieval") from e

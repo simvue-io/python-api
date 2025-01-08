@@ -14,6 +14,7 @@ class FileStorage(StorageBase):
         name: typing.Annotated[str, pydantic.Field(pattern=NAME_REGEX)],
         disable_check: bool,
         tenant_usable: bool,
+        enabled: bool,
         default: bool,
         offline: bool = False,
     ) -> typing.Self:
@@ -22,8 +23,9 @@ class FileStorage(StorageBase):
             name=name,
             type="File",
             disable_check=disable_check,
-            tenant_useable=tenant_usable,
-            default=default,
+            is_tenant_useable=tenant_usable,
+            is_default=default,
+            is_enabled=enabled,
             _read_only=False,
         )
         _storage.offline_mode(offline)
