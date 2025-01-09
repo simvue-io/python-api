@@ -206,16 +206,18 @@ class Run(SimvueObject):
     def created(self) -> datetime.datetime | None:
         """Retrieve created datetime for the run"""
         _created: str | None = self._get_attribute("created")
-        _format = DATETIME_FORMAT.replace(" ", "T")
-        return datetime.datetime.strptime(_created, _format) if _created else None
+        return (
+            datetime.datetime.strptime(_created, DATETIME_FORMAT) if _created else None
+        )
 
     @property
     @staging_check
     def started(self) -> datetime.datetime | None:
         """Retrieve started datetime for the run"""
         _started: str | None = self._get_attribute("started")
-        _format = DATETIME_FORMAT.replace(" ", "T")
-        return datetime.datetime.strptime(_started, _format) if _started else None
+        return (
+            datetime.datetime.strptime(_started, DATETIME_FORMAT) if _started else None
+        )
 
     @started.setter
     @write_only
@@ -228,8 +230,9 @@ class Run(SimvueObject):
     def endtime(self) -> datetime.datetime | None:
         """Retrieve endtime datetime for the run"""
         _endtime: str | None = self._get_attribute("endtime")
-        _format = DATETIME_FORMAT.replace(" ", "T")
-        return datetime.datetime.strptime(_endtime, _format) if _endtime else None
+        return (
+            datetime.datetime.strptime(_endtime, DATETIME_FORMAT) if _endtime else None
+        )
 
     @endtime.setter
     @write_only
