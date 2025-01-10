@@ -8,6 +8,7 @@ Class for defining and interacting with artifact objects.
 
 import datetime
 import http
+import io
 import pathlib
 import typing
 import pydantic
@@ -43,17 +44,25 @@ DOWNLOAD_CHUNK_SIZE: int = 8192
 class Artifact(SimvueObject):
     """Connect to/create an artifact locally or on the server"""
 
+    def __init__(
+        self, identifier: str | None = None, _read_only: bool = True, **kwargs
+    ) -> None:
+        super().__init__(identifier=identifier, _read_only=_read_only, **kwargs)
+
+        # If the artifact is an online instance, need a place to store the response
+        # from the initial creation
+        self._init_data: dict[str, dict] | None = None
+        self._staging |= {"runs": []}
+
     @classmethod
     def new(
         cls,
         *,
         name: typing.Annotated[str, pydantic.Field(pattern=NAME_REGEX)],
-        run_id: str | None,
         storage_id: str | None,
         checksum: str,
         size: int,
         file_type: str,
-        category: Category,
         original_path: pathlib.Path | None,
         metadata: dict[str, typing.Any] | None,
         offline: bool = False,
@@ -63,8 +72,9 @@ class Artifact(SimvueObject):
             name=name,
             checksum=checksum,
             size=size,
-            type=file_type,
             originalPath=f"{original_path or ''}",
+            storage=storage_id,
+            type=file_type,
             metadata=metadata,
             _read_only=False,
         )
@@ -73,18 +83,11 @@ class Artifact(SimvueObject):
         if offline:
             return _artifact
 
-        # Firstly submit a request for a new artifact
-        _response = _artifact._post(**_artifact._staging)
-
-        # If this artifact does not exist a URL will be returned
-        _artifact._staging["server"]["url"] = _response.get("url")
-
-        # If a storage ID has been provided store that else retrieve it
-        _artifact._staging["server"]["storage"] = storage_id or _response.get(
-            "storage_id"
-        )
-        _artifact._staging["storage"]["data"] = _response.get("fields")
-        _artifact._staging["storage"]["files"] = None
+        # Firstly submit a request for a new artifact, remove the run IDs
+        # as these are not an argument for artifact creation
+        _post_args = _artifact._staging.copy()
+        _post_args.pop("runs", None)
+        _artifact._init_data = _artifact._post(**_post_args)
 
         return _artifact
 
@@ -94,9 +97,7 @@ class Artifact(SimvueObject):
         cls,
         *,
         name: typing.Annotated[str, pydantic.Field(pattern=NAME_REGEX)],
-        run_id: str,
         storage_id: str | None,
-        category: Category,
         file_path: pydantic.FilePath,
         file_type: str | None,
         metadata: dict[str, typing.Any] | None,
@@ -110,8 +111,6 @@ class Artifact(SimvueObject):
         ----------
         name : str
             the name for this artifact
-        run_id : str
-            the identifier with which this artifact is associated
         storage_id : str | None
             the identifier for the storage location for this object
         category : "code" | "input" | "output"
@@ -137,9 +136,7 @@ class Artifact(SimvueObject):
 
         _artifact = Artifact.new(
             name=name,
-            run_id=run_id,
             storage_id=storage_id,
-            category=category,
             original_path=os.path.expandvars(_file_orig_path),
             size=_file_size,
             file_type=_file_type,
@@ -148,11 +145,8 @@ class Artifact(SimvueObject):
             metadata=metadata,
         )
 
-        _artifact.offline_mode(offline)
-
         with open(file_path, "rb") as out_f:
-            _artifact._staging["storage"]["files"] = {"file": out_f}
-            _artifact._upload()
+            _artifact._upload(file=out_f)
 
         return _artifact
 
@@ -162,7 +156,6 @@ class Artifact(SimvueObject):
         cls,
         *,
         name: typing.Annotated[str, pydantic.Field(pattern=NAME_REGEX)],
-        run_id: str,
         storage: str | None,
         category: Category,
         obj: typing.Any,
@@ -178,8 +171,6 @@ class Artifact(SimvueObject):
         ----------
         name : str
             the name for this artifact
-        run_id : str
-            the identifier with which this artifact is associated
         storage : str | None
             the identifier for the storage location for this object
         category : "code" | "input" | "output"
@@ -208,42 +199,60 @@ class Artifact(SimvueObject):
         _checksum = calculate_sha256(_serialized, is_file=False)
 
         _artifact = Artifact.new(
-            run_id=run_id,
             name=name,
             storage=storage,
-            category=category,
             size=sys.getsizeof(obj),
             file_type=_data_type,
             checksum=_checksum,
             metadata=metadata,
         )
-        _artifact.offline_mode(offline)
 
-        # _artifact._staging["storage"]["files"] = {"file": io.BytesIO(_serialized)}
-        # _artifact._upload()
+        _artifact._upload(file=io.BytesIO(_serialized))
         return _artifact
 
     def commit(self) -> None:
         raise TypeError("Cannot call method 'commit' on write-once type 'Artifact'")
 
-    def _upload(self) -> None:
+    def attach_to_run(self, run_id: str, category: Category) -> None:
+        """Attach this artifact to a given run"""
+        self._staging["runs"].append({"id": run_id, "category": category})
+
         if self._offline:
             super().commit()
             return
 
-        _run_id = self._staging["server"]["run"]
-        _files = self._staging["storage"]["files"]
-        _name = self._staging["server"]["name"]
-        _data = self._staging["storage"].get("data")
-
-        _run_artifacts_url: URL = (
+        _name = self._staging["name"]
+        _run_artifacts_url = (
             URL(self._user_config.server.url)
-            / f"runs/{_run_id}/artifacts/{self._identifier}"
+            / f"runs/{run_id}/artifacts/{self._init_data['id']}"
         )
 
-        if _url := self._staging["server"]["url"]:
+        _response = sv_put(
+            url=f"{_run_artifacts_url}",
+            headers=self._headers,
+            json={"category": category},
+        )
+
+        get_json_from_response(
+            expected_status=[http.HTTPStatus.OK],
+            scenario=f"adding artifact '{_name}' to run '{run_id}'",
+            response=_response,
+        )
+
+    def _upload(self, file: io.BytesIO) -> None:
+        if self._offline:
+            super().commit()
+            return
+
+        if _url := self._init_data.get("url"):
+            _name = self._staging["name"]
+
             _response = sv_post(
-                url=_url, headers={}, is_json=False, files=_files, data=_data
+                url=_url,
+                headers={},
+                is_json=False,
+                files={"file": file},
+                data=self._init_data.get("fields"),
             )
 
             self._logger.debug(
@@ -258,21 +267,6 @@ class Artifact(SimvueObject):
                 response=_response,
             )
 
-        if not self._staging["server"].get("storage"):
-            return
-
-        _response = sv_put(
-            url=f"{_run_artifacts_url}",
-            headers=self._headers,
-            data=self._staging["server"],
-        )
-
-        get_json_from_response(
-            expected_status=[http.HTTPStatus.OK],
-            scenario=f"adding artifact '{_name}' to run '{_run_id}'",
-            response=_response,
-        )
-
     def _get(
         self, storage: str | None = None, url: str | None = None, **kwargs
     ) -> dict[str, typing.Any]:
@@ -282,33 +276,20 @@ class Artifact(SimvueObject):
             **kwargs,
         )
 
-    def _get_from_run(self, attribute: str, *default) -> typing.Any:
-        return self._get_attribute(attribute, default, url=self.run_url)
-
     @property
     def checksum(self) -> str:
         """Retrieve the checksum for this artifact"""
         return self._get_attribute("checksum")
 
     @property
-    def uploaded(self) -> bool:
-        """Retrieve if the artifact has an upload"""
-        return self._get_attribute("uploaded")
-
-    @property
     def storage_url(self) -> URL | None:
         """Retrieve upload URL for artifact"""
-        return URL(_url) if (_url := self._get_attribute("url")) else None
-
-    @property
-    def category(self) -> Category | None:
-        """Retrieve the category for this artifact if applicable"""
-        return self._get_from_run("category")
+        return URL(_url) if (_url := self._init_data.get("url")) else None
 
     @property
     def original_path(self) -> str:
         """Retrieve the original path of the file associated with this artifact"""
-        return self._get_attribute("original_path")
+        return self._get_attribute("originalPath")
 
     @property
     def storage(self) -> str | None:
@@ -324,11 +305,6 @@ class Artifact(SimvueObject):
     def size(self) -> int:
         """Retrieve the size for this artifact in bytes"""
         return self._get_attribute("size")
-
-    @property
-    def run_id(self) -> str | None:
-        """Retrieve ID for run relating to this artifact"""
-        return self._run_id
 
     @property
     def name(self) -> str | None:
@@ -362,18 +338,28 @@ class Artifact(SimvueObject):
         return Artifact(run=run_id, **_json_response)
 
     @property
-    def run_url(self) -> URL | None:
-        """If artifact is connected to a run return the run artifact endpoint"""
-        if not self.run_id:
-            return None
-        _url = URL(self._user_config.server.url)
-        _url /= f"runs/{self.run_id}/artifacts/{self._identifier}"
-        return _url
-
-    @property
     def download_url(self) -> URL | None:
         """Retrieve the URL for downloading this artifact"""
         return self.url / "download" if self._identifier else None
+
+    def get_category(self, run_id: str) -> Category:
+        """Retrieve the category of this artifact with respect to a given run"""
+        _run_url = (
+            URL(self._user_config.server.url)
+            / f"runs/{run_id}/artifacts/{self._identifier}"
+        )
+        _response = sv_get(url=_run_url, header=self._headers)
+        _json_response = get_json_from_response(
+            response=_response,
+            expected_status=[http.HTTPStatus.OK, http.HTTPStatus.NOT_FOUND],
+            scenario=f"Retrieval of category for artifact '{self._identifier}' with respect to run '{run_id}'",
+        )
+        if _response.status_code == http.HTTPStatus.NOT_FOUND:
+            raise ObjectNotFoundError(
+                self._label, self._identifier, extra=f"for run '{run_id}'"
+            )
+
+        return _json_response["category"]
 
     @pydantic.validate_call
     def download(self, output_file: pathlib.Path) -> pathlib.Path | None:

@@ -8,7 +8,7 @@ to a JSON string
 """
 
 import copy
-import json
+import json as json_module
 import typing
 import http
 
@@ -88,7 +88,7 @@ def post(
 
     """
     if is_json:
-        data_sent: typing.Union[str, dict[str, typing.Any]] = json.dumps(data)
+        data_sent: typing.Union[str, dict[str, typing.Any]] = json_module.dumps(data)
         headers = set_json_header(headers)
     else:
         data_sent = data
@@ -116,7 +116,8 @@ def post(
 def put(
     url: str,
     headers: dict[str, str],
-    data: dict[str, typing.Any],
+    data: dict[str, typing.Any] | None = None,
+    json: dict[str, typing.Any] | None = None,
     is_json: bool = True,
     timeout: int = DEFAULT_API_TIMEOUT,
 ) -> requests.Response:
@@ -130,6 +131,8 @@ def put(
         headers for the post request
     data : dict[str, typing.Any]
         data to put
+    json : dict | None
+        json data to send
     is_json : bool, optional
         send as JSON string, by default True
     timeout : int, optional
@@ -140,15 +143,17 @@ def put(
     requests.Response
         response from executing PUT
     """
-    if is_json:
-        data_sent: typing.Union[str, dict[str, typing.Any]] = json.dumps(data)
+    if is_json and data:
+        data_sent: typing.Union[str, dict[str, typing.Any]] = json_module.dumps(data)
         headers = set_json_header(headers)
     else:
         data_sent = data
 
-    logging.debug(f"PUT: {url}\n\tdata={data_sent}")
+    logging.debug(f"PUT: {url}\n\tdata={data_sent}\n\tjson={json}")
 
-    return requests.put(url, headers=headers, data=data_sent, timeout=timeout)
+    return requests.put(
+        url, headers=headers, data=data_sent, timeout=timeout, json=json
+    )
 
 
 @retry(
@@ -222,13 +227,13 @@ def get_json_from_response(
     scenario: str,
     response: requests.Response,
     allow_parse_failure: bool = False,
-    expected_type: typing.Literal[list, dict] = dict,
+    expected_type: list | dict = dict,
 ) -> typing.Union[dict, list]:
     try:
         json_response = response.json()
         json_response = json_response or ({} if expected_type is dict else [])
         decode_error = ""
-    except json.JSONDecodeError as e:
+    except json_module.JSONDecodeError as e:
         json_response = {} if allow_parse_failure else None
         decode_error = f"{e}"
 

@@ -26,13 +26,12 @@ def test_artifact_creation_online() -> None:
             out_f.write(f"Hello World! {_uuid}")
         _artifact = Artifact.new_file(
             name=f"test_artifact_{_uuid}",
-            run_id=_run.id,
             file_path=_path,
-            category="input",
             storage_id=None,
             file_type=None,
             metadata=None
         )
+        _artifact.attach_to_run(_run.id, "input")
         time.sleep(1)
         for member in _artifact._properties:
             try:
@@ -45,10 +44,10 @@ def test_artifact_creation_online() -> None:
         assert os.path.exists(temp_f.name)
         with open(temp_f.name) as in_f:
             assert in_f.readline() == f"Hello World! {_uuid}\n"
-    if _failed:
-        raise AssertionError("\n" + "\n\t- ".join(": ".join(i) for i in _failed))
     _run.delete()
     _folder.delete(recursive=True, delete_runs=True, runs_only=False)
+    if _failed:
+        raise AssertionError("\n\t-" + "\n\t- ".join(": ".join(i) for i in _failed))
 
 
 @pytest.mark.api
