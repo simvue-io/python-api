@@ -116,7 +116,11 @@ class Visibility:
 
 class SimvueObject(abc.ABC):
     def __init__(
-        self, identifier: str | None = None, _read_only: bool = True, **kwargs
+        self,
+        identifier: str | None = None,
+        _read_only: bool = True,
+        _local: bool = False,
+        **kwargs,
     ) -> None:
         self._logger = logging.getLogger(f"simvue.{self.__class__.__name__}")
         self._label: str = getattr(self, "_label", self.__class__.__name__.lower())
@@ -152,7 +156,12 @@ class SimvueObject(abc.ABC):
 
         self._staging: dict[str, typing.Any] = {}
 
-        if not self._identifier.startswith("offline_") and self._read_only:
+        # If this object is read-only, but not a local construction, make an API call
+        if (
+            not self._identifier.startswith("offline_")
+            and self._read_only
+            and not _local
+        ):
             self._staging = self._get()
 
         # Recover any locally staged changes if not read-only
@@ -264,7 +273,7 @@ class SimvueObject(abc.ABC):
         cls, count: int | None = None, offset: int | None = None, **kwargs
     ) -> list[str]:
         """Retrieve a list of all object identifiers"""
-        _class_instance = cls(read_only=True)
+        _class_instance = cls(_read_only=True, _local=True)
         if (_data := cls._get_all_objects(count, offset, **kwargs).get("data")) is None:
             raise RuntimeError(
                 f"Expected key 'data' for retrieval of {_class_instance.__class__.__name__.lower()}s"
@@ -274,8 +283,8 @@ class SimvueObject(abc.ABC):
     @classmethod
     def get(
         cls, *, count: int | None = None, offset: int | None = None, **kwargs
-    ) -> typing.Generator[tuple[str, "SimvueObject"], None, None]:
-        _class_instance = cls(read_only=True)
+    ) -> typing.Generator[tuple[str, typing.Optional["SimvueObject"]], None, None]:
+        _class_instance = cls(_read_only=True, _local=True)
         if (_data := cls._get_all_objects(count, offset, **kwargs).get("data")) is None:
             raise RuntimeError(
                 f"Expected key 'data' for retrieval of {_class_instance.__class__.__name__.lower()}s"
@@ -286,11 +295,11 @@ class SimvueObject(abc.ABC):
                 raise RuntimeError(
                     f"Expected key 'id' for {_class_instance.__class__.__name__.lower()}"
                 )
-            yield _id, cls(read_only=True, identifier=_id, **_entry)
+            yield _id, cls(_read_only=True, identifier=_id, _local=True, **_entry)
 
     @classmethod
     def count(cls, **kwargs) -> int:
-        _class_instance = cls(read_only=True)
+        _class_instance = cls(_read_only=True)
         if (
             _count := cls._get_all_objects(count=None, offset=None, **kwargs).get(
                 "count"
@@ -305,7 +314,7 @@ class SimvueObject(abc.ABC):
     def _get_all_objects(
         cls, count: int | None, offset: int | None, **kwargs
     ) -> dict[str, typing.Any]:
-        _class_instance = cls(read_only=True)
+        _class_instance = cls(_read_only=True)
         _url = f"{_class_instance._base_url}"
         _response = sv_get(
             _url,

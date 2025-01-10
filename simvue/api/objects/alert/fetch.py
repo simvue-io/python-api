@@ -48,7 +48,7 @@ class Alert:
         # Currently no alert filters
         kwargs.pop("filters", None)
 
-        _class_instance = AlertBase(read_only=True, **kwargs)
+        _class_instance = AlertBase(_local=True, _read_only=True, **kwargs)
         _url = f"{_class_instance._base_url}"
         _response = sv_get(
             _url,
@@ -72,19 +72,32 @@ class Alert:
         for _entry in _json_response["data"]:
             _id = _entry.pop("id")
             if _entry["source"] == "events":
-                yield _id, EventsAlert(read_only=True, identifier=_id, **_entry)
+                yield (
+                    _id,
+                    EventsAlert(_read_only=True, identifier=_id, _local=True, **_entry),
+                )
             elif _entry["source"] == "user":
-                yield _id, UserAlert(read_only=True, identifier=_id, **_entry)
+                yield (
+                    _id,
+                    UserAlert(_read_only=True, identifier=_id, _local=True, **_entry),
+                )
             elif _entry["source"] == "metrics" and _entry.get("alert", {}).get(
                 "threshold"
             ):
                 yield (
                     _id,
-                    MetricsThresholdAlert(read_only=True, identifier=_id, **_entry),
+                    MetricsThresholdAlert(
+                        _local=True, _read_only=True, identifier=_id, **_entry
+                    ),
                 )
             elif _entry["source"] == "metrics" and _entry.get("alert", {}).get(
                 "range_low"
             ):
-                yield _id, MetricsRangeAlert(read_only=True, identifier=_id, **_entry)
+                yield (
+                    _id,
+                    MetricsRangeAlert(
+                        _local=True, _read_only=True, identifier=_id, **_entry
+                    ),
+                )
             else:
                 raise RuntimeError(f"Unrecognised alert source '{_entry['source']}'")

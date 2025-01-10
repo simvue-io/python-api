@@ -39,7 +39,7 @@ class Storage:
         # Currently no storage filters
         kwargs.pop("filters", None)
 
-        _class_instance = StorageBase(read_only=True, **kwargs)
+        _class_instance = StorageBase(_local=True, _read_only=True, **kwargs)
         _url = f"{_class_instance._base_url}"
         _response = sv_get(
             _url,
@@ -58,11 +58,14 @@ class Storage:
         for _entry in _json_response:
             _id = _entry.pop("id")
             if _entry["type"] == "S3":
-                yield _id, S3Storage(read_only=True, identifier=_id, **_entry)
+                yield (
+                    _id,
+                    S3Storage(_local=True, _read_only=True, identifier=_id, **_entry),
+                )
             elif _entry["type"] == "File":
                 yield (
                     _id,
-                    FileStorage(read_only=True, identifier=_id, **_entry),
+                    FileStorage(_local=True, _read_only=True, identifier=_id, **_entry),
                 )
             else:
                 raise RuntimeError(f"Unrecognised storage type '{_entry['type']}'")
