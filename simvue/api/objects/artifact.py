@@ -12,7 +12,6 @@ import pathlib
 import typing
 import pydantic
 import os.path
-import io
 import sys
 import requests
 
@@ -44,34 +43,30 @@ DOWNLOAD_CHUNK_SIZE: int = 8192
 class Artifact(SimvueObject):
     """Connect to/create an artifact locally or on the server"""
 
-    def __init__(
-        self,
-        identifier: str | None = None,
-        **kwargs,
-    ) -> None:
-        super().__init__(identifier, **kwargs)
-        self._staging = {"server": kwargs, "storage": {}}
-        self._run_id = kwargs.get("run")
-        self._label = "artifact"
-
     @classmethod
     def new(
         cls,
         *,
         name: typing.Annotated[str, pydantic.Field(pattern=NAME_REGEX)],
-        run_id: str,
+        run_id: str | None,
         storage_id: str | None,
+        checksum: str,
+        size: int,
+        file_type: str,
         category: Category,
+        original_path: pathlib.Path | None,
+        metadata: dict[str, typing.Any] | None,
         offline: bool = False,
         **kwargs,
     ) -> Self:
         _artifact = Artifact(
-            run=run_id,
             name=name,
-            storage=storage_id,
-            category=category,
+            checksum=checksum,
+            size=size,
+            type=file_type,
+            originalPath=f"{original_path or ''}",
+            metadata=metadata,
             _read_only=False,
-            **kwargs,
         )
         _artifact.offline_mode(offline)
 
@@ -79,7 +74,7 @@ class Artifact(SimvueObject):
             return _artifact
 
         # Firstly submit a request for a new artifact
-        _response = _artifact._post(**_artifact._staging["server"])
+        _response = _artifact._post(**_artifact._staging)
 
         # If this artifact does not exist a URL will be returned
         _artifact._staging["server"]["url"] = _response.get("url")
@@ -104,6 +99,7 @@ class Artifact(SimvueObject):
         category: Category,
         file_path: pydantic.FilePath,
         file_type: str | None,
+        metadata: dict[str, typing.Any] | None,
         offline: bool = False,
     ) -> Self:
         """Create a new artifact either locally or on the server
@@ -124,6 +120,8 @@ class Artifact(SimvueObject):
             path to the file this artifact represents
         file_type : str | None
             the mime type for this file, else this is determined
+        metadata : dict[str, Any] | None
+            supply metadata information for this artifact
         offline : bool, optional
             whether to define this artifact locally, default is False
 
@@ -142,11 +140,12 @@ class Artifact(SimvueObject):
             run_id=run_id,
             storage_id=storage_id,
             category=category,
-            originalPath=os.path.expandvars(_file_orig_path),
+            original_path=os.path.expandvars(_file_orig_path),
             size=_file_size,
-            type=_file_type,
+            file_type=_file_type,
             checksum=_file_checksum,
             offline=offline,
+            metadata=metadata,
         )
 
         _artifact.offline_mode(offline)
@@ -167,6 +166,7 @@ class Artifact(SimvueObject):
         storage: str | None,
         category: Category,
         obj: typing.Any,
+        metadata: dict[str, typing.Any] | None,
         allow_pickling: bool = True,
         offline: bool = False,
     ) -> Self:
@@ -186,6 +186,8 @@ class Artifact(SimvueObject):
             the category of this artifact
         obj : Any
             object to serialize and upload
+        metadata : dict[str, Any] | None
+            supply metadata information for this artifact
         allow_pickling : bool, optional
             whether to allow the object to be pickled if no other
             serialization found. Default is True
@@ -210,15 +212,15 @@ class Artifact(SimvueObject):
             name=name,
             storage=storage,
             category=category,
-            originalPath="",
             size=sys.getsizeof(obj),
-            type=_data_type,
+            file_type=_data_type,
             checksum=_checksum,
+            metadata=metadata,
         )
         _artifact.offline_mode(offline)
 
-        _artifact._staging["storage"]["files"] = {"file": io.BytesIO(_serialized)}
-        _artifact._upload()
+        # _artifact._staging["storage"]["files"] = {"file": io.BytesIO(_serialized)}
+        # _artifact._upload()
         return _artifact
 
     def commit(self) -> None:

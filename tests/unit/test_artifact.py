@@ -30,7 +30,8 @@ def test_artifact_creation_online() -> None:
             file_path=_path,
             category="input",
             storage_id=None,
-            file_type=None
+            file_type=None,
+            metadata=None
         )
         time.sleep(1)
         for member in _artifact._properties:
