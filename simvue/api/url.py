@@ -30,7 +30,7 @@ class URL:
         other = other[1:] if other.startswith("/") else other
         other = other[:-1] if other.endswith("/") else other
 
-        self._path = f"{self._path}/{other}"
+        self._path = f"{self._path}/{other}" if other else self._path
         return self
 
     @property

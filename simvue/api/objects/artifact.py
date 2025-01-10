@@ -339,8 +339,9 @@ class Artifact(SimvueObject):
     def created(self) -> datetime.datetime | None:
         """Retrieve created datetime for the artifact"""
         _created: str | None = self._get_attribute("created")
-        _format = DATETIME_FORMAT.replace(" ", "T")
-        return datetime.datetime.strptime(_created, _format) if _created else None
+        return (
+            datetime.datetime.strptime(_created, DATETIME_FORMAT) if _created else None
+        )
 
     @classmethod
     def from_name(
