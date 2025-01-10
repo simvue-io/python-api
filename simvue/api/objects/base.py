@@ -282,7 +282,10 @@ class SimvueObject(abc.ABC):
             )
 
         for _entry in _data:
-            _id = _entry.pop("id")
+            if not (_id := _entry.pop("id", None)):
+                raise RuntimeError(
+                    f"Expected key 'id' for {_class_instance.__class__.__name__.lower()}"
+                )
             yield _id, cls(read_only=True, identifier=_id, **_entry)
 
     @classmethod

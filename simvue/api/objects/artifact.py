@@ -26,6 +26,7 @@ from simvue.exception import ObjectNotFoundError
 from simvue.models import NAME_REGEX, DATETIME_FORMAT
 from simvue.utilities import get_mimetype_for_file, get_mimetypes, calculate_sha256
 from simvue.api.objects.base import SimvueObject
+from simvue.api.objects.run import Run
 from simvue.serialization import serialize_object
 from simvue.api.request import (
     put as sv_put,
@@ -341,6 +342,12 @@ class Artifact(SimvueObject):
     def download_url(self) -> URL | None:
         """Retrieve the URL for downloading this artifact"""
         return self.url / "download" if self._identifier else None
+
+    @property
+    def runs(self) -> typing.Generator[str, None, None]:
+        """Retrieve all runs for which this artifact is related"""
+        for _id, _ in Run.get(filters=[f"artifact.id == {self.id}"]):
+            yield _id
 
     def get_category(self, run_id: str) -> Category:
         """Retrieve the category of this artifact with respect to a given run"""

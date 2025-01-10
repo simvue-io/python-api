@@ -682,7 +682,10 @@ class Run:
         self._data = self._sv_obj._staging
         self._sv_obj.commit()
 
-        name, self._id = self._sv_obj.name, self._sv_obj.id
+        if self._user_config.run.mode == "online":
+            name = self._sv_obj.name
+
+        self._id = self._sv_obj.id
 
         if not name:
             return False
@@ -1239,6 +1242,7 @@ class Run:
             typing.Annotated[str, pydantic.Field(pattern=NAME_REGEX)]
         ] = None,
         allow_pickle: bool = False,
+        metadata: dict[str, typing.Any] = None,
     ) -> bool:
         """Save an object to the Simvue server
 
@@ -1252,6 +1256,8 @@ class Run:
             name to associate with this object, by default None
         allow_pickle : bool, optional
             whether to allow pickling if all other serialization types fail, by default False
+        metadata : str | None, optional
+            any metadata to attach to the artifact
 
         Returns
         -------
@@ -1265,14 +1271,14 @@ class Run:
         _name: str = name or f"{obj.__class__.__name__.lower()}_{id(obj)}"
 
         try:
-            Artifact.new_object(
-                run_id=self.id,
+            _artifact = Artifact.new_object(
                 name=_name,
-                category=category,
                 obj=obj,
                 allow_pickling=allow_pickle,
                 storage_id=self._storage_id,
+                metadata=metadata,
             )
+            _artifact.attach_to_run(self.id, category)
         except (ValueError, RuntimeError) as e:
             self._error(f"Failed to save object '{_name}' to run '{self.id}': {e}")
             return False
@@ -1291,6 +1297,7 @@ class Run:
         name: typing.Optional[
             typing.Annotated[str, pydantic.Field(pattern=NAME_REGEX)]
         ] = None,
+        metadata: dict[str, typing.Any] = None,
     ) -> bool:
         """Upload file to the server
 
@@ -1306,6 +1313,8 @@ class Run:
             whether to preserve the path during storage, by default False
         name : str, optional
             name to associate with this file, by default None
+        metadata : str | None, optional
+            any metadata to attach to the artifact
 
         Returns
         -------
@@ -1329,15 +1338,15 @@ class Run:
 
         try:
             # Register file
-            Artifact.new_file(
+            _artifact = Artifact.new_file(
                 name=name or stored_file_name,
-                run_id=self.id,
                 storage_id=self._storage_id,
                 file_path=file_path,
                 offline=self._user_config.run.mode == "offline",
                 file_type=filetype,
-                category=category,
+                metadata=metadata,
             )
+            _artifact.attach_to_run(self.id, category)
         except (ValueError, RuntimeError) as e:
             self._error(f"Failed to save file: {e}")
             return False

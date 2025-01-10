@@ -64,12 +64,11 @@ def test_artifact_creation_offline() -> None:
             out_f.write("Hello World!")
         _artifact = Artifact.new_file(
             name=f"test_artifact_{_uuid}",
-            run_id=_run.id,
             file_path=_path,
-            category="input",
             storage_id=None,
             file_type=None,
-            offline=True
+            offline=True,
+            metadata=None
         )
         _folder.commit()
         _run.commit()

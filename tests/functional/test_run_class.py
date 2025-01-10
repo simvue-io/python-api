@@ -515,13 +515,6 @@ def test_save_file_online(
             return
 
         variable = capfd.readouterr()
-        with capfd.disabled():
-            if empty_file:
-                assert (
-                    variable.out
-                    == "[simvue] WARNING: saving zero-sized files not currently supported\n"
-                )
-                return
         simvue_run.close()
         time.sleep(1.0)
         os.remove(out_name)

@@ -26,12 +26,12 @@ def test_add_artifact_to_run() -> None:
 
         _artifact = Artifact.new_file(
             name=f"test_{_uuid}",
-            run_id=_run.id,
-            category="input",
             storage_id=None,
             file_path=pathlib.Path(tempf.name),
-            file_type=None
+            file_type=None,
+            metadata=None
         )
+        _artifact.attach_to_run(_run.id, "input")
     _run.status = "completed"
     _run.commit()
     assert _run.artifacts

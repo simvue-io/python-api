@@ -173,8 +173,6 @@ class SimvueConfiguration(pydantic.BaseModel):
         _config_dict: dict[str, dict[str, str]] = cls._load_pyproject_configs() or {}
 
         try:
-            logger.info(f"Using config file '{cls.config_file()}'")
-
             # NOTE: Legacy INI support has been removed
             _config_dict |= toml.load(cls.config_file())
 
