@@ -45,9 +45,15 @@ logger = logging.getLogger(__file__)
 def _download_artifact_to_file(
     artifact: Artifact, output_dir: pathlib.Path | None
 ) -> None:
-    _file_name = os.path.basename(artifact.name)
+    try:
+        _file_name = os.path.basename(artifact.name)
+    except AttributeError:
+        _file_name = os.path.basename(artifact)
     _output_file = (output_dir or pathlib.Path.cwd()).joinpath(_file_name)
-    artifact.download(_output_file)
+
+    with _output_file.open("wb") as out_f:
+        for content in artifact.download_content():
+            out_f.write(content)
 
 
 class Client:
@@ -501,7 +507,7 @@ class Client:
             server_token=self._user_config.server.token,
         )
 
-        _content = _artifact.download_content()
+        _content = b"".join(_artifact.download_content())
 
         _deserialized_content: typing.Optional[DeserializedContent] = deserialize_data(
             _content, _artifact.type, allow_pickle

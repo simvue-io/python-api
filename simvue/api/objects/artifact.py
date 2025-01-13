@@ -14,7 +14,6 @@ import typing
 import pydantic
 import os.path
 import sys
-import requests
 
 try:
     from typing import Self
@@ -52,7 +51,7 @@ class Artifact(SimvueObject):
 
         # If the artifact is an online instance, need a place to store the response
         # from the initial creation
-        self._init_data: dict[str, dict] | None = None
+        self._init_data: dict[str, dict] = {}
         self._staging |= {"runs": []}
 
     @classmethod
@@ -325,18 +324,28 @@ class Artifact(SimvueObject):
         cls, run_id: str, name: str, **kwargs
     ) -> typing.Union["Artifact", None]:
         _temp = Artifact(**kwargs)
-        _url = _temp._base_url / f"runs/{run_id}/artifacts"
+        _url = URL(_temp._user_config.server.url) / f"runs/{run_id}/artifacts"
         _response = sv_get(url=f"{_url}", params={"name": name}, headers=_temp._headers)
         _json_response = get_json_from_response(
+            expected_type=list,
             response=_response,
             expected_status=[http.HTTPStatus.OK, http.HTTPStatus.NOT_FOUND],
             scenario=f"Retrieval of artifact '{name}' for run '{run_id}'",
         )
 
-        if _response.status_code == http.HTTPStatus.NOT_FOUND:
+        if _response.status_code == http.HTTPStatus.NOT_FOUND or not _json_response:
             raise ObjectNotFoundError(_temp._label, name, extra=f"for run '{run_id}'")
 
-        return Artifact(run=run_id, **_json_response)
+        _first_result: dict[str, typing.Any] = _json_response[0]
+        _artifact_id: str = _first_result.pop("id")
+
+        return Artifact(
+            identifier=_artifact_id,
+            run=run_id,
+            **_first_result,
+            _read_only=True,
+            _local=True,
+        )
 
     @property
     def download_url(self) -> URL | None:
@@ -369,7 +378,8 @@ class Artifact(SimvueObject):
         return _json_response["category"]
 
     @pydantic.validate_call
-    def download(self, output_file: pathlib.Path) -> pathlib.Path | None:
+    def download_content(self) -> typing.Generator[bytes, None, None]:
+        """Stream artifact content"""
         if not self.download_url:
             raise ValueError(
                 f"Could not retrieve URL for artifact '{self._identifier}'"
@@ -390,33 +400,7 @@ class Artifact(SimvueObject):
 
         _total_length: str | None = _response.headers.get("content-length")
 
-        if not output_file.parent.is_dir():
-            raise ValueError(
-                f"Cannot write to '{output_file.parent}', not a directory."
-            )
-
-        with output_file.open("wb") as out_f:
-            if _total_length is None:
-                out_f.write(_response.content)
-            else:
-                for data in _response.iter_content(chunk_size=DOWNLOAD_CHUNK_SIZE):
-                    out_f.write(data)
-
-        return output_file if output_file.exists() else None
-
-    def download_content(self) -> typing.Any:
-        """Download content of artifact from storage"""
-        if not self.storage_url:
-            raise ValueError(
-                f"Could not retrieve URL for artifact '{self._identifier}'"
-            )
-
-        _response = requests.get(self.storage_url, timeout=DOWNLOAD_TIMEOUT)
-
-        get_json_from_response(
-            response=_response,
-            expected_status=[http.HTTPStatus.OK],
-            scenario=f"Retrieval of content for {self._label} '{self._identifier}'",
-        )
-
-        return _response.content
+        if _total_length is None:
+            yield _response.content
+        else:
+            yield from _response.iter_content(chunk_size=DOWNLOAD_CHUNK_SIZE)
