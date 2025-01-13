@@ -6,6 +6,7 @@ import random
 import os.path
 import typing
 import glob
+import pathlib
 import time
 import tempfile
 import simvue.client as svc
@@ -112,14 +113,13 @@ def test_get_artifact_as_file(
 ) -> None:
     with tempfile.TemporaryDirectory() as tempd:
         client = svc.Client()
+        _file_name = create_test_run[1][f"file_{file_id}"]
         client.get_artifact_as_file(
             create_test_run[1]["run_id"],
-            name=create_test_run[1][f"file_{file_id}"],
+            name=_file_name,
             output_dir=tempd,
         )
-        assert create_test_run[1][f"file_{file_id}"] in [
-            os.path.basename(i) for i in glob.glob(os.path.join(tempd, "*"))
-        ]
+        assert pathlib.Path(tempd).joinpath(_file_name).exists(), f"Failed to download '{_file_name}'"
 
 
 @pytest.mark.dependency

@@ -336,6 +336,12 @@ class Artifact(SimvueObject):
         if _response.status_code == http.HTTPStatus.NOT_FOUND or not _json_response:
             raise ObjectNotFoundError(_temp._label, name, extra=f"for run '{run_id}'")
 
+        if (_n_res := len(_json_response)) > 1:
+            raise RuntimeError(
+                f"Expected single result for artifact '{name}' for run '{run_id}'"
+                f" but got {_n_res}"
+            )
+
         _first_result: dict[str, typing.Any] = _json_response[0]
         _artifact_id: str = _first_result.pop("id")
 

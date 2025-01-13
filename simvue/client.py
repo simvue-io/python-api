@@ -587,7 +587,7 @@ class Client:
             if there was a failure retrieving artifacts from the server
         """
         _artifacts: typing.Generator[tuple[str, Artifact], None, None] = Artifact.get(
-            runs=[run_id], category=category
+            runs=json.dumps([run_id]), category=category
         )  # type: ignore
 
         with ThreadPoolExecutor(CONCURRENT_DOWNLOADS) as executor:
