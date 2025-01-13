@@ -83,8 +83,7 @@ def check_run_initialised(
 
         if not self._simvue:
             raise RuntimeError(
-                "Simvue Run must be initialised before calling "
-                f"'{function.__name__}'"
+                f"Simvue Run must be initialised before calling '{function.__name__}'"
             )
         return function(self, *args, **kwargs)
 
@@ -852,13 +851,13 @@ class Run:
                 if isinstance(val, bool) and val:
                     cmd_list += [f"-{kwarg}"]
                 else:
-                    cmd_list += [f"-{kwarg}{(' '+ _quoted_val) if val else ''}"]
+                    cmd_list += [f"-{kwarg}{(' ' + _quoted_val) if val else ''}"]
             else:
                 kwarg = kwarg.replace("_", "-")
                 if isinstance(val, bool) and val:
                     cmd_list += [f"--{kwarg}"]
                 else:
-                    cmd_list += [f"--{kwarg}{(' '+_quoted_val) if val else ''}"]
+                    cmd_list += [f"--{kwarg}{(' ' + _quoted_val) if val else ''}"]
 
         cmd_list += pos_args
         cmd_str = " ".join(cmd_list)

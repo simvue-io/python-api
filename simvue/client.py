@@ -543,8 +543,7 @@ class Client:
                 return None
             else:
                 raise RuntimeError(
-                    f"Deletion of folder '{folder_path}' failed, "
-                    "folder does not exist."
+                    f"Deletion of folder '{folder_path}' failed, folder does not exist."
                 )
 
         params: dict[str, bool] = {"runs": True} if remove_runs else {}
@@ -906,8 +905,7 @@ class Client:
                     future.result()
                 except Exception as e:
                     raise RuntimeError(
-                        f"Download of file {download['url']} "
-                        f"failed with exception: {e}"
+                        f"Download of file {download['url']} failed with exception: {e}"
                     )
 
     @prettify_pydantic
@@ -1063,7 +1061,7 @@ class Client:
 
         json_response = self._get_json_from_response(
             expected_status=[http.HTTPStatus.OK],
-            scenario=f"Retrieval of metrics '{metric_names}' in " f"runs '{run_ids}'",
+            scenario=f"Retrieval of metrics '{metric_names}' in runs '{run_ids}'",
             response=metrics_response,
         )
 
@@ -1235,8 +1233,7 @@ class Client:
 
         if data is None:
             raise RuntimeError(
-                f"Cannot plot metrics {metric_names}, "
-                f"no data found for runs {run_ids}."
+                f"Cannot plot metrics {metric_names}, no data found for runs {run_ids}."
             )
 
         # Undo multi-indexing
