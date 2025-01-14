@@ -44,7 +44,7 @@ class MetricsThresholdAlert(AlertBase):
         *,
         name: typing.Annotated[str, pydantic.Field(pattern=NAME_REGEX)],
         metric: str,
-        description: str,
+        description: str | None,
         notification: typing.Literal["none", "email"],
         aggregation: Aggregate,
         rule: typing.Literal["is above", "is below"],
@@ -62,7 +62,7 @@ class MetricsThresholdAlert(AlertBase):
         ----------
         name : str
             name to assign to this alert
-        description : str
+        description : str | None
             description for this alert
         metric : str
             the metric to monitor
@@ -123,7 +123,7 @@ class MetricsRangeAlert(AlertBase):
         *,
         name: typing.Annotated[str, pydantic.Field(pattern=NAME_REGEX)],
         metric: str,
-        description: str,
+        description: str | None,
         notification: typing.Literal["none", "email"],
         aggregation: Aggregate,
         rule: typing.Literal["is inside range", "is outside range"],
@@ -144,7 +144,7 @@ class MetricsRangeAlert(AlertBase):
             name to assign to this alert
         metric : str
             the metric to monitor
-        description : str
+        description : str | None
             description for this alert
         notification : "none" | "email"
             the notification settings for this alert
@@ -255,6 +255,9 @@ class MetricThresholdAlertDefinition(MetricsAlertDefinition):
     """Alert definition for metric threshold alerts"""
 
     def compare(self, other: "MetricThresholdAlertDefinition") -> bool:
+        if not isinstance(other, MetricThresholdAlertDefinition):
+            return False
+
         return all([super().compare(other), self.threshold == other.threshold])
 
     @property
@@ -269,6 +272,9 @@ class MetricRangeAlertDefinition(MetricsAlertDefinition):
     """Alert definition for metric range alerts"""
 
     def compare(self, other: "MetricRangeAlertDefinition") -> bool:
+        if not isinstance(other, MetricRangeAlertDefinition):
+            return False
+
         return all(
             [
                 super().compare(other),

@@ -29,7 +29,7 @@ class UserAlert(AlertBase):
         cls,
         *,
         name: typing.Annotated[str, pydantic.Field(pattern=NAME_REGEX)],
-        description: str,
+        description: str | None,
         notification: typing.Literal["none", "email"],
         enabled: bool = True,
         offline: bool = False,
@@ -42,7 +42,7 @@ class UserAlert(AlertBase):
         ----------
         name : str
             the name to assign to this alert
-        description : str
+        description : str | None
             description for this alert
         notification : "none" | "email"
             configure notification settings for this alert

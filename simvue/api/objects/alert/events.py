@@ -38,7 +38,7 @@ class EventsAlert(AlertBase):
         cls,
         *,
         name: typing.Annotated[str, pydantic.Field(pattern=NAME_REGEX)],
-        description: str,
+        description: str | None,
         notification: typing.Literal["none", "email"],
         pattern: str,
         frequency: pydantic.PositiveInt,
@@ -53,7 +53,7 @@ class EventsAlert(AlertBase):
         ----------
         name : str
             name of the alert
-        description : str
+        description : str | None
             description for this alert
         notification : "none" | "email"
             configure notifications sent by this alert
@@ -88,6 +88,17 @@ class EventAlertDefinition:
     def __init__(self, alert: EventsAlert) -> None:
         """Initialise an alert definition with its parent alert"""
         self._sv_obj = alert
+
+    def compare(self, other: "EventAlertDefinition") -> bool:
+        if not isinstance(other, EventAlertDefinition):
+            return False
+
+        return all(
+            [
+                self.frequency == other.frequency,
+                self.pattern == other.pattern,
+            ]
+        )
 
     @property
     def pattern(self) -> str:

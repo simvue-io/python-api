@@ -165,7 +165,7 @@ def setup_test_run(run: sv_run.Run, create_objects: bool, request: pytest.Fixtur
             window=2
         )
         TEST_DATA['created_alerts'] += [
-            "test_alert/value_above_1",
+            "test_alert/value_below_1",
             "test_alert/value_within_1"
         ]
 

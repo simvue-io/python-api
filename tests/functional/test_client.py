@@ -39,7 +39,9 @@ def test_get_alerts(create_test_run: tuple[sv_run.Run, dict], from_run: bool) ->
                 assert alert["alert"]["status"]["current"] == "critical"
     else:
         assert (triggered_alerts_full := client.get_alerts(names_only=True, critical_only=False))
-        assert all(a in triggered_alerts_full for a in run_data['created_alerts'])
+
+        for alert in run_data["created_alerts"]:
+            assert alert in triggered_alerts_full, f"Alert '{alert}' was not triggered"
 
 
 @pytest.mark.dependency
@@ -112,6 +114,7 @@ def test_get_artifact_as_file(
     create_test_run: tuple[sv_run.Run, dict], file_id: int
 ) -> None:
     with tempfile.TemporaryDirectory() as tempd:
+        tempd = os.getcwd()
         client = svc.Client()
         _file_name = create_test_run[1][f"file_{file_id}"]
         client.get_artifact_as_file(

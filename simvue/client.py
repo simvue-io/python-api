@@ -452,7 +452,11 @@ class Client:
     def _retrieve_artifacts_from_server(
         self, run_id: str, name: str, count: int | None = None
     ) -> typing.Generator[tuple[str, Artifact], None, None]:
-        return Artifact.get(runs=json.dumps([run_id]), name=name, count=count)  # type: ignore
+        return Artifact.get(
+            runs=json.dumps([run_id]),
+            filters=json.dumps([f"name == {name}"]),
+            count=count,
+        )  # type: ignore
 
     @prettify_pydantic
     @pydantic.validate_call
@@ -549,8 +553,8 @@ class Client:
 
         try:
             _id, _artifact = next(_artifacts)
-        except StopIteration:
-            raise ValueError(f"No artifact '{name}' found for run '{run_id}'")
+        except StopIteration as e:
+            raise ValueError(f"No artifact '{name}' found for run '{run_id}'") from e
 
         _download_artifact_to_file(_artifact, output_dir)
 
