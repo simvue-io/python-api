@@ -356,7 +356,7 @@ class Artifact(SimvueObject):
     @property
     def download_url(self) -> URL | None:
         """Retrieve the URL for downloading this artifact"""
-        return self.url / "download" if self._identifier else None
+        return self._get_attribute("url")
 
     @property
     def runs(self) -> typing.Generator[str, None, None]:

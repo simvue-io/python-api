@@ -39,11 +39,8 @@ def test_artifact_creation_online() -> None:
             except Exception as e:
                 _failed.append((member, f"{e}"))
         assert _artifact.name == f"test_artifact_{_uuid}"
-        os.remove(temp_f.name)
-        _artifact.download(temp_f.name)
-        assert os.path.exists(temp_f.name)
-        with open(temp_f.name) as in_f:
-            assert in_f.readline() == f"Hello World! {_uuid}\n"
+        _content = b"".join(_artifact.download_content()).decode("UTF-8")
+        assert _content == f"Hello World! {_uuid}\n"
     _run.delete()
     _folder.delete(recursive=True, delete_runs=True, runs_only=False)
     if _failed:
