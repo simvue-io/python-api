@@ -29,9 +29,11 @@ import uuid
 import click
 import psutil
 
+from simvue.api.objects.alert.base import AlertBase
 from simvue.api.objects.alert.fetch import Alert
 from simvue.api.objects.folder import Folder, get_folder_from_path
 from simvue.exception import ObjectNotFoundError, SimvueRunError
+from simvue.utilities import prettify_pydantic
 
 
 from .config.user import SimvueConfiguration
@@ -78,6 +80,9 @@ def check_run_initialised(
 ) -> typing.Callable[..., typing.Any]:
     @functools.wraps(function)
     def _wrapper(self: Self, *args: typing.Any, **kwargs: typing.Any) -> typing.Any:
+        # Tidy pydantic errors
+        _function = prettify_pydantic(function)
+
         if self._user_config.run.mode == "disabled":
             return True
 
@@ -90,7 +95,7 @@ def check_run_initialised(
                 "Simvue Run must be initialised before calling "
                 f"'{function.__name__}'"
             )
-        return function(self, *args, **kwargs)
+        return _function(self, *args, **kwargs)
 
     return _wrapper
 
@@ -1636,90 +1641,191 @@ class Run:
 
         return False
 
+    def _attach_alert_to_run(self, alert: AlertBase) -> str | None:
+        # Check if the alert already exists
+        _alert_id: typing.Optional[str] = None
+
+        for _, _existing_alert in Alert.get():
+            if _existing_alert.compare(alert):
+                _alert_id = _existing_alert.id
+                logger.info("Existing alert found with id: %s", _existing_alert.id)
+                break
+
+        if not _alert_id:
+            alert.commit()
+            _alert_id = alert.id
+
+        self._sv_obj.alerts = [_alert_id]
+
+        self._sv_obj.commit()
+
+        return _alert_id
+
     @skip_if_failed("_aborted", "_suppress_errors", None)
     @check_run_initialised
     @pydantic.validate_call
-    def create_alert(
+    def create_metric_range_alert(
         self,
         name: typing.Annotated[str, pydantic.Field(pattern=NAME_REGEX)],
-        source: typing.Literal["events", "metrics", "user"] = "metrics",
-        description: typing.Optional[str] = None,
-        frequency: typing.Optional[pydantic.PositiveInt] = None,
+        metric: str,
+        range_low: float,
+        range_high: float,
+        rule: typing.Literal["is inside range", "is outside range"],
+        *,
+        description: str | None = None,
         window: pydantic.PositiveInt = 5,
-        rule: typing.Optional[
-            typing.Literal[
-                "is above", "is below", "is inside range", "is outside range"
-            ]
-        ] = None,
-        metric: typing.Optional[str] = None,
-        threshold: typing.Optional[float] = None,
-        range_low: typing.Optional[float] = None,
-        range_high: typing.Optional[float] = None,
-        aggregation: typing.Optional[
-            typing.Literal["average", "sum", "at least one", "all"]
+        frequency: pydantic.PositiveInt = 1,
+        aggregation: typing.Literal[
+            "average", "sum", "at least one", "all"
         ] = "average",
         notification: typing.Literal["email", "none"] = "none",
-        pattern: typing.Optional[str] = None,
         trigger_abort: bool = False,
-    ) -> typing.Optional[str]:
-        """Creates an alert with the specified name (if it doesn't exist)
+    ) -> str | None:
+        """Creates a metric range alert with the specified name (if it doesn't exist)
         and applies it to the current run. If alert already exists it will
         not be duplicated.
-
-        Note available arguments depend on the alert source:
-
-        Event
-        =====
-
-        Alerts triggered based on the contents of an event message, arguments are:
-            - frequency
-            - pattern
-
-        Metrics
-        =======
-
-        Alerts triggered based on metric value condictions, arguments are:
-            - frequency
-            - rule
-            - window
-            - aggregation
-            - metric
-            - threshold / (range_low, range_high)
-
-        User
-        ====
-
-        User defined alerts, manually triggered.
 
         Parameters
         ----------
         name : str
             name of alert
-        source : Literal['events', 'metrics', 'user'], optional
-            the source which triggers this alert based on status, either
-            event based, metric values or manual user defined trigger. By default "metrics".
+        metric : str
+            metric to monitor
+        range_low : float
+            the lower bound value
+        range_high : float, optional
+            the upper bound value
+        rule : Literal['is inside range', 'is outside range']
+            rule defining range alert conditions
         description : str, optional
-            description for this alert
-        frequency : PositiveInt, optional
-            frequency at which to check alert condition in seconds, by default None
+            description for this alert, default None
         window : PositiveInt, optional
             time period in seconds over which metrics are averaged, by default 5
-        rule : Literal['is above', 'is below', 'is inside', 'is outside range'], optional
-            rule defining metric based alert conditions, by default None
-        metric : str, optional
-            metric to monitor, by default None
-        threshold : float, optional
-            the threshold value if 'rule' is 'is below' or 'is above', by default None
-        range_low : float, optional
-            the lower bound value if 'rule' is 'is inside range' or 'is outside range', by default None
-        range_high : float, optional
-            the upper bound value if 'rule' is 'is inside range' or 'is outside range', by default None
+        frequency : PositiveInt, optional
+            frequency at which to check alert condition in seconds, by default 1
         aggregation : Literal['average', 'sum', 'at least one', 'all'], optional
             method to use when aggregating metrics within time window, default 'average'.
         notification : Literal['email', 'none'], optional
             whether to notify on trigger, by default "none"
+        trigger_abort : bool, optional
+            whether this alert can trigger a run abort, default False
+
+        Returns
+        -------
+        str | None
+            returns the created alert ID if successful
+
+        """
+        _alert = MetricsRangeAlert.new(
+            name=name,
+            description=description,
+            metric=metric,
+            window=window,
+            aggregation=aggregation,
+            notification=notification,
+            rule=rule,
+            range_low=range_low,
+            range_high=range_high,
+            frequency=frequency or 60,
+            offline=self._user_config.run.mode == "offline",
+        )
+        _alert.abort = trigger_abort
+        return self._attach_alert_to_run(_alert)
+
+    @skip_if_failed("_aborted", "_suppress_errors", None)
+    @check_run_initialised
+    @pydantic.validate_call
+    def create_metric_threshold_alert(
+        self,
+        name: typing.Annotated[str, pydantic.Field(pattern=NAME_REGEX)],
+        metric: str,
+        threshold: float,
+        rule: typing.Literal["is above", "is below"],
+        *,
+        description: str | None = None,
+        window: pydantic.PositiveInt = 5,
+        frequency: pydantic.PositiveInt = 1,
+        aggregation: typing.Literal[
+            "average", "sum", "at least one", "all"
+        ] = "average",
+        notification: typing.Literal["email", "none"] = "none",
+        trigger_abort: bool = False,
+    ) -> str | None:
+        """Creates a metric threshold alert with the specified name (if it doesn't exist)
+        and applies it to the current run. If alert already exists it will
+        not be duplicated.
+
+        Parameters
+        ----------
+        name : str
+            name of alert
+        metric : str
+            metric to monitor
+        threshold : float
+            the threshold value
+        rule : Literal['is inside range', 'is outside range']
+            rule defining range alert conditions
+        description : str, optional
+            description for this alert, default None
+        window : PositiveInt, optional
+            time period in seconds over which metrics are averaged, by default 5
+        frequency : PositiveInt, optional
+            frequency at which to check alert condition in seconds, by default 1
+        aggregation : Literal['average', 'sum', 'at least one', 'all'], optional
+            method to use when aggregating metrics within time window, default 'average'.
+        notification : Literal['email', 'none'], optional
+            whether to notify on trigger, by default "none"
+        trigger_abort : bool, optional
+            whether this alert can trigger a run abort, default False
+
+        Returns
+        -------
+        str | None
+            returns the created alert ID if successful
+
+        """
+        _alert = MetricsThresholdAlert.new(
+            name=name,
+            metric=metric,
+            description=description,
+            threshold=threshold,
+            rule=rule,
+            window=window,
+            frequency=frequency,
+            aggregation=aggregation,
+            notification=notification,
+            offline=self._user_config.run.mode == "offline",
+        )
+        _alert.abort = trigger_abort
+        return self._attach_alert_to_run(_alert)
+
+    @skip_if_failed("_aborted", "_suppress_errors", None)
+    @check_run_initialised
+    @pydantic.validate_call
+    def create_event_alert(
+        self,
+        name: str,
+        pattern: str,
+        *,
+        description: str | None = None,
+        frequency: pydantic.PositiveInt = 1,
+        notification: typing.Literal["email", "none"] = "none",
+        trigger_abort: bool = False,
+    ) -> str | None:
+        """Creates an events alert with the specified name (if it doesn't exist)
+        and applies it to the current run. If alert already exists it will
+        not be duplicated.
+
+        Parameters
+        ----------
+        name : str
+            name of alert
         pattern : str, optional
             for event based alerts pattern to look for, by default None
+        frequency : PositiveInt, optional
+            frequency at which to check alert condition in seconds, by default None
+        notification : Literal['email', 'none'], optional
+            whether to notify on trigger, by default "none"
         trigger_abort : bool, optional
             whether this alert can trigger a run abort
 
@@ -1727,103 +1833,59 @@ class Run:
         -------
         str | None
             returns the created alert ID if successful
+
         """
-        if not self._sv_obj:
-            self._error("Cannot add alert, run not initialised")
-            return None
-
-        if rule in ("is below", "is above") and threshold is None:
-            self._error("threshold must be defined for the specified alert type")
-            return None
-
-        if rule in ("is outside range", "is inside range") and (
-            range_low is None or range_high is None
-        ):
-            self._error(
-                "range_low and range_high must be defined for the specified alert type"
-            )
-            return None
-
-        _alert: EventsAlert | MetricsRangeAlert | MetricsThresholdAlert | UserAlert
-
-        if source == "metrics" and threshold:
-            if not metric or not aggregation or not rule:
-                self._error("Missing arguments for alert of type 'metric threshold'")
-                return None
-
-            _alert = MetricsThresholdAlert.new(
-                name=name,
-                metric=metric,
-                window=window,
-                aggregation=aggregation,
-                rule=rule,
-                notification=notification,
-                threshold=threshold,
-                frequency=frequency or 60,
-                offline=self._user_config.run.mode == "offline",
-            )
-        elif source == "metrics":
-            if (
-                not metric
-                or not aggregation
-                or not rule
-                or not range_low
-                or not range_high
-            ):
-                self._error("Missing arguments for alert of type 'metric range'")
-                return None
-
-            _alert = MetricsRangeAlert.new(
-                name=name,
-                metric=metric,
-                window=window,
-                aggregation=aggregation,
-                notification=notification,
-                rule=rule,
-                range_low=range_low,
-                range_high=range_high,
-                frequency=frequency or 60,
-                offline=self._user_config.run.mode == "offline",
-            )
-        elif source == "events":
-            if not pattern:
-                self._error("Missing arguments for alert of type 'events'")
-                return None
-
-            _alert = EventsAlert.new(
-                name=name,
-                pattern=pattern,
-                notification=notification,
-                frequency=frequency or 60,
-                offline=self._user_config.run.mode == "offline",
-            )
-        else:
-            _alert = UserAlert.new(
-                name=name,
-                notification=notification,
-                offline=self._user_config.run.mode == "offline",
-            )
-
+        _alert = EventsAlert.new(
+            name=name,
+            description=description,
+            pattern=pattern,
+            notification=notification,
+            frequency=frequency,
+            offline=self._user_config.run.mode == "offline",
+        )
         _alert.abort = trigger_abort
+        return self._attach_alert_to_run(_alert)
 
-        # Check if the alert already exists
-        _alert_id: typing.Optional[str] = None
+    @skip_if_failed("_aborted", "_suppress_errors", None)
+    @check_run_initialised
+    @pydantic.validate_call
+    def create_user_alert(
+        self,
+        name: typing.Annotated[str, pydantic.Field(pattern=NAME_REGEX)],
+        *,
+        description: str | None = None,
+        notification: typing.Literal["email", "none"] = "none",
+        trigger_abort: bool = False,
+    ) -> None:
+        """Creates a user alert with the specified name (if it doesn't exist)
+        and applies it to the current run. If alert already exists it will
+        not be duplicated.
 
-        for _, _existing_alert in Alert.get():
-            if _existing_alert.compare(_alert):
-                _alert_id = _existing_alert.id
-                logger.info("Existing alert found with id: %s", _existing_alert.id)
-                break
+        Parameters
+        ----------
+        name : str
+            name of alert
+        description : str, optional
+            description for this alert, default None
+        notification : Literal['email', 'none'], optional
+            whether to notify on trigger, by default "none"
+        trigger_abort : bool, optional
+            whether this alert can trigger a run abort, default False
 
-        if not _alert_id:
-            _alert.commit()
-            _alert_id = _alert.id
+        Returns
+        -------
+        str | None
+            returns the created alert ID if successful
 
-        self._sv_obj.alerts = [_alert_id]
-
-        self._sv_obj.commit()
-
-        return _alert_id
+        """
+        _alert = UserAlert.new(
+            name=name,
+            notification=notification,
+            description=description,
+            offline=self._user_config.run.mode == "offline",
+        )
+        _alert.abort = trigger_abort
+        return self._attach_alert_to_run(_alert)
 
     @skip_if_failed("_aborted", "_suppress_errors", False)
     @check_run_initialised

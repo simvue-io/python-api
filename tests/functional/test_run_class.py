@@ -726,7 +726,7 @@ def test_abort_on_alert_raise(create_plain_run: typing.Tuple[sv_run.Run, dict], 
     run.config(resources_metrics_interval=1)
     run._heartbeat_interval = 1
     run._testing = True
-    alert_id = run.create_alert("abort_test", source="user", trigger_abort=True)
+    alert_id = run.create_user_alert("abort_test", trigger_abort=True)
     run.add_process(identifier="forever_long", executable="bash", c="sleep 10")
     time.sleep(2)
     run.log_alert(alert_id, "critical")

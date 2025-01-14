@@ -261,8 +261,8 @@ class Executor:
             )
         )
 
-        self._alert_ids[identifier] = self._runner.create_alert(
-            name=f"{identifier}_exit_status", source="user"
+        self._alert_ids[identifier] = self._runner.create_user_alert(
+            name=f"{identifier}_exit_status"
         )
 
         if not self._alert_ids[identifier]:

@@ -140,30 +140,33 @@ def setup_test_run(run: sv_run.Run, create_objects: bool, request: pytest.Fixtur
         TEST_DATA['created_alerts'] = []
 
         for i in range(5):
-            run.create_alert(name=f"test_alert/alert_{i}", source="events", frequency=1, pattern=TEST_DATA['event_contains'])
+            run.create_event_alert(
+                name=f"test_alert/alert_{i}",
+                frequency=1,
+                pattern=TEST_DATA['event_contains']
+            )
             TEST_DATA['created_alerts'].append(f"test_alert/alert_{i}")
 
-        run.create_alert(
+        run.create_metric_threshold_alert(
             name='test_alert/value_below_1',
-            source='metrics',
             frequency=1,
             rule='is below',
             threshold=1,
             metric='metric_counter',
             window=2
         )
-        run.create_alert(
-            name='test_alert/value_above_1',
-            source='metrics',
+        run.create_metric_range_alert(
+            name='test_alert/value_within_1',
             frequency=1,
-            rule='is above',
-            threshold=1,
+            rule = "is inside range",
+            range_low = 2,
+            range_high = 5,
             metric='metric_counter',
             window=2
         )
         TEST_DATA['created_alerts'] += [
             "test_alert/value_above_1",
-            "test_alert/value_below_1"
+            "test_alert/value_within_1"
         ]
 
         for i in range(5):

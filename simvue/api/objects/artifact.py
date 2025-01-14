@@ -391,10 +391,7 @@ class Artifact(SimvueObject):
                 f"Could not retrieve URL for artifact '{self._identifier}'"
             )
         _response = sv_get(
-            f"{self.download_url}",
-            headers=self._headers,
-            timeout=DOWNLOAD_TIMEOUT,
-            params={"storage": self.storage},
+            f"{self.download_url}", timeout=DOWNLOAD_TIMEOUT, headers=None
         )
 
         get_json_from_response(

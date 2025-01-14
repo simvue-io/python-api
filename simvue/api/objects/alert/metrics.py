@@ -44,6 +44,7 @@ class MetricsThresholdAlert(AlertBase):
         *,
         name: typing.Annotated[str, pydantic.Field(pattern=NAME_REGEX)],
         metric: str,
+        description: str,
         notification: typing.Literal["none", "email"],
         aggregation: Aggregate,
         rule: typing.Literal["is above", "is below"],
@@ -61,6 +62,8 @@ class MetricsThresholdAlert(AlertBase):
         ----------
         name : str
             name to assign to this alert
+        description : str
+            description for this alert
         metric : str
             the metric to monitor
         notification : "none" | "email"
@@ -91,6 +94,7 @@ class MetricsThresholdAlert(AlertBase):
         }
         _alert = MetricsThresholdAlert(
             name=name,
+            description=description,
             notification=notification,
             source="metrics",
             alert=_alert_definition,
@@ -119,6 +123,7 @@ class MetricsRangeAlert(AlertBase):
         *,
         name: typing.Annotated[str, pydantic.Field(pattern=NAME_REGEX)],
         metric: str,
+        description: str,
         notification: typing.Literal["none", "email"],
         aggregation: Aggregate,
         rule: typing.Literal["is inside range", "is outside range"],
@@ -139,6 +144,8 @@ class MetricsRangeAlert(AlertBase):
             name to assign to this alert
         metric : str
             the metric to monitor
+        description : str
+            description for this alert
         notification : "none" | "email"
             the notification settings for this alert
         aggregation : "average" | "sum" | "at least one" | "all"
@@ -173,6 +180,7 @@ class MetricsRangeAlert(AlertBase):
         }
         _alert = MetricsThresholdAlert(
             name=name,
+            description=description,
             notification=notification,
             source="metrics",
             enabled=enabled,

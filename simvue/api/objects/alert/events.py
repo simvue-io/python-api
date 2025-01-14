@@ -38,6 +38,7 @@ class EventsAlert(AlertBase):
         cls,
         *,
         name: typing.Annotated[str, pydantic.Field(pattern=NAME_REGEX)],
+        description: str,
         notification: typing.Literal["none", "email"],
         pattern: str,
         frequency: pydantic.PositiveInt,
@@ -52,6 +53,8 @@ class EventsAlert(AlertBase):
         ----------
         name : str
             name of the alert
+        description : str
+            description for this alert
         notification : "none" | "email"
             configure notifications sent by this alert
         pattern : str
@@ -68,6 +71,7 @@ class EventsAlert(AlertBase):
         _alert_definition = {"pattern": pattern, "frequency": frequency}
         _alert = EventsAlert(
             name=name,
+            description=description,
             notification=notification,
             source="events",
             alert=_alert_definition,

@@ -44,14 +44,12 @@ def git_info(repository: str) -> dict[str, typing.Any]:
     try:
         git_repo = git.Repo(repository, search_parent_directories=True)
         current_commit: git.Commit = git_repo.head.commit
-        author_list: set[str] = set(
+        author_list: set[str] = {
             email
             for commit in git_repo.iter_commits("--all")
             if "noreply" not in (email := (commit.author.email or ""))
             and "[bot]" not in (commit.author.name or "")
-        )
-
-        ref: str = current_commit.hexsha
+        }
 
         # In the case where the repository is dirty blame should point to the
         # current developer, not the person responsible for the latest commit
@@ -60,19 +58,20 @@ def git_info(repository: str) -> dict[str, typing.Any]:
         else:
             blame = current_commit.committer.email
 
-        for tag in git_repo.tags:
-            if tag.commit == current_commit:
-                ref = tag.name
-                break
-
+        ref: str = next(
+            (tag.name for tag in git_repo.tags if tag.commit == current_commit),
+            current_commit.hexsha,
+        )
         return {
-            "git.authors": json.dumps(list(author_list)),
-            "git.ref": ref,
-            "git.msg": current_commit.message.strip(),
-            "git.time_stamp": simvue_timestamp(current_commit.committed_datetime),
-            "git.blame": blame,
-            "git.url": git_repo.remote().url,
-            "git.dirty": dirty,
+            "git": {
+                "authors": json.dumps(list(author_list)),
+                "ref": ref,
+                "msg": current_commit.message.strip(),
+                "time_stamp": simvue_timestamp(current_commit.committed_datetime),
+                "blame": blame,
+                "url": git_repo.remote().url,
+                "dirty": dirty,
+            }
         }
     except (git.InvalidGitRepositoryError, ValueError):
         return {}
