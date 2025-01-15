@@ -56,9 +56,17 @@ def test_get_run_id_from_name(create_test_run: tuple[sv_run.Run, dict]) -> None:
 
 @pytest.mark.dependency
 @pytest.mark.client
-@pytest.mark.parametrize("aggregate", (True, False), ids=("aggregate", "complete"))
+@pytest.mark.parametrize(
+    "aggregate,use_name_labels",
+    [
+        (True, False),
+        (False, False),
+        (False, True)
+    ],
+    ids=("aggregate", "complete_ids", "complete_labels")
+)
 def test_get_metric_values(
-    create_test_run: tuple[sv_run.Run, dict], aggregate: bool
+    create_test_run: tuple[sv_run.Run, dict], aggregate: bool, use_name_labels: bool
 ) -> None:
     client = svc.Client()
     time.sleep(0.5)
@@ -66,6 +74,7 @@ def test_get_metric_values(
         run_ids=[create_test_run[1]["run_id"]],
         metric_names=[create_test_run[1]["metrics"][0]],
         xaxis="step",
+        use_run_names=use_name_labels,
         aggregate=aggregate,
         output_format="dict",
     )
@@ -114,7 +123,6 @@ def test_get_artifact_as_file(
     create_test_run: tuple[sv_run.Run, dict], file_id: int
 ) -> None:
     with tempfile.TemporaryDirectory() as tempd:
-        tempd = os.getcwd()
         client = svc.Client()
         _file_name = create_test_run[1][f"file_{file_id}"]
         client.get_artifact_as_file(
@@ -321,7 +329,7 @@ def test_multiple_metric_retrieval(
 
 @pytest.mark.client
 def test_alert_deletion() -> None:
-    _alert = sv_api_obj.UserAlert.new(name="test_alert", notification="none")
+    _alert = sv_api_obj.UserAlert.new(name="test_alert", notification="none", description=None)
     _alert.commit()
     _client = svc.Client()
     time.sleep(1)

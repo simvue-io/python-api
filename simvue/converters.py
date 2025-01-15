@@ -122,6 +122,7 @@ def parse_run_set_metrics(
     """
     if not request_response_data:
         return pandas.DataFrame({}) if parse_to == "dataframe" else {}
+
     _all_steps: list[float] = sorted(
         {
             d[xaxis]

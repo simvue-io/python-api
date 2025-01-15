@@ -31,7 +31,7 @@ if typing.TYPE_CHECKING:
 @pytest.mark.run
 def test_created_run() -> None:
     with sv_run.Run() as run_created:
-        run_created.init(running=False)
+        run_created.init(running=False, retention_period="1 min")
         _run = RunObject(identifier=run_created.id)
         assert _run.status == "created"
 
@@ -50,7 +50,7 @@ def test_check_run_initialised_decorator() -> None:
 @pytest.mark.run
 def test_run_with_emissions() -> None:
     with sv_run.Run() as run_created:
-        run_created.init()
+        run_created.init(retention_period="1 min")
         run_created.config(enable_emission_metrics=True, emission_metrics_interval=1)
         time.sleep(5)
         _run = RunObject(identifier=run_created.id)
@@ -207,7 +207,6 @@ def test_offline_tags(create_plain_run_offline: tuple[sv_run.Run, dict]) -> None
     client = sv_cl.Client()
     tags = client.get_tags()
     assert run_data["tags"][-1] in [tag["name"] for tag in tags]
-
 
 
 @pytest.mark.run

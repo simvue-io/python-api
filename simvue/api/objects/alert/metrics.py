@@ -114,7 +114,10 @@ class MetricsRangeAlert(AlertBase):
         super().__init__(identifier, **kwargs)
 
     def compare(self, other: "MetricsRangeAlert") -> bool:
-        return all([self.alert.compare(other.alert), super().compare(other)])
+        if not super().compare(other):
+            return False
+
+        return self.alert.compare(other)
 
     @classmethod
     @pydantic.validate_call

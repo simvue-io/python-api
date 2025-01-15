@@ -1919,7 +1919,7 @@ class Run:
             )
             return False
         _alert.read_only(False)
-        _alert.set_state(run_id=self._id, state=state)
+        _alert.set_status(run_id=self._id, status=state)
         _alert.commit()
 
         return True

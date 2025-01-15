@@ -187,7 +187,7 @@ class Client:
         count_limit: typing.Optional[pydantic.PositiveInt] = 100,
         start_index: typing.Optional[pydantic.PositiveInt] = 0,
         show_shared: bool = False,
-    ) -> typing.Union[DataFrame, list[Run], None]:
+    ) -> typing.Union[DataFrame, typing.Generator[tuple[str, Run]], None]:
         """Retrieve all runs matching filters.
 
         Parameters
@@ -230,19 +230,20 @@ class Client:
         if not show_shared:
             filters = (filters or []) + ["user == self"]
 
+        _runs = Run.get(
+            count=count_limit,
+            offset=start_index,
+            filters=json.dumps(filters),
+            return_basic=True,
+            return_metrics=metrics,
+            return_alerts=alerts,
+            return_system=system,
+            return_metadata=metadata,
+        )
+
         if output_format == "objects":
-            return dict(
-                Run.get(
-                    count=count_limit,
-                    offset=start_index,
-                    filters=json.dumps(filters),
-                    return_basic=True,
-                    return_metrics=metrics,
-                    return_alerts=alerts,
-                    return_system=system,
-                    return_metadata=metadata,
-                )
-            )
+            return _runs
+
         _params: dict[str, bool | str] = {
             "filters": json.dumps(filters),
             "return_basic": True,
@@ -696,8 +697,8 @@ class Client:
         """
         _run = Run(identifier=run_id)
 
-        for metric in _run.metrics:
-            yield metric.name
+        for id, _ in _run.metrics:
+            yield id
 
     def _get_run_metrics_from_server(
         self,
@@ -721,13 +722,11 @@ class Client:
             params=params,
         )
 
-        json_response = get_json_from_response(
+        return get_json_from_response(
             expected_status=[http.HTTPStatus.OK],
             scenario=f"Retrieval of metrics '{metric_names}' in " f"runs '{run_ids}'",
             response=metrics_response,
         )
-
-        return json_response
 
     @prettify_pydantic
     @pydantic.validate_call
@@ -792,51 +791,33 @@ class Client:
                 "'xaxis=timestamp'"
             )
 
-        if run_filters is not None:
-            if not (filtered_runs := self.get_runs(filters=run_filters)):
-                return None
+        _args = {"filters": json.dumps(run_filters)} if run_filters else {}
 
-            run_ids = [run["id"] for run in filtered_runs if run["id"]]
+        _run_data = dict(Run.get(**_args))
 
-            if use_run_names:
-                run_labels = [run["name"] for run in filtered_runs]
-        elif run_ids is not None:
-            if use_run_names:
-                run_labels = [
-                    self.get_run_name_from_id(run_id) for run_id in run_ids if run_id
-                ]
-        else:
-            raise AssertionError(
-                "Expected either argument 'run_ids' or 'run_filters' for get_metric_values"
-            )
-
-        if not run_ids or not all(run_ids):
-            raise ValueError(
-                f"Expected list of run identifiers for 'run_ids' but got '{run_ids}'"
-            )
-
-        if not use_run_names:
-            run_labels = run_ids
-
-        if run_metrics := self._get_run_metrics_from_server(
+        if _run_metrics := self._get_run_metrics_from_server(
             metric_names=metric_names,
-            run_ids=run_ids,
+            run_ids=run_ids or list(_run_data.keys()),
             xaxis=xaxis,
             aggregate=aggregate,
             max_points=max_points,
         ):
-            return (
-                aggregated_metrics_to_dataframe(
-                    run_metrics, xaxis=xaxis, parse_to=output_format
+            if aggregate:
+                return aggregated_metrics_to_dataframe(
+                    _run_metrics, xaxis=xaxis, parse_to=output_format
                 )
-                if aggregate
-                else parse_run_set_metrics(
-                    run_metrics,
+            else:
+                if use_run_names:
+                    _run_metrics = {
+                        _run_data[key].name: _run_metrics[key]
+                        for key in _run_metrics.keys()
+                    }
+                return parse_run_set_metrics(
+                    _run_metrics,
                     xaxis=xaxis,
-                    run_labels=run_labels,
+                    run_labels=list(_run_data.keys()),
                     parse_to=output_format,
                 )
-            )
         else:
             return None
 

@@ -200,8 +200,8 @@ def setup_test_run(run: sv_run.Run, create_objects: bool, request: pytest.Fixtur
                 out_f.write(
                     "print('Hello World!')"
                 )
-            run.save_file(test_script, category="code", name="test_empty_file")
-            TEST_DATA["file_3"] = "test_empty_file"
+            run.save_file(test_script, category="code", name="test_code_upload")
+            TEST_DATA["file_3"] = "test_code_upload"
 
     time.sleep(1.)
     return TEST_DATA
