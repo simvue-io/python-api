@@ -1,6 +1,17 @@
+"""
+Simvue Server Tag
+=================
+
+Contains a class for remotely connecting to a Simvue Tag, or defining
+a new tag given relevant arguments.
+
+"""
+
 import pydantic.color
 import typing
+import datetime
 from .base import SimvueObject, staging_check, write_only
+from simvue.models import DATETIME_FORMAT
 
 __all__ = ["Tag"]
 
@@ -52,6 +63,14 @@ class Tag(SimvueObject):
     @pydantic.validate_call
     def description(self, description: str) -> None:
         self._staging["description"] = description
+
+    @property
+    def created(self) -> datetime.datetime | None:
+        """Retrieve created datetime for the run"""
+        _created: str | None = self._get_attribute("created")
+        return (
+            datetime.datetime.strptime(_created, DATETIME_FORMAT) if _created else None
+        )
 
     @classmethod
     def get(

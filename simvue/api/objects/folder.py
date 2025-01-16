@@ -9,6 +9,7 @@ a new folder given relevant arguments.
 
 import pathlib
 import typing
+import datetime
 
 from codecarbon.output_methods.emissions_data import json
 import pydantic
@@ -16,7 +17,7 @@ import pydantic
 from simvue.exception import ObjectNotFoundError
 
 from .base import SimvueObject, staging_check, write_only
-from simvue.models import FOLDER_REGEX
+from simvue.models import FOLDER_REGEX, DATETIME_FORMAT
 
 
 class Folder(SimvueObject):
@@ -152,6 +153,14 @@ class Folder(SimvueObject):
     ) -> dict[str, typing.Any]:
         return super().delete(
             recursive=recursive, runs=delete_runs, runs_only=runs_only
+        )
+
+    @property
+    def created(self) -> datetime.datetime | None:
+        """Retrieve created datetime for the run"""
+        _created: str | None = self._get_attribute("created")
+        return (
+            datetime.datetime.strptime(_created, DATETIME_FORMAT) if _created else None
         )
 
 
