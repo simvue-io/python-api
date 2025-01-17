@@ -500,6 +500,9 @@ class SimvueObject(abc.ABC):
         with self._local_staging_file.open("w", encoding="utf-8") as out_f:
             json.dump(_local_data, out_f, indent=2)
 
+    def to_dict(self) -> dict[str, typing.Any]:
+        return {key: getattr(self, key) for key in self._properties}
+
     @property
     def staged(self) -> dict[str, typing.Any] | None:
         """Return currently staged changes to this object"""
