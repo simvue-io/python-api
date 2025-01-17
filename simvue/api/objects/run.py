@@ -147,7 +147,7 @@ class Run(SimvueObject):
     @description.setter
     @write_only
     @pydantic.validate_call
-    def description(self, description: str) -> None:
+    def description(self, description: str | None) -> None:
         self._staging["description"] = description
 
     @property
