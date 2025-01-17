@@ -156,8 +156,7 @@ class Artifact(SimvueObject):
         cls,
         *,
         name: typing.Annotated[str, pydantic.Field(pattern=NAME_REGEX)],
-        storage: str | None,
-        category: Category,
+        storage_id: str | None,
         obj: typing.Any,
         metadata: dict[str, typing.Any] | None,
         allow_pickling: bool = True,
@@ -171,10 +170,8 @@ class Artifact(SimvueObject):
         ----------
         name : str
             the name for this artifact
-        storage : str | None
+        storage_id : str | None
             the identifier for the storage location for this object
-        category : "code" | "input" | "output"
-            the category of this artifact
         obj : Any
             object to serialize and upload
         metadata : dict[str, Any] | None
@@ -200,8 +197,9 @@ class Artifact(SimvueObject):
 
         _artifact = Artifact.new(
             name=name,
-            storage=storage,
-            size=sys.getsizeof(obj),
+            storage_id=storage_id,
+            original_path=None,
+            size=sys.getsizeof(_serialized),
             file_type=_data_type,
             checksum=_checksum,
             metadata=metadata,

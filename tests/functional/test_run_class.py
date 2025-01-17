@@ -457,7 +457,6 @@ def test_set_folder_details(request: pytest.FixtureRequest) -> None:
 
     client = sv_cl.Client()
     _folder = client.get_folder(folder_path=folder_name)
-    print(_folder)
 
     assert _folder.tags
     assert sorted(_folder.tags) == sorted(tags)

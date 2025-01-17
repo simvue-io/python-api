@@ -212,9 +212,11 @@ def to_dataframe(data) -> pandas.DataFrame:
     }
     for run in data:
         run_info = flatdict.FlatDict(run, delimiter=".")
-
         for column, value_ in columns.items():
-            value_.append(run_info.get(column))
+            try:
+                value_.append(run_info.get(column))
+            except TypeError:
+                value_.append(None)
 
     return pandas.DataFrame(data=columns)
 
