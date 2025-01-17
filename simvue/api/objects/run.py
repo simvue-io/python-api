@@ -16,6 +16,7 @@ from simvue.api.request import (
     get_json_from_response,
     post as sv_post,
 )
+from simvue.api.objects.events import Events
 from simvue.api.url import URL
 from simvue.models import FOLDER_REGEX, NAME_REGEX, DATETIME_FORMAT, EventSet, MetricSet
 
@@ -272,6 +273,11 @@ class Run(SimvueObject):
             self._stage_to_other(entry_type, self._identifier, _validated_entries)
             return
 
+        if entry_type == "events":
+            _events = Events.new(run_id=self._identifier, events=entries)
+            _events.commit()
+            return
+
         _url = URL(self._user_config.server.url) / entry_type
         _data = {entry_type: _validated_entries, "run": self._identifier}
         _data_bin = msgpack.packb(_data, use_bin_type=True)
@@ -297,18 +303,15 @@ class Run(SimvueObject):
         _url = self._base_url
         _url /= f"{self._identifier}/heartbeat"
         _response = sv_put(f"{_url}", headers=self._headers, data={})
-        _json_response = get_json_from_response(
+        return get_json_from_response(
             response=_response,
             expected_status=[http.HTTPStatus.OK],
             scenario="Retrieving heartbeat state",
         )
-        return _json_response
 
     @property
     def _abort_url(self) -> URL | None:
-        if not self._identifier:
-            return None
-        return self.url / "abort"
+        return self.url / "abort" if self._identifier else None
 
     @property
     def _artifact_url(self) -> URL | None:

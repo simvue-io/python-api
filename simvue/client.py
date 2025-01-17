@@ -407,8 +407,7 @@ class Client:
                 return None
             else:
                 raise RuntimeError(
-                    f"Deletion of folder '{folder_path}' failed, "
-                    "folder does not exist."
+                    f"Deletion of folder '{folder_path}' failed, folder does not exist."
                 )
         _response = Folder(identifier=folder_id).delete(
             delete_runs=remove_runs, recursive=recursive, runs_only=False
@@ -633,7 +632,7 @@ class Client:
             if there was a failure when retrieving information from the server
         """
         _folders: typing.Generator[tuple[str, Folder], None, None] = Folder.get(
-            path=folder_path
+            filters=json.dumps([f"path = {folder_path}"])
         )  # type: ignore
 
         try:
@@ -724,7 +723,7 @@ class Client:
 
         return get_json_from_response(
             expected_status=[http.HTTPStatus.OK],
-            scenario=f"Retrieval of metrics '{metric_names}' in " f"runs '{run_ids}'",
+            scenario=f"Retrieval of metrics '{metric_names}' in runs '{run_ids}'",
             response=metrics_response,
         )
 
@@ -872,8 +871,7 @@ class Client:
 
         if data is None:
             raise RuntimeError(
-                f"Cannot plot metrics {metric_names}, "
-                f"no data found for runs {run_ids}."
+                f"Cannot plot metrics {metric_names}, no data found for runs {run_ids}."
             )
 
         # Undo multi-indexing

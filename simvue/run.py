@@ -57,6 +57,8 @@ from .api.objects import (
     MetricsRangeAlert,
     UserAlert,
     EventsAlert,
+    Events,
+    Metrics,
 )
 
 try:
@@ -92,8 +94,7 @@ def check_run_initialised(
 
         if not self._sv_obj:
             raise RuntimeError(
-                "Simvue Run must be initialised before calling "
-                f"'{function.__name__}'"
+                f"Simvue Run must be initialised before calling '{function.__name__}'"
             )
         return _function(self, *args, **kwargs)
 
@@ -429,10 +430,23 @@ class Run:
 
         def _dispatch_callback(
             buffer: list[typing.Any],
-            category: str,
+            category: typing.Literal["events", "metrics"],
             run_obj: RunObject = self._sv_obj,
         ) -> None:
-            run_obj.log_entries(entries=buffer, entry_type=category)
+            if category == "events":
+                _events = Events.new(
+                    run_id=self.id,
+                    offline=self._user_config.run.mode == "offline",
+                    events=buffer,
+                )
+                _events.commit()
+            else:
+                _metrics = Metrics.new(
+                    run_id=self.id,
+                    offline=self._user_config.run.mode == "offline",
+                    metrics=buffer,
+                )
+                _metrics.commit()
 
         return _dispatch_callback
 

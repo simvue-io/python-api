@@ -16,6 +16,7 @@ import typing
 import jwt
 
 from datetime import timezone
+from simvue.models import DATETIME_FORMAT
 
 
 CHECKSUM_BLOCK_SIZE = 4096
@@ -381,7 +382,7 @@ def simvue_timestamp(date_time: typing.Optional[datetime.datetime] = None) -> st
     """
     if not date_time:
         date_time = datetime.datetime.now(timezone.utc)
-    return date_time.strftime("%Y-%m-%d %H:%M:%S.%f")
+    return date_time.strftime(DATETIME_FORMAT)
 
 
 @functools.lru_cache

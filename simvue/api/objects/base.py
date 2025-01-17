@@ -14,6 +14,9 @@ import http
 import json
 import logging
 
+import msgpack
+import pydantic
+
 from simvue.config.user import SimvueConfiguration
 from simvue.exception import ObjectNotFoundError
 from simvue.version import __version__
@@ -281,8 +284,12 @@ class SimvueObject(abc.ABC):
         return [_entry["id"] for _entry in _data]
 
     @classmethod
+    @pydantic.validate_call
     def get(
-        cls, *, count: int | None = None, offset: int | None = None, **kwargs
+        cls,
+        count: pydantic.PositiveInt | None = None,
+        offset: pydantic.PositiveInt | None = None,
+        **kwargs,
     ) -> typing.Generator[tuple[str, typing.Optional["SimvueObject"]], None, None]:
         _class_instance = cls(_read_only=True, _local=True)
         if (_data := cls._get_all_objects(count, offset, **kwargs).get("data")) is None:
@@ -321,10 +328,15 @@ class SimvueObject(abc.ABC):
             headers=_class_instance._headers,
             params={"start": offset, "count": count} | kwargs,
         )
+
+        _label = _class_instance.__class__.__name__.lower()
+        if _label.endswith("s"):
+            _label = _label[:-1]
+
         return get_json_from_response(
             response=_response,
             expected_status=[http.HTTPStatus.OK],
-            scenario=f"Retrieval of {_class_instance.__class__.__name__.lower()}s",
+            scenario=f"Retrieval of {_label}s",
         )
 
     def read_only(self, is_read_only: bool) -> None:
@@ -378,9 +390,15 @@ class SimvueObject(abc.ABC):
     def url(self) -> URL | None:
         return None if self._identifier is None else self._base_url / self._identifier
 
-    def _post(self, **kwargs) -> dict[str, typing.Any]:
+    def _post(self, is_json: bool = True, **kwargs) -> dict[str, typing.Any]:
+        if not is_json:
+            kwargs = msgpack.packb(kwargs, use_bin_type=True)
+
         _response = sv_post(
-            url=f"{self._base_url}", headers=self._headers, data=kwargs, is_json=True
+            url=f"{self._base_url}",
+            headers=self._headers | {"Content-Type": "application/msgpack"},
+            data=kwargs,
+            is_json=is_json,
         )
 
         if _response.status_code == http.HTTPStatus.FORBIDDEN:
