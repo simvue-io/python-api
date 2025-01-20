@@ -163,13 +163,13 @@ class Run(SimvueObject):
 
     @property
     @staging_check
-    def heartbeat_timeout(self) -> int:
+    def heartbeat_timeout(self) -> int | None:
         return self._get_attribute("heartbeat_timeout")
 
     @heartbeat_timeout.setter
     @write_only
     @pydantic.validate_call
-    def heartbeat_timeout(self, time_seconds: int) -> None:
+    def heartbeat_timeout(self, time_seconds: int | None) -> None:
         self._staging["heartbeat_timeout"] = time_seconds
 
     @property

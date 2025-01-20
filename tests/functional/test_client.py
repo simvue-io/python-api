@@ -248,25 +248,7 @@ def test_get_tags(create_plain_run: tuple[sv_run.Run, dict]) -> None:
     assert all(t in retrieved for t in tags)
 
 
-@pytest.mark.dependencResults (276.21s (0:04:36)):
-      28 passed
-      15 failed
-         - tests/functional/test_client.py:18 test_get_events
-         - tests/functional/test_client.py:57 test_get_metric_values[aggregate]
-         - tests/functional/test_client.py:57 test_get_metric_values[complete_ids]
-         - tests/functional/test_client.py:57 test_get_metric_values[complete_labels]
-         - tests/functional/test_client.py:95 test_plot_metrics
-         - tests/functional/test_client.py:111 test_get_artifacts_entries
-         - tests/functional/test_client.py:119 test_get_artifact_as_file[file_1]
-         - tests/functional/test_client.py:119 test_get_artifact_as_file[file_2]
-         - tests/functional/test_client.py:119 test_get_artifact_as_file[file_3]
-         - tests/functional/test_client.py:188 test_get_metrics_names
-         - tests/functional/test_client.py:251 test_folder_deletion
-         - tests/functional/test_client.py:292 test_multiple_metric_retrieval[step-dict-aggregated]
-         - tests/functional/test_client.py:292 test_multiple_metric_retrieval[step-dataframe-aggregated]
-         - tests/functional/test_client.py:292 test_multiple_metric_retrieval[time-dict-aggregated]
-         - tests/functional/test_client.py:292 test_multiple_metric_retrieval[time-dataframe-aggregated]
-y
+@pytest.mark.dependency
 @pytest.mark.client(depends=PRE_DELETION_TESTS + ["test_runs_deletion"])
 def test_folder_deletion(create_test_run: tuple[sv_run.Run, dict]) -> None:
     run, run_data = create_test_run

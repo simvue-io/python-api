@@ -75,7 +75,7 @@ def test_processes_cwd(create_plain_run: dict[Run, dict]) -> None:
             client.get_artifact_as_file(run_id, os.path.basename(temp_file.name), output_dir=os.path.join(temp_dir, "downloaded"))
             assert filecmp.cmp(os.path.join(temp_dir, "downloaded", os.path.basename(temp_file.name)), temp_file.name)
 
-            client.get_artifact_as_file(run_id, "new_file.txt", path=os.path.join(temp_dir, "downloaded"))
+            client.get_artifact_as_file(run_id, "new_file.txt", output_dir=os.path.join(temp_dir, "downloaded"))
             with open(os.path.join(temp_dir, "downloaded", "new_file.txt"), "r") as new_file:
                 assert new_file.read() == "Test Line"
 
