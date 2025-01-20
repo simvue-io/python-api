@@ -12,6 +12,7 @@ def test_metric_range_alert_creation_online() -> None:
     _uuid: str = f"{uuid.uuid4()}".split("-")[0]
     _alert = MetricsRangeAlert.new(
         name=f"metrics_range_alert_{_uuid}",
+        description = "Test metric range alerts",
         frequency=1,
         notification="none",
         metric="x",
@@ -20,7 +21,6 @@ def test_metric_range_alert_creation_online() -> None:
         window=1,
         aggregation="average",
         rule="is inside range",
-        description="a metric range alert"
     )
     _alert.commit()
     assert _alert.source == "metrics"
@@ -36,6 +36,7 @@ def test_metric_range_alert_creation_offline() -> None:
     _uuid: str = f"{uuid.uuid4()}".split("-")[0]
     _alert = MetricsRangeAlert.new(
         name=f"metrics_range_alert_{_uuid}",
+        description = "Test metric range alerts",
         frequency=1,
         notification="none",
         metric="x",
@@ -65,6 +66,7 @@ def test_metric_range_alert_modification_online() -> None:
     _uuid: str = f"{uuid.uuid4()}".split("-")[0]
     _alert = MetricsRangeAlert.new(
         name=f"metrics_range_alert_{_uuid}",
+        description = "Test metric range alerts",
         frequency=1,
         notification="none",
         metric="x",
@@ -93,6 +95,7 @@ def test_metric_range_alert_modification_offline() -> None:
     _uuid: str = f"{uuid.uuid4()}".split("-")[0]
     _alert = MetricsRangeAlert.new(
         name=f"metrics_range_alert_{_uuid}",
+        description = "Test metric range alerts",
         frequency=1,
         notification="none",
         metric="x",
@@ -119,6 +122,7 @@ def test_metric_range_alert_properties() -> None:
     _uuid: str = f"{uuid.uuid4()}".split("-")[0]
     _alert = MetricsRangeAlert.new(
         name=f"metrics_range_alert_{_uuid}",
+        description = "Test metric range alerts",
         frequency=1,
         notification="none",
         metric="x",
