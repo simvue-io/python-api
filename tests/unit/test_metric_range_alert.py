@@ -19,7 +19,8 @@ def test_metric_range_alert_creation_online() -> None:
         range_high=15,
         window=1,
         aggregation="average",
-        rule="is inside range"
+        rule="is inside range",
+        description="a metric range alert"
     )
     _alert.commit()
     assert _alert.source == "metrics"

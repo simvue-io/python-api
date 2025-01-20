@@ -39,7 +39,7 @@ def test_create_tenant_offline() -> None:
 
 @pytest.mark.api
 @pytest.mark.online
-def test_tag_get_properties() -> None:
+def test_tenant_get_properties() -> None:
     _uuid: str = f"{uuid.uuid4()}".split("-")[0]
     _tenant = Tenant.new(name=_uuid)
     try:

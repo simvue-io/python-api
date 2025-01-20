@@ -13,7 +13,8 @@ def test_user_alert_creation_online() -> None:
     _uuid: str = f"{uuid.uuid4()}".split("-")[0]
     _alert = UserAlert.new(
         name=f"users_alert_{_uuid}",
-        notification="none"
+        notification="none",
+        description=None
     )
     _alert.commit()
     assert _alert.source == "user"
@@ -51,6 +52,7 @@ def test_user_alert_modification_online() -> None:
     _alert = UserAlert.new(
         name=f"users_alert_{_uuid}",
         notification="none",
+        description=None
     )
     _alert.commit()
     time.sleep(1)
@@ -92,7 +94,8 @@ def test_user_alert_properties() -> None:
     _uuid: str = f"{uuid.uuid4()}".split("-")[0]
     _alert = UserAlert.new(
         name=f"users_alert_{_uuid}",
-        notification="none"
+        notification="none",
+        description=None
     )
     _alert.commit()
 
@@ -116,7 +119,8 @@ def test_user_alert_status() -> None:
     _uuid: str = f"{uuid.uuid4()}".split("-")[0]
     _alert = UserAlert.new(
         name=f"users_alert_{_uuid}",
-        notification="none"
+        notification="none",
+        description=None
     )
     _alert.commit()
     _folder = Folder.new(path=f"/simvue_unit_tests/{_uuid}")

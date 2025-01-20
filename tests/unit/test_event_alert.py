@@ -13,7 +13,8 @@ def test_event_alert_creation_online() -> None:
         name=f"events_alert_{_uuid}",
         frequency=1,
         pattern="completed",
-        notification="none"
+        notification="none",
+        description=None
     )
     _alert.commit()
     assert _alert.source == "events"
@@ -58,7 +59,8 @@ def test_event_alert_modification_online() -> None:
         name=f"events_alert_{_uuid}",
         frequency=1,
         pattern="completed",
-        notification="none"
+        notification="none",
+        description=None
     )
     _alert.commit()
     time.sleep(1)
@@ -105,7 +107,8 @@ def test_event_alert_properties() -> None:
         name=f"events_alert_{_uuid}",
         frequency=1,
         pattern="completed",
-        notification="none"
+        notification="none",
+        description="event_alert prop alert"
     )
     _alert.commit()
 

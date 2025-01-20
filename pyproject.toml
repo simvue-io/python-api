@@ -57,6 +57,7 @@ codecarbon = "^2.7.1"
 numpy = "^2.1.2"
 flatdict = "^4.0.1"
 semver = "^3.0.2"
+email-validator = "^2.2.0"
 
 [tool.poetry.extras]
 plot = ["matplotlib", "plotly"]

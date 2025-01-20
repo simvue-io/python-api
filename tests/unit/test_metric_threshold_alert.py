@@ -19,7 +19,8 @@ def test_metric_threshold_alert_creation_online() -> None:
         threshold=10,
         window=1,
         rule="is above",
-        aggregation="average"
+        aggregation="average",
+        description="a metric threshold alert"
     )
     _alert.commit()
     assert _alert.source == "metrics"

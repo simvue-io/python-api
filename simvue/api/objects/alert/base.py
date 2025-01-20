@@ -66,9 +66,22 @@ class AlertBase(SimvueObject):
         self._staging["description"] = description
 
     @property
-    def auto_tags(self) -> list[str]:
+    def run_tags(self) -> list[str]:
         """Retrieve automatically assigned tags from runs"""
-        return self._get_attribute("auto_tags")
+        return self._get_attribute("run_tags")
+
+    @property
+    @staging_check
+    def auto(self) -> bool:
+        """Retrieve if alert has run tag auto-assign"""
+        return self._get_attribute("auto")
+
+    @auto.setter
+    @write_only
+    @pydantic.validate_call
+    def auto(self, auto: bool) -> None:
+        """Set alert to use run tag auto-assign"""
+        self._staging["auto"] = auto
 
     @property
     @staging_check
