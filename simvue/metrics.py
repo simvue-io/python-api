@@ -1,5 +1,14 @@
+"""
+CPU/GPU Metrics
+===============
+
+Get information relating to the usage of the CPU and GPU (where applicable)
+
+"""
+
 import contextlib
 import logging
+import psutil
 
 from .pynvml import (
     nvmlDeviceGetComputeRunningProcesses,
@@ -15,11 +24,11 @@ from .pynvml import (
 logger = logging.getLogger(__name__)
 
 
-def get_process_memory(processes):
+def get_process_memory(processes: list[psutil.Process]) -> int:
     """
     Get the resident set size
     """
-    rss = 0
+    rss: int = 0
     for process in processes:
         with contextlib.suppress(Exception):
             rss += process.memory_info().rss / 1024 / 1024
@@ -27,11 +36,11 @@ def get_process_memory(processes):
     return rss
 
 
-def get_process_cpu(processes):
+def get_process_cpu(processes: list[psutil.Process]) -> int:
     """
     Get the CPU usage
     """
-    cpu_percent = 0
+    cpu_percent: int = 0
     for process in processes:
         with contextlib.suppress(Exception):
             cpu_percent += process.cpu_percent()
@@ -39,27 +48,24 @@ def get_process_cpu(processes):
     return cpu_percent
 
 
-def is_gpu_used(handle, processes):
+def is_gpu_used(handle, processes: list[psutil.Process]) -> bool:
     """
     Check if the GPU is being used by the list of processes
     """
     pids = [process.pid for process in processes]
 
-    gpu_pids = []
-    for process in nvmlDeviceGetComputeRunningProcesses(handle):
-        gpu_pids.append(process.pid)
-
-    for process in nvmlDeviceGetGraphicsRunningProcesses(handle):
-        gpu_pids.append(process.pid)
-
+    gpu_pids = [process.pid for process in nvmlDeviceGetComputeRunningProcesses(handle)]
+    gpu_pids.extend(
+        process.pid for process in nvmlDeviceGetGraphicsRunningProcesses(handle)
+    )
     return len(list(set(gpu_pids) & set(pids))) > 0
 
 
-def get_gpu_metrics(processes):
+def get_gpu_metrics(processes: list[psutil.Process]) -> dict[str, float]:
     """
     Get GPU metrics
     """
-    gpu_metrics = {}
+    gpu_metrics: dict[str, float] = {}
 
     with contextlib.suppress(Exception):
         nvmlInit()

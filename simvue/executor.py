@@ -35,13 +35,13 @@ class CompletionCallback(typing.Protocol):
 
 def _execute_process(
     proc_id: str,
-    command: typing.List[str],
+    command: list[str],
     runner_name: str,
-    completion_callback: typing.Optional[CompletionCallback] = None,
-    completion_trigger: typing.Optional[multiprocessing.synchronize.Event] = None,
-    environment: typing.Optional[typing.Dict[str, str]] = None,
-    cwd: typing.Optional[pathlib.Path] = None,
-) -> tuple[subprocess.Popen, typing.Optional[threading.Thread]]:
+    completion_callback: CompletionCallback | None = None,
+    completion_trigger: multiprocessing.synchronize.Event | None = None,
+    environment: dict[str, str] | None = None,
+    cwd: pathlib.Path | None = None,
+) -> tuple[subprocess.Popen, threading.Thread | None]:
     thread_out = None
 
     with open(f"{runner_name}_{proc_id}.err", "w") as err:
@@ -58,8 +58,8 @@ def _execute_process(
     if completion_callback or completion_trigger:
 
         def trigger_check(
-            completion_callback: typing.Optional[CompletionCallback],
-            trigger_to_set: typing.Optional[multiprocessing.synchronize.Event],
+            completion_callback: CompletionCallback | None,
+            trigger_to_set: multiprocessing.synchronize.Event | None,
             process: subprocess.Popen,
         ) -> None:
             while process.poll() is None:
@@ -67,12 +67,8 @@ def _execute_process(
             if trigger_to_set:
                 trigger_to_set.set()
             if completion_callback:
-                with open(f"{runner_name}_{proc_id}.err") as err:
-                    std_err = err.read()
-
-                with open(f"{runner_name}_{proc_id}.out") as out:
-                    std_out = out.read()
-
+                std_err = pathlib.Path(f"{runner_name}_{proc_id}.err").read_text()
+                std_out = pathlib.Path(f"{runner_name}_{proc_id}.out").read_text()
                 completion_callback(
                     status_code=process.returncode,
                     std_out=std_out,
@@ -233,15 +229,15 @@ class Executor:
             arg = arg.replace("_", "-")
 
             if len(arg) == 1:
-                if isinstance(value, bool) and value:
-                    command += [f"-{arg}"]
-                else:
-                    command += [f"-{arg}", f"{value}"]
+                command += (
+                    [f"-{arg}"]
+                    if isinstance(value, bool) and value
+                    else [f"-{arg}", f"{value}"]
+                )
+            elif isinstance(value, bool) and value:
+                command += [f"--{arg}"]
             else:
-                if isinstance(value, bool) and value:
-                    command += [f"--{arg}"]
-                else:
-                    command += [f"--{arg}", f"{value}"]
+                command += [f"--{arg}", f"{value}"]
 
         command += pos_args
 
@@ -296,11 +292,9 @@ class Executor:
     @property
     def exit_status(self) -> int:
         """Returns the first non-zero exit status if applicable"""
-        _non_zero = [
+        if _non_zero := [
             i.returncode for i in self._processes.values() if i.returncode != 0
-        ]
-
-        if _non_zero:
+        ]:
             return _non_zero[0]
 
         return 0
@@ -344,6 +338,9 @@ class Executor:
 
     def _update_alerts(self) -> None:
         """Send log events for the result of each process"""
+        # Wait for the dispatcher to send the latest information before
+        # allowing the executor to finish (and as such the run instance to exit)
+        _wait_limit: float = 1
         for proc_id, process in self._processes.items():
             if process.returncode != 0:
                 # If the process fails then purge the dispatcher event queue
@@ -355,9 +352,6 @@ class Executor:
             else:
                 self._runner.log_alert(self._alert_ids[proc_id], "ok")
 
-            # Wait for the dispatcher to send the latest information before
-            # allowing the executor to finish (and as such the run instance to exit)
-            _wait_limit: float = 1
             _current_time: float = 0
             while (
                 self._runner._dispatcher

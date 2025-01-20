@@ -22,7 +22,7 @@ class AlertBase(SimvueObject):
     def new(cls, **kwargs):
         pass
 
-    def __init__(self, identifier: typing.Optional[str] = None, **kwargs) -> None:
+    def __init__(self, identifier: str | None = None, **kwargs) -> None:
         """Retrieve an alert from the Simvue server by identifier"""
         self._label = "alert"
         super().__init__(identifier, **kwargs)
