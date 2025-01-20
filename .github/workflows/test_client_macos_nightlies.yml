@@ -26,10 +26,13 @@ jobs:
       run: |
         rm poetry.lock
         python -m pip install poetry
+        poetry self add poetry-plugin-export
+        poetry export -f requirements.txt --with dev requirements.txt --all-extras
+        python -m pip install torch
+        python -m pip install -r requirements.txt
+        python -m pip install .
     - name: Test with pytest
-      run: |
-        export SIMVUE_URL=${{ secrets.SIMVUE_NIGHTLY_URL }}
-        export SIMVUE_TOKEN=${{ secrets.SIMVUE_NIGHTLY_TOKEN }}
-        poetry install --all-extras
-        # poetry run python -m pip install torch #FIXME: Torch tests skipped
-        poetry run pytest tests/ -m 'not scenario'
+      env:
+        SIMVUE_URL: ${{ secrets.SIMVUE_NIGHTLY_URL }}
+        SIMVUE_TOKEN: ${{ secrets.SIMVUE_NIGHTLY_TOKEN }}
+      run: python -m pytest tests/ -m 'not scenario'
