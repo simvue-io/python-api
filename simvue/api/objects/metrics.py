@@ -87,6 +87,19 @@ class Metrics(SimvueObject):
             scenario="Retrieving metric spans",
         )
 
+    @pydantic.validate_call
+    def names(self, run_ids: list[str]) -> dict[str, int | float]:
+        """Returns the metric names for the given runs"""
+        _url = self._base_url / "names"
+        _response = sv_get(
+            url=f"{_url}", headers=self._headers, params={"runs": json.dumps(run_ids)}
+        )
+        return get_json_from_response(
+            response=_response,
+            expected_status=[http.HTTPStatus.OK],
+            scenario="Retrieving metric names",
+        )
+
     def _post(self, **kwargs) -> dict[str, typing.Any]:
         return super()._post(is_json=False, **kwargs)
 

@@ -38,5 +38,8 @@ def test_metrics_creation_online() -> None:
     _run.commit()
     _metrics.commit()
     assert _metrics.get(metrics=["x", "y", "z"], xaxis="step")
+    assert _metrics.span(runs=[_run.id])
+    assert _metrics.names(runs=[_run.id])
     _run.delete()
     _folder.delete(recursive=True, delete_runs=True, runs_only=False)
+
