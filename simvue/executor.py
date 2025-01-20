@@ -132,13 +132,13 @@ class Executor:
         self,
         identifier: str,
         *args,
-        executable: typing.Optional[str] = None,
-        script: typing.Optional[pathlib.Path] = None,
-        input_file: typing.Optional[pathlib.Path] = None,
-        env: typing.Optional[typing.Dict[str, str]] = None,
-        cwd: typing.Optional[pathlib.Path] = None,
-        completion_callback: typing.Optional[CompletionCallback] = None,
-        completion_trigger: typing.Optional[multiprocessing.synchronize.Event] = None,
+        executable: str | None = None,
+        script: pathlib.Path | None = None,
+        input_file: pathlib.Path | None = None,
+        env: dict[str, str] | None = None,
+        cwd: pathlib.Path | None = None,
+        completion_callback: CompletionCallback | None = None,
+        completion_trigger: multiprocessing.synchronize.Event | None = None,
         **kwargs,
     ) -> None:
         """Add a process to be executed to the executor.
@@ -183,7 +183,7 @@ class Executor:
         input_file : str | None, optional
             the input file to run, note this only work if the input file is not an option, if this is the case
             you should provide it as such and perform the upload manually, by default None
-        env : typing.Dict[str, str], optional
+        env : dict[str, str], optional
             environment variables for process
         cwd: typing.Optional[pathlib.Path], optional
             working directory to execute the process within

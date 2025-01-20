@@ -184,8 +184,8 @@ class Client:
         alerts: bool = False,
         metadata: bool = False,
         output_format: typing.Literal["dict", "objects", "dataframe"] = "objects",
-        count_limit: typing.Optional[pydantic.PositiveInt] = 100,
-        start_index: typing.Optional[pydantic.PositiveInt] = 0,
+        count_limit: pydantic.PositiveInt | None = 100,
+        start_index: pydantic.NonNegativeInt = 0,
         show_shared: bool = False,
     ) -> typing.Union[DataFrame, typing.Generator[tuple[str, Run], None, None], None]:
         """Retrieve all runs matching filters.

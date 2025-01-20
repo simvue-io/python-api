@@ -109,3 +109,8 @@ class Events(SimvueObject):
             response=_response,
         )
         return _json_response.get("data")
+
+    def delete(
+        self, _linked_objects: list[str] | None = None, **kwargs
+    ) -> dict[str, typing.Any]:
+        raise NotImplementedError("Cannot delete event set")

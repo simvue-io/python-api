@@ -250,11 +250,11 @@ def _deserialize_torch_tensor(data: "Buffer") -> typing.Optional["Tensor"]:
     return torch.load(mfile)
 
 
-def _deserialize_pickle(data) -> typing.Optional[typing.Any]:
+def _deserialize_pickle(data) -> typing.Any | None:
     data = pickle.loads(data)
     return data
 
 
-def _deserialize_json(data) -> typing.Optional[typing.Any]:
+def _deserialize_json(data) -> typing.Any | None:
     data = json.loads(data)
     return data

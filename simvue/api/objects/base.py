@@ -293,7 +293,7 @@ class SimvueObject(abc.ABC):
     def get(
         cls,
         count: pydantic.PositiveInt | None = None,
-        offset: pydantic.PositiveInt | None = None,
+        offset: pydantic.NonNegativeInt | None = None,
         **kwargs,
     ) -> typing.Generator[tuple[str, Self | None], None, None]:
         _class_instance = cls(_read_only=True, _local=True)

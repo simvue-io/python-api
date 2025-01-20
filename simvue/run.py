@@ -113,9 +113,9 @@ class Run:
     def __init__(
         self,
         mode: typing.Literal["online", "offline", "disabled"] = "online",
-        abort_callback: typing.Optional[typing.Callable[[Self], None]] = None,
-        server_token: typing.Optional[pydantic.SecretStr] = None,
-        server_url: typing.Optional[str] = None,
+        abort_callback: typing.Callable[[Self], None] | None = None,
+        server_token: pydantic.SecretStr | None = None,
+        server_url: str | None = None,
         debug: bool = False,
     ) -> None:
         """Initialise a new Simvue run
@@ -139,32 +139,31 @@ class Run:
             run in debug mode, default is False
         """
         self._uuid: str = f"{uuid.uuid4()}"
-        self._name: typing.Optional[str] = None
+        self._name: str | None = None
 
         # monitor duration with respect to retention period
         self._timer: float = 0
-        self._retention: typing.Optional[float] = None
+        self._retention: float | None = None
 
         self._testing: bool = False
         self._abort_on_alert: typing.Literal["run", "terminate", "ignore"] = "terminate"
-        self._abort_callback: typing.Optional[typing.Callable[[Self], None]] = (
-            abort_callback
-        )
+        self._abort_callback: typing.Callable[[Self], None] | None = abort_callback
         self._dispatch_mode: typing.Literal["direct", "queued"] = "queued"
 
         self._executor = Executor(self)
-        self._dispatcher: typing.Optional[DispatcherBaseClass] = None
+        self._dispatcher: DispatcherBaseClass | None = None
 
-        self._id: typing.Optional[str] = None
+        self._id: str | None = None
         self._folder: Folder | None = None
         self._term_color: bool = True
         self._suppress_errors: bool = False
         self._queue_blocking: bool = False
-        self._status: typing.Optional[
+        self._status: (
             typing.Literal[
                 "created", "running", "completed", "failed", "terminated", "lost"
             ]
-        ] = None
+            | None
+        ) = None
         self._data: dict[str, typing.Any] = {}
         self._step: int = 0
         self._active: bool = False
@@ -180,7 +179,7 @@ class Run:
         )
 
         self._aborted: bool = False
-        self._resources_metrics_interval: typing.Optional[int] = (
+        self._resources_metrics_interval: int | None = (
             HEARTBEAT_INTERVAL
             if self._user_config.metrics.resources_metrics_interval < 1
             else self._user_config.metrics.resources_metrics_interval
@@ -188,13 +187,13 @@ class Run:
         self._headers: dict[str, str] = {
             "Authorization": f"Bearer {self._user_config.server.token.get_secret_value()}"
         }
-        self._sv_obj: typing.Optional[RunObject] = None
-        self._pid: typing.Optional[int] = 0
-        self._shutdown_event: typing.Optional[threading.Event] = None
+        self._sv_obj: RunObject | None = None
+        self._pid: int | None = 0
+        self._shutdown_event: threading.Event | None = None
         self._configuration_lock = threading.Lock()
-        self._heartbeat_termination_trigger: typing.Optional[threading.Event] = None
-        self._storage_id: typing.Optional[str] = None
-        self._heartbeat_thread: typing.Optional[threading.Thread] = None
+        self._heartbeat_termination_trigger: threading.Event | None = None
+        self._storage_id: str | None = None
+        self._heartbeat_thread: threading.Thread | None = None
 
         self._heartbeat_interval: int = HEARTBEAT_INTERVAL
         self._emission_metrics_interval: int | None = (
@@ -205,7 +204,7 @@ class Run:
             )
             else self._user_config.metrics.emission_metrics_interval
         )
-        self._emissions_tracker: typing.Optional[SimvueEmissionsTracker] = (
+        self._emissions_tracker: SimvueEmissionsTracker | None = (
             SimvueEmissionsTracker("simvue", self, self._emission_metrics_interval)
             if self._user_config.metrics.enable_emission_metrics
             else None
@@ -216,15 +215,13 @@ class Run:
 
     def _handle_exception_throw(
         self,
-        exc_type: typing.Optional[typing.Type[BaseException]],
+        exc_type: typing.Type[BaseException] | None,
         value: BaseException,
         traceback: typing.Optional[
             typing.Union[typing.Type[BaseException], BaseException]
         ],
     ) -> None:
-        _exception_thrown: typing.Optional[str] = (
-            exc_type.__name__ if exc_type else None
-        )
+        _exception_thrown: str | None = exc_type.__name__ if exc_type else None
         _is_running: bool = self._status == "running"
         _is_running_online: bool = self._id is not None and _is_running
         _is_running_offline: bool = (
@@ -269,7 +266,7 @@ class Run:
 
     def __exit__(
         self,
-        exc_type: typing.Optional[typing.Type[BaseException]],
+        exc_type: typing.Type[BaseException] | None,
         value: BaseException,
         traceback: typing.Optional[
             typing.Union[typing.Type[BaseException], BaseException]
@@ -566,14 +563,14 @@ class Run:
         name: typing.Annotated[str | None, pydantic.Field(pattern=NAME_REGEX)] = None,
         *,
         metadata: dict[str, typing.Any] = None,
-        tags: typing.Optional[list[str]] = None,
-        description: typing.Optional[str] = None,
+        tags: list[str] | None = None,
+        description: str | None = None,
         folder: typing.Annotated[
             str, pydantic.Field(None, pattern=FOLDER_REGEX)
         ] = None,
         running: bool = True,
-        retention_period: typing.Optional[str] = None,
-        timeout: typing.Optional[int] = 180,
+        retention_period: str | None = None,
+        timeout: int | None = 180,
         visibility: typing.Union[
             typing.Literal["public", "tenant"], list[str], None
         ] = None,
@@ -663,7 +660,7 @@ class Run:
         # Parse the time to live/retention time if specified
         try:
             if retention_period:
-                self._retention: typing.Optional[int] = int(
+                self._retention: int | None = int(
                     humanfriendly.parse_timespan(retention_period)
                 )
             else:
@@ -739,15 +736,15 @@ class Run:
         self,
         identifier: str,
         *cmd_args,
-        executable: typing.Optional[typing.Union[str, pathlib.Path]] = None,
-        script: typing.Optional[pydantic.FilePath] = None,
-        input_file: typing.Optional[pydantic.FilePath] = None,
+        executable: typing.Union[str, pathlib.Path] | None = None,
+        script: pydantic.FilePath | None = None,
+        input_file: pydantic.FilePath | None = None,
         completion_callback: typing.Optional[
             typing.Callable[[int, str, str], None]
         ] = None,
-        completion_trigger: typing.Optional[multiprocessing.synchronize.Event] = None,
-        env: typing.Optional[typing.Dict[str, str]] = None,
-        cwd: typing.Optional[pathlib.Path] = None,
+        completion_trigger: multiprocessing.synchronize.Event | None = None,
+        env: typing.Dict[str, str] | None = None,
+        cwd: pathlib.Path | None = None,
         **cmd_kwargs,
     ) -> None:
         """Add a process to be executed to the executor.
@@ -803,7 +800,7 @@ class Run:
             this trigger event is set when the processes completes
         env : typing.Dict[str, str], optional
             environment variables for process
-        cwd: typing.Optional[pathlib.Path], optional
+        cwd: pathlib.Path | None, optional
             working directory to execute the process within. Note that executable, input and script file paths should
             be absolute or relative to the directory where this method is called, not relative to the new working directory.
         **kwargs : Any, ..., optional
@@ -820,7 +817,7 @@ class Run:
 
         cmd_list: typing.List[str] = []
         pos_args = list(cmd_args)
-        executable_str: typing.Optional[str] = None
+        executable_str: str | None = None
 
         # Assemble the command for saving to metadata as string
         if executable:
@@ -894,7 +891,7 @@ class Run:
         return self._executor
 
     @property
-    def name(self) -> typing.Optional[str]:
+    def name(self) -> str | None:
         """Return the name of the run"""
         return self._name
 
@@ -904,7 +901,7 @@ class Run:
         return self._uuid
 
     @property
-    def id(self) -> typing.Optional[str]:
+    def id(self) -> str | None:
         """Return the unique id of the run"""
         return self._id
 
@@ -948,13 +945,13 @@ class Run:
     def config(
         self,
         *,
-        suppress_errors: typing.Optional[bool] = None,
-        queue_blocking: typing.Optional[bool] = None,
-        resources_metrics_interval: typing.Optional[pydantic.PositiveInt] = None,
-        emission_metrics_interval: typing.Optional[pydantic.PositiveInt] = None,
-        enable_emission_metrics: typing.Optional[bool] = None,
-        disable_resources_metrics: typing.Optional[bool] = None,
-        storage_id: typing.Optional[str] = None,
+        suppress_errors: bool | None = None,
+        queue_blocking: bool | None = None,
+        resources_metrics_interval: pydantic.PositiveInt | None = None,
+        emission_metrics_interval: pydantic.PositiveInt | None = None,
+        enable_emission_metrics: bool | None = None,
+        disable_resources_metrics: bool | None = None,
+        storage_id: str | None = None,
         abort_on_alert: typing.Optional[
             typing.Union[typing.Literal["run", "all", "ignore"], bool]
         ] = None,
@@ -1176,9 +1173,9 @@ class Run:
     def _add_metrics_to_dispatch(
         self,
         metrics: dict[str, typing.Union[int, float]],
-        step: typing.Optional[int] = None,
-        time: typing.Optional[float] = None,
-        timestamp: typing.Optional[str] = None,
+        step: int | None = None,
+        time: float | None = None,
+        timestamp: str | None = None,
         join_on_fail: bool = True,
     ) -> bool:
         if self._user_config.run.mode == "disabled":
@@ -1222,9 +1219,9 @@ class Run:
     def log_metrics(
         self,
         metrics: dict[MetricKeyString, typing.Union[int, float]],
-        step: typing.Optional[int] = None,
-        time: typing.Optional[float] = None,
-        timestamp: typing.Optional[str] = None,
+        step: int | None = None,
+        time: float | None = None,
+        timestamp: str | None = None,
     ) -> bool:
         """Log metrics to Simvue server
 
@@ -1311,7 +1308,7 @@ class Run:
         self,
         file_path: pydantic.FilePath,
         category: typing.Literal["input", "output", "code"],
-        filetype: typing.Optional[str] = None,
+        filetype: str | None = None,
         preserve_path: bool = False,
         name: typing.Optional[
             typing.Annotated[str, pydantic.Field(pattern=NAME_REGEX)]
@@ -1379,7 +1376,7 @@ class Run:
         self,
         directory: pydantic.DirectoryPath,
         category: typing.Literal["output", "input", "code"],
-        filetype: typing.Optional[str] = None,
+        filetype: str | None = None,
         preserve_path: bool = False,
     ) -> bool:
         """Upload files from a whole directory
@@ -1425,7 +1422,7 @@ class Run:
         self,
         items: list[typing.Union[pydantic.FilePath, pydantic.DirectoryPath]],
         category: typing.Literal["input", "output", "code"],
-        filetype: typing.Optional[str] = None,
+        filetype: str | None = None,
         preserve_path: bool = False,
     ) -> bool:
         """Save a set of files and directories
@@ -1516,9 +1513,7 @@ class Run:
             self._dispatcher.join()
 
         if _non_zero := self.executor.exit_status:
-            _error_msgs: dict[str, typing.Optional[str]] = (
-                self.executor.get_error_summary()
-            )
+            _error_msgs: dict[str, str] | None = self.executor.get_error_summary()
             _error_msg = "\n".join(
                 f"{identifier}:\n{msg}" for identifier, msg in _error_msgs.items()
             )
@@ -1560,9 +1555,9 @@ class Run:
     @pydantic.validate_call
     def set_folder_details(
         self,
-        metadata: typing.Optional[dict[str, typing.Union[int, str, float]]] = None,
-        tags: typing.Optional[list[str]] = None,
-        description: typing.Optional[str] = None,
+        metadata: dict[str, typing.Union[int, str, float]] | None = None,
+        tags: list[str] | None = None,
+        description: str | None = None,
     ) -> bool:
         """Add metadata to the specified folder
 
@@ -1609,8 +1604,8 @@ class Run:
     @pydantic.validate_call
     def add_alerts(
         self,
-        ids: typing.Optional[list[str]] = None,
-        names: typing.Optional[list[str]] = None,
+        ids: list[str] | None = None,
+        names: list[str] | None = None,
     ) -> bool:
         """Add a set of existing alerts to this run by name or id
 
@@ -1657,7 +1652,7 @@ class Run:
 
     def _attach_alert_to_run(self, alert: AlertBase) -> str | None:
         # Check if the alert already exists
-        _alert_id: typing.Optional[str] = None
+        _alert_id: str | None = None
 
         for _, _existing_alert in Alert.get():
             if _existing_alert.compare(alert):

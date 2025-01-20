@@ -7,6 +7,7 @@ a new set of metrics given relevant arguments.
 
 """
 
+import http
 import typing
 import json
 
@@ -15,6 +16,7 @@ import pydantic
 
 from .base import SimvueObject
 from simvue.models import MetricSet
+from simvue.api.request import get as sv_get, get_json_from_response
 
 __all__ = ["Metrics"]
 
@@ -72,5 +74,23 @@ class Metrics(SimvueObject):
         for _entry in _data:
             yield MetricSet(**_entry)
 
+    @pydantic.validate_call
+    def span(self, run_ids: list[str]) -> dict[str, int | float]:
+        """Returns the metrics span for the given runs"""
+        _url = self._base_url / "span"
+        _response = sv_get(
+            url=f"{_url}", headers=self._headers, data={"runs": json.dumps(run_ids)}
+        )
+        return get_json_from_response(
+            response=_response,
+            expected_status=[http.HTTPStatus.OK],
+            scenario="Retrieving metric spans",
+        )
+
     def _post(self, **kwargs) -> dict[str, typing.Any]:
         return super()._post(is_json=False, **kwargs)
+
+    def delete(
+        self, _linked_objects: list[str] | None = None, **kwargs
+    ) -> dict[str, typing.Any]:
+        raise NotImplementedError("Cannot delete metric set")
