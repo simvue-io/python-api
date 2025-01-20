@@ -64,6 +64,7 @@ def test_metric_threshold_alert_modification_online() -> None:
     _uuid: str = f"{uuid.uuid4()}".split("-")[0]
     _alert = MetricsThresholdAlert.new(
         name=f"metrics_threshold_alert_{_uuid}",
+        description="a metric threshold alert",
         frequency=1,
         notification="none",
         threshold=10,
@@ -115,6 +116,7 @@ def test_metric_range_alert_properties() -> None:
     _uuid: str = f"{uuid.uuid4()}".split("-")[0]
     _alert = MetricsThresholdAlert.new(
         name=f"metrics_threshold_alert_{_uuid}",
+        description="a metric threshold alert",
         frequency=1,
         notification="none",
         metric="x",
