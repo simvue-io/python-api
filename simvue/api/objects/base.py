@@ -31,6 +31,11 @@ from simvue.api.url import URL
 
 logging.basicConfig(level=logging.INFO)
 
+try:
+    from typing import Self
+except ImportError:
+    from typing_extensions import Self
+
 
 def staging_check(member_func: typing.Callable) -> typing.Callable:
     """Decorator for checking if requested attribute has uncommitted changes"""
@@ -290,7 +295,7 @@ class SimvueObject(abc.ABC):
         count: pydantic.PositiveInt | None = None,
         offset: pydantic.PositiveInt | None = None,
         **kwargs,
-    ) -> typing.Generator[tuple[str, typing.Optional["SimvueObject"]], None, None]:
+    ) -> typing.Generator[tuple[str, Self | None], None, None]:
         _class_instance = cls(_read_only=True, _local=True)
         if (_data := cls._get_all_objects(count, offset, **kwargs).get("data")) is None:
             raise RuntimeError(
