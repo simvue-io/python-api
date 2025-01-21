@@ -632,7 +632,7 @@ class Client:
             if there was a failure when retrieving information from the server
         """
         _folders: typing.Generator[tuple[str, Folder], None, None] = Folder.get(
-            filters=json.dumps([f"path = {folder_path}"])
+            filters=json.dumps([f"path == {folder_path}"])
         )  # type: ignore
 
         try:
