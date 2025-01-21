@@ -77,7 +77,7 @@ class Client:
             specify URL, if unset this is read from the config file
         """
         self._user_config = SimvueConfiguration.fetch(
-            server_token=server_token, server_url=server_url
+            server_token=server_token, server_url=server_url, mode="online"
         )
 
         for label, value in zip(
