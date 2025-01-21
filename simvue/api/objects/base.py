@@ -154,7 +154,9 @@ class SimvueObject(abc.ABC):
 
         self._user_config = SimvueConfiguration.fetch(**_config_args)
         self._local_staging_file: pathlib.Path = (
-            self._user_config.offline.cache.joinpath("staging.json")
+            self._user_config.offline.cache.joinpath(
+                self._endpoint, f"{self._identifier}.json"
+            )
         )
 
         self._headers: dict[str, str] = {
@@ -507,7 +509,7 @@ class SimvueObject(abc.ABC):
 
     def _cache(self) -> None:
         if not (_dir := self._local_staging_file.parent).exists():
-            _dir.mkdir()
+            _dir.mkdir(parents=True)
 
         _local_data: dict[str, typing.Any] = {}
 
