@@ -71,7 +71,7 @@ class UserAlert(AlertBase):
 
     @pydantic.validate_call
     def set_status(self, run_id: str, status: typing.Literal["ok", "critical"]) -> None:
-        """Set alert name"""
+        """Set the status of this alert for a given run"""
         _response = sv_put(
             url=self.url / "status" / run_id,
             data={"status": status},

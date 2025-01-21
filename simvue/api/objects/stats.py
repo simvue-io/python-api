@@ -1,3 +1,11 @@
+"""
+Simvue Stats
+============
+
+Statistics accessible to the current user.
+
+"""
+
 import typing
 
 from .base import SimvueObject

@@ -12,6 +12,11 @@ from simvue.api.objects.administrator import User, Tenant
 def test_create_user_online() -> None:
     _uuid: str = f"{uuid.uuid4()}".split("-")[0]
     _tenant = Tenant.new(name=_uuid)
+    try:
+        _tenant.commit()
+    except RuntimeError as e:
+        assert "You do not have permission" in str(e)
+        return
     _user = User.new(
         username="jbloggs",
         fullname="Joe Bloggs",
@@ -20,14 +25,9 @@ def test_create_user_online() -> None:
         admin=False,
         readonly=True,
         welcome=False,
-        tenant=_uuid
+        tenant=_tenant.id
     )
-    try:
-        _tenant.commit()
-        _user.commit()
-    except RuntimeError as e:
-        assert "You do not have permission" in str(e)
-        return
+    _user.commit()
     time.sleep(1)
     _new_user = User(_user.id)
     assert _new_user.username == "jbloggs"
@@ -58,6 +58,11 @@ def test_create_user_offline() -> None:
 def test_user_get_properties() -> None:
     _uuid: str = f"{uuid.uuid4()}".split("-")[0]
     _tenant = Tenant.new(name=_uuid)
+    try:
+        _tenant.commit()
+    except RuntimeError as e:
+        assert "You do not have permission" in str(e)
+        return
     _user = User.new(
         username="jbloggs",
         fullname="Joe Bloggs",
@@ -66,14 +71,9 @@ def test_user_get_properties() -> None:
         admin=False,
         readonly=True,
         welcome=False,
-        tenant=_uuid
+        tenant=_tenant.id
     )
-    try:
-        _tenant.commit()
-        _user.commit()
-    except RuntimeError as e:
-        assert "You do not have permission" in str(e)
-        return
+    _user.commit()
     _failed = []
 
     for member in _user._properties:

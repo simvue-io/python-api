@@ -5,6 +5,14 @@
 * Add support for defining Simvue run defaults using `tool.simvue` in a project `pyproject.toml` file.
 * Drop support for INI based configuration files.
 * Retrieve all metric values if `max_points` is unspecified or set to `None`.
+* Add support for PyTorch in Python 3.13
+* Create lower level API for directly interacting with the Simvue RestAPI endpoints.
+* **Removes support for Python <3.10 due to dependency constraints.**
+* Separates `create_alert` into specific methods `create_event_alert` etc.
+## [v1.1.4](https://github.com/simvue-io/client/releases/tag/v1.1.4) - 2024-12-11
+
+* Remove incorrect identifier reference for latest Simvue servers during reconnection.
+* Fixed missing online mode selection when retrieving configuration for `Client` class.
 
 ## [v1.1.3](https://github.com/simvue-io/client/releases/tag/v1.1.3) - 2024-12-09
 

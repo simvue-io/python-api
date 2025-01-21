@@ -38,6 +38,16 @@ To ensure robustness and reliability this repository includes a set of tests whi
 pytest tests
 ```
 
+### 🌿 Using the Right Branch
+
+In order to fix previous versions, minor versions each have their own branch. This branch is created prior to the release of `vX.Y`. At this point there should be no new features added, with only bug fixes being applied.
+
+Remember if working on a fix for a particular minor version, checkout and branch from the branch for that version, and make sure to select the appropriate version branch when opening an MR. For example a bug fix for `v1.1` made on a new branch `hotfix/fix-that-bug` created from the `v1.1` branch, would then be merged back into the `v1.1` branch.
+
+Development of new features, or towards the latest version should be made on branches created from `dev` which must always contain the latest version. Such branches should, where possible, contain only a single new feature and be labelled `feature/<feature-description>`.
+
+The branch `main` contains only tagged releases, the idea being all commits on this branch are usable versions.
+
 ### ℹ️ Typing
 
 All code within this repository makes use of Python's typing capability, this has proven invaluable for spotting any incorrect usage of functionality as linters are able to quickly flag up any incompatibilities. Typing also allows us define validator rules using the [Pydantic](https://docs.pydantic.dev/latest/) framework.  We ask that you type all functions and variables where possible.

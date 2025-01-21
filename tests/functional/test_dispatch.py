@@ -111,7 +111,7 @@ def test_nested_queued_dispatch(multi_queue: bool) -> None:
                         dispatcher.add_item({string.ascii_uppercase[i % 26]: i}, var, False)
         except(RuntimeError):
             res_queue.put("AARGHGHGHGHAHSHGHSDHFSEDHSE")
-        
+ 
         time.sleep(0.1)
 
         while not dispatcher.empty:

@@ -6,9 +6,12 @@ Contains general definitions for Simvue Alert objects.
 
 """
 
+import http
 import pydantic
 import typing
 from simvue.api.objects.base import SimvueObject, staging_check, write_only
+from simvue.api.request import get as sv_get, get_json_from_response
+from simvue.api.url import URL
 from simvue.models import NAME_REGEX
 
 
@@ -129,6 +132,17 @@ class AlertBase(SimvueObject):
 
     @pydantic.validate_call
     def set_status(self, run_id: str, status: typing.Literal["ok", "critical"]) -> None:
+        """Set the status of this alert for a given run"""
         raise AttributeError(
             f"Cannot update state for alert of type '{self.__class__.__name__}'"
+        )
+
+    def get_status(self, run_id: str) -> typing.Literal["ok", "critical"]:
+        """Retrieve the status of this alert for a given run"""
+        _url: URL = URL(self._user_config.server.url) / f"runs/{run_id}/{self.id}"
+        _response = sv_get(url=f"{_url}")
+        _json_response = get_json_from_response(
+            response=_response,
+            expected_status=[http.HTTPStatus.OK],
+            scenario=f"Retrieving status for alert '{self.id}' in run '{run_id}'",
         )

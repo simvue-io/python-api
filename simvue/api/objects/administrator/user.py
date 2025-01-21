@@ -116,3 +116,16 @@ class User(SimvueObject):
     @pydantic.validate_call
     def readonly(self, is_readonly: bool) -> None:
         self._staging["is_readonly"] = is_readonly
+
+    @property
+    @staging_check
+    def enabled(self) -> bool:
+        if self.id and self.id.startswith("offline_"):
+            return self._get_attribute("user")["is_enabled"]
+        return self._get_attribute("is_enabled")
+
+    @enabled.setter
+    @write_only
+    @pydantic.validate_call
+    def enabled(self, is_enabled: bool) -> None:
+        self._staging["is_enabled"] = is_enabled
