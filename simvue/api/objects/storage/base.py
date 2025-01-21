@@ -60,14 +60,14 @@ class StorageBase(SimvueObject):
     @staging_check
     def tenant_usable(self) -> bool:
         """Retrieve if this is usable by the current user tenant"""
-        return self._get_attribute("is_tenant_usable")
+        return self._get_attribute("is_tenant_useable")
 
     @tenant_usable.setter
     @write_only
     @pydantic.validate_call
     def tenant_usable(self, is_tenant_usable: bool) -> None:
         """Set this storage to be usable by the current user tenant"""
-        self._staging["tenant_usable"] = is_tenant_usable
+        self._staging["is_tenant_useable"] = is_tenant_usable
 
     @property
     @staging_check

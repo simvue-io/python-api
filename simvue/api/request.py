@@ -167,6 +167,7 @@ def get(
     headers: dict[str, str],
     params: dict[str, str | int | float | None] | None = None,
     timeout: int = DEFAULT_API_TIMEOUT,
+    data: dict[str, typing.Any] | None = None,
 ) -> requests.Response:
     """HTTP GET
 
@@ -178,6 +179,8 @@ def get(
         headers for the post request
     timeout : int, optional
         timeout of request, by default DEFAULT_API_TIMEOUT
+    data : dict[str, Any] | None, optional
+        any data to send in request
 
     Returns
     -------
@@ -185,7 +188,7 @@ def get(
         response from executing GET
     """
     logging.debug(f"GET: {url}\n\tparams={params}")
-    return requests.get(url, headers=headers, timeout=timeout, params=params)
+    return requests.get(url, headers=headers, timeout=timeout, params=params, data=data)
 
 
 @retry(

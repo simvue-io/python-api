@@ -116,6 +116,7 @@ def test_run_get_properties() -> None:
     _folder.commit()
     _run.commit()
     _failed = []
+    assert _run.to_dict()
 
     for member in _run._properties:
         try:

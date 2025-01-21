@@ -20,6 +20,7 @@ def test_folder_creation_online() -> None:
     assert _folders
     assert _folders[_folder.id]
     assert _folders[_folder.id]._read_only
+    assert _folder.to_dict()
     with pytest.raises(AssertionError):
         _folders[_folder.id].name = "hello"
     _folder.delete(recursive=True, delete_runs=True, runs_only=False)

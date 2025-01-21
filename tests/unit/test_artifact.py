@@ -4,6 +4,7 @@ import uuid
 import time
 import pathlib
 import tempfile
+import numpy
 
 from simvue.api.objects import Artifact, Run
 from simvue.api.objects.folder import Folder
@@ -41,6 +42,15 @@ def test_artifact_creation_online() -> None:
         assert _artifact.name == f"test_artifact_{_uuid}"
         _content = b"".join(_artifact.download_content()).decode("UTF-8")
         assert _content == f"Hello World! {_uuid}"
+        assert _artifact.to_dict()
+    _test_array = numpy.array(range(10))
+    _artifact = Artifact.new_object(
+        name=f"test_artifact_obj_{_uuid}",
+        storage_id=None,
+        obj=_test_array,
+        metadata=None
+    )
+    _artifact.attach_to_run(_run.id, "output")
     _run.delete()
     _folder.delete(recursive=True, delete_runs=True, runs_only=False)
     if _failed:

@@ -14,6 +14,7 @@ def test_create_file_storage_online() -> None:
     _storage.commit()
     assert _storage.enabled
     assert _storage.name == _uuid
+    assert _storage.to_dict()
     _storage.delete()
 
 

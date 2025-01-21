@@ -22,6 +22,7 @@ def test_event_alert_creation_online() -> None:
     assert _alert.alert.pattern == "completed"
     assert _alert.name == f"events_alert_{_uuid}"
     assert _alert.notification == "none"
+    assert _alert.to_dict()
     _alert.delete()
 
 

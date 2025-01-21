@@ -524,7 +524,10 @@ class SimvueObject(abc.ABC):
             json.dump(_local_data, out_f, indent=2)
 
     def to_dict(self) -> dict[str, typing.Any]:
-        return {key: getattr(self, key) for key in self._properties}
+        return {
+            key: value.__str__() if (value := getattr(self, key)) is not None else None
+            for key in self._properties
+        }
 
     @property
     def staged(self) -> dict[str, typing.Any] | None:
