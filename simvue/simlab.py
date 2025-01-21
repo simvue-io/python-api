@@ -10,20 +10,25 @@ on the fly.
 import inspect
 import sys
 import typing
+import fnmatch
 import types
 from simvue import Run
 
 
-TraceFunction: typing.TypeAlias = typing.Callable[[types.FrameType, str, typing.Any], typing.Callable | None]
+TraceFunction: typing.TypeAlias = typing.Callable[
+    [types.FrameType, str, typing.Any], typing.Callable | None
+]
+
 
 # Define a trace function to monitor variables within
 # the wrapped executed function
 def _create_variable_monitoring_callback(
-    input_parameters: dict[str, typing.Any],
     previous_values: dict[str, typing.Any],
     simvue_run: Run,
     alert_id: str,
-    function_name: str,
+    exclude: list[str] | None,
+    include: list[str] | None,
+    trace_info_dict: dict[str, typing.Any],
 ) -> TraceFunction:
     """Function to monitor variables
 
@@ -40,66 +45,82 @@ def _create_variable_monitoring_callback(
     TraceFunction
         the same function to ensure monitoring is active throughout whole execution
     """
+    _input_parameters = trace_info_dict["inputs"]["input_parameters"]
+    _function_name = trace_info_dict["inputs"]["function"]
+
     def _monitor_function(
         frame: types.FrameType,
         event: typing.Literal["call", "line", "return", "exception", "opcode"],
-        argument: typing.Any | tuple[Exception, Exception, types.TracebackType]
+        argument: typing.Any | tuple[Exception, Exception, types.TracebackType],
+        **kwargs
     ) -> TraceFunction:
         if event == "call":
-            return _monitor_function # type: ignore
-        
+            return _monitor_function  # type: ignore
+
         # Monitor variables during execution
         # if event is a line or return event
         if event in {"line", "return"}:
             _current_locals = frame.f_locals
-            
+
             # Compare current local variables with previous values
             for var, value in _current_locals.items():
                 # Ignore any private variables or unsupported types
-                if any([
-                    var.startswith("_") or not isinstance(value, (int, float, bool, dict)),
-                    isinstance(value, dict) and not all(isinstance(v, (int, float, bool)) for v in value.values())
-                ]):
+                if var.startswith("_") or not isinstance(value, (int, float, bool)):
                     continue
 
                 # Trigger callback only if an input is modified or a new variable is created
-                if any([
-                    (var in input_parameters and previous_values.get(var) != value),
-                    (var not in previous_values and var not in input_parameters)
-                ]):
+                if any(
+                    [
+                        (var in _input_parameters and previous_values.get(var) != value),
+                        (var not in previous_values or previous_values[var] != value),
+                    ]
+                ) and all([
+                    not (any(fnmatch.fnmatch(var, pattern) for pattern in exclude) if exclude else False),
+                    (any(fnmatch.fnmatch(var, pattern) for pattern in include) if include else True)
+                ]): 
                     previous_values[var] = value
-                    
-                    if isinstance(value, dict):
-                        simvue_run.log_metrics(value)
-                    else:
-                        simvue_run.log_metrics({var: value})
-            
+
+                    if var not in trace_info_dict["metrics"]:
+                        trace_info_dict["metrics"][var] = []
+
+                    trace_info_dict["metrics"][var].append(value)
+                    simvue_run.log_metrics({var: value})
+
             # Remove variables no longer in scope
             for var in list(previous_values.keys()):
                 if var not in _current_locals:
                     del previous_values[var]
-        
+
         # If an exception is thrown during execution log an event with details
         # and also raise user alert
         elif event == "exception":
             _exception_type, _exception_value, _exception_traceback = argument
-            simvue_run.log_event(
-                f"Function {function_name} raised an exception:\n"
+            _event_message = (
+                f"Function {_function_name} raised an exception:\n"
                 f"\t{_exception_type}: {_exception_value}"
                 f"\n{_exception_traceback}"
             )
+            trace_info_dict["events"].append(_event_message)
+            simvue_run.log_event(_event_message)
             simvue_run.log_alert(alert_id, state="critical")
+            trace_info_dict["alert"]["state"] = "critical"
             simvue_run.set_status("failed")
 
         return _monitor_function  # type: ignore
-    return _monitor_function # type: ignore
+
+    return _monitor_function  # type: ignore
+
 
 def trace(
     mode: typing.Literal["online", "offline"] = "online",
-    debug: bool = False, **sv_run_kwargs
+    debug: bool = False,
+    include: list[str] | None = None,
+    exclude: list[str] | None = None,
+    trace_info_dict: dict[str, typing.Any] | None = None,
+    **sv_run_kwargs,
 ) -> typing.Callable:
     """Decorator to track variable changes within a function and send the new values as metrics to the Simvue server
-    
+
     Values must be a sorted data type. This includes floats, integers and booleans.
 
     Parameters
@@ -108,18 +129,24 @@ def trace(
         mode of execution, default is "online"
     debug: bool, optional
         whether to run in debug mode, default is False
+    include : list[str], optional
+        variable names/regular expressions to include
+    exclude : list[str], optional
+        variable names/regular expressions to ignore
     **sv_run_kwargs
         keyword arguments to pass to the Simvue Run
     """
-    def decorator(func: typing.Callable) -> typing.Callable:
-        def wrapper(*args, **kwargs) -> typing.Any:
+    def decorator(func: typing.Callable, trace_info_dict=trace_info_dict) -> typing.Callable:
+        def wrapper(*args, trace_info_dict=trace_info_dict, **kwargs) -> typing.Any:
             # Cache for storing current variable values
             _previous_values: dict[str, typing.Any] = {}
 
             # Retrieve the signature for the input function
             # and bind the arguments to the function signature
             _function_signature: inspect.Signature = inspect.signature(func)
-            _bounded_arguments: inspect.BoundArguments = _function_signature.bind(*args, **kwargs)
+            _bounded_arguments: inspect.BoundArguments = _function_signature.bind(
+                *args, **kwargs
+            )
             _bounded_arguments.apply_defaults()
 
             # First record any initial values from the parameters
@@ -136,14 +163,28 @@ def trace(
                     description=f"Executing function {func.__name__} with the following parameters: {_input_params}",
                 )
 
+                if trace_info_dict is not None:
+                    trace_info_dict |= {
+                        "inputs": {
+                            "function": func.__name__,
+                            "input_parameters": _input_params,
+                            "include": include,
+                            "exclude": exclude
+                        },
+                        "metrics": {},
+                        "events": [],
+                        "alert": {},
+                    }
+
                 # Set a trace function to monitor the execution of the wrapped function
                 sys.settrace(
                     _create_variable_monitoring_callback(
-                        _input_params,
-                        _previous_values,
-                        _run,
-                        _alert_id,
-                        func.__name__
+                        previous_values=_previous_values,
+                        simvue_run=_run,
+                        alert_id=_alert_id,
+                        exclude=exclude,
+                        include=include,
+                        trace_info_dict=trace_info_dict or {},
                     )
                 )
                 try:
@@ -151,6 +192,13 @@ def trace(
                 finally:
                     sys.settrace(None)  # Clean up the trace function after execution
             _run.log_alert(_alert_id, state="ok")
+
+            if trace_info_dict:
+                trace_info_dict["alert"]["state"] = "ok"
+                trace_info_dict["alert"]["id"] = _alert_id
+                trace_info_dict["run"] = _run.id
             return result
+
         return wrapper
+
     return decorator
