@@ -22,6 +22,7 @@ def test_create_s3_online() -> None:
         bucket="dummy_bucket"
     )
     _storage.commit()
+    assert _storage.to_dict()
     assert _storage.name == _uuid
     assert _storage.config.endpoint_url == "https://not-a-real-url.io/"
     assert _storage.config.region_name == "fictionsville"

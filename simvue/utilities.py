@@ -159,11 +159,18 @@ def parse_pydantic_error(error: pydantic.ValidationError) -> str:
     out_table: list[str] = []
     for data in json.loads(error.json()):
         _input = data.get("input") if data["input"] is not None else "None"
-        _input_str = (
-            _input_str
-            if len((_input_str := f"{_input}")) < 50
-            else f"{_input_str[:50]}..."
-        )
+        if isinstance(_input, dict):
+            _input_str = json.dumps(_input, indent=2)
+            _input_str = "\n".join(
+                f"{line[:47]}..." if len(line) > 50 else line
+                for line in _input_str.split("\n")
+            )
+        else:
+            _input_str = (
+                _input_str
+                if len((_input_str := f"{_input}")) < 50
+                else f"{_input_str[:50]}..."
+            )
         _type: str = data["type"]
 
         _skip_type_compare_for = (

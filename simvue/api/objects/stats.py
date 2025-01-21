@@ -40,6 +40,9 @@ class Stats(SimvueObject):
     def _get_visibility(self) -> dict[str, bool | list[str]]:
         return {}
 
+    def to_dict(self) -> dict[str, typing.Any]:
+        return {"runs": self._get_run_stats()}
+
 
 class RunStatistics:
     def __init__(self, sv_obj: Stats) -> None:

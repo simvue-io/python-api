@@ -113,7 +113,7 @@ class SimvueConfiguration(pydantic.BaseModel):
 
         except Exception as err:
             raise AssertionError(
-                f"Exception retrieving server version: {str(err)}"
+                f"Exception retrieving server version:\n {str(err)}"
             ) from err
 
         _version = semver.Version.parse(_version_str)
