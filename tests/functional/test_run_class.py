@@ -125,8 +125,8 @@ def test_log_metrics(
         aggregate=False,
     )
 
-    #with contextlib.suppress(RuntimeError):
-    #    client.delete_run(run._id)
+    with contextlib.suppress(RuntimeError):
+       client.delete_run(run._id)
 
     assert _data
 
