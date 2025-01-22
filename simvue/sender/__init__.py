@@ -4,7 +4,6 @@ import pathlib
 import pydantic
 import typing
 from simvue.api.objects.base import SimvueObject
-from simvue.api.objects.storage.file import FileStorage
 
 UPLOAD_ORDER: tuple[str, ...] = (
     "tenants",
@@ -35,9 +34,10 @@ def _check_local_staging(cache_dir: pydantic.DirectoryPath) -> None:
 def _assemble_objects(
     locally_staged: dict[str, dict[str, typing.Any]],
 ) -> typing.Generator[SimvueObject, None, None]:
-    for obj_type, data in locally_staged.items():
-        if obj_type == "storage" and data.pop("type") == "File":
-            FileStorage.new(**data)
+    for obj_type in UPLOAD_ORDER:
+        _data = locally_staged.get(obj_type, {})
+        for _local_id, _obj in _data.items():
+            _exact_type: str = _data["obj_type"]
 
 
 # Rather than a script with API calls each object will send itself
