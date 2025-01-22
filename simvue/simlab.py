@@ -52,7 +52,7 @@ def _create_variable_monitoring_callback(
         frame: types.FrameType,
         event: typing.Literal["call", "line", "return", "exception", "opcode"],
         argument: typing.Any | tuple[Exception, Exception, types.TracebackType],
-        **kwargs
+        **kwargs,
     ) -> TraceFunction:
         if event == "call":
             return _monitor_function  # type: ignore
@@ -71,13 +71,26 @@ def _create_variable_monitoring_callback(
                 # Trigger callback only if an input is modified or a new variable is created
                 if any(
                     [
-                        (var in _input_parameters and previous_values.get(var) != value),
+                        (
+                            var in _input_parameters
+                            and previous_values.get(var) != value
+                        ),
                         (var not in previous_values or previous_values[var] != value),
                     ]
-                ) and all([
-                    not (any(fnmatch.fnmatch(var, pattern) for pattern in exclude) if exclude else False),
-                    (any(fnmatch.fnmatch(var, pattern) for pattern in include) if include else True)
-                ]): 
+                ) and all(
+                    [
+                        not (
+                            any(fnmatch.fnmatch(var, pattern) for pattern in exclude)
+                            if exclude
+                            else False
+                        ),
+                        (
+                            any(fnmatch.fnmatch(var, pattern) for pattern in include)
+                            if include
+                            else True
+                        ),
+                    ]
+                ):
                     previous_values[var] = value
 
                     if var not in trace_info_dict["metrics"]:
@@ -136,7 +149,16 @@ def trace(
     **sv_run_kwargs
         keyword arguments to pass to the Simvue Run
     """
-    def decorator(func: typing.Callable, trace_info_dict=trace_info_dict) -> typing.Callable:
+    # If the user did not attach a dictionary create one
+    # to allow this feature to be monitored in a debugger
+    # they just will not be able to access this information
+    # outside the wrapped function call
+    if not trace_info_dict:
+        trace_info_dict = {}
+
+    def decorator(
+        func: typing.Callable, trace_info_dict=trace_info_dict
+    ) -> typing.Callable:
         def wrapper(*args, trace_info_dict=trace_info_dict, **kwargs) -> typing.Any:
             # Cache for storing current variable values
             _previous_values: dict[str, typing.Any] = {}
@@ -163,18 +185,17 @@ def trace(
                     description=f"Executing function {func.__name__} with the following parameters: {_input_params}",
                 )
 
-                if trace_info_dict is not None:
-                    trace_info_dict |= {
-                        "inputs": {
-                            "function": func.__name__,
-                            "input_parameters": _input_params,
-                            "include": include,
-                            "exclude": exclude
-                        },
-                        "metrics": {},
-                        "events": [],
-                        "alert": {},
-                    }
+                trace_info_dict |= {
+                    "inputs": {
+                        "function": func.__name__,
+                        "input_parameters": _input_params,
+                        "include": include,
+                        "exclude": exclude,
+                    },
+                    "metrics": {},
+                    "events": [],
+                    "alert": {},
+                }
 
                 # Set a trace function to monitor the execution of the wrapped function
                 sys.settrace(

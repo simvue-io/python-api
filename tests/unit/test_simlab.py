@@ -4,9 +4,10 @@ import typing
 import simvue.simlab as sv_lab
 
 @pytest.mark.simlab
-@pytest.mark.parametrize("mode", ["include", "exclude", "normal"])
+@pytest.mark.parametrize("mode", ["include", "exclude", "normal", "no_trace_dict"])
 def test_simlab_trace(mode: typing.Literal["include", "exclude", "normal"]) -> None:
-    _trace_info_dict = {}
+    _trace_info_dict = {} if mode != "no_trace_dict" else None
+    mode = mode if mode != "no_trace_dict" else "normal"
     _exclude = ["ignored_*"] if mode == "exclude" else None
     _include = ["monitored_*"] if mode == "include" else None
     @sv_lab.trace(exclude=_exclude, include=_include, trace_info_dict=_trace_info_dict)
@@ -28,6 +29,9 @@ def test_simlab_trace(mode: typing.Literal["include", "exclude", "normal"]) -> N
             _private_value += i
 
     my_simulation(0.1, 5)
+
+    if not _trace_info_dict:
+        return
 
     assert len(_trace_info_dict.get("metrics", {}).get("monitored_float")) == 5
 
