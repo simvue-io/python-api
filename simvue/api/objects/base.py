@@ -153,6 +153,9 @@ class SimvueObject(abc.ABC):
         }
 
         self._user_config = SimvueConfiguration.fetch(**_config_args)
+
+        # Use a single file for each object so we can have parallelism
+        # e.g. multiple runs writing at the same time
         self._local_staging_file: pathlib.Path = (
             self._user_config.offline.cache.joinpath(
                 self._endpoint, f"{self._identifier}.json"
@@ -194,23 +197,20 @@ class SimvueObject(abc.ABC):
         with self._local_staging_file.open() as in_f:
             _staged_data = json.load(in_f)
 
-        if obj_label not in _staged_data:
-            _staged_data[obj_label] = {}
-
         if key not in _staged_data[obj_label]:
-            _staged_data[obj_label][key] = value
+            _staged_data[key] = value
             return
 
-        if isinstance(_staged_data[obj_label][key], list):
-            if not _staged_data[obj_label].get(key):
-                _staged_data[obj_label][key] = []
-            _staged_data[obj_label][key] += value
-        elif isinstance(_staged_data[obj_label][key], dict):
-            if not _staged_data[obj_label].get(key):
-                _staged_data[obj_label][key] = {}
-            _staged_data[obj_label][key] |= value
+        if isinstance(_staged_data[key], list):
+            if not _staged_data.get(key):
+                _staged_data[key] = []
+            _staged_data[key] += value
+        elif isinstance(_staged_data[key], dict):
+            if not _staged_data.get(key):
+                _staged_data[key] = {}
+            _staged_data[key] |= value
         else:
-            _staged_data[obj_label][key] = value
+            _staged_data[key] = value
 
         with self._local_staging_file.open("w") as out_f:
             json.dump(_staged_data, out_f, indent=2)
@@ -511,16 +511,13 @@ class SimvueObject(abc.ABC):
         if not (_dir := self._local_staging_file.parent).exists():
             _dir.mkdir(parents=True)
 
-        _local_data: dict[str, typing.Any] = {}
+        _local_data: dict[str, typing.Any] = {"obj_type": self.__class__.__name__}
 
         if self._local_staging_file.exists():
             with self._local_staging_file.open() as in_f:
                 _local_data = json.load(in_f)
 
-        if not _local_data.get(self._label):
-            _local_data[self._label] = {}
-
-        _local_data[self._label][self._identifier] = self._staging
+        _local_data = self._staging
 
         with self._local_staging_file.open("w", encoding="utf-8") as out_f:
             json.dump(_local_data, out_f, indent=2)
