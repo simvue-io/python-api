@@ -230,7 +230,7 @@ def get_json_from_response(
     scenario: str,
     response: requests.Response,
     allow_parse_failure: bool = False,
-    expected_type: list | dict = dict,
+    expected_type: typing.Type[dict | list] = dict,
 ) -> typing.Union[dict, list]:
     try:
         json_response = response.json()
@@ -241,6 +241,7 @@ def get_json_from_response(
         decode_error = f"{e}"
 
     error_str = f"{scenario} failed for url '{response.url}'"
+    details: str | None = None
 
     if (_status_code := response.status_code) in expected_status:
         if not isinstance(json_response, expected_type):
@@ -249,9 +250,9 @@ def get_json_from_response(
             return json_response
         else:
             details = f"could not request JSON response: {decode_error}"
-    else:
+    elif isinstance(json_response, dict):
         error_str += f" with status {_status_code}"
-        details = (json_response or ({} if expected_type is dict else [])).get("detail")
+        details = (json_response or {}).get("detail")
 
     try:
         txt_response = response.text

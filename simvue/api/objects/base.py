@@ -274,8 +274,9 @@ class SimvueObject(abc.ABC):
         except AttributeError:
             return {}
 
-    @abc.abstractclassmethod
-    def new(cls, **_):
+    @classmethod
+    @abc.abstractmethod
+    def new(cls, **_) -> Self:
         pass
 
     @classmethod
@@ -418,6 +419,9 @@ class SimvueObject(abc.ABC):
             expected_status=[http.HTTPStatus.OK],
             scenario=f"Creation of {self._label}",
         )
+
+        if isinstance(_json_response, list):
+            raise RuntimeError("Expected dictionary from JSON response but got type list")
 
         if _id := _json_response.get("id"):
             self._logger.debug("'%s' created successfully", _id)
