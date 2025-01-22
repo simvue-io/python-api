@@ -2,8 +2,10 @@
 import json
 import pathlib
 import pydantic
+import logging
 import typing
 from simvue.api.objects.base import SimvueObject
+from simvue.utilities import prettify_pydantic
 import simvue.api.objects
 
 UPLOAD_ORDER: tuple[str, ...] = (
@@ -17,9 +19,10 @@ UPLOAD_ORDER: tuple[str, ...] = (
     "artifacts",
 )
 
+_logger = logging.getLogger(__name__)
 
-@pydantic.validate_call
-def _check_local_staging(cache_dir: pydantic.DirectoryPath) -> None:
+
+def _check_local_staging(cache_dir: pathlib.Path) -> None:
     """Check local cache and assemble any objects for sending"""
     _upload_data: dict[str, dict[str, typing.Any]] = {}
     for obj_type in UPLOAD_ORDER:
@@ -45,7 +48,23 @@ def _assemble_objects(
                 raise RuntimeError(
                     f"Attempt to initialise unknown type '{_exact_type}'"
                 ) from e
-            yield _instance_class(**_obj)
+            yield _instance_class.new(**_obj)
 
 
 # Rather than a script with API calls each object will send itself
+@prettify_pydantic
+@pydantic.validate_call
+def uploader(cache_dir: pydantic.DirectoryPath) -> None:
+    _locally_staged = _check_local_staging(cache_dir)
+    _offline_to_online_id_mapping: dict[str, str] = {}
+    for obj in _assemble_objects(_locally_staged):
+        _current_id = obj._identifier
+        try:
+            obj.commit()
+            _logger.info(f"Created {obj.__class__.__name__} '{obj.id}'")
+        except RuntimeError as e:
+            if "status 409" in e.args[0]:
+                continue
+            else:
+                raise e
+        _offline_to_online_id_mapping[_current_id] = obj.id

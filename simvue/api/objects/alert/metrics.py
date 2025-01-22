@@ -53,6 +53,7 @@ class MetricsThresholdAlert(AlertBase):
         frequency: pydantic.PositiveInt,
         enabled: bool = True,
         offline: bool = False,
+        **_,
     ) -> Self:
         """Create a new metric threshold alert either locally or on the server
 

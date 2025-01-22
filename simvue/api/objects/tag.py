@@ -19,12 +19,7 @@ __all__ = ["Tag"]
 class Tag(SimvueObject):
     @classmethod
     @pydantic.validate_call
-    def new(
-        cls,
-        *,
-        name: str,
-        offline: bool = False,
-    ):
+    def new(cls, *, name: str, offline: bool = False, **_):
         """Create a new Tag on the Simvue server"""
         _data: dict[str, typing.Any] = {"name": name}
         _tag = Tag(name=name, _read_only=False)

@@ -59,22 +59,25 @@ class Artifact(SimvueObject):
         cls,
         *,
         name: typing.Annotated[str, pydantic.Field(pattern=NAME_REGEX)],
-        storage_id: str | None,
         checksum: str,
         size: int,
-        file_type: str,
-        original_path: pathlib.Path | None,
+        storage_id: str | None = None,
+        file_type: str | None = None,
+        original_path: pathlib.Path | None = None,
         metadata: dict[str, typing.Any] | None,
         offline: bool = False,
         **kwargs,
     ) -> Self:
+        _storage = kwargs.pop("storage", None)
+        _orig_path = original_path or kwargs.pop("originalPath", None)
+        _file_type = kwargs.pop("type", None)
         _artifact = Artifact(
             name=name,
             checksum=checksum,
             size=size,
-            originalPath=f"{original_path or ''}",
-            storage=storage_id,
-            type=file_type,
+            originalPath=f"{_orig_path or ''}",
+            storage=_storage,
+            type=_file_type,
             metadata=metadata,
             _read_only=False,
         )

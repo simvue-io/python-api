@@ -33,6 +33,7 @@ class UserAlert(AlertBase):
         notification: typing.Literal["none", "email"],
         enabled: bool = True,
         offline: bool = False,
+        **_,
     ) -> Self:
         """Create a new user-defined alert
 

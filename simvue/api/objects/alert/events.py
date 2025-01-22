@@ -44,6 +44,7 @@ class EventsAlert(AlertBase):
         frequency: pydantic.PositiveInt,
         enabled: bool = True,
         offline: bool = False,
+        **_,
     ) -> Self:
         """Create a new event-based alert
 

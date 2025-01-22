@@ -58,6 +58,7 @@ class Run(SimvueObject):
         *,
         folder: typing.Annotated[str, pydantic.Field(pattern=FOLDER_REGEX)],
         offline: bool = False,
+        **_,
     ) -> Self:
         """Create a new Folder on the Simvue server with the given path"""
         _run = Run(folder=folder, system=None, status="created", _read_only=False)
