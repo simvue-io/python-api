@@ -4,6 +4,7 @@ import pathlib
 import pydantic
 import typing
 from simvue.api.objects.base import SimvueObject
+import simvue.api.objects
 
 UPLOAD_ORDER: tuple[str, ...] = (
     "tenants",
@@ -37,7 +38,14 @@ def _assemble_objects(
     for obj_type in UPLOAD_ORDER:
         _data = locally_staged.get(obj_type, {})
         for _local_id, _obj in _data.items():
-            _exact_type: str = _data["obj_type"]
+            _exact_type: str = _obj.pop("obj_type")
+            try:
+                _instance_class = getattr(simvue.api.objects, _exact_type)
+            except AttributeError as e:
+                raise RuntimeError(
+                    f"Attempt to initialise unknown type '{_exact_type}'"
+                ) from e
+            yield _instance_class(**_obj)
 
 
 # Rather than a script with API calls each object will send itself
