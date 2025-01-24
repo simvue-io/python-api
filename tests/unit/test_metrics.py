@@ -24,7 +24,7 @@ def test_metrics_creation_online() -> None:
     _folder.commit()
     _run.commit()
     _metrics = Metrics.new(
-        run_id=_run.id,
+        run=_run.id,
         metrics=[
             {
                 "timestamp": datetime.datetime.now(datetime.timezone.utc).strftime(

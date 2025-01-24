@@ -42,23 +42,24 @@ class Run(SimvueObject):
         self.visibility = Visibility(self)
         super().__init__(identifier, **kwargs)
 
-        self._staged_metrics: list[dict[str, str | dict | int]] = (
-            self._get_local_staged("metrics").get(self._identifier)  # type: ignore
-            if self._identifier
-            else []
-        )
-
     @classmethod
     @pydantic.validate_call
     def new(
         cls,
         *,
         folder: typing.Annotated[str, pydantic.Field(pattern=FOLDER_REGEX)],
+        system: dict[str, typing.Any] | None = None,
+        status: typing.Literal[
+            "terminated", "created", "failed", "completed", "lost", "running"
+        ] = "created",
         offline: bool = False,
-        **_,
+        **kwargs,
     ) -> Self:
         """Create a new Folder on the Simvue server with the given path"""
-        _run = Run(folder=folder, system=None, status="created", _read_only=False)
+
+        _run = Run(
+            folder=folder, system=system, status=status, _read_only=False, **kwargs
+        )
         _run.offline_mode(offline)
         return _run
 

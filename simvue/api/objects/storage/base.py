@@ -20,7 +20,7 @@ class StorageBase(SimvueObject):
         super().__init__(identifier, _read_only=_read_only, **kwargs)
 
     @classmethod
-    def new(cls, **kwargs):
+    def new(cls, **_):
         pass
 
     @property

@@ -55,10 +55,10 @@ class Folder(SimvueObject):
         *,
         path: typing.Annotated[str, pydantic.Field(pattern=FOLDER_REGEX)],
         offline: bool = False,
-        **_,
+        **kwargs,
     ):
         """Create a new Folder on the Simvue server with the given path"""
-        _folder = Folder(path=path, _read_only=False)
+        _folder = Folder(path=path, _read_only=False, **kwargs)
         _folder.offline_mode(offline)
         return _folder
 

@@ -435,7 +435,7 @@ class Run:
                 _events.commit()
             else:
                 _metrics = Metrics.new(
-                    run_id=self.id,
+                    run=self.id,
                     offline=self._user_config.run.mode == "offline",
                     metrics=buffer,
                 )
@@ -1503,6 +1503,11 @@ class Run:
         elif self._dispatcher:
             self._dispatcher.purge()
             self._dispatcher.join()
+
+        if self._user_config.run.mode == "offline":
+            self._user_config.offline.cache.joinpath(
+                "runs", f"{self._id}.closed"
+            ).touch()
 
         if _non_zero := self.executor.exit_status:
             _error_msgs: dict[str, str] | None = self.executor.get_error_summary()

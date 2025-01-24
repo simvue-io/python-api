@@ -36,15 +36,18 @@ class Metrics(SimvueObject):
 
     @classmethod
     @pydantic.validate_call
-    def new(cls, *, run_id: str, offline: bool = False, metrics: list[MetricSet]):
+    def new(
+        cls, *, run: str, offline: bool = False, metrics: list[MetricSet], **kwargs
+    ):
         """Create a new Events entry on the Simvue server"""
-        _events = Metrics(
-            run=run_id,
+        _metrics = Metrics(
+            run=run,
             metrics=[metric.model_dump() for metric in metrics],
             _read_only=False,
+            **kwargs,
         )
-        _events.offline_mode(offline)
-        return _events
+        _metrics.offline_mode(offline)
+        return _metrics
 
     @classmethod
     @pydantic.validate_call
@@ -106,3 +109,7 @@ class Metrics(SimvueObject):
         self, _linked_objects: list[str] | None = None, **kwargs
     ) -> dict[str, typing.Any]:
         raise NotImplementedError("Cannot delete metric set")
+
+    def on_reconnect(self, offline_to_online_id_mapping: dict[str, str]):
+        if online_run_id := offline_to_online_id_mapping.get(self._staging["run"]):
+            self._staging["run"] = online_run_id

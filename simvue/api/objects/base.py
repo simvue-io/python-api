@@ -513,7 +513,6 @@ class SimvueObject(abc.ABC):
                 _local_data = json.load(in_f)
 
         _local_data |= self._staging
-
         with self._local_staging_file.open("w", encoding="utf-8") as out_f:
             json.dump(_local_data, out_f, indent=2)
 
