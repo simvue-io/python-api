@@ -210,16 +210,11 @@ def setup_test_run(run: sv_run.Run, create_objects: bool, request: pytest.Fixtur
 
 @pytest.fixture
 def offline_test() -> pathlib.Path:
-    _current_config: sv_cfg.SimvueConfiguration = sv_cfg.SimvueConfiguration.fetch()
     with tempfile.TemporaryDirectory() as tempd:
         _tempdir = pathlib.Path(tempd)
         _cache_dir = _tempdir.joinpath(".simvue")
         _cache_dir.mkdir(exist_ok=True)
-        _current_config.offline.cache = f"{_cache_dir}"
-        _current_config.write(pathlib.Path(tempd))
-        _here = os.getcwd()
-        os.chdir(_tempdir)
+        os.environ["SIMVUE_OFFLINE_DIRECTORY"] = f"{_cache_dir}"
         assert sv_cfg.SimvueConfiguration.fetch().offline.cache == _cache_dir
         yield _tempdir
-        os.chdir(_here)
 

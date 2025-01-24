@@ -197,7 +197,7 @@ class SimvueConfiguration(pydantic.BaseModel):
         _config_dict["offline"]["cache"] = _default_dir
 
         # Ranking of configurations for token and URl is:
-        # Envionment Variables > Run Definition > Configuration File
+        # Environment Variables > Run Definition > Configuration File
 
         _server_url = os.environ.get(
             "SIMVUE_URL", server_url or _config_dict["server"].get("url")

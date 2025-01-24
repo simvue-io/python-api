@@ -8,6 +8,7 @@ import numpy
 
 from simvue.api.objects import Artifact, Run
 from simvue.api.objects.folder import Folder
+from simvue.upload import uploader
 
 @pytest.mark.api
 @pytest.mark.online
@@ -82,6 +83,12 @@ def test_artifact_creation_offline(offline_test: pathlib.Path) -> None:
     _run.commit()
     time.sleep(1)
     assert _artifact.name == f"test_artifact_{_uuid}"
+    _created_object_counter: int = 0
+    for _offline, _obj in uploader(offline_test.joinpath(".simvue"), _offline_ids=[_folder.id, _run.id, _artifact.id]):
+        _created_object_counter += 1
+        assert _obj.to_dict()
+        _obj.delete()
+    assert _created_object_counter == 3
     _run.delete()
     _folder.delete()
 

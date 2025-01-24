@@ -62,7 +62,7 @@ def _assemble_objects(
 @pydantic.validate_call
 def uploader(
     cache_dir: pydantic.DirectoryPath, _offline_ids: list[str] | None = None
-) -> None:
+) -> typing.Generator[tuple[str, SimvueObject], None, None]:
     _locally_staged = _check_local_staging(cache_dir)
     _offline_to_online_id_mapping: dict[str, str] = {}
     for _file_path, obj in _assemble_objects(_locally_staged):
@@ -88,3 +88,4 @@ def uploader(
         _file_path.unlink(missing_ok=True)
         _offline_to_online_id_mapping[_current_id] = _new_id
         obj.on_reconnect(_offline_to_online_id_mapping)
+        yield _current_id, obj
