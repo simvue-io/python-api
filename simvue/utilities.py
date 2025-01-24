@@ -95,12 +95,10 @@ def parse_validation_response(
         obj_type: str = issue["type"]
         location: list[str] = issue["loc"]
         location.remove("body")
-        location_addr: str = ""
-        for i, loc in enumerate(location):
-            if isinstance(loc, int):
-                location_addr += f"[{loc}]"
-            else:
-                location_addr += f"{'.' if i > 0 else ''}{loc}"
+        location_addr: str = "".join(
+            (f"[{loc}]" if isinstance(loc, int) else f"{'.' if i > 0 else ''}{loc}")
+            for i, loc in enumerate(location)
+        )
         headers = ["Type", "Location", "Message"]
         information = [obj_type, location_addr]
 
@@ -110,10 +108,7 @@ def parse_validation_response(
             input_arg = body
             for loc in location:
                 try:
-                    if obj_type == "missing":
-                        input_arg = None
-                    else:
-                        input_arg = input_arg[loc]
+                    input_arg = None if obj_type == "missing" else input_arg[loc]
                 except TypeError:
                     break
             information.append(input_arg)

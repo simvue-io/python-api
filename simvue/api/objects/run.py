@@ -1,6 +1,5 @@
 import http
 import typing
-import msgpack
 import pydantic
 import datetime
 
@@ -14,11 +13,9 @@ from simvue.api.request import (
     get as sv_get,
     put as sv_put,
     get_json_from_response,
-    post as sv_post,
 )
-from simvue.api.objects.events import Events
 from simvue.api.url import URL
-from simvue.models import FOLDER_REGEX, NAME_REGEX, DATETIME_FORMAT, EventSet, MetricSet
+from simvue.models import FOLDER_REGEX, NAME_REGEX, DATETIME_FORMAT
 
 Status = typing.Literal[
     "lost", "failed", "completed", "terminated", "running", "created"
@@ -274,9 +271,7 @@ class Run(SimvueObject):
 
     @property
     def _abort_url(self) -> URL | None:
-        if not self.url:
-            return None
-        return self.url / "abort"
+        return self.url / "abort" if self.url else None
 
     @property
     def _artifact_url(self) -> URL | None:
