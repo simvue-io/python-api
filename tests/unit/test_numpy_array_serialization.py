@@ -3,7 +3,7 @@ import numpy as np
 import pytest
 
 @pytest.mark.local
-def test_numpy_array_serialization():
+def test_numpy_array_serialization() -> None:
     """
     Check that a numpy array can be serialized then deserialized successfully
     """

@@ -1359,7 +1359,7 @@ class Run:
                 storage_id=self._storage_id,
                 file_path=file_path,
                 offline=self._user_config.run.mode == "offline",
-                file_type=filetype,
+                mime_type=filetype,
                 metadata=metadata,
             )
             _artifact.attach_to_run(self.id, category)

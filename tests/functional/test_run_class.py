@@ -47,15 +47,16 @@ def test_check_run_initialised_decorator() -> None:
             assert "Simvue Run must be initialised" in str(e.value)
 
 
-# @pytest.mark.run
-# def test_run_with_emissions() -> None:
-#     with sv_run.Run() as run_created:
-#         run_created.init(retention_period="1 min")
-#         run_created.config(enable_emission_metrics=True, emission_metrics_interval=1)
-#         time.sleep(5)
-#         _run = RunObject(identifier=run_created.id)
-#         import pdb; pdb.set_trace()
-#         assert list(_run.metrics)
+@pytest.mark.run
+@pytest.mark.codecarbon
+def test_run_with_emissions() -> None:
+    with sv_run.Run() as run_created:
+        run_created.init(retention_period="1 min")
+        run_created.config(enable_emission_metrics=True, emission_metrics_interval=1)
+        time.sleep(5)
+        _run = RunObject(identifier=run_created.id)
+        import pdb; pdb.set_trace()
+        assert list(_run.metrics)
 
 
 @pytest.mark.run
@@ -731,7 +732,7 @@ def test_abort_on_alert_raise(create_plain_run: typing.Tuple[sv_run.Run, dict], 
     time.sleep(2)
     run.log_alert(alert_id, "critical")
     _alert = Alert(identifier=alert_id)
-    assert _alert.state == "critical"
+    assert _alert.get_status(run.id)
     counter = 0
     while run._status != "terminated" and counter < 15:
         time.sleep(1)

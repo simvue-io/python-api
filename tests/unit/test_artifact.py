@@ -29,7 +29,7 @@ def test_artifact_creation_online() -> None:
             name=f"test_artifact_{_uuid}",
             file_path=_path,
             storage_id=None,
-            file_type=None,
+            mime_type=None,
             metadata=None
         )
         _artifact.attach_to_run(_run.id, "input")

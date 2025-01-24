@@ -164,7 +164,7 @@ def put(
 )
 def get(
     url: str,
-    headers: dict[str, str],
+    headers: dict[str, str] | None = None,
     params: dict[str, str | int | float | None] | None = None,
     timeout: int = DEFAULT_API_TIMEOUT,
     json: dict[str, typing.Any] | None = None,

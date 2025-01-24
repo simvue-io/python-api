@@ -16,7 +16,7 @@ except ImportError:
 @pytest.mark.local
 @pytest.mark.skipif(not plt, reason="Matplotlib is not installed")
 @pytest.mark.skipif(not plotly, reason="Plotly is not installed")
-def test_plotly_figure_mime_type():
+def test_plotly_figure_mime_type() -> None:
     """
     Check that a plotly figure has the correct mime-type
     """

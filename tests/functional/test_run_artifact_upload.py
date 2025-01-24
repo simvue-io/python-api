@@ -28,7 +28,7 @@ def test_add_artifact_to_run() -> None:
             name=f"test_{_uuid}",
             storage_id=None,
             file_path=pathlib.Path(tempf.name),
-            file_type=None,
+            mime_type=None,
             metadata=None
         )
         _artifact.attach_to_run(_run.id, "input")

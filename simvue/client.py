@@ -513,8 +513,8 @@ class Client:
 
         _content = b"".join(_artifact.download_content())
 
-        _deserialized_content: typing.Optional[DeserializedContent] = deserialize_data(
-            _content, _artifact.type, allow_pickle
+        _deserialized_content: DeserializedContent | None = deserialize_data(
+            _content, _artifact.mime_type, allow_pickle
         )
 
         # Numpy array return means just 'if content' will be ambiguous
@@ -527,7 +527,7 @@ class Client:
         self,
         run_id: str,
         name: str,
-        output_dir: typing.Optional[pydantic.DirectoryPath] = None,
+        output_dir: pydantic.DirectoryPath | None = None,
     ) -> None:
         """Retrieve the specified artifact in the form of a file
 
@@ -645,7 +645,7 @@ class Client:
     def get_folders(
         self,
         *,
-        filters: typing.Optional[list[str]] = None,
+        filters: list[str] | None = None,
         count: pydantic.PositiveInt = 100,
         start_index: pydantic.NonNegativeInt = 0,
     ) -> typing.Generator[tuple[str, Folder], None, None]:
@@ -705,7 +705,7 @@ class Client:
         run_ids: list[str],
         xaxis: str,
         aggregate: bool,
-        max_points: typing.Optional[int] = None,
+        max_points: int | None = None,
     ) -> dict[str, typing.Any]:
         params: dict[str, typing.Union[str, int, None]] = {
             "runs": json.dumps(run_ids),
@@ -735,11 +735,11 @@ class Client:
         xaxis: typing.Literal["step", "time", "timestamp"],
         *,
         output_format: typing.Literal["dataframe", "dict"] = "dict",
-        run_ids: typing.Optional[list[str]] = None,
-        run_filters: typing.Optional[list[str]] = None,
+        run_ids: list[str] | None = None,
+        run_filters: list[str] | None = None,
         use_run_names: bool = False,
         aggregate: bool = False,
-        max_points: typing.Optional[pydantic.PositiveInt] = None,
+        max_points: pydantic.PositiveInt | None = None,
     ) -> typing.Union[dict, DataFrame, None]:
         """Retrieve the values for a given metric across multiple runs
 
@@ -794,31 +794,30 @@ class Client:
 
         _run_data = dict(Run.get(**_args))
 
-        if _run_metrics := self._get_run_metrics_from_server(
-            metric_names=metric_names,
-            run_ids=run_ids or list(_run_data.keys()),
-            xaxis=xaxis,
-            aggregate=aggregate,
-            max_points=max_points,
+        if not (
+            _run_metrics := self._get_run_metrics_from_server(
+                metric_names=metric_names,
+                run_ids=run_ids or list(_run_data.keys()),
+                xaxis=xaxis,
+                aggregate=aggregate,
+                max_points=max_points,
+            )
         ):
-            if aggregate:
-                return aggregated_metrics_to_dataframe(
-                    _run_metrics, xaxis=xaxis, parse_to=output_format
-                )
-            else:
-                if use_run_names:
-                    _run_metrics = {
-                        _run_data[key].name: _run_metrics[key]
-                        for key in _run_metrics.keys()
-                    }
-                return parse_run_set_metrics(
-                    _run_metrics,
-                    xaxis=xaxis,
-                    run_labels=list(_run_data.keys()),
-                    parse_to=output_format,
-                )
-        else:
             return None
+        if aggregate:
+            return aggregated_metrics_to_dataframe(
+                _run_metrics, xaxis=xaxis, parse_to=output_format
+            )
+        if use_run_names:
+            _run_metrics = {
+                _run_data[key].name: _run_metrics[key] for key in _run_metrics.keys()
+            }
+        return parse_run_set_metrics(
+            _run_metrics,
+            xaxis=xaxis,
+            run_labels=list(_run_data.keys()),
+            parse_to=output_format,
+        )
 
     @check_extra("plot")
     @prettify_pydantic

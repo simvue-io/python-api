@@ -26,7 +26,7 @@ class FileStorage(StorageBase):
         """Create a new file storage object"""
         _storage = FileStorage(
             name=name,
-            type="File",
+            backend="File",
             disable_check=disable_check,
             is_tenant_useable=tenant_usable,
             is_default=default,

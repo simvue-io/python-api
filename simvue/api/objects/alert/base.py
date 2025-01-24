@@ -139,8 +139,8 @@ class AlertBase(SimvueObject):
 
     def get_status(self, run_id: str) -> typing.Literal["ok", "critical"]:
         """Retrieve the status of this alert for a given run"""
-        _url: URL = URL(self._user_config.server.url) / f"runs/{run_id}/{self.id}"
-        _response = sv_get(url=f"{_url}")
+        _url: URL = self.url / f"status/{run_id}"
+        _response = sv_get(url=f"{_url}", headers=self._headers)
         _json_response = get_json_from_response(
             response=_response,
             expected_status=[http.HTTPStatus.OK],

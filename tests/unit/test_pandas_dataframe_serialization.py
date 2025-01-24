@@ -9,7 +9,7 @@ except ImportError:
 
 @pytest.mark.local
 @pytest.mark.skipif(not pd, reason="Pandas is not installed")
-def test_pandas_dataframe_serialization():
+def test_pandas_dataframe_serialization() -> None:
     """
     Check that a Pandas dataframe can be serialized then deserialized successfully
     """

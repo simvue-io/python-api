@@ -66,7 +66,7 @@ class MetricsThresholdAlert(AlertBase):
         description : str | None
             description for this alert
         metric : str
-            the metric to monitor
+            the metric to monitor, or a globular expression to match multiple metrics
         notification : "none" | "email"
             the notification settings for this alert
         aggregation : "average" | "sum" | "at least one" | "all"

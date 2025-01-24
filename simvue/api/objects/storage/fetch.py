@@ -24,12 +24,12 @@ class Storage:
     def __new__(cls, identifier: str | None = None, **kwargs):
         """Retrieve an object representing an storage either locally or on the server by id"""
         _storage_pre = StorageBase(identifier=identifier, **kwargs)
-        if _storage_pre.type == "S3":
+        if _storage_pre.backend == "S3":
             return S3Storage(identifier=identifier, **kwargs)
-        elif _storage_pre.type == "File":
+        elif _storage_pre.backend == "File":
             return FileStorage(identifier=identifier, **kwargs)
 
-        raise RuntimeError(f"Unknown type '{_storage_pre.type}'")
+        raise RuntimeError(f"Unknown backend '{_storage_pre.backend}'")
 
     @classmethod
     @pydantic.validate_call
@@ -57,15 +57,17 @@ class Storage:
 
         for _entry in _json_response:
             _id = _entry.pop("id")
-            if _entry["type"] == "S3":
+            if _entry["backend"] == "S3":
                 yield (
                     _id,
                     S3Storage(_local=True, _read_only=True, identifier=_id, **_entry),
                 )
-            elif _entry["type"] == "File":
+            elif _entry["backend"] == "File":
                 yield (
                     _id,
                     FileStorage(_local=True, _read_only=True, identifier=_id, **_entry),
                 )
             else:
-                raise RuntimeError(f"Unrecognised storage type '{_entry['type']}'")
+                raise RuntimeError(
+                    f"Unrecognised storage backend '{_entry['backend']}'"
+                )

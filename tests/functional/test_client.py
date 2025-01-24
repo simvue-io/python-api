@@ -1,5 +1,4 @@
 from logging import critical
-from numpy import tri
 import pytest
 import uuid
 import random

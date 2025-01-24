@@ -43,7 +43,7 @@ class S3Storage(StorageBase):
         }
         _storage = S3Storage(
             name=name,
-            type="S3",
+            backend="S3",
             config=_config,
             disable_check=disable_check,
             tenant_useable=tenant_usable,

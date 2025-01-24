@@ -39,9 +39,9 @@ class StorageBase(SimvueObject):
         self._staging["name"] = name
 
     @property
-    def type(self) -> str:
-        """Retrieve the type of storage"""
-        return self._get_attribute("type")
+    def backend(self) -> str:
+        """Retrieve the backend of storage"""
+        return self._get_attribute("backend")
 
     @property
     @staging_check

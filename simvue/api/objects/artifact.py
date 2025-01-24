@@ -62,22 +62,19 @@ class Artifact(SimvueObject):
         checksum: str,
         size: int,
         storage_id: str | None = None,
-        file_type: str | None = None,
+        mime_type: str | None = None,
         original_path: pathlib.Path | None = None,
         metadata: dict[str, typing.Any] | None,
         offline: bool = False,
         **kwargs,
     ) -> Self:
-        _storage = kwargs.pop("storage", None)
-        _orig_path = original_path or kwargs.pop("originalPath", None)
-        _file_type = kwargs.pop("type", None)
         _artifact = Artifact(
             name=name,
             checksum=checksum,
             size=size,
-            originalPath=f"{_orig_path or ''}",
-            storage=_storage,
-            type=_file_type,
+            original_path=f"{original_path or ''}",
+            storage=storage_id,
+            mime_type=mime_type,
             metadata=metadata,
             _read_only=False,
         )
@@ -102,7 +99,7 @@ class Artifact(SimvueObject):
         name: typing.Annotated[str, pydantic.Field(pattern=NAME_REGEX)],
         storage_id: str | None,
         file_path: pydantic.FilePath,
-        file_type: str | None,
+        mime_type: str | None,
         metadata: dict[str, typing.Any] | None,
         offline: bool = False,
     ) -> Self:
@@ -120,7 +117,7 @@ class Artifact(SimvueObject):
             the category of this artifact
         file_path : pathlib.Path | str
             path to the file this artifact represents
-        file_type : str | None
+        mime_type : str | None
             the mime type for this file, else this is determined
         metadata : dict[str, Any] | None
             supply metadata information for this artifact
@@ -128,10 +125,10 @@ class Artifact(SimvueObject):
             whether to define this artifact locally, default is False
 
         """
-        _file_type = file_type or get_mimetype_for_file(file_path)
+        _mime_type = mime_type or get_mimetype_for_file(file_path)
 
-        if _file_type not in get_mimetypes():
-            raise ValueError(f"Invalid MIME type '{file_type}' specified")
+        if _mime_type not in get_mimetypes():
+            raise ValueError(f"Invalid MIME type '{mime_type}' specified")
 
         _file_size = file_path.stat().st_size
         _file_orig_path = file_path.expanduser().absolute()
@@ -142,7 +139,7 @@ class Artifact(SimvueObject):
             storage_id=storage_id,
             original_path=os.path.expandvars(_file_orig_path),
             size=_file_size,
-            file_type=_file_type,
+            mime_type=_mime_type,
             checksum=_file_checksum,
             offline=offline,
             metadata=metadata,
@@ -203,7 +200,7 @@ class Artifact(SimvueObject):
             storage_id=storage_id,
             original_path=None,
             size=sys.getsizeof(_serialized),
-            file_type=_data_type,
+            mime_type=_data_type,
             checksum=_checksum,
             metadata=metadata,
         )
@@ -272,7 +269,7 @@ class Artifact(SimvueObject):
         self, storage: str | None = None, url: str | None = None, **kwargs
     ) -> dict[str, typing.Any]:
         return super()._get(
-            storage=storage or self._staging.get("server", {}).get("storage"),
+            storage=storage or self._staging.get("server", {}).get("storage_id"),
             url=url,
             **kwargs,
         )
@@ -290,17 +287,17 @@ class Artifact(SimvueObject):
     @property
     def original_path(self) -> str:
         """Retrieve the original path of the file associated with this artifact"""
-        return self._get_attribute("originalPath")
+        return self._get_attribute("original_path")
 
     @property
-    def storage(self) -> str | None:
-        """Retrieve the storage identifier for this artifact"""
-        return self._get_attribute("storage")
+    def storage_id(self) -> str | None:
+        """Retrieve the storage_id identifier for this artifact"""
+        return self._get_attribute("storage_id")
 
     @property
-    def type(self) -> str:
+    def mime_type(self) -> str:
         """Retrieve the MIME type for this artifact"""
-        return self._get_attribute("type")
+        return self._get_attribute("mime_type")
 
     @property
     def size(self) -> int:
