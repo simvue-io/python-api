@@ -6,6 +6,7 @@ import logging
 import typing
 from simvue.api.objects.base import SimvueObject
 from simvue.utilities import prettify_pydantic
+
 import simvue.api.objects
 
 UPLOAD_ORDER: tuple[str, ...] = (
@@ -26,12 +27,13 @@ def _check_local_staging(
     cache_dir: pathlib.Path,
 ) -> dict[str, dict[pathlib.Path, dict[str, typing.Any]]]:
     """Check local cache and assemble any objects for sending"""
-    _upload_data: dict[str, dict[pathlib.Path, dict[str, typing.Any]]] = {}
-    for obj_type in UPLOAD_ORDER:
-        _upload_data[obj_type] = {
+    _upload_data: dict[str, dict[pathlib.Path, dict[str, typing.Any]]] = {
+        obj_type: {
             _path: json.load(_path.open())
             for _path in cache_dir.glob(f"{obj_type}/*.json")
         }
+        for obj_type in UPLOAD_ORDER
+    }
     return _upload_data
 
 
@@ -58,10 +60,15 @@ def _assemble_objects(
 # Rather than a script with API calls each object will send itself
 @prettify_pydantic
 @pydantic.validate_call
-def uploader(cache_dir: pydantic.DirectoryPath) -> None:
+def uploader(
+    cache_dir: pydantic.DirectoryPath, _offline_ids: list[str] | None = None
+) -> None:
     _locally_staged = _check_local_staging(cache_dir)
     _offline_to_online_id_mapping: dict[str, str] = {}
     for _file_path, obj in _assemble_objects(_locally_staged):
+        if _offline_ids and obj._identifier not in _offline_ids:
+            continue
+
         if not (_current_id := obj._identifier):
             raise RuntimeError(
                 f"Object of type '{obj.__class__.__name__}' has no identifier"
@@ -80,3 +87,4 @@ def uploader(cache_dir: pydantic.DirectoryPath) -> None:
         _logger.info(f"Created {obj.__class__.__name__} '{_new_id}'")
         _file_path.unlink(missing_ok=True)
         _offline_to_online_id_mapping[_current_id] = _new_id
+        obj.on_reconnect(_offline_to_online_id_mapping)

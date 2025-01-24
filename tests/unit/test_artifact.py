@@ -59,30 +59,29 @@ def test_artifact_creation_online() -> None:
 
 @pytest.mark.api
 @pytest.mark.offline
-def test_artifact_creation_offline() -> None:
+def test_artifact_creation_offline(offline_test: pathlib.Path) -> None:
     _uuid: str = f"{uuid.uuid4()}".split("-")[0]
     _folder_name = f"/simvue_unit_testing/{_uuid}"
     _folder = Folder.new(path=_folder_name, offline=True)
     _run = Run.new(folder=_folder_name, offline=True) 
 
-    with tempfile.NamedTemporaryFile(suffix=".txt") as temp_f:
-        _path = pathlib.Path(temp_f.name)
-        with _path.open("w") as out_f:
-            out_f.write("Hello World!")
-        _artifact = Artifact.new_file(
-            name=f"test_artifact_{_uuid}",
-            file_path=_path,
-            storage_id=None,
-            file_type=None,
-            offline=True,
-            metadata=None
-        )
-        _folder.commit()
-        _run.commit()
-        _artifact.commit()
-        time.sleep(1)
-        assert _artifact.name == f"test_artifact_{_uuid}"
+    _path = offline_test.joinpath("hello_world.txt")
+
+    with _path.open("w") as out_f:
+        out_f.write("Hello World!")
+
+    _artifact = Artifact.new_file(
+        name=f"test_artifact_{_uuid}",
+        file_path=_path,
+        storage_id=None,
+        mime_type=None,
+        offline=True,
+        metadata=None
+    )
+    _folder.commit()
+    _run.commit()
+    time.sleep(1)
+    assert _artifact.name == f"test_artifact_{_uuid}"
     _run.delete()
     _folder.delete()
-
 

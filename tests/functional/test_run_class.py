@@ -500,7 +500,7 @@ def test_save_file_online(
             simvue_run.save_file(
                 out_name,
                 category=category,
-                filetype=file_type,
+                mime_type=file_type,
                 preserve_path=preserve_path,
                 name=name,
             )
@@ -509,7 +509,7 @@ def test_save_file_online(
                 simvue_run.save_file(
                     out_name,
                     category=category,
-                    filetype=file_type,
+                    mime_type=file_type,
                     preserve_path=preserve_path,
                 )
             return
