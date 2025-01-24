@@ -258,44 +258,6 @@ class Run(SimvueObject):
             self._logger.warning(f"Uncommitted metrics found for run '{self.id}'")
         yield from self._get_attribute("events").items()
 
-    @pydantic.validate_call
-    def log_entries(
-        self,
-        entry_type: typing.Literal["metrics", "events"],
-        entries: list[MetricSet | EventSet],
-    ) -> None:
-        """Add entries to server or local staging"""
-        if not self._identifier:
-            raise RuntimeError("Cannot stage metrics, no identifier found")
-
-        _validated_entries: list[dict] = [entry.model_dump() for entry in entries]
-
-        if self._offline or self._identifier.startswith("offline_"):
-            self._stage_to_other(entry_type, self._identifier, _validated_entries)
-            return
-
-        if entry_type == "events":
-            _events = Events.new(run_id=self._identifier, events=entries)
-            _events.commit()
-            return
-
-        _url = URL(self._user_config.server.url) / entry_type
-        _data = {entry_type: _validated_entries, "run": self._identifier}
-        _data_bin = msgpack.packb(_data, use_bin_type=True)
-
-        _msgpack_header = self._headers | {"Content-Type": "application/msgpack"}
-
-        _response = sv_post(
-            f"{_url}", headers=_msgpack_header, data=_data_bin, is_json=False
-        )
-
-        get_json_from_response(
-            response=_response,
-            expected_status=[http.HTTPStatus.OK],
-            scenario=f"Logging of {entry_type} '{entries}' for run '{self.id}'",
-            allow_parse_failure=True,
-        )
-
     @write_only
     def send_heartbeat(self) -> dict[str, typing.Any] | None:
         if self._offline or not self._identifier:
@@ -312,7 +274,9 @@ class Run(SimvueObject):
 
     @property
     def _abort_url(self) -> URL | None:
-        return self.url / "abort" if self._identifier else None
+        if not self.url:
+            return None
+        return self.url / "abort"
 
     @property
     def _artifact_url(self) -> URL | None:
