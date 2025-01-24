@@ -55,7 +55,6 @@ def test_run_with_emissions() -> None:
         run_created.config(enable_emission_metrics=True, emission_metrics_interval=1)
         time.sleep(5)
         _run = RunObject(identifier=run_created.id)
-        import pdb; pdb.set_trace()
         assert list(_run.metrics)
 
 
@@ -732,6 +731,7 @@ def test_abort_on_alert_raise(create_plain_run: typing.Tuple[sv_run.Run, dict], 
     time.sleep(2)
     run.log_alert(alert_id, "critical")
     _alert = Alert(identifier=alert_id)
+    time.sleep(1)
     assert _alert.get_status(run.id)
     counter = 0
     while run._status != "terminated" and counter < 15:
