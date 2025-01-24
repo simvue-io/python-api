@@ -9,6 +9,7 @@ import simvue.sender as sv_send
 from simvue import Run, Client
 
 @pytest.mark.executor
+@pytest.mark.offline
 def test_monitor_processes(create_plain_run_offline: tuple[Run, dict]):
     _run, _ = create_plain_run_offline
     _run.add_process("process_1", "Hello world!", executable="echo", n=True)
