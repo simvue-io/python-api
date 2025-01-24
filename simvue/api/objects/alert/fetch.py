@@ -27,8 +27,6 @@ class Alert:
     @pydantic.validate_call()
     def __new__(cls, identifier: str, **kwargs) -> AlertType:
         """Retrieve an object representing an alert either locally or on the server by id"""
-        if identifier.startswith("offline_"):
-            raise ValueError("Cannot retrieve offline run from server")
         _alert_pre = AlertBase(identifier=identifier, **kwargs)
         if _alert_pre.source == "events":
             return EventsAlert(identifier=identifier, **kwargs)

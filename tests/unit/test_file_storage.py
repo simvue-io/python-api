@@ -4,6 +4,7 @@ import json
 import uuid
 
 from simvue.api.objects import FileStorage
+from simvue.upload import uploader
 
 @pytest.mark.api
 @pytest.mark.online
@@ -22,7 +23,7 @@ def test_create_file_storage_online() -> None:
 @pytest.mark.offline
 def test_create_file_storage_offline() -> None:
     _uuid: str = f"{uuid.uuid4()}".split("-")[0]
-    _storage = FileStorage.new(name=_uuid, disable_check=False, tenant_usable=False, default=False, offline=True)
+    _storage = FileStorage.new(name=_uuid, disable_check=False, tenant_usable=False, default=False, offline=True, enabled=True)
     _storage.commit()
     assert _storage.name == _uuid
     _storage.delete()

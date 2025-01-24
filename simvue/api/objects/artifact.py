@@ -52,7 +52,7 @@ class Artifact(SimvueObject):
         # If the artifact is an online instance, need a place to store the response
         # from the initial creation
         self._init_data: dict[str, dict] = {}
-        self._staging |= {"runs": []}
+        self._staging |= {"runs": {}}
 
     @classmethod
     def new(
@@ -213,7 +213,7 @@ class Artifact(SimvueObject):
 
     def attach_to_run(self, run_id: str, category: Category) -> None:
         """Attach this artifact to a given run"""
-        self._staging["runs"].append({"id": run_id, "category": category})
+        self._staging["runs"][run_id] = category
 
         if self._offline:
             super().commit()
@@ -236,6 +236,12 @@ class Artifact(SimvueObject):
             scenario=f"adding artifact '{_name}' to run '{run_id}'",
             response=_response,
         )
+
+    def on_reconnect(self, id_mapping: dict[str, str]) -> None:
+        _offline_staging = dict(self._staging["runs"].items())
+        self._staging["runs"] = {}
+        for id, category in _offline_staging.items():
+            self.attach_to_run(run_id=id_mapping[id], category=category)
 
     def _upload(self, file: io.BytesIO) -> None:
         if self._offline:

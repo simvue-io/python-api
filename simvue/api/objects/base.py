@@ -178,7 +178,9 @@ class SimvueObject(abc.ABC):
             self._staging = self._get()
 
         # Recover any locally staged changes if not read-only
-        self._staging |= {} if _read_only else self._get_local_staged()
+        self._staging |= (
+            {} if (_read_only and not self._offline) else self._get_local_staged()
+        )
 
         self._staging |= kwargs
 
@@ -190,7 +192,7 @@ class SimvueObject(abc.ABC):
         with self._local_staging_file.open() as in_f:
             _staged_data = json.load(in_f)
 
-        return _staged_data.get(obj_label or self._label, {}).get(self._identifier, {})
+        return _staged_data
 
     def _stage_to_other(self, obj_label: str, key: str, value: typing.Any) -> None:
         """Stage a change to another object type"""
@@ -365,8 +367,6 @@ class SimvueObject(abc.ABC):
             self._logger.debug(
                 f"Writing updates to staging file for {self._label} '{self.id}': {self._staging}"
             )
-            _offline_dir: pathlib.Path = self._user_config.offline.cache
-            _offline_file = _offline_dir.joinpath("staging.json")
             self._cache()
             return
 
@@ -421,7 +421,9 @@ class SimvueObject(abc.ABC):
         )
 
         if isinstance(_json_response, list):
-            raise RuntimeError("Expected dictionary from JSON response but got type list")
+            raise RuntimeError(
+                "Expected dictionary from JSON response but got type list"
+            )
 
         if _id := _json_response.get("id"):
             self._logger.debug("'%s' created successfully", _id)
@@ -451,18 +453,7 @@ class SimvueObject(abc.ABC):
         self, _linked_objects: list[str] | None = None, **kwargs
     ) -> dict[str, typing.Any]:
         if self._get_local_staged():
-            with self._local_staging_file.open() as in_f:
-                _local_data = json.load(in_f)
-
-            _local_data[self._label].pop(self._identifier, None)
-
-            # If this object has information within other object types
-            # (e.g. runs can have metrics) ensure this is deleted too
-            for obj_type in _linked_objects or []:
-                _local_data[obj_type].pop(self._identifier, None)
-
-            with self._local_staging_file.open("w") as out_f:
-                json.dump(_local_data, out_f, indent=2)
+            self._local_staging_file.unlink(missing_ok=True)
 
         if self._offline:
             return {"id": self._identifier}
@@ -531,6 +522,9 @@ class SimvueObject(abc.ABC):
             key: value.__str__() if (value := getattr(self, key)) is not None else None
             for key in self._properties
         }
+
+    def on_reconnect(self, id_mapping: dict[str, str]) -> None:
+        pass
 
     @property
     def staged(self) -> dict[str, typing.Any] | None:

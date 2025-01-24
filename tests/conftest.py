@@ -11,6 +11,7 @@ import logging
 from simvue.api.objects.artifact import Artifact
 import simvue.run as sv_run
 import simvue.api.objects as sv_api_obj
+import simvue.config.user as sv_cfg
 import simvue.utilities
 
 MAX_BUFFER_SIZE: int = 10
@@ -205,4 +206,20 @@ def setup_test_run(run: sv_run.Run, create_objects: bool, request: pytest.Fixtur
 
     time.sleep(1.)
     return TEST_DATA
+
+
+@pytest.fixture
+def offline_test() -> pathlib.Path:
+    _current_config: sv_cfg.SimvueConfiguration = sv_cfg.SimvueConfiguration.fetch()
+    with tempfile.TemporaryDirectory() as tempd:
+        _tempdir = pathlib.Path(tempd)
+        _cache_dir = _tempdir.joinpath(".simvue")
+        _cache_dir.mkdir(exist_ok=True)
+        _current_config.offline.cache = f"{_cache_dir}"
+        _current_config.write(pathlib.Path(tempd))
+        _here = os.getcwd()
+        os.chdir(_tempdir)
+        assert sv_cfg.SimvueConfiguration.fetch().offline.cache == _cache_dir
+        yield _tempdir
+        os.chdir(_here)
 

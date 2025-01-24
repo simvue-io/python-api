@@ -128,6 +128,11 @@ class SimvueConfiguration(pydantic.BaseModel):
                 f"< {SIMVUE_SERVER_LOWER_CONSTRAINT}"
             )
 
+    @pydantic.validate_call
+    def write(self, out_directory: pydantic.DirectoryPath) -> None:
+        with out_directory.joinpath(CONFIG_FILE_NAMES[0]).open("w") as out_f:
+            toml.dump(self.model_dump(), out_f)
+
     @pydantic.model_validator(mode="after")
     @classmethod
     def check_valid_server(cls, values: "SimvueConfiguration") -> bool:
