@@ -88,7 +88,7 @@ def post(
 
     """
     if is_json:
-        data_sent: typing.Union[str, dict[str, typing.Any]] = json_module.dumps(data)
+        data_sent: str | dict[str, typing.Any] = json_module.dumps(data)
         headers = set_json_header(headers)
     else:
         data_sent = data
@@ -144,7 +144,7 @@ def put(
         response from executing PUT
     """
     if is_json and data:
-        data_sent: typing.Union[str, dict[str, typing.Any]] = json_module.dumps(data)
+        data_sent: str | dict[str, typing.Any] = json_module.dumps(data)
         headers = set_json_header(headers)
     else:
         data_sent = data
@@ -231,7 +231,7 @@ def get_json_from_response(
     response: requests.Response,
     allow_parse_failure: bool = False,
     expected_type: typing.Type[dict | list] = dict,
-) -> typing.Union[dict, list]:
+) -> dict | list:
     try:
         json_response = response.json()
         json_response = json_response or ({} if expected_type is dict else [])

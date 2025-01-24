@@ -217,9 +217,7 @@ class Run:
         self,
         exc_type: typing.Type[BaseException] | None,
         value: BaseException,
-        traceback: typing.Optional[
-            typing.Union[typing.Type[BaseException], BaseException]
-        ],
+        traceback: typing.Type[BaseException] | BaseException | None,
     ) -> None:
         _exception_thrown: str | None = exc_type.__name__ if exc_type else None
         _is_running: bool = self._status == "running"
@@ -268,9 +266,7 @@ class Run:
         self,
         exc_type: typing.Type[BaseException] | None,
         value: BaseException,
-        traceback: typing.Optional[
-            typing.Union[typing.Type[BaseException], BaseException]
-        ],
+        traceback: typing.Type[BaseException] | BaseException | None,
     ) -> None:
         logger.debug(
             "Automatically closing run '%s' in status %s",
@@ -571,9 +567,7 @@ class Run:
         running: bool = True,
         retention_period: str | None = None,
         timeout: int | None = 180,
-        visibility: typing.Union[
-            typing.Literal["public", "tenant"], list[str], None
-        ] = None,
+        visibility: typing.Literal["public", "tenant"] | list[str] | None = None,
         no_color: bool = False,
     ) -> bool:
         """Initialise a Simvue run
@@ -736,14 +730,14 @@ class Run:
         self,
         identifier: str,
         *cmd_args,
-        executable: typing.Union[str, pathlib.Path] | None = None,
+        executable: str | pathlib.Path | None = None,
         script: pydantic.FilePath | None = None,
         input_file: pydantic.FilePath | None = None,
         completion_callback: typing.Optional[
             typing.Callable[[int, str, str], None]
         ] = None,
         completion_trigger: multiprocessing.synchronize.Event | None = None,
-        env: typing.Dict[str, str] | None = None,
+        env: dict[str, str] | None = None,
         cwd: pathlib.Path | None = None,
         **cmd_kwargs,
     ) -> None:
@@ -798,7 +792,7 @@ class Run:
             callback to run when process terminates (not supported on Windows)
         completion_trigger : multiprocessing.Event | None, optional
             this trigger event is set when the processes completes
-        env : typing.Dict[str, str], optional
+        env : dict[str, str], optional
             environment variables for process
         cwd: pathlib.Path | None, optional
             working directory to execute the process within. Note that executable, input and script file paths should
@@ -815,7 +809,7 @@ class Run:
         if isinstance(executable, pathlib.Path) and not executable.is_file():
             raise FileNotFoundError(f"Executable '{executable}' is not a valid file")
 
-        cmd_list: typing.List[str] = []
+        cmd_list: list[str] = []
         pos_args = list(cmd_args)
         executable_str: str | None = None
 
@@ -952,9 +946,7 @@ class Run:
         enable_emission_metrics: bool | None = None,
         disable_resources_metrics: bool | None = None,
         storage_id: str | None = None,
-        abort_on_alert: typing.Optional[
-            typing.Union[typing.Literal["run", "all", "ignore"], bool]
-        ] = None,
+        abort_on_alert: typing.Literal["run", "all", "ignore"] | bool | None = None,
     ) -> bool:
         """Optional configuration
 
@@ -1172,7 +1164,7 @@ class Run:
 
     def _add_metrics_to_dispatch(
         self,
-        metrics: dict[str, typing.Union[int, float]],
+        metrics: dict[str, int | float],
         step: int | None = None,
         time: float | None = None,
         timestamp: str | None = None,
@@ -1218,7 +1210,7 @@ class Run:
     @pydantic.validate_call
     def log_metrics(
         self,
-        metrics: dict[MetricKeyString, typing.Union[int, float]],
+        metrics: dict[MetricKeyString, int | float],
         step: int | None = None,
         time: float | None = None,
         timestamp: str | None = None,
@@ -1227,7 +1219,7 @@ class Run:
 
         Parameters
         ----------
-        metrics : dict[str, typing.Union[int, float]]
+        metrics : dict[str, int | float]
             set of metrics to upload to server for this run
         step : int, optional
             manually specify the step index for this log, by default None
@@ -1420,7 +1412,7 @@ class Run:
     @pydantic.validate_call
     def save_all(
         self,
-        items: list[typing.Union[pydantic.FilePath, pydantic.DirectoryPath]],
+        items: list[pydantic.FilePath | pydantic.DirectoryPath],
         category: typing.Literal["input", "output", "code"],
         filetype: str | None = None,
         preserve_path: bool = False,
@@ -1555,7 +1547,7 @@ class Run:
     @pydantic.validate_call
     def set_folder_details(
         self,
-        metadata: dict[str, typing.Union[int, str, float]] | None = None,
+        metadata: dict[str, int | str | float] | None = None,
         tags: list[str] | None = None,
         description: str | None = None,
     ) -> bool:

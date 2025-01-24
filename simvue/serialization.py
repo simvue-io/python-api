@@ -102,7 +102,7 @@ def _serialize_plotly_figure(data: typing.Any) -> tuple[str, str]:
 
 
 @check_extra("plot")
-def _serialize_matplotlib(data: typing.Any) -> typing.Optional[tuple[str, str]]:
+def _serialize_matplotlib(data: typing.Any) -> tuple[str, str] | None:
     try:
         import plotly
     except ImportError:
@@ -185,7 +185,7 @@ def _serialize_pickle(data: typing.Any) -> tuple[str, str] | None:
 
 def deserialize_data(
     data: "Buffer", mimetype: str, allow_pickle: bool
-) -> typing.Optional["DeserializedContent"]:
+) -> "DeserializedContent" | None:
     """
     Determine which deserializer to use
     """
@@ -205,7 +205,7 @@ def deserialize_data(
 
 
 @check_extra("plot")
-def _deserialize_plotly_figure(data: "Buffer") -> typing.Optional["Figure"]:
+def _deserialize_plotly_figure(data: "Buffer") -> "Figure" | None:
     try:
         import plotly
     except ImportError:
@@ -215,7 +215,7 @@ def _deserialize_plotly_figure(data: "Buffer") -> typing.Optional["Figure"]:
 
 
 @check_extra("plot")
-def _deserialize_matplotlib_figure(data: "Buffer") -> typing.Optional["Figure"]:
+def _deserialize_matplotlib_figure(data: "Buffer") -> "Figure" | None:
     try:
         import plotly
     except ImportError:
@@ -231,14 +231,14 @@ def _deserialize_numpy_array(data: "Buffer") -> typing.Any | None:
     return data
 
 
-def _deserialize_dataframe(data: "Buffer") -> typing.Optional["DataFrame"]:
+def _deserialize_dataframe(data: "Buffer") -> "DataFrame" | None:
     mfile = BytesIO(data)
     mfile.seek(0)
     return pandas.read_csv(mfile, index_col=0)
 
 
 @check_extra("torch")
-def _deserialize_torch_tensor(data: "Buffer") -> typing.Optional["Tensor"]:
+def _deserialize_torch_tensor(data: "Buffer") -> "Tensor" | None:
     try:
         import torch
     except ImportError:

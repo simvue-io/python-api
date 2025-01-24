@@ -69,7 +69,7 @@ def test_log_metrics(
     setup_logging: "CountingLogHandler",
     mocker,
     request: pytest.FixtureRequest,
-    visibility: typing.Union[typing.Literal["public", "tenant"], list[str], None],
+    visibility: typing.Literal["public", "tenant"] | list[str] | None,
 ) -> None:
     METRICS = {"a": 10, "b": 1.2}
 
@@ -482,7 +482,7 @@ def test_save_file_online(
     create_plain_run: typing.Tuple[sv_run.Run, dict],
     valid_mimetype: bool,
     preserve_path: bool,
-    name: typing.Optional[str],
+    name: str | None,
     allow_pickle: bool,
     empty_file: bool,
     category: typing.Literal["input", "output", "code"],
@@ -542,7 +542,7 @@ def test_save_file_online(
 def test_save_file_offline(
     create_plain_run_offline: tuple[sv_run.Run, dict],
     preserve_path: bool,
-    name: typing.Optional[str],
+    name: str | None,
     category: typing.Literal["input", "output", "code"]
 ) -> None:
     simvue_run, _ = create_plain_run_offline

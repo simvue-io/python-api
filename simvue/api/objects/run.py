@@ -25,7 +25,7 @@ __all__ = ["Run"]
 
 
 class Run(SimvueObject):
-    def __init__(self, identifier: typing.Optional[str] = None, **kwargs) -> None:
+    def __init__(self, identifier: str | None = None, **kwargs) -> None:
         """Initialise a Run
 
         If an identifier is provided a connection will be made to the

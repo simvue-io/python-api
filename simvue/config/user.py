@@ -36,12 +36,8 @@ from simvue.api.url import URL
 
 logger = logging.getLogger(__name__)
 
-SIMVUE_SERVER_UPPER_CONSTRAINT: typing.Optional[semver.Version] = semver.Version.parse(
-    "2.0.0"
-)
-SIMVUE_SERVER_LOWER_CONSTRAINT: typing.Optional[semver.Version] = semver.Version.parse(
-    "1.0.0"
-)
+SIMVUE_SERVER_UPPER_CONSTRAINT: semver.Version | None = semver.Version.parse("2.0.0")
+SIMVUE_SERVER_LOWER_CONSTRAINT: semver.Version | None = semver.Version.parse("1.0.0")
 
 
 class SimvueConfiguration(pydantic.BaseModel):
@@ -56,7 +52,7 @@ class SimvueConfiguration(pydantic.BaseModel):
     metrics: MetricsSpecifications = MetricsSpecifications()
 
     @classmethod
-    def _load_pyproject_configs(cls) -> typing.Optional[dict]:
+    def _load_pyproject_configs(cls) -> dict | None:
         """Recover any Simvue non-authentication configurations from pyproject.toml"""
         _pyproject_toml = sv_util.find_first_instance_of_file(
             file_names=["pyproject.toml"], check_user_space=False
@@ -227,10 +223,8 @@ class SimvueConfiguration(pydantic.BaseModel):
     @functools.lru_cache
     def config_file(cls) -> pathlib.Path:
         """Returns the path of top level configuration file used for the session"""
-        _config_file: typing.Optional[pathlib.Path] = (
-            sv_util.find_first_instance_of_file(
-                CONFIG_FILE_NAMES, check_user_space=True
-            )
+        _config_file: pathlib.Path | None = sv_util.find_first_instance_of_file(
+            CONFIG_FILE_NAMES, check_user_space=True
         )
 
         # NOTE: Legacy INI support has been removed

@@ -13,7 +13,7 @@ from simvue.models import NAME_REGEX
 
 
 class S3Storage(StorageBase):
-    def __init__(self, identifier: typing.Optional[str] = None, **kwargs) -> None:
+    def __init__(self, identifier: str | None = None, **kwargs) -> None:
         self.config = Config(self)
         super().__init__(identifier, **kwargs)
 

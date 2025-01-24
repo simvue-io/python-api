@@ -26,7 +26,7 @@ class Offline(SimvueBaseClass):
 
     def __init__(
         self,
-        name: typing.Optional[str],
+        name: str | None,
         uniq_id: str,
         config: SimvueConfiguration,
         suppress_errors: bool = True,
@@ -57,7 +57,7 @@ class Offline(SimvueBaseClass):
     @skip_if_failed("_aborted", "_suppress_errors", None)
     def _mock_api_post(
         self, prefix: str, data: dict[str, typing.Any]
-    ) -> typing.Optional[dict[str, typing.Any]]:
+    ) -> dict[str, typing.Any] | None:
         unique_id = time.time()
         filename = os.path.join(self._directory, f"{prefix}-{unique_id}.json")
         if not data.get("id"):
@@ -66,7 +66,7 @@ class Offline(SimvueBaseClass):
         return data
 
     @skip_if_failed("_aborted", "_suppress_errors", (None, None))
-    def create_run(self, data) -> tuple[typing.Optional[str], typing.Optional[str]]:
+    def create_run(self, data) -> tuple[str, str | None]:
         """
         Create a run
         """
@@ -98,10 +98,10 @@ class Offline(SimvueBaseClass):
         filename = f"{self._directory}/{status}"
         create_file(filename)
 
-        return (self._name, self._id)
+        return self._name, self._id
 
     @skip_if_failed("_aborted", "_suppress_errors", None)
-    def update(self, data) -> typing.Optional[dict[str, typing.Any]]:
+    def update(self, data) -> dict[str, typing.Any] | None:
         """
         Update metadata, tags or status
         """
@@ -128,7 +128,7 @@ class Offline(SimvueBaseClass):
         return data
 
     @skip_if_failed("_aborted", "_suppress_errors", None)
-    def set_folder_details(self, data) -> typing.Optional[dict[str, typing.Any]]:
+    def set_folder_details(self, data) -> dict[str, typing.Any] | None:
         """
         Set folder details
         """
@@ -138,9 +138,7 @@ class Offline(SimvueBaseClass):
         return data
 
     @skip_if_failed("_aborted", "_suppress_errors", None)
-    def save_file(
-        self, data: dict[str, typing.Any]
-    ) -> typing.Optional[dict[str, typing.Any]]:
+    def save_file(self, data: dict[str, typing.Any]) -> dict[str, typing.Any] | None:
         """
         Save file
         """
@@ -154,9 +152,7 @@ class Offline(SimvueBaseClass):
         self._write_json(filename, prepare_for_api(data, False))
         return data
 
-    def add_alert(
-        self, data: dict[str, typing.Any]
-    ) -> typing.Optional[dict[str, typing.Any]]:
+    def add_alert(self, data: dict[str, typing.Any]) -> dict[str, typing.Any] | None:
         """
         Add an alert
         """
@@ -165,7 +161,7 @@ class Offline(SimvueBaseClass):
     @skip_if_failed("_aborted", "_suppress_errors", None)
     def set_alert_state(
         self, alert_id: str, status: str
-    ) -> typing.Optional[dict[str, typing.Any]]:
+    ) -> dict[str, typing.Any] | None:
         if not os.path.exists(
             _alert_file := os.path.join(self._directory, f"alert-{alert_id}.json")
         ):
@@ -200,24 +196,20 @@ class Offline(SimvueBaseClass):
             for alert_file in glob.glob(os.path.join(self._directory, "alert-*.json"))
         ]
 
-    def send_metrics(
-        self, data: dict[str, typing.Any]
-    ) -> typing.Optional[dict[str, typing.Any]]:
+    def send_metrics(self, data: dict[str, typing.Any]) -> dict[str, typing.Any] | None:
         """
         Send metrics
         """
         return self._mock_api_post("metrics", data)
 
-    def send_event(
-        self, data: dict[str, typing.Any]
-    ) -> typing.Optional[dict[str, typing.Any]]:
+    def send_event(self, data: dict[str, typing.Any]) -> dict[str, typing.Any] | None:
         """
         Send event
         """
         return self._mock_api_post("event", data)
 
     @skip_if_failed("_aborted", "_suppress_errors", None)
-    def send_heartbeat(self) -> typing.Optional[dict[str, typing.Any]]:
+    def send_heartbeat(self) -> dict[str, typing.Any] | None:
         logger.debug(
             f"Creating heartbeat file: {os.path.join(self._directory, 'heartbeat')}"
         )

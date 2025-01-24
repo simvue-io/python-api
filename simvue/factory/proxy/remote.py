@@ -23,7 +23,7 @@ class Remote(SimvueBaseClass):
 
     def __init__(
         self,
-        name: typing.Optional[str],
+        name: str | None,
         uniq_id: str,
         config: "SimvueConfiguration",
         suppress_errors: bool = True,
@@ -66,13 +66,10 @@ class Remote(SimvueBaseClass):
             )
             return []
 
-        if response.status_code == http.HTTPStatus.OK:
-            return data
-
-        return []
+        return data if response.status_code == http.HTTPStatus.OK else []
 
     @skip_if_failed("_aborted", "_suppress_errors", (None, None))
-    def create_run(self, data) -> tuple[typing.Optional[str], typing.Optional[int]]:
+    def create_run(self, data) -> tuple[str, str | None]:
         """
         Create a run
         """
@@ -133,7 +130,7 @@ class Remote(SimvueBaseClass):
     @skip_if_failed("_aborted", "_suppress_errors", None)
     def update(
         self, data: dict[str, typing.Any], _=None
-    ) -> typing.Optional[dict[str, typing.Any]]:
+    ) -> dict[str, typing.Any] | None:
         """
         Update metadata, tags or status
         """
@@ -161,9 +158,7 @@ class Remote(SimvueBaseClass):
         return None
 
     @skip_if_failed("_aborted", "_suppress_errors", None)
-    def set_folder_details(
-        self, data, run=None
-    ) -> typing.Optional[dict[str, typing.Any]]:
+    def set_folder_details(self, data, run=None) -> dict[str, typing.Any] | None:
         """
         Set folder details
         """
@@ -212,9 +207,7 @@ class Remote(SimvueBaseClass):
         return None
 
     @skip_if_failed("_aborted", "_suppress_errors", False)
-    def save_file(
-        self, data: dict[str, typing.Any]
-    ) -> typing.Optional[dict[str, typing.Any]]:
+    def save_file(self, data: dict[str, typing.Any]) -> dict[str, typing.Any] | None:
         """
         Save file
         """
@@ -279,11 +272,7 @@ class Remote(SimvueBaseClass):
                     )
                     return None
             else:
-                if "pickledFile" in data:
-                    use_filename = data["pickledFile"]
-                else:
-                    use_filename = data["originalPath"]
-
+                use_filename = data.get("pickledFile", data["originalPath"])
                 try:
                     with open(use_filename, "rb") as fh:
                         response = put(
@@ -357,9 +346,7 @@ class Remote(SimvueBaseClass):
         return False
 
     @skip_if_failed("_aborted", "_suppress_errors", {})
-    def set_alert_state(
-        self, alert_id, status
-    ) -> typing.Optional[dict[str, typing.Any]]:
+    def set_alert_state(self, alert_id, status) -> dict[str, typing.Any] | None:
         """
         Set alert state
         """
@@ -372,10 +359,7 @@ class Remote(SimvueBaseClass):
             self._error(f"Got exception when setting alert state: {err}")
             return {}
 
-        if response.status_code == http.HTTPStatus.OK:
-            return response.json()
-
-        return {}
+        return response.json() if response.status_code == http.HTTPStatus.OK else {}
 
     @skip_if_failed("_aborted", "_suppress_errors", [])
     def list_alerts(self) -> list[dict[str, typing.Any]]:
@@ -396,15 +380,10 @@ class Remote(SimvueBaseClass):
             )
             return []
 
-        if response.status_code == http.HTTPStatus.OK:
-            return data
-
-        return []
+        return data if response.status_code == http.HTTPStatus.OK else []
 
     @skip_if_failed("_aborted", "_suppress_errors", None)
-    def send_metrics(
-        self, data: dict[str, typing.Any]
-    ) -> typing.Optional[dict[str, typing.Any]]:
+    def send_metrics(self, data: dict[str, typing.Any]) -> dict[str, typing.Any] | None:
         """
         Send metrics
         """
@@ -430,9 +409,7 @@ class Remote(SimvueBaseClass):
         return None
 
     @skip_if_failed("_aborted", "_suppress_errors", None)
-    def send_event(
-        self, data: dict[str, typing.Any]
-    ) -> typing.Optional[dict[str, typing.Any]]:
+    def send_event(self, data: dict[str, typing.Any]) -> dict[str, typing.Any] | None:
         """
         Send events
         """
@@ -458,7 +435,7 @@ class Remote(SimvueBaseClass):
         return None
 
     @skip_if_failed("_aborted", "_suppress_errors", None)
-    def send_heartbeat(self) -> typing.Optional[dict[str, typing.Any]]:
+    def send_heartbeat(self) -> dict[str, typing.Any] | None:
         """
         Send heartbeat
         """

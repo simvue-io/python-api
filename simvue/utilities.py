@@ -28,8 +28,8 @@ if typing.TYPE_CHECKING:
 
 
 def find_first_instance_of_file(
-    file_names: typing.Union[list[str], str], check_user_space: bool = True
-) -> typing.Optional[pathlib.Path]:
+    file_names: list[str] | str, check_user_space: bool = True
+) -> pathlib.Path | None:
     """Traverses a file hierarchy from bottom upwards to find file
 
     Returns the first instance of 'file_names' found when moving
@@ -123,8 +123,8 @@ def parse_validation_response(
 
 def check_extra(extra_name: str) -> typing.Callable:
     def decorator(
-        class_func: typing.Optional[typing.Callable] = None,
-    ) -> typing.Optional[typing.Callable]:
+        class_func: typing.Callable | None = None,
+    ) -> typing.Callable | None:
         @functools.wraps(class_func)
         def wrapper(self, *args, **kwargs) -> typing.Any:
             if extra_name == "plot" and not all(
@@ -202,7 +202,7 @@ def parse_pydantic_error(error: pydantic.ValidationError) -> str:
 def skip_if_failed(
     failure_attr: str,
     ignore_exc_attr: str,
-    on_failure_return: typing.Optional[typing.Any] = None,
+    on_failure_return: typing.Any | None = None,
 ) -> typing.Callable:
     """Decorator for ensuring if Simvue throws an exception any other code continues.
 
@@ -308,11 +308,11 @@ def remove_file(filename: str) -> None:
             logger.error("Unable to remove file %s due to: %s", filename, str(err))
 
 
-def get_expiry(token) -> typing.Optional[int]:
+def get_expiry(token) -> int | None:
     """
     Get expiry date from a JWT token
     """
-    expiry: typing.Optional[int] = None
+    expiry: int | None = None
     with contextlib.suppress(jwt.DecodeError):
         expiry = jwt.decode(token, options={"verify_signature": False})["exp"]
 
@@ -331,7 +331,7 @@ def prepare_for_api(data_in, all=True):
     return data
 
 
-def calculate_sha256(filename: str | typing.Any, is_file: bool) -> typing.Optional[str]:
+def calculate_sha256(filename: str | typing.Any, is_file: bool) -> str | None:
     """
     Calculate sha256 checksum of the specified file
     """
@@ -364,7 +364,7 @@ def validate_timestamp(timestamp):
     return True
 
 
-def simvue_timestamp(date_time: typing.Optional[datetime.datetime] = None) -> str:
+def simvue_timestamp(date_time: datetime.datetime | None = None) -> str:
     """Return the Simvue valid timestamp
 
     Parameters

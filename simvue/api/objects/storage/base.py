@@ -10,7 +10,7 @@ from simvue.models import NAME_REGEX, DATETIME_FORMAT
 class StorageBase(SimvueObject):
     def __init__(
         self,
-        identifier: typing.Optional[str] = None,
+        identifier: str | None = None,
         _read_only: bool = False,
         **kwargs,
     ) -> None:

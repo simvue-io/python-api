@@ -43,7 +43,7 @@ class ServerSpecifications(pydantic.BaseModel):
 
 
 class OfflineSpecifications(pydantic.BaseModel):
-    cache: typing.Optional[pathlib.Path] = None
+    cache: pathlib.Path | None = None
 
 
 class MetricsSpecifications(pydantic.BaseModel):
@@ -53,11 +53,11 @@ class MetricsSpecifications(pydantic.BaseModel):
 
 
 class DefaultRunSpecifications(pydantic.BaseModel):
-    name: typing.Optional[str] = None
-    description: typing.Optional[str] = None
-    tags: typing.Optional[list[str]] = None
+    name: str | None = None
+    description: str | None = None
+    tags: list[str] | None = None
     folder: str = pydantic.Field("/", pattern=sv_models.FOLDER_REGEX)
-    metadata: typing.Optional[dict[str, typing.Union[str, int, float, bool]]] = None
+    metadata: dict[str, str | int | float | bool] | None = None
     mode: typing.Literal["offline", "disabled", "online"] = "online"
 
 

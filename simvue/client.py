@@ -64,8 +64,8 @@ class Client:
     def __init__(
         self,
         *,
-        server_token: typing.Optional[pydantic.SecretStr] = None,
-        server_url: typing.Optional[str] = None,
+        server_token: pydantic.SecretStr | None = None,
+        server_url: str | None = None,
     ) -> None:
         """Initialise an instance of the Simvue client
 
@@ -136,7 +136,7 @@ class Client:
 
     @prettify_pydantic
     @pydantic.validate_call
-    def get_run(self, run_id: str) -> typing.Optional[Run]:
+    def get_run(self, run_id: str) -> Run | None:
         """Retrieve a single run
 
         Parameters
@@ -177,7 +177,7 @@ class Client:
     @pydantic.validate_call
     def get_runs(
         self,
-        filters: typing.Optional[list[str]],
+        filters: list[str] | None,
         *,
         system: bool = False,
         metrics: bool = False,
@@ -187,7 +187,7 @@ class Client:
         count_limit: pydantic.PositiveInt | None = 100,
         start_index: pydantic.NonNegativeInt = 0,
         show_shared: bool = False,
-    ) -> typing.Union[DataFrame, typing.Generator[tuple[str, Run], None, None], None]:
+    ) -> DataFrame | typing.Generator[tuple[str, Run], None, None] | None:
         """Retrieve all runs matching filters.
 
         Parameters
@@ -216,7 +216,7 @@ class Client:
 
         Returns
         -------
-        dict | pandas.DataFrame
+        pandas.DataFrame | Generator[tuple[str, Run], None, None]
             either the JSON response from the runs request or the results in the
             form of a Pandas DataFrame
 
@@ -280,7 +280,7 @@ class Client:
 
     @prettify_pydantic
     @pydantic.validate_call
-    def delete_run(self, run_id: str) -> typing.Optional[dict]:
+    def delete_run(self, run_id: str) -> dict | None:
         """Delete run by identifier
 
         Parameters
@@ -300,7 +300,7 @@ class Client:
         """
         return Run(identifier=run_id).delete() or None
 
-    def _get_folder_from_path(self, path: str) -> typing.Optional[Folder]:
+    def _get_folder_from_path(self, path: str) -> Folder | None:
         """Retrieve folder for the specified path if found
 
         Parameters
@@ -321,7 +321,7 @@ class Client:
         except StopIteration:
             return None
 
-    def _get_folder_id_from_path(self, path: str) -> typing.Optional[str]:
+    def _get_folder_id_from_path(self, path: str) -> str | None:
         """Retrieve folder identifier for the specified path if found
 
         Parameters
@@ -342,7 +342,7 @@ class Client:
     @pydantic.validate_call
     def delete_runs(
         self, folder_path: typing.Annotated[str, pydantic.Field(pattern=FOLDER_REGEX)]
-    ) -> typing.Optional[list]:
+    ) -> list | None:
         """Delete runs in a named folder
 
         Parameters
@@ -374,7 +374,7 @@ class Client:
         recursive: bool = False,
         remove_runs: bool = False,
         allow_missing: bool = False,
-    ) -> typing.Optional[list]:
+    ) -> list | None:
         """Delete a folder by name
 
         Parameters
@@ -460,7 +460,7 @@ class Client:
 
     @prettify_pydantic
     @pydantic.validate_call
-    def abort_run(self, run_id: str, reason: str) -> typing.Union[dict, list]:
+    def abort_run(self, run_id: str, reason: str) -> dict | list:
         """Abort a currently active run on the server
 
         Parameters
@@ -707,7 +707,7 @@ class Client:
         aggregate: bool,
         max_points: int | None = None,
     ) -> dict[str, typing.Any]:
-        params: dict[str, typing.Union[str, int, None]] = {
+        params: dict[str, str | int | None] = {
             "runs": json.dumps(run_ids),
             "aggregate": aggregate,
             "metrics": json.dumps(metric_names),
@@ -740,7 +740,7 @@ class Client:
         use_run_names: bool = False,
         aggregate: bool = False,
         max_points: pydantic.PositiveInt | None = None,
-    ) -> typing.Union[dict, DataFrame, None]:
+    ) -> dict | DataFrame | None:
         """Retrieve the values for a given metric across multiple runs
 
         Uses filters to specify which runs should be retrieved.
@@ -828,7 +828,7 @@ class Client:
         metric_names: list[str],
         xaxis: typing.Literal["step", "time"],
         *,
-        max_points: typing.Optional[int] = None,
+        max_points: int | None = None,
     ) -> typing.Any:
         """Plt the time series values for multiple metrics/runs
 
@@ -910,9 +910,9 @@ class Client:
         self,
         run_id: str,
         *,
-        message_contains: typing.Optional[str] = None,
-        start_index: typing.Optional[pydantic.NonNegativeInt] = None,
-        count_limit: typing.Optional[pydantic.PositiveInt] = None,
+        message_contains: str | None = None,
+        start_index: pydantic.NonNegativeInt | None = None,
+        count_limit: pydantic.PositiveInt | None = None,
     ) -> list[dict[str, str]]:
         """Return events for a specified run
 
@@ -944,7 +944,7 @@ class Client:
             else ""
         )
 
-        params: dict[str, typing.Union[str, int]] = {
+        params: dict[str, str | int] = {
             "run": run_id,
             "filters": msg_filter,
             "start": start_index or 0,
@@ -970,11 +970,11 @@ class Client:
     def get_alerts(
         self,
         *,
-        run_id: typing.Optional[str] = None,
+        run_id: str | None = None,
         critical_only: bool = True,
         names_only: bool = True,
-        start_index: typing.Optional[pydantic.NonNegativeInt] = None,
-        count_limit: typing.Optional[pydantic.PositiveInt] = None,
+        start_index: pydantic.NonNegativeInt | None = None,
+        count_limit: pydantic.PositiveInt | None = None,
     ) -> list[AlertBase] | list[str | None]:
         """Retrieve alerts for a given run
 
@@ -1018,8 +1018,8 @@ class Client:
     def get_tags(
         self,
         *,
-        start_index: typing.Optional[pydantic.NonNegativeInt] = None,
-        count_limit: typing.Optional[pydantic.PositiveInt] = None,
+        start_index: pydantic.NonNegativeInt | None = None,
+        count_limit: pydantic.PositiveInt | None = None,
     ) -> typing.Generator[Tag, None, None]:
         """Retrieve tags
 

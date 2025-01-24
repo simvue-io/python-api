@@ -27,7 +27,7 @@ from particle import Particle
 @click.option("--momentum", type=float, default=10)
 @click.option("--events", type=int, default=100)
 def geant4_simvue_example(
-    g4_binary: str, config: typing.Optional[str], ci: bool, momentum: float, events: int
+    g4_binary: str, config: str | None, ci: bool, momentum: float, events: int
 ) -> None:
     @mp_file_parse.file_parser
     def root_file_parser(
