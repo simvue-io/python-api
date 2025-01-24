@@ -41,12 +41,16 @@ def _check_local_staging(
 # We have to link created IDs to other objects
 def _assemble_objects(
     locally_staged: dict[str, dict[pathlib.Path, typing.Any]],
+    offline_ids: list[str] | None = None,
 ) -> typing.Generator[tuple[pathlib.Path, SimvueObject], None, None]:
     for obj_type in UPLOAD_ORDER:
         _data: dict[pathlib.Path, dict[str, typing.Any]] = locally_staged.get(
             obj_type, {}
         )
         for _file_path, _obj in _data.items():
+            _identifier = _file_path.name.split(".")[0]
+            if offline_ids and _identifier not in offline_ids:
+                continue
             _exact_type: str = _obj.pop("obj_type")
             try:
                 _instance_class: SimvueObject = getattr(simvue.api.objects, _exact_type)
@@ -65,10 +69,7 @@ def uploader(
 ) -> typing.Generator[tuple[str, SimvueObject], None, None]:
     _locally_staged = _check_local_staging(cache_dir)
     _offline_to_online_id_mapping: dict[str, str] = {}
-    for _file_path, obj in _assemble_objects(_locally_staged):
-        if _offline_ids and obj._identifier not in _offline_ids:
-            continue
-
+    for _file_path, obj in _assemble_objects(_locally_staged, _offline_ids):
         if not (_current_id := obj._identifier):
             raise RuntimeError(
                 f"Object of type '{obj.__class__.__name__}' has no identifier"
