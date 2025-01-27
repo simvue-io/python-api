@@ -73,9 +73,9 @@ references:
     - given-names: Amine
       family-names: Saboni
     - given-names: Inimaz
-      family-names: 
+      family-names:
     - given-names: supatomic
-      family-names: 
+      family-names:
     - given-names: Mathilde
       family-names: Léval
     - given-names: Luis
@@ -83,7 +83,7 @@ references:
     - given-names: Alexis
       family-names: Cruveiller
     - given-names: ouminasara
-      family-names: 
+      family-names:
     - given-names: Franklin
       family-names: Zhao
     - given-names: Aditya
@@ -111,6 +111,6 @@ references:
     - given-names: Lucas Otávio N.
       family-names: de Araújo
     - given-names: JPW
-      family-names: 
+      family-names:
     - given-names: Minerva
       family-names: Books
