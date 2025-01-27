@@ -52,7 +52,8 @@ class Artifact(SimvueObject):
         # If the artifact is an online instance, need a place to store the response
         # from the initial creation
         self._init_data: dict[str, dict] = {}
-        self._staging |= {"runs": {}}
+        if not self._staging.get("runs", None):
+            self._staging |= {"runs": {}}
 
     @classmethod
     def new(
@@ -61,7 +62,7 @@ class Artifact(SimvueObject):
         name: typing.Annotated[str, pydantic.Field(pattern=NAME_REGEX)],
         checksum: str,
         size: int,
-        storage_id: str | None = None,
+        storage: str | None = None,
         mime_type: str | None = None,
         original_path: pathlib.Path | None = None,
         metadata: dict[str, typing.Any] | None,
@@ -73,10 +74,11 @@ class Artifact(SimvueObject):
             checksum=checksum,
             size=size,
             original_path=f"{original_path or ''}",
-            storage=storage_id,
+            storage=storage,
             mime_type=mime_type,
             metadata=metadata,
             _read_only=False,
+            **kwargs,
         )
         _artifact.offline_mode(offline)
 
@@ -97,7 +99,7 @@ class Artifact(SimvueObject):
         cls,
         *,
         name: typing.Annotated[str, pydantic.Field(pattern=NAME_REGEX)],
-        storage_id: str | None,
+        storage: str | None,
         file_path: pydantic.FilePath,
         mime_type: str | None,
         metadata: dict[str, typing.Any] | None,
@@ -111,7 +113,7 @@ class Artifact(SimvueObject):
         ----------
         name : str
             the name for this artifact
-        storage_id : str | None
+        storage : str | None
             the identifier for the storage location for this object
         category : "code" | "input" | "output"
             the category of this artifact
@@ -136,7 +138,7 @@ class Artifact(SimvueObject):
 
         _artifact = Artifact.new(
             name=name,
-            storage_id=storage_id,
+            storage=storage,
             original_path=os.path.expandvars(_file_orig_path),
             size=_file_size,
             mime_type=_mime_type,
@@ -156,7 +158,7 @@ class Artifact(SimvueObject):
         cls,
         *,
         name: typing.Annotated[str, pydantic.Field(pattern=NAME_REGEX)],
-        storage_id: str | None,
+        storage: str | None,
         obj: typing.Any,
         metadata: dict[str, typing.Any] | None,
         allow_pickling: bool = True,
@@ -170,7 +172,7 @@ class Artifact(SimvueObject):
         ----------
         name : str
             the name for this artifact
-        storage_id : str | None
+        storage : str | None
             the identifier for the storage location for this object
         obj : Any
             object to serialize and upload
@@ -197,7 +199,7 @@ class Artifact(SimvueObject):
 
         _artifact = Artifact.new(
             name=name,
-            storage_id=storage_id,
+            storage=storage,
             original_path=None,
             size=sys.getsizeof(_serialized),
             mime_type=_data_type,
@@ -209,7 +211,7 @@ class Artifact(SimvueObject):
         return _artifact
 
     def commit(self) -> None:
-        raise TypeError("Cannot call method 'commit' on write-once type 'Artifact'")
+        self._logger.info("Cannot call method 'commit' on write-once type 'Artifact'")
 
     def attach_to_run(self, run_id: str, category: Category) -> None:
         """Attach this artifact to a given run"""
@@ -238,6 +240,9 @@ class Artifact(SimvueObject):
         )
 
     def on_reconnect(self, id_mapping: dict[str, str]) -> None:
+        import pdb
+
+        pdb.set_trace()
         _offline_staging = dict(self._staging["runs"].items())
         self._staging["runs"] = {}
         for id, category in _offline_staging.items():
@@ -296,9 +301,9 @@ class Artifact(SimvueObject):
         return self._get_attribute("original_path")
 
     @property
-    def storage_id(self) -> str | None:
-        """Retrieve the storage_id identifier for this artifact"""
-        return self._get_attribute("storage_id")
+    def storage(self) -> str | None:
+        """Retrieve the storage identifier for this artifact"""
+        return self._get_attribute("storage")
 
     @property
     def mime_type(self) -> str:

@@ -1283,7 +1283,7 @@ class Run:
                 name=_name,
                 obj=obj,
                 allow_pickling=allow_pickle,
-                storage_id=self._storage_id,
+                storage=self._storage_id,
                 metadata=metadata,
             )
             _artifact.attach_to_run(self.id, category)
@@ -1348,7 +1348,7 @@ class Run:
             # Register file
             _artifact = Artifact.new_file(
                 name=name or stored_file_name,
-                storage_id=self._storage_id,
+                storage=self._storage_id,
                 file_path=file_path,
                 offline=self._user_config.run.mode == "offline",
                 mime_type=filetype,
@@ -1504,7 +1504,7 @@ class Run:
             self._dispatcher.purge()
             self._dispatcher.join()
 
-        if self._user_config.run.mode == "offline":
+        if self._user_config.run.mode == "offline" and self._status != "created":
             self._user_config.offline.cache.joinpath(
                 "runs", f"{self._id}.closed"
             ).touch()
