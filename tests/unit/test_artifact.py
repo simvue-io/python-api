@@ -71,6 +71,8 @@ def test_artifact_creation_offline(offline_test: pathlib.Path) -> None:
     with _path.open("w") as out_f:
         out_f.write("Hello World!")
 
+    _folder.commit()
+    _run.commit()
     _artifact = Artifact.new_file(
         name=f"test_artifact_{_uuid}",
         file_path=_path,
@@ -79,8 +81,6 @@ def test_artifact_creation_offline(offline_test: pathlib.Path) -> None:
         offline=True,
         metadata=None
     )
-    _folder.commit()
-    _run.commit()
     time.sleep(1)
     assert _artifact.name == f"test_artifact_{_uuid}"
     _created_object_counter: int = 0

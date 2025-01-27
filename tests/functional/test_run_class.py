@@ -732,7 +732,7 @@ def test_abort_on_alert_raise(create_plain_run: typing.Tuple[sv_run.Run, dict], 
     run.log_alert(alert_id, "critical")
     _alert = Alert(identifier=alert_id)
     time.sleep(1)
-    assert _alert.get_status(run.id)
+    assert _alert.get_status(run.id) == "critical"
     counter = 0
     while run._status != "terminated" and counter < 15:
         time.sleep(1)

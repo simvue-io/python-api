@@ -238,6 +238,9 @@ class SimvueObject(abc.ABC):
                 ) from e
 
         try:
+            self._logger.debug(
+                f"Retrieving attribute '{attribute}' from {self._label} '{self._identifier}'"
+            )
             return self._get(url=url)[attribute]
         except KeyError as e:
             if default:
@@ -478,6 +481,7 @@ class SimvueObject(abc.ABC):
 
         if not self.url:
             raise RuntimeError(f"Identifier for instance of {self._label} Unknown")
+
         _response = sv_get(
             url=f"{url or self.url}", headers=self._headers, params=kwargs
         )
@@ -517,10 +521,7 @@ class SimvueObject(abc.ABC):
             json.dump(_local_data, out_f, indent=2)
 
     def to_dict(self) -> dict[str, typing.Any]:
-        return {
-            key: value.__str__() if (value := getattr(self, key)) is not None else None
-            for key in self._properties
-        }
+        return self._get() | self._staging
 
     def on_reconnect(self, id_mapping: dict[str, str]) -> None:
         pass
