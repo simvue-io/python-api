@@ -240,9 +240,6 @@ class Artifact(SimvueObject):
         )
 
     def on_reconnect(self, id_mapping: dict[str, str]) -> None:
-        import pdb
-
-        pdb.set_trace()
         _offline_staging = dict(self._staging["runs"].items())
         self._staging["runs"] = {}
         for id, category in _offline_staging.items():
