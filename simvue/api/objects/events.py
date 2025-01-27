@@ -30,9 +30,7 @@ class Events(SimvueObject):
         **kwargs,
     ) -> None:
         self._label = "event"
-        super().__init__(
-            identifier=None, _read_only=_read_only, _local=_local, **kwargs
-        )
+        super().__init__(_read_only=_read_only, _local=_local, **kwargs)
         self._run_id = self._staging.get("run")
 
     @classmethod

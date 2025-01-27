@@ -428,7 +428,7 @@ class Run:
         ) -> None:
             if category == "events":
                 _events = Events.new(
-                    run_id=self.id,
+                    run=self.id,
                     offline=self._user_config.run.mode == "offline",
                     events=buffer,
                 )
