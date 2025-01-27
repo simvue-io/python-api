@@ -146,3 +146,5 @@ class AlertBase(SimvueObject):
             expected_status=[http.HTTPStatus.OK],
             scenario=f"Retrieving status for alert '{self.id}' in run '{run_id}'",
         )
+
+        return _json_response.get("status")
