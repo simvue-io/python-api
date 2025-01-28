@@ -31,15 +31,15 @@ def upload_cached_files(
     id_mapping: dict[str, str],
 ):
     _current_id = file_path.name.split(".")[0]
-    data = json.load(file_path.open())
-    _exact_type: str = data.pop("obj_type")
+    _data = json.load(file_path.open())
+    _exact_type: str = _data.pop("obj_type")
     try:
         _instance_class: SimvueObject = getattr(simvue.api.objects, _exact_type)
     except AttributeError as e:
         raise RuntimeError(f"Attempt to initialise unknown type '{_exact_type}'") from e
     # We want to reconnect if there is an online ID stored for this file
     obj_for_upload = _instance_class.new(
-        identifier=id_mapping.get(_current_id, None), **data
+        identifier=id_mapping.get(_current_id, None), **_data
     )
     obj_for_upload.on_reconnect(id_mapping)
 
@@ -60,13 +60,21 @@ def upload_cached_files(
         _logger.info(f"Created {obj_for_upload.__class__.__name__} '{_new_id}'")
     file_path.unlink(missing_ok=True)
     id_mapping[_current_id] = _new_id
-    if obj_type == "runs":
+
+    if obj_type in ["alerts", "runs"]:
         cache_dir.joinpath("server_ids", f"{_current_id}.txt").write_text(_new_id)
 
-        if cache_dir.joinpath(f"{obj_type}", f"{_current_id}.closed").exists():
-            cache_dir.joinpath("server_ids", f"{_current_id}.txt").unlink()
-            cache_dir.joinpath(f"{obj_type}", f"{_current_id}.closed").unlink()
-            _logger.info(f"Run {_current_id} closed - deleting cached copies...")
+    if (
+        obj_type == "runs"
+        and cache_dir.joinpath(f"{obj_type}", f"{_current_id}.closed").exists()
+    ):
+        # Get list of alerts created by this run - their IDs can be deleted
+        for id in _data.get("alerts", []):
+            cache_dir.joinpath("server_ids", f"{id}.txt").unlink()
+
+        cache_dir.joinpath("server_ids", f"{_current_id}.txt").unlink()
+        cache_dir.joinpath(f"{obj_type}", f"{_current_id}.closed").unlink()
+        _logger.info(f"Run {_current_id} closed - deleting cached copies...")
 
 
 @pydantic.validate_call

@@ -1629,7 +1629,7 @@ class Run:
 
         if names and not ids:
             try:
-                if alerts := Alert.get():
+                if alerts := Alert.get(offline=self._user_config.run.mode == "offline"):
                     for alert in alerts:
                         if alert.name in names:
                             ids.append(alert.id)
@@ -1653,7 +1653,9 @@ class Run:
         # Check if the alert already exists
         _alert_id: str | None = None
 
-        for _, _existing_alert in Alert.get():
+        for _, _existing_alert in Alert.get(
+            offline=self._user_config.run.mode == "offline"
+        ):
             if _existing_alert.compare(alert):
                 _alert_id = _existing_alert.id
                 logger.info("Existing alert found with id: %s", _existing_alert.id)

@@ -41,8 +41,15 @@ class Alert:
 
     @classmethod
     def get(
-        cls, count: int | None = None, offset: int | None = None, **kwargs
+        cls,
+        offline: bool = False,
+        count: int | None = None,
+        offset: int | None = None,
+        **kwargs,
     ) -> typing.Generator[tuple[str, AlertType], None, None]:
+        if offline:
+            return
+
         # Currently no alert filters
         kwargs.pop("filters", None)
 

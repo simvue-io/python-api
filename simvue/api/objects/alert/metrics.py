@@ -102,6 +102,7 @@ class MetricsThresholdAlert(AlertBase):
             enabled=enabled,
             _read_only=False,
         )
+        _alert._staging |= _alert_definition
         _alert.offline_mode(offline)
         return _alert
 
