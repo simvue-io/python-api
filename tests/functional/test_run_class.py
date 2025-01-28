@@ -152,13 +152,14 @@ def test_log_metrics(
 def test_log_metrics_offline(create_plain_run_offline: tuple[sv_run.Run, dict]) -> None:
     METRICS = {"a": 10, "b": 1.2, "c": 2}
     run, _ = create_plain_run_offline
+    run_name = run._name
     run.log_metrics(METRICS)
-    run_id, *_ = sv_send.sender()
-    time.sleep(1.0)
+    time.sleep(1)
+    sv_send.sender(os.environ["SIMVUE_OFFLINE_DIRECTORY"], 2, 10)
     run.close()
     client = sv_cl.Client()
     _data = client.get_metric_values(
-        run_ids=[run_id],
+        run_ids=[client.get_run_id_from_name(run_name)],
         metric_names=list(METRICS.keys()),
         xaxis="step",
         aggregate=False,
@@ -190,12 +191,13 @@ def test_log_events_online(create_test_run: tuple[sv_run.Run, dict]) -> None:
 def test_log_events_offline(create_plain_run_offline: tuple[sv_run.Run, dict]) -> None:
     EVENT_MSG = "Hello offline world!"
     run, _ = create_plain_run_offline
+    run_name = run._name
     run.log_event(EVENT_MSG)
-    run_id, *_ = sv_send.sender()
+    time.sleep(1)
+    sv_send.sender(os.environ["SIMVUE_OFFLINE_DIRECTORY"], 2, 10)
     run.close()
-    time.sleep(1.0)
     client = sv_cl.Client()
-    event_data = client.get_events(run_id, count_limit=1)
+    event_data = client.get_events(client.get_run_id_from_name(run_name), count_limit=1)
     assert event_data[0].get("message", EVENT_MSG)
 
 
@@ -203,12 +205,17 @@ def test_log_events_offline(create_plain_run_offline: tuple[sv_run.Run, dict]) -
 @pytest.mark.offline
 def test_offline_tags(create_plain_run_offline: tuple[sv_run.Run, dict]) -> None:
     run, run_data = create_plain_run_offline
-    run_id, *_ = sv_send.sender()
-    run.close()
     time.sleep(1.0)
+    sv_send.sender(os.environ["SIMVUE_OFFLINE_DIRECTORY"], 2, 10)
+    run.close()
     client = sv_cl.Client()
     tags = client.get_tags()
-    assert run_data["tags"][-1] in [tag["name"] for tag in tags]
+
+    # Find tag
+    run_tags = [tag for tag in tags if tag[1].name == run_data["tags"][-1]]
+    assert len(run_tags) == 1
+    client.delete_tag(run_tags[0][0])
+    
 
 
 @pytest.mark.run
@@ -245,15 +252,16 @@ def test_update_metadata_offline(
 ) -> None:
     METADATA = {"a": 10, "b": 1.2, "c": "word"}
     run, _ = create_plain_run_offline
+    run_name = run._name
     run.update_metadata(METADATA)
-    run_id, *_ = sv_send.sender()
+    sv_send.sender(os.environ["SIMVUE_OFFLINE_DIRECTORY"], 2, 10)
     run.close()
     time.sleep(1.0)
     client = sv_cl.Client()
-    run_info = client.get_run(run_id)
+    run_info = client.get_run(client.get_run_id_from_name(run_name))
 
     for key, value in METADATA.items():
-        assert run_info.get("metadata", {}).get(key) == value
+        assert run_info.metadata.get(key) == value
 
 
 @pytest.mark.run
@@ -545,6 +553,7 @@ def test_save_file_offline(
     category: typing.Literal["input", "output", "code"]
 ) -> None:
     simvue_run, _ = create_plain_run_offline
+    run_name = simvue_run._name
     file_type: str = "text/plain"
     with tempfile.TemporaryDirectory() as tempd:
         with open(
@@ -559,12 +568,11 @@ def test_save_file_offline(
             preserve_path=preserve_path,
             name=name,
         )
-        run_id, *_ = sv_send.sender()
+        sv_send.sender(os.environ["SIMVUE_OFFLINE_DIRECTORY"], 2, 10)
         simvue_run.close()
         time.sleep(1.0)
         os.remove(out_name)
         client = sv_cl.Client()
-        assert run_id
         base_name = name or out_name.name
         if preserve_path:
             out_loc = pathlib.Path(tempd) / out_name.parent
@@ -573,7 +581,7 @@ def test_save_file_offline(
             out_loc = pathlib.Path(tempd)
             stored_name = pathlib.Path(base_name)
         out_file = out_loc.joinpath(name or out_name.name)
-        client.get_artifact_as_file(run_id=run_id, name=f"{name or stored_name}", path=tempd)
+        client.get_artifact_as_file(run_id=client.get_run_id_from_name(run_name), name=f"{name or stored_name}", output_dir=tempd)
         assert out_loc.joinpath(name or out_name.name).exists()
 
 

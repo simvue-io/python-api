@@ -121,7 +121,7 @@ def setup_test_run(run: sv_run.Run, create_objects: bool, request: pytest.Fixtur
 
     run.config(suppress_errors=False)
     run.init(
-        name=f"test_run_{TEST_DATA['metadata']['test_identifier']}",
+        name=f"test_run_{TEST_DATA['metadata']['test_identifier']}_{uuid.uuid4()}",
         tags=TEST_DATA["tags"],
         folder=TEST_DATA["folder"],
         visibility="tenant" if os.environ.get("CI") else None,

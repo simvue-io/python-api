@@ -29,7 +29,7 @@ def test_artifact_creation_online() -> None:
         _artifact = Artifact.new_file(
             name=f"test_artifact_{_uuid}",
             file_path=_path,
-            storage_id=None,
+            storage=None,
             mime_type=None,
             metadata=None
         )
@@ -47,7 +47,7 @@ def test_artifact_creation_online() -> None:
     _test_array = numpy.array(range(10))
     _artifact = Artifact.new_object(
         name=f"test_artifact_obj_{_uuid}",
-        storage_id=None,
+        storage=None,
         obj=_test_array,
         metadata=None
     )
@@ -76,7 +76,7 @@ def test_artifact_creation_offline(offline_test: pathlib.Path) -> None:
     _artifact = Artifact.new_file(
         name=f"test_artifact_{_uuid}",
         file_path=_path,
-        storage_id=None,
+        storage=None,
         mime_type=None,
         offline=True,
         metadata=None
