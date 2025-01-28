@@ -33,7 +33,7 @@ def test_abort_all_processes(create_plain_run: tuple[Run, dict]) -> None:
             _run.add_process(f"process_{i}", executable="python", script=temp_f.name)
             assert _run.executor.get_command(f"process_{i}") == f"python {temp_f.name}"
 
-        time.sleep(5)
+        time.sleep(3)
 
         _run.kill_all_processes()
         end_time = time.time()
