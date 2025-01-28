@@ -334,4 +334,11 @@ class Run(SimvueObject):
                 raise KeyError(
                     "Could not find alert ID in offline to online ID mapping."
                 )
-        self._staging["alerts"] = online_alert_ids
+        # If run is offline, no alerts have been added yet, so add all alerts:
+        if self._identifier is not None and self._identifier.startswith("offline"):
+            self._staging["alerts"] = online_alert_ids
+        # Otherwise, only add alerts which have not yet been added
+        else:
+            self._staging["alerts"] = [
+                id for id in online_alert_ids if id not in list(self.alerts)
+            ]
