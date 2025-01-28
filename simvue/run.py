@@ -1300,7 +1300,7 @@ class Run:
         self,
         file_path: pydantic.FilePath,
         category: typing.Literal["input", "output", "code"],
-        filetype: str | None = None,
+        file_type: str | None = None,
         preserve_path: bool = False,
         name: typing.Optional[
             typing.Annotated[str, pydantic.Field(pattern=NAME_REGEX)]
@@ -1315,7 +1315,7 @@ class Run:
             path to the file to upload
         category : Literal['input', 'output', 'code']
             category of file with respect to this run
-        filetype : str, optional
+        file_type : str, optional
             the MIME file type else this is deduced, by default None
         preserve_path : bool, optional
             whether to preserve the path during storage, by default False
@@ -1351,7 +1351,7 @@ class Run:
                 storage_id=self._storage_id,
                 file_path=file_path,
                 offline=self._user_config.run.mode == "offline",
-                mime_type=filetype,
+                mime_type=file_type,
                 metadata=metadata,
             )
             _artifact.attach_to_run(self.id, category)
@@ -1368,7 +1368,7 @@ class Run:
         self,
         directory: pydantic.DirectoryPath,
         category: typing.Literal["output", "input", "code"],
-        filetype: str | None = None,
+        file_type: str | None = None,
         preserve_path: bool = False,
     ) -> bool:
         """Upload files from a whole directory
@@ -1379,7 +1379,7 @@ class Run:
             the directory to save to the run
         category : Literal[['output', 'input', 'code']
             the category to assign to the saved objects within this directory
-        filetype : str, optional
+        file_type : str, optional
             manually specify the MIME type for items in the directory, by default None
         preserve_path : bool, optional
             preserve the full path, by default False
@@ -1393,17 +1393,17 @@ class Run:
             self._error("Cannot save directory, run not inirialised")
             return False
 
-        if filetype:
+        if file_type:
             mimetypes.init()
             mimetypes_valid = [value for _, value in mimetypes.types_map.items()]
-            if filetype not in mimetypes_valid:
+            if file_type not in mimetypes_valid:
                 self._error("Invalid MIME type specified")
                 return False
 
         for dirpath, _, filenames in os.walk(directory):
             for filename in filenames:
                 if (full_path := pathlib.Path(dirpath).joinpath(filename)).is_file():
-                    self.save_file(full_path, category, filetype, preserve_path)
+                    self.save_file(full_path, category, file_type, preserve_path)
 
         return True
 
@@ -1414,7 +1414,7 @@ class Run:
         self,
         items: list[pydantic.FilePath | pydantic.DirectoryPath],
         category: typing.Literal["input", "output", "code"],
-        filetype: str | None = None,
+        file_type: str | None = None,
         preserve_path: bool = False,
     ) -> bool:
         """Save a set of files and directories
@@ -1425,7 +1425,7 @@ class Run:
             list of file paths and directories to save
         category : Literal['input', 'output', 'code']
             the category to assign to the saved objects
-        filetype : str, optional
+        file_type : str, optional
             manually specify the MIME type for all items, by default None
         preserve_path : bool, optional
             _preserve the full path, by default False
@@ -1437,9 +1437,11 @@ class Run:
         """
         for item in items:
             if item.is_file():
-                save_file = self.save_file(item, category, filetype, preserve_path)
+                save_file = self.save_file(item, category, file_type, preserve_path)
             elif item.is_dir():
-                save_file = self.save_directory(item, category, filetype, preserve_path)
+                save_file = self.save_directory(
+                    item, category, file_type, preserve_path
+                )
             else:
                 self._error(f"{item}: No such file or directory")
                 save_file = False

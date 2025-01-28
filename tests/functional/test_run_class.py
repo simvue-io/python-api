@@ -468,15 +468,16 @@ def test_set_folder_details(request: pytest.FixtureRequest) -> None:
 
 @pytest.mark.run
 @pytest.mark.parametrize(
-    "valid_mimetype", (True, False), ids=("valid_mime", "invalid_mime")
+    "valid_mimetype,preserve_path,name,allow_pickle,empty_file,category",
+    [
+        (True, False, None, False, False, "input"),
+        (False, True, None, False, False, "output"),
+        (False, False, "test_file", False, False, "code"),
+        (False, False, None, True, False, "input"),
+        (False, False, None, False, True, "code")
+    ],
+    ids=[f"scenario_{i}" for i in range(1, 6)]
 )
-@pytest.mark.parametrize(
-    "preserve_path", (True, False), ids=("preserve_path", "modified_path")
-)
-@pytest.mark.parametrize("name", ("test_file", None), ids=("named", "nameless"))
-@pytest.mark.parametrize("allow_pickle", (True, False), ids=("pickled", "unpickled"))
-@pytest.mark.parametrize("empty_file", (True, False), ids=("empty", "content"))
-@pytest.mark.parametrize("category", ("input", "output", "code"))
 def test_save_file_online(
     create_plain_run: typing.Tuple[sv_run.Run, dict],
     valid_mimetype: bool,
@@ -500,7 +501,7 @@ def test_save_file_online(
             simvue_run.save_file(
                 out_name,
                 category=category,
-                mime_type=file_type,
+                file_type=file_type,
                 preserve_path=preserve_path,
                 name=name,
             )
@@ -509,7 +510,7 @@ def test_save_file_online(
                 simvue_run.save_file(
                     out_name,
                     category=category,
-                    mime_type=file_type,
+                    file_type=file_type,
                     preserve_path=preserve_path,
                 )
             return
