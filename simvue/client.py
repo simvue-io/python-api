@@ -815,7 +815,7 @@ class Client:
         return parse_run_set_metrics(
             _run_metrics,
             xaxis=xaxis,
-            run_labels=list(_run_data.keys()),
+            run_labels=list(_run_metrics.keys()),
             parse_to=output_format,
         )
 

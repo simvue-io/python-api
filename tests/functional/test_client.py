@@ -86,7 +86,7 @@ def test_get_metric_values(
         assert all(
             i in _value_types for i in ("average", "min", "max")
         ), f"Expected ('average', 'min', 'max') in {_value_types}"
-    else:
+    elif not use_name_labels:
         _runs = {i[1] for i in _first_entry}
         assert create_test_run[1]["run_id"] in _runs
 

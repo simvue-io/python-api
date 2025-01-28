@@ -1,3 +1,4 @@
+from numpy import fix
 import pytest
 import pytest_mock
 import typing
@@ -36,7 +37,6 @@ def clear_out_files() -> None:
     out_files += list(pathlib.Path.cwd().glob("test_*.err"))
 
     for file_obj in out_files:
-        print(file_obj)
         file_obj.unlink()
 
 
@@ -142,14 +142,14 @@ def setup_test_run(run: sv_run.Run, create_objects: bool, request: pytest.Fixtur
 
         for i in range(5):
             run.create_event_alert(
-                name=f"test_alert/alert_{i}",
+                name=f"test_alert/alert_{i}/{fix_use_id}",
                 frequency=1,
                 pattern=TEST_DATA['event_contains']
             )
-            TEST_DATA['created_alerts'].append(f"test_alert/alert_{i}")
+            TEST_DATA['created_alerts'].append(f"test_alert/alert_{i}/{fix_use_id}")
 
         run.create_metric_threshold_alert(
-            name='test_alert/value_below_1',
+            name=f'test_alert/value_below_1/{fix_use_id}',
             frequency=1,
             rule='is below',
             threshold=1,
@@ -157,7 +157,7 @@ def setup_test_run(run: sv_run.Run, create_objects: bool, request: pytest.Fixtur
             window=2
         )
         run.create_metric_range_alert(
-            name='test_alert/value_within_1',
+            name=f'test_alert/value_within_1/{fix_use_id}',
             frequency=1,
             rule = "is inside range",
             range_low = 2,
@@ -166,8 +166,8 @@ def setup_test_run(run: sv_run.Run, create_objects: bool, request: pytest.Fixtur
             window=2
         )
         TEST_DATA['created_alerts'] += [
-            "test_alert/value_below_1",
-            "test_alert/value_within_1"
+            f"test_alert/value_below_1/{fix_use_id}",
+            f"test_alert/value_within_1/{fix_use_id}"
         ]
 
         for i in range(5):
@@ -204,7 +204,6 @@ def setup_test_run(run: sv_run.Run, create_objects: bool, request: pytest.Fixtur
             run.save_file(test_script, category="code", name="test_code_upload")
             TEST_DATA["file_3"] = "test_code_upload"
 
-    time.sleep(1.)
     return TEST_DATA
 
 
