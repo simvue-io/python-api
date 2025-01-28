@@ -106,3 +106,6 @@ class Metrics(SimvueObject):
         self, _linked_objects: list[str] | None = None, **kwargs
     ) -> dict[str, typing.Any]:
         raise NotImplementedError("Cannot delete metric set")
+
+    def to_dict(self) -> dict[str, typing.Any]:
+        return self._staging
