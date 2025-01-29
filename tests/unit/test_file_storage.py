@@ -4,7 +4,6 @@ import json
 import uuid
 
 from simvue.api.objects import FileStorage
-from simvue.upload import uploader
 
 @pytest.mark.api
 @pytest.mark.online

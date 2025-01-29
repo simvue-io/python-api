@@ -8,7 +8,8 @@ import numpy
 
 from simvue.api.objects import Artifact, Run
 from simvue.api.objects.folder import Folder
-from simvue.upload import uploader
+from simvue.sender import sender
+from simvue.client import Client
 
 @pytest.mark.api
 @pytest.mark.online
@@ -64,7 +65,7 @@ def test_artifact_creation_offline(offline_test: pathlib.Path) -> None:
     _uuid: str = f"{uuid.uuid4()}".split("-")[0]
     _folder_name = f"/simvue_unit_testing/{_uuid}"
     _folder = Folder.new(path=_folder_name, offline=True)
-    _run = Run.new(folder=_folder_name, offline=True) 
+    _run = Run.new(name=f"test_artifact_creation_offline_{_uuid}",folder=_folder_name, offline=True) 
 
     _path = offline_test.joinpath("hello_world.txt")
 
@@ -81,14 +82,14 @@ def test_artifact_creation_offline(offline_test: pathlib.Path) -> None:
         offline=True,
         metadata=None
     )
-    time.sleep(1)
+    _artifact.attach_to_run(_run._identifier, category="input")
     assert _artifact.name == f"test_artifact_{_uuid}"
-    _created_object_counter: int = 0
-    for _offline, _obj in uploader(offline_test.joinpath(".simvue"), _offline_ids=[_folder.id, _run.id, _artifact.id]):
-        _created_object_counter += 1
-        assert _obj.to_dict()
-        _obj.delete()
-    assert _created_object_counter == 3
+    sender(offline_test.joinpath(".simvue"), 1, 10)
+    time.sleep(1)
+    client = Client()
+    _run_id = client.get_run_id_from_name(f"test_artifact_creation_offline_{_uuid}")
+    client.get_artifact_as_file(_run_id, _artifact.name, offline_test.joinpath("downloaded").mkdir())
+    assert offline_test.joinpath("downloaded.txt").read_text() == "Hello World!"
     _run.delete()
     _folder.delete()
 
