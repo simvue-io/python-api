@@ -114,6 +114,6 @@ class Events(SimvueObject):
     ) -> dict[str, typing.Any]:
         raise NotImplementedError("Cannot delete event set")
 
-    def on_reconnect(self, offline_to_online_id_mapping: dict[str, str]):
-        if online_run_id := offline_to_online_id_mapping.get(self._staging["run"]):
+    def on_reconnect(self, id_mapping: dict[str, str]):
+        if online_run_id := id_mapping.get(self._staging["run"]):
             self._staging["run"] = online_run_id
