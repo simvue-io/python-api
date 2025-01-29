@@ -4,6 +4,7 @@ import pydantic
 import logging
 import typing
 from concurrent.futures import ThreadPoolExecutor
+import threading
 from simvue.api.objects.base import SimvueObject
 
 import simvue.api.objects
@@ -29,6 +30,7 @@ def upload_cached_files(
     obj_type: str,
     file_path: pydantic.FilePath,
     id_mapping: dict[str, str],
+    lock: threading.Lock,
 ):
     _current_id = file_path.name.split(".")[0]
     _data = json.load(file_path.open())
@@ -41,7 +43,8 @@ def upload_cached_files(
     obj_for_upload = _instance_class.new(
         identifier=id_mapping.get(_current_id, None), **_data
     )
-    obj_for_upload.on_reconnect(id_mapping)
+    with lock:
+        obj_for_upload.on_reconnect(id_mapping)
 
     try:
         obj_for_upload.commit()
@@ -59,7 +62,9 @@ def upload_cached_files(
     else:
         _logger.info(f"Created {obj_for_upload.__class__.__name__} '{_new_id}'")
     file_path.unlink(missing_ok=True)
-    id_mapping[_current_id] = _new_id
+
+    with lock:
+        id_mapping[_current_id] = _new_id
 
     if obj_type in ["alerts", "runs"]:
         cache_dir.joinpath("server_ids", f"{_current_id}.txt").write_text(_new_id)
@@ -86,12 +91,13 @@ def sender(
         file_path.name.split(".")[0]: file_path.read_text()
         for file_path in cache_dir.glob("server_ids/*.txt")
     }
+    _lock = threading.Lock()
 
     for _obj_type in UPLOAD_ORDER:
         _offline_files = list(cache_dir.glob(f"{_obj_type}/*.json"))
         if len(_offline_files) < threading_threshold:
             for file_path in _offline_files:
-                upload_cached_files(cache_dir, _obj_type, file_path, _id_mapping)
+                upload_cached_files(cache_dir, _obj_type, file_path, _id_mapping, _lock)
         else:
             with ThreadPoolExecutor(max_workers=max_workers) as executor:
                 _results = executor.map(
@@ -100,6 +106,7 @@ def sender(
                         obj_type=_obj_type,
                         file_path=file_path,
                         id_mapping=_id_mapping,
+                        lock=_lock,
                     ),
                     _offline_files,
                 )
