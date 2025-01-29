@@ -54,19 +54,24 @@ def test_run_modification_online() -> None:
     time.sleep(1)
     _now = datetime.datetime.now()
     _new_run = Run(identifier=_run.id)
+    assert _new_run.status == "created"
     _new_run.read_only(False)
+    _new_run.status = "running"
     _new_run.name = "simvue_test_run"
     _new_run.description = "Simvue test run"
     _new_run.tags = ["simvue", "test", "tag"]
     _new_run.ttl = 120
     assert _new_run.ttl != 120
     _new_run.commit()
-    print(_new_run.staged)
     time.sleep(1)
-    assert _new_run.ttl == 120
-    assert _new_run.description == "Simvue test run"
-    assert sorted(_new_run.tags) == sorted(["simvue", "test", "tag"])
-    assert _new_run.name == "simvue_test_run"
+    assert _run.ttl == 120
+    assert _run.description == "Simvue test run"
+    assert sorted(_run.tags) == sorted(["simvue", "test", "tag"])
+    assert _run.name == "simvue_test_run"
+    assert _run.status == "running"
+    _run.abort("test_run_abort")
+    assert _new_run.status == "terminated"
+    assert _run.status == "terminated"
     _run.delete()
     _folder.delete(recursive=True, delete_runs=True, runs_only=False)
 
@@ -84,15 +89,16 @@ def test_run_modification_offline() -> None:
     time.sleep(1)
     _now = datetime.datetime.now()
     _new_run = Run(identifier=_run.id)
+    # Property has not been committed to offline
+    # object so not yet available
+    with pytest.raises(AttributeError):
+        _new_run.ttl
+    _new_run.read_only(False)
     _new_run.name = "simvue_test_run"
     _new_run.description = "Simvue test run"
     _new_run.tags = ["simvue", "test", "tag"]
     _new_run.ttl = 120
 
-    # Property has not been committed to offline
-    # object so not yet available
-    with pytest.raises(AttributeError):
-        _new_run.ttl
 
     _new_run.commit()
 

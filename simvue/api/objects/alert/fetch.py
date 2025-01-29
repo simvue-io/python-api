@@ -48,6 +48,7 @@ class Alert:
 
         _class_instance = AlertBase(_local=True, _read_only=True, **kwargs)
         _url = f"{_class_instance._base_url}"
+
         _response = sv_get(
             _url,
             headers=_class_instance._headers,

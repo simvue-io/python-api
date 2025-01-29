@@ -128,6 +128,7 @@ class SimvueObject(abc.ABC):
         identifier: str | None = None,
         _read_only: bool = True,
         _local: bool = False,
+        _user_agent: str | None = None,
         **kwargs,
     ) -> None:
         self._logger = logging.getLogger(f"simvue.{self.__class__.__name__}")
@@ -164,7 +165,7 @@ class SimvueObject(abc.ABC):
 
         self._headers: dict[str, str] = {
             "Authorization": f"Bearer {self._user_config.server.token.get_secret_value()}",
-            "User-Agent": f"Simvue Python client {__version__}",
+            "User-Agent": _user_agent or f"Simvue Python client {__version__}",
         }
 
         self._staging: dict[str, typing.Any] = {}
