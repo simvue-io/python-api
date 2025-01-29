@@ -313,14 +313,14 @@ class Run(SimvueObject):
     @pydantic.validate_call
     def abort(self, reason: str) -> dict[str, typing.Any]:
         if not self._abort_url:
-            return {}
+            raise RuntimeError("Cannot abort run, no endpoint defined")
 
         _response = sv_put(
             f"{self._abort_url}", headers=self._headers, data={"reason": reason}
         )
 
         return get_json_from_response(
-            expected_status=[http.HTTPStatus.OK, http.HTTPStatus.NOT_FOUND],
+            expected_status=[http.HTTPStatus.OK],
             scenario=f"Abort of run '{self.id}'",
             response=_response,
         )

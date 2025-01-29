@@ -147,3 +147,5 @@ offline/
 
 # Vagrant
 Vagrantfile
+
+.sourcery*
