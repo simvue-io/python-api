@@ -4,9 +4,11 @@ import uuid
 import contextlib
 import json
 import time
+import os
 
 from simvue.api.objects.folder import Folder
-
+from simvue.sender import sender
+from simvue.client import Client
 @pytest.mark.api
 @pytest.mark.online
 def test_folder_creation_online() -> None:
@@ -33,15 +35,23 @@ def test_folder_creation_offline() -> None:
     _path = f"/simvue_unit_testing/objects/folder/{_uuid}"
     _folder = Folder.new(path=_path, offline=True)
     _folder.commit()
-    assert _folder.id
-    assert _folder.path == _path
-
-    _folder.delete()
 
     with _folder._local_staging_file.open() as in_f:
         _local_data = json.load(in_f)
-
-    assert not _local_data.get(_folder._label, {}).get(_folder.id)
+        
+    assert  _folder._local_staging_file.name.split(".")[0] == _folder.id
+    assert _local_data.get("path", None) == _path
+        
+    sender(_folder._local_staging_file.parents[1], 2, 10)
+    time.sleep(1)
+    client = Client()
+    
+    _folder_new = client.get_folder(_path)
+    assert _folder_new.path == _path
+    
+    _folder_new.delete()
+    
+    assert not _folder._local_staging_file.exists()
 
 
 @pytest.mark.api
@@ -77,15 +87,27 @@ def test_folder_modification_offline() -> None:
     _folder.commit()
     time.sleep(1)
     _folder_new = Folder(identifier=_folder.id)
+    _folder_new.read_only(False)
     _folder_new.tags = _tags
     _folder_new.description = _description
-    _folder_new.visibility.tenant = True
     _folder_new.commit()
-    assert _folder_new.tags == _tags
-    assert _folder.tags == _tags
-    assert _folder_new.description == _description
-    assert _folder.description == _description
-    assert _folder_new.visibility.tenant
+    
+    with _folder._local_staging_file.open() as in_f:
+        _local_data = json.load(in_f)
+        
+    assert  _folder._local_staging_file.name.split(".")[0] == _folder.id
+    assert _local_data.get("path", None) == _path
+    assert _local_data.get("description", None) == _description
+    assert _local_data.get("tags", None) == _tags
+        
+    sender(_folder._local_staging_file.parents[1], 2, 10)
+    time.sleep(1)
+    
+    client = Client()
+    _folder_online = client.get_folder(_path)
+    assert _folder_online.path == _path
+    assert _folder_online.description == _description
+    assert _folder_online.tags == _tags
     _folder_new.delete()
 
 
