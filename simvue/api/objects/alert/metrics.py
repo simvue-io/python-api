@@ -135,6 +135,7 @@ class MetricsRangeAlert(AlertBase):
         frequency: pydantic.PositiveInt,
         enabled: bool = True,
         offline: bool = False,
+        **_,
     ) -> Self:
         """Create a new metric range alert either locally or on the server
 
@@ -180,7 +181,7 @@ class MetricsRangeAlert(AlertBase):
             "range_low": range_low,
             "range_high": range_high,
         }
-        _alert = MetricsThresholdAlert(
+        _alert = MetricsRangeAlert(
             name=name,
             description=description,
             notification=notification,
@@ -189,6 +190,7 @@ class MetricsRangeAlert(AlertBase):
             alert=_alert_definition,
             _read_only=False,
         )
+        _alert._staging |= _alert_definition
         _alert.offline_mode(offline)
         return _alert
 

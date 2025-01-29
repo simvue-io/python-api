@@ -5,6 +5,8 @@ import json
 import uuid
 
 from simvue.api.objects import MetricsRangeAlert, Alert
+from simvue.client import Client
+from simvue.sender import sender
 
 @pytest.mark.api
 @pytest.mark.online
@@ -52,13 +54,29 @@ def test_metric_range_alert_creation_offline() -> None:
     assert _alert.alert.frequency == 1
     assert _alert.name == f"metrics_range_alert_{_uuid}"
     assert _alert.notification == "none"
-    _alert.delete()
 
     with _alert._local_staging_file.open() as in_f:
         _local_data = json.load(in_f)
+    assert _local_data.get("source") == "metrics"
+    assert _local_data.get("alert").get("frequency") == 1
+    assert _local_data.get("name") == f"metrics_range_alert_{_uuid}"
+    assert _local_data.get("notification") == "none"
+    assert _local_data.get("alert").get("range_low") == 10
+    sender(_alert._local_staging_file.parents[1], 1, 10)
+    time.sleep(1)
+    
+    # Get online ID and retrieve alert
+    _online_id = _alert._local_staging_file.parents[1].joinpath("server_ids", f"{_alert._local_staging_file.name.split('.')[0]}.txt").read_text()
+    _online_alert = Alert(_online_id)
 
-    assert not _local_data.get(_alert._label, {}).get(_alert.id)
-
+    assert _online_alert.source == "metrics"
+    assert _online_alert.alert.frequency == 1
+    assert _online_alert.name == f"metrics_range_alert_{_uuid}"
+    assert _online_alert.alert.range_low == 10
+    
+    _alert.delete()
+    _alert._local_staging_file.parents[1].joinpath("server_ids", f"{_alert._local_staging_file.name.split('.')[0]}.txt").unlink()
+    
 
 @pytest.mark.api
 @pytest.mark.online
@@ -109,13 +127,31 @@ def test_metric_range_alert_modification_offline() -> None:
     _alert.commit()
     time.sleep(1)
     _new_alert = Alert(_alert.id)
+    _new_alert.read_only(False)
     assert isinstance(_new_alert, MetricsRangeAlert)
     _new_alert.description = "updated!"
-    assert _new_alert.description != "updated!"
     _new_alert.commit()
-    assert _new_alert.description == "updated!"
-    _new_alert.delete()
+    
+    with _alert._local_staging_file.open() as in_f:
+        _local_data = json.load(in_f)
+    assert _local_data.get("description") == "updated!"
+    
+    sender(_alert._local_staging_file.parents[1], 1, 10)
+    time.sleep(1)
+    
+    # Get online ID and retrieve alert
+    _online_id = _alert._local_staging_file.parents[1].joinpath("server_ids", f"{_alert._local_staging_file.name.split('.')[0]}.txt").read_text()
+    _online_alert = Alert(_online_id)
 
+    assert _online_alert.source == "metrics"
+    assert _online_alert.alert.frequency == 1
+    assert _online_alert.name == f"metrics_range_alert_{_uuid}"
+    assert _online_alert.alert.range_low == 10
+    assert _online_alert.description == "updated!"
+    
+    _alert.delete()
+    _alert._local_staging_file.parents[1].joinpath("server_ids", f"{_alert._local_staging_file.name.split('.')[0]}.txt").unlink()
+    
 @pytest.mark.api
 @pytest.mark.online
 def test_metric_range_alert_properties() -> None:
