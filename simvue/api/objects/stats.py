@@ -6,9 +6,12 @@ Statistics accessible to the current user.
 
 """
 
+import http
 import typing
 
 from .base import SimvueObject
+from simvue.api.request import get as sv_get, get_json_from_response
+from simvue.api.url import URL
 
 __all__ = ["Stats"]
 
@@ -26,6 +29,16 @@ class Stats(SimvueObject):
     @classmethod
     def new(cls, **kwargs) -> None:
         raise AttributeError("Creation of statistics objects is not supported")
+
+    def whoami(self) -> dict[str, str]:
+        """Return the current user"""
+        _url: URL = URL(self._user_config.server.url) / "whoami"
+        _response = sv_get(url=f"{_url}", headers=self._headers)
+        return get_json_from_response(
+            response=_response,
+            expected_status=[http.HTTPStatus.OK],
+            scenario="Retrieving current user",
+        )
 
     def offline_mode(self, is_true: bool) -> None:
         if is_true:
