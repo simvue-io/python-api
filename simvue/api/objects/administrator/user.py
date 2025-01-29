@@ -129,3 +129,16 @@ class User(SimvueObject):
     @pydantic.validate_call
     def enabled(self, is_enabled: bool) -> None:
         self._staging["is_enabled"] = is_enabled
+
+    @property
+    @staging_check
+    def email(self) -> str:
+        if self.id and self.id.startswith("offline_"):
+            return self._get_attribute("user")["email"]
+        return self._get_attribute("email")
+
+    @email.setter
+    @write_only
+    @pydantic.validate_call
+    def email(self, email: str) -> None:
+        self._staging["email"] = email
