@@ -1,8 +1,13 @@
-# Collator
+"""
+Simvue Sender
+==============
+
+Function to send data cached by Simvue in Offline mode to the server.
+"""
+
 import json
 import pydantic
 import logging
-import typing
 from concurrent.futures import ThreadPoolExecutor
 import threading
 from simvue.api.objects.base import SimvueObject
@@ -25,13 +30,28 @@ UPLOAD_ORDER: tuple[str, ...] = (
 _logger = logging.getLogger(__name__)
 
 
-def upload_cached_files(
+def upload_cached_file(
     cache_dir: pydantic.DirectoryPath,
     obj_type: str,
     file_path: pydantic.FilePath,
     id_mapping: dict[str, str],
     lock: threading.Lock,
 ):
+    """Upload data stored in a cached file to the Simvue server.
+
+    Parameters
+    ----------
+    cache_dir : pydantic.DirectoryPath
+        The directory where cached files are stored
+    obj_type : str
+        The type of object which should be created for this cached file
+    file_path : pydantic.FilePath
+        The path to the cached file to upload
+    id_mapping : dict[str, str]
+        A mapping of offline to online object IDs
+    lock : threading.Lock
+        A lock to prevent multiple threads accessing the id mapping directory at once
+    """
     _current_id = file_path.name.split(".")[0]
     _data = json.load(file_path.open())
     _exact_type: str = _data.pop("obj_type")
@@ -49,10 +69,10 @@ def upload_cached_files(
     try:
         obj_for_upload.commit()
         _new_id = obj_for_upload.id
-    except RuntimeError as e:
-        if "status 409" in e.args[0]:
+    except RuntimeError as error:
+        if "status 409" in error.args[0]:
             return
-        raise e
+        raise error
     if not _new_id:
         raise RuntimeError(
             f"Object of type '{obj_for_upload.__class__.__name__}' has no identifier"
@@ -85,7 +105,18 @@ def upload_cached_files(
 @pydantic.validate_call
 def sender(
     cache_dir: pydantic.DirectoryPath, max_workers: int, threading_threshold: int
-) -> typing.Generator[tuple[str, SimvueObject], None, None]:
+):
+    """Send data from a local cache directory to the Simvue server.
+
+    Parameters
+    ----------
+    cache_dir : pydantic.DirectoryPath
+         The directory where cached files are stored
+    max_workers : int
+        The maximum number of threads to use
+    threading_threshold : int
+        The number of cached files above which threading will be used
+    """
     cache_dir.joinpath("server_ids").mkdir(parents=True, exist_ok=True)
     _id_mapping: dict[str, str] = {
         file_path.name.split(".")[0]: file_path.read_text()
@@ -97,11 +128,11 @@ def sender(
         _offline_files = list(cache_dir.glob(f"{_obj_type}/*.json"))
         if len(_offline_files) < threading_threshold:
             for file_path in _offline_files:
-                upload_cached_files(cache_dir, _obj_type, file_path, _id_mapping, _lock)
+                upload_cached_file(cache_dir, _obj_type, file_path, _id_mapping, _lock)
         else:
             with ThreadPoolExecutor(max_workers=max_workers) as executor:
                 _results = executor.map(
-                    lambda file_path: upload_cached_files(
+                    lambda file_path: upload_cached_file(
                         cache_dir=cache_dir,
                         obj_type=_obj_type,
                         file_path=file_path,
