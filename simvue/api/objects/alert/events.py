@@ -30,7 +30,8 @@ class EventsAlert(AlertBase):
     def get(
         cls, count: int | None = None, offset: int | None = None
     ) -> dict[str, typing.Any]:
-        raise NotImplementedError("Retrieve of only event alerts is not yet supported")
+        """Retrieve only alerts of the event alert type"""
+        raise NotImplementedError("Retrieval of only event alerts is not yet supported")
 
     @classmethod
     @pydantic.validate_call
@@ -67,10 +68,15 @@ class EventsAlert(AlertBase):
         offline : bool, optional
             create alert locally, default is False
 
+        Returns
+        -------
+        EventAlert
+           a new event alert with changes staged
+
         """
 
         _alert_definition = {"pattern": pattern, "frequency": frequency}
-        _alert = EventsAlert(
+        return EventsAlert(
             name=name,
             description=description,
             notification=notification,
@@ -78,9 +84,8 @@ class EventsAlert(AlertBase):
             alert=_alert_definition,
             enabled=enabled,
             _read_only=False,
+            _offline=offline,
         )
-        _alert.offline_mode(offline)
-        return _alert
 
 
 class EventAlertDefinition:
@@ -91,6 +96,7 @@ class EventAlertDefinition:
         self._sv_obj = alert
 
     def compare(self, other: "EventAlertDefinition") -> bool:
+        """Compare this definition with that of another EventAlert"""
         if not isinstance(other, EventAlertDefinition):
             return False
 

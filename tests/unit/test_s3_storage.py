@@ -19,7 +19,8 @@ def test_create_s3_online() -> None:
         region_name="fictionsville",
         access_key_id="dummy_key",
         secret_access_key="not_a_key",
-        bucket="dummy_bucket"
+        bucket="dummy_bucket",
+        enabled=True
     )
     _storage.commit()
     assert _storage.to_dict()

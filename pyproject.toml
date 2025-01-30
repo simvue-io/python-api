@@ -3,7 +3,7 @@ name = "simvue"
 version = "1.1.4"
 description = "Simulation tracking and monitoring"
 authors = [
-  {name = "Simvue Development Team", "email" = "info@simvue.io"}
+  {name = "Simvue Development Team", email = "info@simvue.io"}
 ]
 license = "Apache v2"
 requires-python = ">=3.10,<3.14"
@@ -76,6 +76,7 @@ pytest-sugar = "^1.0.0"
 pytest-xdist = "^3.6.1"
 jinja2 = "^3.1.4"
 types-requests = "^2.32.0.20241016"
+interrogate = "^1.7.0"
 
 [build-system]
 requires = ["poetry-core"]

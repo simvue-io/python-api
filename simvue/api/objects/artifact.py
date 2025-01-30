@@ -77,8 +77,8 @@ class Artifact(SimvueObject):
             mime_type=mime_type,
             metadata=metadata,
             _read_only=False,
+            _offline=offline,
         )
-        _artifact.offline_mode(offline)
 
         if offline:
             return _artifact

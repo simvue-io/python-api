@@ -129,6 +129,7 @@ class SimvueObject(abc.ABC):
         _read_only: bool = True,
         _local: bool = False,
         _user_agent: str | None = None,
+        _offline: bool = False,
         **kwargs,
     ) -> None:
         self._logger = logging.getLogger(f"simvue.{self.__class__.__name__}")
@@ -143,14 +144,14 @@ class SimvueObject(abc.ABC):
             for name, member in inspect.getmembers(self.__class__)
             if isinstance(member, property)
         ]
-        self._offline: bool = identifier is not None and identifier.startswith(
-            "offline_"
+        self._offline: bool = _offline or (
+            identifier is not None and identifier.startswith("offline_")
         )
 
         _config_args = {
             "server_url": kwargs.pop("server_url", None),
             "server_token": kwargs.pop("server_token", None),
-            "mode": kwargs.pop("mode", "online"),
+            "mode": "offline" if self._offline else "online",
         }
 
         self._user_config = SimvueConfiguration.fetch(**_config_args)
@@ -271,9 +272,6 @@ class SimvueObject(abc.ABC):
         with self._local_staging_file.open("w") as out_f:
             json.dump(_staged_data, out_f, indent=2)
 
-    def offline_mode(self, is_true: bool) -> None:
-        self._offline = is_true
-
     def _get_visibility(self) -> dict[str, bool | list[str]]:
         try:
             return self._get_attribute("visibility")
@@ -281,7 +279,6 @@ class SimvueObject(abc.ABC):
             return {}
 
     @classmethod
-    @abc.abstractmethod
     def new(cls, **_) -> Self:
         pass
 

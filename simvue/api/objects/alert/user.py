@@ -53,21 +53,21 @@ class UserAlert(AlertBase):
             whether this alert should be created locally, default is False
 
         """
-        _alert = UserAlert(
+        return UserAlert(
             name=name,
             description=description,
             notification=notification,
             source="user",
             enabled=enabled,
             _read_only=False,
+            _offline=offline,
         )
-        _alert.offline_mode(offline)
-        return _alert
 
     @classmethod
     def get(
         cls, count: int | None = None, offset: int | None = None
     ) -> dict[str, typing.Any]:
+        """Return only UserAlerts"""
         raise NotImplementedError("Retrieve of only user alerts is not yet supported")
 
     @pydantic.validate_call

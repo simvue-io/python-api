@@ -1,3 +1,12 @@
+"""
+Simvue Runs
+===========
+
+Contains a class for remotely connecting to Simvue runs, or defining
+a new run given relevant arguments.
+
+"""
+
 import http
 import typing
 import pydantic
@@ -25,6 +34,8 @@ __all__ = ["Run"]
 
 
 class Run(SimvueObject):
+    """Class for interacting with/creating runs on the server."""
+
     def __init__(self, identifier: str | None = None, **kwargs) -> None:
         """Initialise a Run
 
@@ -57,10 +68,27 @@ class Run(SimvueObject):
         offline: bool = False,
         **_,
     ) -> Self:
-        """Create a new Folder on the Simvue server with the given path"""
-        _run = Run(folder=folder, system=None, status="created", _read_only=False)
-        _run.offline_mode(offline)
-        return _run
+        """Create a new Run on the Simvue server.
+
+        Parameters
+        ----------
+        folder : str
+            folder to contain this run
+        offline : bool, optional
+            create the run in offline mode, default False.
+
+        Returns
+        -------
+        Run
+            run object with staged changes
+        """
+        return Run(
+            folder=folder,
+            system=None,
+            status="created",
+            _read_only=False,
+            _offline=offline,
+        )
 
     @property
     @staging_check
