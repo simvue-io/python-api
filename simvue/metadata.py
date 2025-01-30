@@ -83,7 +83,7 @@ def _python_env(repository: pathlib.Path) -> dict[str, typing.Any]:
 
     if (pyproject_file := pathlib.Path(repository).joinpath("pyproject.toml")).exists():
         content = toml.load(pyproject_file)
-        if poetry_content := content.get("tool", {}).get("poetry"):
+        if (poetry_content := content.get("tool", {}).get("poetry", {})).get("name"):
             python_meta |= {
                 "python.project.name": poetry_content["name"],
                 "python.project.version": poetry_content["version"],
