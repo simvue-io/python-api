@@ -42,7 +42,7 @@ def test_folder_creation_offline() -> None:
     assert  _folder._local_staging_file.name.split(".")[0] == _folder.id
     assert _local_data.get("path", None) == _path
         
-    sender(_folder._local_staging_file.parents[1], 2, 10)
+    sender(_folder._local_staging_file.parents[1], 2, 10, ["folders"])
     time.sleep(1)
     client = Client()
     
@@ -85,7 +85,14 @@ def test_folder_modification_offline() -> None:
     _tags = ["testing", "api"]
     _folder = Folder.new(path=_path, offline=True)
     _folder.commit()
+    
+    sender(_folder._local_staging_file.parents[1], 2, 10, ["folders"])
     time.sleep(1)
+    
+    client = Client()
+    _folder_online = client.get_folder(_path)
+    assert _folder_online.path == _path
+    
     _folder_new = Folder(identifier=_folder.id)
     _folder_new.read_only(False)
     _folder_new.tags = _tags
@@ -94,21 +101,20 @@ def test_folder_modification_offline() -> None:
     
     with _folder._local_staging_file.open() as in_f:
         _local_data = json.load(in_f)
-        
     assert  _folder._local_staging_file.name.split(".")[0] == _folder.id
-    assert _local_data.get("path", None) == _path
     assert _local_data.get("description", None) == _description
     assert _local_data.get("tags", None) == _tags
         
-    sender(_folder._local_staging_file.parents[1], 2, 10)
+    sender(_folder._local_staging_file.parents[1], 2, 10, ["folders"])
     time.sleep(1)
     
-    client = Client()
-    _folder_online = client.get_folder(_path)
+    _folder_online.refresh()
     assert _folder_online.path == _path
     assert _folder_online.description == _description
     assert _folder_online.tags == _tags
-    _folder_new.delete()
+    
+    _folder_online.read_only(False)
+    _folder_online.delete()
 
 
 @pytest.mark.api

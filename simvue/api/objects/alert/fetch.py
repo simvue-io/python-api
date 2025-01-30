@@ -28,6 +28,14 @@ class Alert:
     def __new__(cls, identifier: str, **kwargs) -> AlertType:
         """Retrieve an object representing an alert either locally or on the server by id"""
         _alert_pre = AlertBase(identifier=identifier, **kwargs)
+        if (
+            identifier is not None
+            and identifier.startswith("offline_")
+            and not _alert_pre._staging.get("source", None)
+        ):
+            raise RuntimeError(
+                "Cannot determine Alert type - this is likely because you are attempting to reconnect to an offline alert which has already been sent to the server. To fix this, use the exact Alert type instead (eg MetricThresholdAlert, MetricRangeAlert etc)."
+            )
         if _alert_pre.source == "events":
             return EventsAlert(identifier=identifier, **kwargs)
         elif _alert_pre.source == "metrics" and _alert_pre.get_alert().get("threshold"):

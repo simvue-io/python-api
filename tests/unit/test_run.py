@@ -40,7 +40,7 @@ def test_run_creation_offline() -> None:
     assert _local_data.get("name") == f"simvue_offline_run_{_uuid}"
     assert _local_data.get("folder") == _folder_name
     
-    sender(_run._local_staging_file.parents[1], 1, 10)
+    sender(_run._local_staging_file.parents[1], 1, 10, ["folders", "runs"])
     time.sleep(1)
     
     # Get online ID and retrieve run
@@ -119,7 +119,7 @@ def test_run_modification_offline() -> None:
     assert _new_run.description == "Simvue test run"
     assert _new_run.name == "simvue_test_run"
     
-    sender(_run._local_staging_file.parents[1], 1, 10)
+    sender(_run._local_staging_file.parents[1], 1, 10, ["folders", "runs"])
     time.sleep(1)
     
     # Get online ID and retrieve run
@@ -139,7 +139,7 @@ def test_run_modification_offline() -> None:
     _online_run.refresh()
     assert _online_run.tags == []
     
-    sender(_new_run._local_staging_file.parents[1], 1, 10)
+    sender(_run._local_staging_file.parents[1], 1, 10, ["folders", "runs"])
     time.sleep(1)
         
     _online_run.refresh()

@@ -60,9 +60,13 @@ def upload_cached_file(
     except AttributeError as e:
         raise RuntimeError(f"Attempt to initialise unknown type '{_exact_type}'") from e
     # We want to reconnect if there is an online ID stored for this file
-    obj_for_upload = _instance_class.new(
-        identifier=id_mapping.get(_current_id, None), **_data
-    )
+    if _online_id := id_mapping.get(_current_id, None):
+        obj_for_upload = _instance_class(
+            identifier=_online_id, _read_only=False, **_data
+        )
+    else:
+        obj_for_upload = _instance_class.new(**_data)
+
     with lock:
         obj_for_upload.on_reconnect(id_mapping)
 
@@ -86,7 +90,7 @@ def upload_cached_file(
     with lock:
         id_mapping[_current_id] = _new_id
 
-    if obj_type in ["alerts", "runs"]:
+    if obj_type in ["alerts", "runs", "folders", "tags"]:
         cache_dir.joinpath("server_ids", f"{_current_id}.txt").write_text(_new_id)
 
     if (
@@ -104,7 +108,10 @@ def upload_cached_file(
 
 @pydantic.validate_call
 def sender(
-    cache_dir: pydantic.DirectoryPath, max_workers: int, threading_threshold: int
+    cache_dir: pydantic.DirectoryPath,
+    max_workers: int,
+    threading_threshold: int,
+    objects_to_upload: list[str] = UPLOAD_ORDER,
 ):
     """Send data from a local cache directory to the Simvue server.
 
@@ -116,6 +123,8 @@ def sender(
         The maximum number of threads to use
     threading_threshold : int
         The number of cached files above which threading will be used
+    objects_to_upload : list[str]
+        Types of objects to upload, by default uploads all types of objects present in cache
     """
     cache_dir.joinpath("server_ids").mkdir(parents=True, exist_ok=True)
     _id_mapping: dict[str, str] = {
@@ -123,8 +132,9 @@ def sender(
         for file_path in cache_dir.glob("server_ids/*.txt")
     }
     _lock = threading.Lock()
+    _upload_order = [item for item in UPLOAD_ORDER if item in objects_to_upload]
 
-    for _obj_type in UPLOAD_ORDER:
+    for _obj_type in _upload_order:
         _offline_files = list(cache_dir.glob(f"{_obj_type}/*.json"))
         if len(_offline_files) < threading_threshold:
             for file_path in _offline_files:
@@ -141,3 +151,4 @@ def sender(
                     ),
                     _offline_files,
                 )
+    return _id_mapping

@@ -39,14 +39,14 @@ class Tag(SimvueObject):
 
     @property
     @staging_check
-    def color(self) -> pydantic.color.RGBA:
+    def colour(self) -> pydantic.color.RGBA:
         return pydantic.color.parse_str(self._get_attribute("colour"))
 
-    @color.setter
+    @colour.setter
     @write_only
     @pydantic.validate_call
-    def color(self, color: pydantic.color.Color) -> None:
-        self._staging["colour"] = color.as_hex()
+    def colour(self, colour: pydantic.color.Color) -> None:
+        self._staging["colour"] = colour.as_hex()
 
     @property
     @staging_check

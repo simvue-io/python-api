@@ -61,7 +61,7 @@ def test_metric_threshold_alert_creation_offline() -> None:
     assert _local_data.get("notification") == "none"
     assert _local_data.get("alert").get("threshold") == 10
     
-    sender(_alert._local_staging_file.parents[1], 1, 10)
+    sender(_alert._local_staging_file.parents[1], 1, 10, ["alerts"])
     time.sleep(1)
     
     # Get online ID and retrieve alert
@@ -121,31 +121,41 @@ def test_metric_threshold_alert_modification_offline() -> None:
         description="a metric threshold alert"
     )
     _alert.commit()
-    time.sleep(1)
-    _new_alert = Alert(_alert.id)
-    _new_alert.read_only(False)
-    assert isinstance(_new_alert, MetricsThresholdAlert)
-    _new_alert.description = "updated!"
-    _new_alert.commit()
     
-    with _alert._local_staging_file.open() as in_f:
-        _local_data = json.load(in_f)
-    assert _local_data.get("description") == "updated!"
-    
-    sender(_alert._local_staging_file.parents[1], 1, 10)
-    time.sleep(1)
+    sender(_alert._local_staging_file.parents[1], 1, 10, ["alerts"])
+    time.sleep(1) 
     
     # Get online ID and retrieve alert
     _online_id = _alert._local_staging_file.parents[1].joinpath("server_ids", f"{_alert._local_staging_file.name.split('.')[0]}.txt").read_text()
-    _online_alert = Alert(_online_id)
+    _online_alert = MetricsThresholdAlert(_online_id)
     
     assert _online_alert.source == "metrics"
     assert _online_alert.alert.frequency == 1
     assert _online_alert.name == f"metrics_threshold_alert_{_uuid}"
     assert _online_alert.alert.threshold == 10
+      
+    _new_alert = MetricsThresholdAlert(_alert.id)
+    _new_alert.read_only(False)
+    assert isinstance(_new_alert, MetricsThresholdAlert)
+    _new_alert.description = "updated!"
+    _new_alert.commit()
+    
+    # Since changes havent been sent, check online run not updated
+    _online_alert.refresh()
+    assert _online_alert.description != "updated!"
+    
+    with _alert._local_staging_file.open() as in_f:
+        _local_data = json.load(in_f)
+    assert _local_data.get("description") == "updated!"
+    
+    sender(_alert._local_staging_file.parents[1], 1, 10, ["alerts"])
+    time.sleep(1) 
+    
+    _online_alert.refresh()
     assert _online_alert.description == "updated!"
     
-    _alert.delete()
+    _online_alert.read_only(False)
+    _online_alert.delete()
     _alert._local_staging_file.parents[1].joinpath("server_ids", f"{_alert._local_staging_file.name.split('.')[0]}.txt").unlink()
 
 @pytest.mark.api
