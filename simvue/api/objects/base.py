@@ -507,6 +507,10 @@ class SimvueObject(abc.ABC):
             )
         return _json_response
 
+    def refresh(self) -> None:
+        if self._read_only:
+            self._staging = self._get()
+
     def _cache(self) -> None:
         if not (_dir := self._local_staging_file.parent).exists():
             _dir.mkdir(parents=True)
