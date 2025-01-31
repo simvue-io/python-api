@@ -28,10 +28,11 @@ class FileStorage(StorageBase):
         *,
         name: typing.Annotated[str, pydantic.Field(pattern=NAME_REGEX)],
         disable_check: bool,
-        tenant_useable: bool,
-        enabled: bool,
-        default: bool,
+        is_tenant_useable: bool,
+        is_enabled: bool,
+        is_default: bool,
         offline: bool = False,
+        **_,
     ) -> Self:
         """Create a new file storage object.
 
@@ -43,7 +44,7 @@ class FileStorage(StorageBase):
             whether to disable checks for this system
         tenant_usable : bool
             whether this system is usable by the current tenant
-        enabled : bool
+        is_enabled : bool
             whether to enable this system
         default : bool
             if this storage system should become the new default
@@ -59,9 +60,9 @@ class FileStorage(StorageBase):
             name=name,
             backend="File",
             disable_check=disable_check,
-            is_tenant_useable=tenant_useable,
-            is_default=default,
-            is_enabled=enabled,
+            is_tenant_useable=is_tenant_useable,
+            is_default=is_default,
+            is_enabled=is_enabled,
             _read_only=False,
             _offline=offline,
         )

@@ -27,13 +27,14 @@ class User(SimvueObject):
         username: str,
         fullname: str,
         email: pydantic.EmailStr,
-        manager: bool,
-        admin: bool,
-        readonly: bool,
+        is_manager: bool,
+        is_admin: bool,
+        is_readonly: bool,
         welcome: bool,
         tenant: str,
         enabled: bool = True,
         offline: bool = False,
+        **_,
     ) -> Self:
         """Create a new user on the Simvue server.
 
@@ -47,11 +48,11 @@ class User(SimvueObject):
             the full name for this user
         email: str
             the email for this user
-        manager : bool
+        is_manager : bool
             assign the manager role to this user
-        admin : bool
+        is_admin : bool
             assign the administrator role to this user
-        readonly : bool
+        is_readonly : bool
             given only read access to this user
         welcome : bool
             display welcome message to user
@@ -72,19 +73,21 @@ class User(SimvueObject):
             "username": username,
             "fullname": fullname,
             "email": email,
-            "is_manager": manager,
-            "is_readonly": readonly,
+            "is_manager": is_manager,
+            "is_readonly": is_readonly,
             "welcome": welcome,
-            "is_admin": admin,
+            "is_admin": is_admin,
             "is_enabled": enabled,
         }
-        return User(
+        _user = User(
             user=_user_info,
             tenant=tenant,
             offline=offline,
             _read_only=False,
             _offline=offline,
         )
+        _user._staging |= _user_info
+        return _user
 
     @classmethod
     def get(
@@ -140,31 +143,31 @@ class User(SimvueObject):
 
     @property
     @staging_check
-    def manager(self) -> bool:
+    def is_manager(self) -> bool:
         """Retrieve if the user has manager privileges"""
         if self.id and self.id.startswith("offline_"):
             return self._get_attribute("user")["is_manager"]
         return self._get_attribute("is_manager")
 
-    @manager.setter
+    @is_manager.setter
     @write_only
     @pydantic.validate_call
-    def manager(self, is_manager: bool) -> None:
+    def is_manager(self, is_manager: bool) -> None:
         """Set if the user has manager privileges"""
         self._staging["is_manager"] = is_manager
 
     @property
     @staging_check
-    def admin(self) -> bool:
+    def is_admin(self) -> bool:
         """Retrieve if the user has admin privileges"""
         if self.id and self.id.startswith("offline_"):
             return self._get_attribute("user")["is_admin"]
         return self._get_attribute("is_admin")
 
-    @admin.setter
+    @is_admin.setter
     @write_only
     @pydantic.validate_call
-    def admin(self, is_admin: bool) -> None:
+    def is_admin(self, is_admin: bool) -> None:
         """Set if the user has admin privileges"""
         self._staging["is_admin"] = is_admin
 
@@ -177,16 +180,16 @@ class User(SimvueObject):
 
     @property
     @staging_check
-    def readonly(self) -> bool:
+    def is_readonly(self) -> bool:
         """Retrieve if the user has read-only access"""
         if self.id and self.id.startswith("offline_"):
             return self._get_attribute("user")["is_readonly"]
         return self._get_attribute("is_readonly")
 
-    @readonly.setter
+    @is_readonly.setter
     @write_only
     @pydantic.validate_call
-    def readonly(self, is_readonly: bool) -> None:
+    def is_readonly(self, is_readonly: bool) -> None:
         """Set if the user has read-only access"""
         self._staging["is_readonly"] = is_readonly
 

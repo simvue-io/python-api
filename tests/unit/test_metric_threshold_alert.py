@@ -73,7 +73,8 @@ def test_metric_threshold_alert_creation_offline() -> None:
     assert _online_alert.name == f"metrics_threshold_alert_{_uuid}"
     assert _online_alert.alert.threshold == 10
     
-    _alert.delete()
+    _online_alert.read_only(False)
+    _online_alert.delete()
     _alert._local_staging_file.parents[1].joinpath("server_ids", f"{_alert._local_staging_file.name.split('.')[0]}.txt").unlink()
 
 

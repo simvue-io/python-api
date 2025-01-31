@@ -61,40 +61,40 @@ class StorageBase(SimvueObject):
 
     @property
     @staging_check
-    def default(self) -> bool:
+    def is_default(self) -> bool:
         """Retrieve if this is the default storage for the user"""
         return self._get_attribute("is_default")
 
-    @default.setter
+    @is_default.setter
     @write_only
     @pydantic.validate_call
-    def default(self, is_default: bool) -> None:
+    def is_default(self, is_default: bool) -> None:
         """Set this storage to be the default"""
         self._staging["is_default"] = is_default
 
     @property
     @staging_check
-    def tenant_useable(self) -> bool:
+    def is_tenant_useable(self) -> bool:
         """Retrieve if this is usable by the current user tenant"""
         return self._get_attribute("is_tenant_useable")
 
-    @tenant_useable.setter
+    @is_tenant_useable.setter
     @write_only
     @pydantic.validate_call
-    def tenant_useable(self, is_tenant_useable: bool) -> None:
+    def is_tenant_useable(self, is_tenant_useable: bool) -> None:
         """Set this storage to be usable by the current user tenant"""
         self._staging["is_tenant_useable"] = is_tenant_useable
 
     @property
     @staging_check
-    def enabled(self) -> bool:
+    def is_enabled(self) -> bool:
         """Retrieve if this is enabled"""
         return self._get_attribute("is_enabled")
 
-    @enabled.setter
+    @is_enabled.setter
     @write_only
     @pydantic.validate_call
-    def enabled(self, is_enabled: bool) -> None:
+    def is_enabled(self, is_enabled: bool) -> None:
         """Set this storage to be usable by the current user tenant"""
         self._staging["is_enabled"] = is_enabled
 

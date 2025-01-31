@@ -25,7 +25,7 @@ class Tenant(SimvueObject):
         cls,
         *,
         name: str,
-        enabled: bool = True,
+        is_enabled: bool = True,
         max_request_rate: int = 0,
         max_runs: int = 0,
         max_data_volume: int = 0,
@@ -39,7 +39,7 @@ class Tenant(SimvueObject):
         ----------
         name: str
             the name for this tenant
-        enabled: bool, optional
+        is_enabled: bool, optional
             whether to enable the tenant on creation, default is True
         max_request_rate: int, optional
             the maximum request rate allowed for this tenant, default is no limit.
@@ -58,7 +58,7 @@ class Tenant(SimvueObject):
         """
         return Tenant(
             name=name,
-            is_enabled=enabled,
+            is_enabled=is_enabled,
             max_request_rate=max_request_rate,
             max_runs=max_runs,
             max_data_volume=max_data_volume,
@@ -80,16 +80,16 @@ class Tenant(SimvueObject):
 
     @property
     @staging_check
-    def enabled(self) -> bool:
+    def is_enabled(self) -> bool:
         """Retrieve if tenant is enabled"""
         return self._get_attribute("is_enabled")
 
-    @enabled.setter
+    @is_enabled.setter
     @write_only
     @pydantic.validate_call
-    def enabled(self, enabled: bool) -> None:
+    def is_enabled(self, is_enabled: bool) -> None:
         """Enable/disable tenant"""
-        self._staging["is_enabled"] = enabled
+        self._staging["is_enabled"] = is_enabled
 
     @property
     @staging_check

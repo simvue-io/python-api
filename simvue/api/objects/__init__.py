@@ -8,6 +8,7 @@ level interface towards the development of additional tools/frameworks.
 
 """
 
+from .administrator import Tenant as Tenant, User as User
 from .alert import (
     Alert as Alert,
     EventsAlert as EventsAlert,
@@ -20,6 +21,7 @@ from .storage import (
     FileStorage as FileStorage,
     Storage as Storage,
 )
+
 from .stats import Stats as Stats
 from .artifact import Artifact as Artifact
 from .run import Run as Run
