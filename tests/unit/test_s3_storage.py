@@ -21,7 +21,7 @@ def test_create_s3_online() -> None:
         access_key_id="dummy_key",
         secret_access_key="not_a_key",
         bucket="dummy_bucket",
-        enabled=True
+        enabled=False
     )
     _storage.commit()
     assert _storage.to_dict()
@@ -48,6 +48,7 @@ def test_create_s3_offline() -> None:
         bucket="dummy_bucket",
         default=False,
         tenant_useable=False,
+        enabled=False,
         offline=True
     )
     _storage.commit()

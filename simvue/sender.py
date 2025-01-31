@@ -11,6 +11,7 @@ import logging
 from concurrent.futures import ThreadPoolExecutor
 import threading
 from simvue.api.objects.base import SimvueObject
+from simvue.config.user import SimvueConfiguration
 
 import simvue.api.objects
 
@@ -108,9 +109,9 @@ def upload_cached_file(
 
 @pydantic.validate_call
 def sender(
-    cache_dir: pydantic.DirectoryPath,
-    max_workers: int,
-    threading_threshold: int,
+    cache_dir: pydantic.DirectoryPath | None = None,
+    max_workers: int = 5,
+    threading_threshold: int = 10,
     objects_to_upload: list[str] = UPLOAD_ORDER,
 ):
     """Send data from a local cache directory to the Simvue server.
@@ -126,6 +127,7 @@ def sender(
     objects_to_upload : list[str]
         Types of objects to upload, by default uploads all types of objects present in cache
     """
+    cache_dir = cache_dir or SimvueConfiguration.fetch().offline.cache
     cache_dir.joinpath("server_ids").mkdir(parents=True, exist_ok=True)
     _id_mapping: dict[str, str] = {
         file_path.name.split(".")[0]: file_path.read_text()
