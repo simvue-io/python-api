@@ -40,9 +40,9 @@ class S3Storage(StorageBase):
         access_key_id: str,
         secret_access_key: pydantic.SecretStr,
         bucket: str,
-        tenant_useable: bool,
-        default: bool,
-        enabled: bool,
+        is_tenant_useable: bool,
+        is_default: bool,
+        is_enabled: bool,
         offline: bool = False,
         **__,
     ) -> Self:
@@ -66,12 +66,12 @@ class S3Storage(StorageBase):
             the bucket associated with this storage system
         tenant_usable : bool
             whether this system is usable by the current tenant
-        enabled : bool
+        is_enabled : bool
             whether to enable this system
-        default : bool
-            if this storage system should become the new default
+        is_default : bool
+            if this storage system should become the new is_default
         offline : bool, optional
-            if this instance should be created in offline mode, default False
+            if this instance should be created in offline mode, is_default False
 
         Returns
         -------
@@ -91,9 +91,9 @@ class S3Storage(StorageBase):
             backend="S3",
             config=_config,
             disable_check=disable_check,
-            tenant_useable=tenant_useable,
-            default=default,
-            enabled=enabled,
+            is_tenant_useable=is_tenant_useable,
+            is_default=is_default,
+            is_enabled=is_enabled,
             _read_only=False,
             _offline=offline,
         )
