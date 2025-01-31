@@ -58,7 +58,7 @@ class Folder(SimvueObject):
         **_,
     ):
         """Create a new Folder on the Simvue server with the given path"""
-        Folder(path=path, _read_only=False, _offline=offline)
+        return Folder(path=path, _read_only=False, _offline=offline)
 
     @property
     @staging_check
