@@ -1,3 +1,12 @@
+"""
+Simvue Tenants
+==============
+
+Contains a class for remotely connecting to Simvue tenants, or defining
+a new tenant given relevant arguments.
+
+"""
+
 try:
     from typing import Self
 except ImportError:
@@ -8,6 +17,8 @@ from simvue.api.objects.base import write_only, SimvueObject, staging_check
 
 
 class Tenant(SimvueObject):
+    """Class for interacting with a tenant instance on the server."""
+
     @classmethod
     @pydantic.validate_call
     def new(
@@ -20,17 +31,40 @@ class Tenant(SimvueObject):
         max_data_volume: int = 0,
         offline: bool = False,
     ) -> Self:
-        _tenant = Tenant(
+        """Create a new tenant on the Simvue server.
+
+        Requires administrator privileges.
+
+        Parameters
+        ----------
+        name: str
+            the name for this tenant
+        enabled: bool, optional
+            whether to enable the tenant on creation, default is True
+        max_request_rate: int, optional
+            the maximum request rate allowed for this tenant, default is no limit.
+        max_runs: int, optional
+            the maximum number of runs allowed within this tenant, default is no limit.
+        max_data_volume: int, optional
+            the maximum volume of data allowed within this tenant, default is no limit.
+        offline: bool, optional
+            create in offline mode, default is False.
+
+        Returns
+        -------
+        Tenant
+            a tenant instance with staged changes
+
+        """
+        return Tenant(
             name=name,
             is_enabled=enabled,
             max_request_rate=max_request_rate,
             max_runs=max_runs,
             max_data_volume=max_data_volume,
-            offline=offline,
             _read_only=False,
+            _offline=offline,
         )
-        _tenant.offline_mode(offline)
-        return _tenant  # type: ignore
 
     @property
     def name(self) -> str:

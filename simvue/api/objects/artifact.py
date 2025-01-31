@@ -79,8 +79,8 @@ class Artifact(SimvueObject):
             metadata=metadata,
             _read_only=False,
             **kwargs,
+            _offline=offline,
         )
-        _artifact.offline_mode(offline)
 
         if offline:
             return _artifact

@@ -1,13 +1,27 @@
+"""
+Simvue Storage Base
+===================
+
+Contains general definitions for Simvue Storage objects.
+"""
+
 import typing
 
 import pydantic
 import datetime
+import abc
 
 from simvue.api.objects.base import SimvueObject, staging_check, write_only
 from simvue.models import NAME_REGEX, DATETIME_FORMAT
 
 
 class StorageBase(SimvueObject):
+    """Storage object base class from which all storage types inherit.
+
+    This represents a single storage backend used to store uploaded artifacts.
+
+    """
+
     def __init__(
         self,
         identifier: str | None = None,
@@ -20,7 +34,9 @@ class StorageBase(SimvueObject):
         super().__init__(identifier, _read_only=_read_only, **kwargs)
 
     @classmethod
+    @abc.abstractmethod
     def new(cls, **_):
+        """Create a new instance of a storage type"""
         pass
 
     @property

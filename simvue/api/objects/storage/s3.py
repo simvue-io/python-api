@@ -1,3 +1,11 @@
+"""
+Simvue S3 Storage
+=================
+
+Class for interacting with an S3 based storage on the server.
+
+"""
+
 import typing
 
 try:
@@ -13,7 +21,10 @@ from simvue.models import NAME_REGEX
 
 
 class S3Storage(StorageBase):
+    """Class for defining/accessing an S3 based storage system on the server."""
+
     def __init__(self, identifier: str | None = None, **kwargs) -> None:
+        """Initialise an S3Storage instance attaching a configuration"""
         self.config = Config(self)
         super().__init__(identifier, **kwargs)
 
@@ -31,10 +42,43 @@ class S3Storage(StorageBase):
         bucket: str,
         tenant_useable: bool,
         default: bool,
+        enabled: bool,
         offline: bool = False,
         **__,
     ) -> Self:
-        """Create a new S3 storage object"""
+        """Create a new S3 storage object.
+
+        Parameters
+        ----------
+        name : str
+            name to allocated to this storage system
+        disable_check : bool
+            whether to disable checks for this system
+        endpoint_url : str
+            endpoint defining the S3 upload URL
+        region_name : str
+            the region name associated with this storage system
+        access_key_id : str
+            the access key identifier for the storage
+        secret_access_key : str
+            the secret access key, stored as a secret string
+        bucket : str
+            the bucket associated with this storage system
+        tenant_usable : bool
+            whether this system is usable by the current tenant
+        enabled : bool
+            whether to enable this system
+        default : bool
+            if this storage system should become the new default
+        offline : bool, optional
+            if this instance should be created in offline mode, default False
+
+        Returns
+        -------
+        S3Storage
+            instance of storage system with staged changes
+
+        """
         _config: dict[str, str] = {
             "endpoint_url": endpoint_url.__str__(),
             "region_name": region_name,
@@ -49,10 +93,11 @@ class S3Storage(StorageBase):
             disable_check=disable_check,
             tenant_useable=tenant_useable,
             default=default,
+            enabled=enabled,
             _read_only=False,
+            _offline=offline,
         )
         _storage._staging |= _config
-        _storage.offline_mode(offline)
         return _storage
 
     @staging_check
@@ -65,12 +110,16 @@ class S3Storage(StorageBase):
 
 
 class Config:
+    """S3 Configuration interface"""
+
     def __init__(self, storage: S3Storage) -> None:
+        """Initialise a new configuration using an S3Storage object"""
         self._sv_obj = storage
 
     @property
     @staging_check
     def endpoint_url(self) -> str:
+        """Retrieve the endpoint URL for this storage"""
         try:
             return self._sv_obj.get_config()["endpoint_url"]
         except KeyError as e:
@@ -82,12 +131,14 @@ class Config:
     @write_only
     @pydantic.validate_call
     def endpoint_url(self, endpoint_url: pydantic.HttpUrl) -> None:
+        """Modify the endpoint URL for this storage"""
         _config = self._sv_obj.get_config() | {"endpoint_url": endpoint_url.__str__()}
         self._sv_obj._staging["config"] = _config
 
     @property
     @staging_check
     def region_name(self) -> str:
+        """Retrieve the region name for this storage"""
         try:
             return self._sv_obj.get_config()["region_name"]
         except KeyError as e:
@@ -99,12 +150,14 @@ class Config:
     @write_only
     @pydantic.validate_call
     def region_name(self, region_name: str) -> None:
+        """Modify the region name for this storage"""
         _config = self._sv_obj.get_config() | {"region_name": region_name}
         self._sv_obj._staging["config"] = _config
 
     @property
     @staging_check
     def bucket(self) -> str:
+        """Retrieve the bucket label for this storage"""
         try:
             return self._sv_obj.get_config()["bucket"]
         except KeyError as e:
@@ -116,6 +169,7 @@ class Config:
     @write_only
     @pydantic.validate_call
     def bucket(self, bucket: str) -> None:
+        """Modify the bucket label for this storage"""
         if self._sv_obj.type == "file":
             raise ValueError(
                 f"Cannot set attribute 'bucket' for storage type '{self._sv_obj.type}'"

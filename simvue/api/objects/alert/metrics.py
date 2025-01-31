@@ -35,6 +35,7 @@ class MetricsThresholdAlert(AlertBase):
     def get(
         cls, count: int | None = None, offset: int | None = None
     ) -> dict[str, typing.Any]:
+        """Retrieve only MetricsThresholdAlerts"""
         raise NotImplementedError("Retrieve of only metric alerts is not yet supported")
 
     @classmethod
@@ -101,9 +102,9 @@ class MetricsThresholdAlert(AlertBase):
             alert=_alert_definition,
             enabled=enabled,
             _read_only=False,
+            _offline=offline,
         )
         _alert._staging |= _alert_definition
-        _alert.offline_mode(offline)
         return _alert
 
 
@@ -116,6 +117,7 @@ class MetricsRangeAlert(AlertBase):
         super().__init__(identifier, **kwargs)
 
     def compare(self, other: "MetricsRangeAlert") -> bool:
+        """Compare two MetricRangeAlerts"""
         return self.alert.compare(other) if super().compare(other) else False
 
     @classmethod
@@ -189,9 +191,9 @@ class MetricsRangeAlert(AlertBase):
             enabled=enabled,
             alert=_alert_definition,
             _read_only=False,
+            _offline=offline,
         )
         _alert._staging |= _alert_definition
-        _alert.offline_mode(offline)
         return _alert
 
 
@@ -203,6 +205,7 @@ class MetricsAlertDefinition:
         self._sv_obj = alert
 
     def compare(self, other: "MetricsAlertDefinition") -> bool:
+        """Compare a MetricsAlertDefinition with another"""
         return all(
             [
                 self.aggregation == other.aggregation,
@@ -259,6 +262,7 @@ class MetricThresholdAlertDefinition(MetricsAlertDefinition):
     """Alert definition for metric threshold alerts"""
 
     def compare(self, other: "MetricThresholdAlertDefinition") -> bool:
+        """Compare this MetricThresholdAlertDefinition with another"""
         if not isinstance(other, MetricThresholdAlertDefinition):
             return False
 
@@ -276,6 +280,7 @@ class MetricRangeAlertDefinition(MetricsAlertDefinition):
     """Alert definition for metric range alerts"""
 
     def compare(self, other: "MetricRangeAlertDefinition") -> bool:
+        """Compare a MetricRangeAlertDefinition with another"""
         if not isinstance(other, MetricRangeAlertDefinition):
             return False
 

@@ -38,14 +38,12 @@ class Metrics(SimvueObject):
         cls, *, run: str, offline: bool = False, metrics: list[MetricSet], **kwargs
     ):
         """Create a new Events entry on the Simvue server"""
-        _metrics = Metrics(
+        return Metrics(
             run=run,
             metrics=[metric.model_dump() for metric in metrics],
             _read_only=False,
-            **kwargs,
+            _offline=offline,
         )
-        _metrics.offline_mode(offline)
-        return _metrics
 
     @classmethod
     @pydantic.validate_call

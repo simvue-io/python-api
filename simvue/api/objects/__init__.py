@@ -1,3 +1,13 @@
+"""
+Simvue API Objects
+==================
+
+The following module defines objects which provide exact representations
+of information accessible via the Simvue RestAPI, this provides a lower
+level interface towards the development of additional tools/frameworks.
+
+"""
+
 from .alert import (
     Alert as Alert,
     EventsAlert as EventsAlert,

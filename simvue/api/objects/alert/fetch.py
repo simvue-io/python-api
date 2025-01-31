@@ -55,6 +55,21 @@ class Alert:
         offset: int | None = None,
         **kwargs,
     ) -> typing.Generator[tuple[str, AlertType], None, None]:
+        """Fetch all alerts from the server for the current user.
+
+        Parameters
+        ----------
+        count : int, optional
+            limit the number of results, default of None returns all.
+        offset : int, optional
+            start index for returned results, default of None starts at 0.
+
+        Yields
+        ------
+        tuple[str, AlertType]
+            identifier for an alert
+            the alert itself as a class instance
+        """
         if offline:
             return
 

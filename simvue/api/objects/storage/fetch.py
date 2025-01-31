@@ -36,6 +36,22 @@ class Storage:
     def get(
         cls, count: int | None = None, offset: int | None = None, **kwargs
     ) -> typing.Generator[tuple[str, FileStorage | S3Storage], None, None]:
+        """Returns storage systems accessible to the current user.
+
+        Parameters
+        ----------
+        count : int, optional
+            limit the number of results, default of None returns all.
+        offset : int, optional
+            start index for returned results, default of None starts at 0.
+
+        Yields
+        ------
+        tuple[str, FileStorage | S3Storage]
+            identifier for a storage
+            the storage itself as a class instance
+        """
+
         # Currently no storage filters
         kwargs.pop("filters", None)
 

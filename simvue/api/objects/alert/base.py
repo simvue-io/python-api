@@ -23,6 +23,7 @@ class AlertBase(SimvueObject):
 
     @classmethod
     def new(cls, **kwargs):
+        """Create a new alert"""
         pass
 
     def __init__(self, identifier: str | None = None, **kwargs) -> None:
@@ -31,6 +32,7 @@ class AlertBase(SimvueObject):
         super().__init__(identifier=identifier, **kwargs)
 
     def compare(self, other: "AlertBase") -> bool:
+        """Compare this alert to another"""
         return type(self) is type(other) and self.name == other.name
 
     @staging_check

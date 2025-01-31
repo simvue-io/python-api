@@ -60,14 +60,13 @@ class Events(SimvueObject):
     @pydantic.validate_call
     def new(cls, *, run: str, offline: bool = False, events: list[EventSet], **kwargs):
         """Create a new Events entry on the Simvue server"""
-        _events = Events(
+        return Events(
             run=run,
             events=[event.model_dump() for event in events],
             _read_only=False,
+            _offline=offline,
             **kwargs,
         )
-        _events.offline_mode(offline)
-        return _events
 
     def _post(self, **kwargs) -> dict[str, typing.Any]:
         return super()._post(is_json=False, **kwargs)

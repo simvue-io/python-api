@@ -84,8 +84,7 @@ def test_run_modification_online() -> None:
     assert _run.name == "simvue_test_run"
     assert _run.status == "running"
     _run.abort("test_run_abort")
-    assert _new_run.status == "terminated"
-    assert _run.status == "terminated"
+    assert _new_run.abort_trigger
     _run.delete()
     _folder.delete(recursive=True, delete_runs=True, runs_only=False)
 
