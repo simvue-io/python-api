@@ -405,7 +405,6 @@ class SimvueObject(abc.ABC):
     def _post(self, is_json: bool = True, **kwargs) -> dict[str, typing.Any]:
         if not is_json:
             kwargs = msgpack.packb(kwargs, use_bin_type=True)
-
         _response = sv_post(
             url=f"{self._base_url}",
             headers=self._headers | {"Content-Type": "application/msgpack"},

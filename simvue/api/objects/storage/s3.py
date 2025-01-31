@@ -29,9 +29,10 @@ class S3Storage(StorageBase):
         access_key_id: str,
         secret_access_key: pydantic.SecretStr,
         bucket: str,
-        tenant_usable: bool,
+        tenant_useable: bool,
         default: bool,
         offline: bool = False,
+        **__,
     ) -> Self:
         """Create a new S3 storage object"""
         _config: dict[str, str] = {
@@ -46,10 +47,11 @@ class S3Storage(StorageBase):
             backend="S3",
             config=_config,
             disable_check=disable_check,
-            tenant_useable=tenant_usable,
+            tenant_useable=tenant_useable,
             default=default,
             _read_only=False,
         )
+        _storage._staging |= _config
         _storage.offline_mode(offline)
         return _storage
 

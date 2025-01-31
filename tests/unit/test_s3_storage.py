@@ -15,7 +15,7 @@ def test_create_s3_online() -> None:
         name=_uuid,
         endpoint_url="https://not-a-real-url.io",
         disable_check=True,
-        tenant_usable=False,
+        tenant_useable=False,
         default=False,
         region_name="fictionsville",
         access_key_id="dummy_key",
@@ -40,13 +40,13 @@ def test_create_s3_offline() -> None:
     _storage = S3Storage.new(
         name=_uuid,
         endpoint_url="https://not-a-real-url.io",
-        disable_check=False,
+        disable_check=True,
         region_name="fictionsville",
         access_key_id="dummy_key",
         secret_access_key="not_a_key",
         bucket="dummy_bucket",
         default=False,
-        tenant_usable=False,
+        tenant_useable=False,
         offline=True
     )
     _storage.commit()
@@ -60,16 +60,16 @@ def test_create_s3_offline() -> None:
     assert not _local_data.get("user", None)
     assert not _local_data.get("usage", None)
 
-    _id_mapping = sender(_storage._local_staging_file.parents[1], 1, 10)
-    _online_id = _id_mapping(_storage.id)
+    _id_mapping = sender(_storage._local_staging_file.parents[1], 1, 10, ["storage"])
+    _online_id = _id_mapping[_storage.id]
     time.sleep(1)
     
     _online_storage = S3Storage(_online_id)
     
     assert _online_storage.name == _uuid
     assert _online_storage.config.endpoint_url == "https://not-a-real-url.io/"
-    assert _local_data.config.region_name == "fictionsville"
-    assert _local_data.config.bucket == "dummy_bucket"
+    assert _online_storage.config.region_name == "fictionsville"
+    assert _online_storage.config.bucket == "dummy_bucket"
     
     _online_storage.read_only(False)
     _online_storage.delete()
