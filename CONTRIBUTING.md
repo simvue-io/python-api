@@ -32,11 +32,21 @@ pre-commit install
 
 ### 🧪 Testing
 
-To ensure robustness and reliability this repository includes a set of tests which are executed automatically as part of continuous integration. Before opening a merge request we ask that you check your changes locally by running the test suite. New tests should be written for any further functionality added. In the past the Python API underwent a major refactor leading to a new set of tests being written, rather than delete the previous integration tests a new `refactor` folder was created, only `unit` tests and `refactor` tests are used during development
+To ensure robustness and reliability this repository includes a set of tests which are executed automatically as part of continuous integration. Before opening a merge request we ask that you check your changes locally by running the test suite. New tests should be written for any further functionality added.
 
 ```sh
-pytest tests/unit/ tests/refactor/
+pytest tests
 ```
+
+### 🌿 Using the Right Branch
+
+In order to fix previous versions, minor versions each have their own branch. This branch is created prior to the release of `vX.Y`. At this point there should be no new features added, with only bug fixes being applied.
+
+Remember if working on a fix for a particular minor version, checkout and branch from the branch for that version, and make sure to select the appropriate version branch when opening an MR. For example a bug fix for `v1.1` made on a new branch `hotfix/fix-that-bug` created from the `v1.1` branch, would then be merged back into the `v1.1` branch.
+
+Development of new features, or towards the latest version should be made on branches created from `dev` which must always contain the latest version. Such branches should, where possible, contain only a single new feature and be labelled `feature/<feature-description>`.
+
+The branch `main` contains only tagged releases, the idea being all commits on this branch are usable versions.
 
 ### ℹ️ Typing
 

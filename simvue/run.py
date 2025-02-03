@@ -74,7 +74,7 @@ def check_run_initialised(
 ) -> typing.Callable[..., typing.Any]:
     @functools.wraps(function)
     def _wrapper(self: Self, *args: typing.Any, **kwargs: typing.Any) -> typing.Any:
-        if self._mode == "disabled":
+        if self._user_config.run.mode == "disabled":
             return True
 
         if self._retention and time.time() - self._timer > self._retention:
@@ -83,8 +83,7 @@ def check_run_initialised(
 
         if not self._simvue:
             raise RuntimeError(
-                "Simvue Run must be initialised before calling "
-                f"'{function.__name__}'"
+                f"Simvue Run must be initialised before calling '{function.__name__}'"
             )
         return function(self, *args, **kwargs)
 
@@ -129,7 +128,6 @@ class Run:
             run in debug mode, default is False
         """
         self._uuid: str = f"{uuid.uuid4()}"
-        self._mode: typing.Literal["online", "offline", "disabled"] = mode
         self._name: typing.Optional[str] = None
 
         # monitor duration with respect to retention period
@@ -159,19 +157,21 @@ class Run:
         self._data: dict[str, typing.Any] = {}
         self._step: int = 0
         self._active: bool = False
-        self._config = SimvueConfiguration.fetch()
+        self._user_config = SimvueConfiguration.fetch(
+            server_url=server_url, server_token=server_token, mode=mode
+        )
 
         logging.getLogger(self.__class__.__module__).setLevel(
             logging.DEBUG
             if (debug is not None and debug)
-            or (debug is None and self._config.client.debug)
+            or (debug is None and self._user_config.client.debug)
             else logging.INFO
         )
 
         self._aborted: bool = False
         self._resources_metrics_interval: typing.Optional[int] = HEARTBEAT_INTERVAL
         self._headers: dict[str, str] = {
-            "Authorization": f"Bearer {self._config.server.token}"
+            "Authorization": f"Bearer {self._user_config.server.token}"
         }
         self._simvue: typing.Optional[SimvueBaseClass] = None
         self._pid: typing.Optional[int] = 0
@@ -200,7 +200,9 @@ class Run:
         )
         _is_running: bool = self._status == "running"
         _is_running_online: bool = self._id is not None and _is_running
-        _is_running_offline: bool = self._mode == "offline" and _is_running
+        _is_running_offline: bool = (
+            self._user_config.run.mode == "offline" and _is_running
+        )
         _is_terminated: bool = (
             _exception_thrown is not None and _exception_thrown == "KeyboardInterrupt"
         )
@@ -248,7 +250,7 @@ class Run:
     ) -> None:
         logger.debug(
             "Automatically closing run '%s' in status %s",
-            self._id if self._mode == "online" else "unregistered",
+            self._id if self._user_config.run.mode == "online" else "unregistered",
             self._status,
         )
 
@@ -313,7 +315,8 @@ class Run:
         self,
     ) -> typing.Callable[[threading.Event], None]:
         if (
-            self._mode == "online" and (not self._config.server.url or not self._id)
+            self._user_config.run.mode == "online"
+            and (not self._user_config.server.url or not self._id)
         ) or not self._heartbeat_termination_trigger:
             raise RuntimeError("Could not commence heartbeat, run not initialised")
 
@@ -392,10 +395,10 @@ class Run:
         executed on metrics and events objects held in a buffer.
         """
 
-        if self._mode == "online" and not self._id:
+        if self._user_config.run.mode == "online" and not self._id:
             raise RuntimeError("Expected identifier for run")
 
-        if not self._config.server.url:
+        if not self._user_config.server.url:
             raise RuntimeError("Cannot commence dispatch, run not initialised")
 
         def _offline_dispatch_callback(
@@ -404,7 +407,7 @@ class Run:
             run_id: typing.Optional[str] = self._id,
             uuid: str = self._uuid,
         ) -> None:
-            _offline_directory = self.config.offline.cache
+            _offline_directory = self._user_config.offline.cache
             if not os.path.exists(_offline_directory):
                 logger.error(
                     f"Cannot write to offline directory '{_offline_directory}', directory not found."
@@ -431,7 +434,7 @@ class Run:
         def _online_dispatch_callback(
             buffer: list[typing.Any],
             category: str,
-            url: str = self._config.server.url,
+            url: str = self._user_config.server.url,
             run_id: typing.Optional[str] = self._id,
             headers: dict[str, str] = self._headers,
         ) -> None:
@@ -453,7 +456,7 @@ class Run:
 
         return (
             _online_dispatch_callback
-            if self._mode == "online"
+            if self._user_config.run.mode == "online"
             else _offline_dispatch_callback
         )
 
@@ -470,10 +473,10 @@ class Run:
         bool
             if successful
         """
-        if self._mode == "disabled":
+        if self._user_config.run.mode == "disabled":
             return True
 
-        if self._mode != "offline":
+        if self._user_config.run.mode != "offline":
             self._uuid = "notused"
 
         logger.debug("Starting run")
@@ -628,17 +631,17 @@ class Run:
         bool
             whether the initialisation was successful
         """
-        if self._mode == "disabled":
+        if self._user_config.run.mode == "disabled":
             logger.warning(
                 "Simvue monitoring has been deactivated for this run, metrics and artifacts will not be recorded."
             )
             return True
 
-        description = description or self._config.run.description
-        tags = (tags or []) + (self._config.run.tags or [])
-        folder = folder or self._config.run.folder
-        name = name or self._config.run.name
-        metadata = (metadata or {}) | (self._config.run.metadata or {})
+        description = description or self._user_config.run.description
+        tags = (tags or []) + (self._user_config.run.tags or [])
+        folder = folder or self._user_config.run.folder
+        name = name or self._user_config.run.name
+        metadata = (metadata or {}) | (self._user_config.run.metadata or {})
 
         self._term_color = not no_color
 
@@ -647,11 +650,11 @@ class Run:
                 "invalid visibility option, must be either None, 'public', 'tenant' or a list of users"
             )
 
-        if self._mode not in ("online", "offline"):
+        if self._user_config.run.mode not in ("online", "offline"):
             self._error("invalid mode specified, must be online, offline or disabled")
             return False
 
-        if not self._config.server.token or not self._config.server.url:
+        if not self._user_config.server.token or not self._user_config.server.url:
             self._error(
                 "Unable to get URL and token from environment variables or config file"
             )
@@ -706,8 +709,8 @@ class Run:
         self._simvue = Simvue(
             name=self._name,
             uniq_id=self._uuid,
-            mode=self._mode,
-            config=self._config,
+            mode=self._user_config.run.mode,
+            config=self._user_config,
             suppress_errors=self._suppress_errors,
         )
         name, self._id = self._simvue.create_run(data)
@@ -723,14 +726,14 @@ class Run:
         if self._status == "running":
             self._start()
 
-        if self._mode == "online":
+        if self._user_config.run.mode == "online":
             click.secho(
                 f"[simvue] Run {self._name} created",
                 bold=self._term_color,
                 fg="green" if self._term_color else None,
             )
             click.secho(
-                f"[simvue] Monitor in the UI at {self._config.server.url}/dashboard/runs/run/{self._id}",
+                f"[simvue] Monitor in the UI at {self._user_config.server.url}/dashboard/runs/run/{self._id}",
                 bold=self._term_color,
                 fg="green" if self._term_color else None,
             )
@@ -848,13 +851,13 @@ class Run:
                 if isinstance(val, bool) and val:
                     cmd_list += [f"-{kwarg}"]
                 else:
-                    cmd_list += [f"-{kwarg}{(' '+ _quoted_val) if val else ''}"]
+                    cmd_list += [f"-{kwarg}{(' ' + _quoted_val) if val else ''}"]
             else:
                 kwarg = kwarg.replace("_", "-")
                 if isinstance(val, bool) and val:
                     cmd_list += [f"--{kwarg}"]
                 else:
-                    cmd_list += [f"--{kwarg}{(' '+_quoted_val) if val else ''}"]
+                    cmd_list += [f"--{kwarg}{(' ' + _quoted_val) if val else ''}"]
 
         cmd_list += pos_args
         cmd_str = " ".join(cmd_list)
@@ -938,7 +941,11 @@ class Run:
 
         self._id = run_id
         self._simvue = Simvue(
-            self._name, self._id, self._mode, self._config, self._suppress_errors
+            self._name,
+            self._id,
+            self._user_config.run.mode,
+            self._user_config,
+            self._suppress_errors,
         )
         self._start(reconnect=True)
 
@@ -1189,7 +1196,7 @@ class Run:
         timestamp: typing.Optional[str] = None,
         join_on_fail: bool = True,
     ) -> bool:
-        if self._mode == "disabled":
+        if self._user_config.run.mode == "disabled":
             return True
 
         # If there are no metrics to log just ignore
@@ -1517,7 +1524,7 @@ class Run:
         bool
             if status update was successful
         """
-        if not self._active or not self._name:
+        if not self._active:
             self._error("Run is not active")
             return False
 

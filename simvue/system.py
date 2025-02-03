@@ -71,9 +71,7 @@ def get_system() -> dict[str, typing.Any]:
     system["cwd"] = os.getcwd()
     system["hostname"] = socket.gethostname()
     system["pythonversion"] = (
-        f"{sys.version_info.major}."
-        f"{sys.version_info.minor}."
-        f"{sys.version_info.micro}"
+        f"{sys.version_info.major}.{sys.version_info.minor}.{sys.version_info.micro}"
     )
     system["platform"] = {}
     system["platform"]["system"] = platform.system()

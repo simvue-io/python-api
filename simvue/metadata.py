@@ -82,7 +82,7 @@ def _python_env(repository: pathlib.Path) -> dict[str, typing.Any]:
     req_meta: dict[str, str] = {}
 
     if (reqfile := pathlib.Path(repository).joinpath("requirements.txt")).exists():
-        with reqfile.open("w") as in_req:
+        with reqfile.open() as in_req:
             requirement_lines = in_req.readlines()
             req_meta = {}
 
