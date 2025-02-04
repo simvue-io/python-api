@@ -93,6 +93,7 @@ class Run(SimvueObject):
     @property
     @staging_check
     def name(self) -> str:
+        """Retrieve name associated with this run"""
         return self._get_attribute("name")
 
     def delete(self, **kwargs) -> dict[str, typing.Any]:
@@ -105,28 +106,33 @@ class Run(SimvueObject):
     def name(
         self, name: typing.Annotated[str, pydantic.Field(pattern=NAME_REGEX)]
     ) -> None:
+        """Set the name for this run."""
         self._staging["name"] = name
 
     @property
     @staging_check
     def tags(self) -> list[str]:
+        """Retrieve the tags associated with this run."""
         return self._get_attribute("tags")
 
     @tags.setter
     @write_only
     @pydantic.validate_call
     def tags(self, tags: list[str]) -> None:
+        """Set the tags for this run."""
         self._staging["tags"] = tags
 
     @property
     @staging_check
     def status(self) -> Status:
+        """Get the run status."""
         return self._get_attribute("status")
 
     @status.setter
     @write_only
     @pydantic.validate_call
     def status(self, status: Status) -> None:
+        """Set the run status."""
         self._staging["status"] = status
 
     @property
@@ -145,6 +151,7 @@ class Run(SimvueObject):
     @property
     @staging_check
     def folder(self) -> str:
+        """Get the folder associated with this run."""
         return self._get_attribute("folder")
 
     @folder.setter
@@ -153,43 +160,51 @@ class Run(SimvueObject):
     def folder(
         self, folder: typing.Annotated[str, pydantic.Field(pattern=FOLDER_REGEX)]
     ) -> None:
+        """Set the folder for this run."""
         self._staging["folder"] = folder
 
     @property
     @staging_check
     def metadata(self) -> dict[str, typing.Any]:
+        """Get the metadata for this run."""
         return self._get_attribute("metadata")
 
     @metadata.setter
     @write_only
     @pydantic.validate_call
     def metadata(self, metadata: dict[str, typing.Any]) -> None:
+        """Set the metadata for this run."""
         self._staging["metadata"] = metadata
 
     @property
     @staging_check
     def description(self) -> str:
+        """Get the description for this run."""
         return self._get_attribute("description")
 
     @description.setter
     @write_only
     @pydantic.validate_call
     def description(self, description: str | None) -> None:
+        """Set the description for this run."""
         self._staging["description"] = description
 
     @property
     def system(self) -> dict[str, typing.Any]:
+        """Get the system metadata for this run."""
         return self._get_attribute("system")
 
     @system.setter
     @write_only
     @pydantic.validate_call
     def system(self, system: dict[str, typing.Any]) -> None:
+        """Set the system metadata for this run."""
         self._staging["system"] = system
 
     @property
     @staging_check
     def heartbeat_timeout(self) -> int | None:
+        """Get the timeout for the heartbeat of this run."""
         return self._get_attribute("heartbeat_timeout")
 
     @heartbeat_timeout.setter
