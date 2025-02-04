@@ -61,7 +61,7 @@ def test_create_user_offline() -> None:
     assert _local_data.get("username") == "jbloggs"
     assert _local_data.get("fullname") == "Joe Bloggs"
     assert _local_data.get("email") == "jbloggs@simvue.io"
-    #### fixme
+
     _id_mapping = sender(_user._local_staging_file.parents[1], 1, 10, ["users"])
     time.sleep(1)
     _online_user = User(_id_mapping.get(_user.id))

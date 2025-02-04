@@ -34,7 +34,9 @@ class Alert:
             and not _alert_pre._staging.get("source", None)
         ):
             raise RuntimeError(
-                "Cannot determine Alert type - this is likely because you are attempting to reconnect to an offline alert which has already been sent to the server. To fix this, use the exact Alert type instead (eg MetricThresholdAlert, MetricRangeAlert etc)."
+                "Cannot determine Alert type - this is likely because you are attempting to reconnect "
+                "to an offline alert which has already been sent to the server. To fix this, use the "
+                "exact Alert type instead (eg MetricThresholdAlert, MetricRangeAlert etc)."
             )
         if _alert_pre.source == "events":
             return EventsAlert(identifier=identifier, **kwargs)

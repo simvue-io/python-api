@@ -352,7 +352,7 @@ class Run(SimvueObject):
         )
 
     def on_reconnect(self, id_mapping: dict[str, str]):
-        online_alert_ids = []
+        online_alert_ids: list[str] = []
         for id in self._staging.get("alerts", []):
             try:
                 online_alert_ids.append(id_mapping[id])
