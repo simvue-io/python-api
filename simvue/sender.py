@@ -15,7 +15,7 @@ from simvue.config.user import SimvueConfiguration
 
 import simvue.api.objects
 
-UPLOAD_ORDER: tuple[str, ...] = (
+UPLOAD_ORDER: list[str] = [
     "tenants",
     "users",
     "storage",
@@ -26,7 +26,7 @@ UPLOAD_ORDER: tuple[str, ...] = (
     "artifacts",
     "metrics",
     "events",
-)
+]
 
 _logger = logging.getLogger(__name__)
 
