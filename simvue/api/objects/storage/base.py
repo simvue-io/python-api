@@ -6,7 +6,6 @@ Contains general definitions for Simvue Storage objects.
 """
 
 import typing
-import abc
 import pydantic
 import datetime
 
@@ -33,7 +32,6 @@ class StorageBase(SimvueObject):
         super().__init__(identifier, _read_only=_read_only, **kwargs)
 
     @classmethod
-    @abc.abstractmethod
     def new(cls, **_):
         """Create a new instance of a storage type"""
         pass
