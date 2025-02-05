@@ -11,6 +11,7 @@ from simvue.sender import sender
 @pytest.mark.online
 def test_create_s3_online() -> None:
     _uuid: str = f"{uuid.uuid4()}".split("-")[0]
+    _failed = []
     _storage = S3Storage.new(
         name=_uuid,
         endpoint_url="https://not-a-real-url.io",
@@ -24,6 +25,11 @@ def test_create_s3_online() -> None:
         is_enabled=False
     )
     _storage.commit()
+    for member in _storage._properties:
+        try:
+            getattr(_storage, member)
+        except Exception as e:
+            _failed.append((member, f"{e}"))
     assert _storage.to_dict()
     assert _storage.name == _uuid
     assert _storage.config.endpoint_url == "https://not-a-real-url.io/"
@@ -32,6 +38,8 @@ def test_create_s3_online() -> None:
     assert _storage.created
     assert dict(Storage.get())
     _storage.delete()
+    if _failed:
+        raise AssertionError("\n\t-" + "\n\t- ".join(": ".join(i) for i in _failed))
 
 
 @pytest.mark.api
