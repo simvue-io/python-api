@@ -6,10 +6,9 @@ Contains general definitions for Simvue Storage objects.
 """
 
 import typing
-
+import abc
 import pydantic
 import datetime
-import abc
 
 from simvue.api.objects.base import SimvueObject, staging_check, write_only
 from simvue.models import NAME_REGEX, DATETIME_FORMAT
