@@ -9,7 +9,6 @@ import typing
 
 import pydantic
 import datetime
-import abc
 
 from simvue.api.objects.base import SimvueObject, staging_check, write_only
 from simvue.models import NAME_REGEX, DATETIME_FORMAT
@@ -34,7 +33,6 @@ class StorageBase(SimvueObject):
         super().__init__(identifier, _read_only=_read_only, **kwargs)
 
     @classmethod
-    @abc.abstractmethod
     def new(cls, **_):
         """Create a new instance of a storage type"""
         pass
