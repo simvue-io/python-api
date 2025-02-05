@@ -18,6 +18,11 @@ from .s3 import S3Storage
 from .file import FileStorage
 from .base import StorageBase
 
+try:
+    from typing import Self
+except ImportError:
+    from typing_extensions import Self
+
 
 class Storage:
     """Generic Simvue storage retrieval class"""
@@ -34,7 +39,7 @@ class Storage:
 
     @classmethod
     @abc.abstractmethod
-    def new(cls, **_) -> typing.Self:
+    def new(cls, **_) -> Self:
         pass
 
     @classmethod

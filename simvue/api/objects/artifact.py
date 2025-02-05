@@ -312,9 +312,9 @@ class Artifact(SimvueObject):
         return self._get_attribute("original_path")
 
     @property
-    def storage(self) -> str | None:
+    def storage_id(self) -> str | None:
         """Retrieve the storage identifier for this artifact"""
-        return self._get_attribute("storage")
+        return self._get_attribute("storage_id")
 
     @property
     def mime_type(self) -> str:
