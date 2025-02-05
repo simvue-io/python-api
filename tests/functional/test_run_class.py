@@ -543,15 +543,24 @@ def test_save_file_online(
 @pytest.mark.run
 @pytest.mark.offline
 @pytest.mark.parametrize(
-    "preserve_path", (True, False), ids=("preserve_path", "modified_path")
+    "preserve_path,name,allow_pickle,empty_file,category",
+    [
+        (False, None, False, False, "input"),
+        (True, None, False, False, "output"),
+        (False, "test_file", False, False, "code"),
+        (False, None, True, False, "input"),
+        (False, None, False, True, "code")
+    ],
+    ids=[f"scenario_{i}" for i in range(1, 6)]
 )
-@pytest.mark.parametrize("name", ("retrieved_test_file", None), ids=("named", "nameless"))
-@pytest.mark.parametrize("category", ("input", "output", "code"))
 def test_save_file_offline(
-    create_plain_run_offline: tuple[sv_run.Run, dict],
+    create_plain_run_offline: typing.Tuple[sv_run.Run, dict],
     preserve_path: bool,
     name: str | None,
-    category: typing.Literal["input", "output", "code"]
+    allow_pickle: bool,
+    empty_file: bool,
+    category: typing.Literal["input", "output", "code"],
+    capfd,
 ) -> None:
     simvue_run, _ = create_plain_run_offline
     run_name = simvue_run._name
@@ -562,6 +571,14 @@ def test_save_file_offline(
             "w",
         ) as out_f:
             out_f.write("test data entry")
+
+        simvue_run.save_file(
+            out_name,
+            category=category,
+            file_type=file_type,
+            preserve_path=preserve_path,
+            name=name,
+        )
 
         simvue_run.save_file(
             out_name,
