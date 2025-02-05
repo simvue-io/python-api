@@ -6,6 +6,7 @@ To simplify case whereby user does not know the storage type associated
 with an identifier, use a generic storage object.
 """
 
+import abc
 import typing
 import http
 import pydantic
@@ -30,6 +31,11 @@ class Storage:
             return FileStorage(identifier=identifier, **kwargs)
 
         raise RuntimeError(f"Unknown backend '{_storage_pre.backend}'")
+
+    @classmethod
+    @abc.abstractmethod
+    def new(cls, **_) -> typing.Self:
+        pass
 
     @classmethod
     @pydantic.validate_call

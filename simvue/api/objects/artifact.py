@@ -248,28 +248,42 @@ class Artifact(SimvueObject):
             super().commit()
             return
 
-        if _url := self._init_data.get("url"):
-            _name = self._staging["name"]
+        if not (_url := self._init_data.get("url")):
+            return
 
-            _response = sv_post(
-                url=_url,
-                headers={},
-                is_json=False,
-                files={"file": file},
-                data=self._init_data.get("fields"),
-            )
+        _name = self._staging["name"]
 
-            self._logger.debug(
-                "Got status code %d when uploading artifact",
-                _response.status_code,
-            )
+        _response = sv_post(
+            url=_url,
+            headers={},
+            is_json=False,
+            files={"file": file},
+            data=self._init_data.get("fields"),
+        )
 
-            get_json_from_response(
-                expected_status=[http.HTTPStatus.OK, http.HTTPStatus.NO_CONTENT],
-                allow_parse_failure=True,  # JSON response from S3 not parsible
-                scenario=f"uploading artifact '{_name}' to object storage",
-                response=_response,
-            )
+        self._logger.debug(
+            "Got status code %d when uploading artifact",
+            _response.status_code,
+        )
+
+        get_json_from_response(
+            expected_status=[http.HTTPStatus.OK, http.HTTPStatus.NO_CONTENT],
+            allow_parse_failure=True,  # JSON response from S3 not parsible
+            scenario=f"uploading artifact '{_name}' to object storage",
+            response=_response,
+        )
+
+        _response = sv_put(
+            url=f"{self.url}",
+            data={"uploaded": True},
+            headers=self._headers,
+        )
+
+        get_json_from_response(
+            response=_response,
+            scenario=f"Information server of upload of file for artifact '{self._identifier}'",
+            expected_status=[http.HTTPStatus.OK],
+        )
 
     def _get(
         self, storage: str | None = None, url: str | None = None, **kwargs
