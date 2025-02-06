@@ -6,14 +6,14 @@ import pathlib
 import tempfile
 import numpy
 
-from simvue.api.objects import Artifact, Run
+from simvue.api.objects import FileArtifact, Run
 from simvue.api.objects.folder import Folder
 from simvue.sender import sender
 from simvue.client import Client
 
 @pytest.mark.api
 @pytest.mark.online
-def test_artifact_creation_online() -> None:
+def test_file_artifact_creation_online() -> None:
     _uuid: str = f"{uuid.uuid4()}".split("-")[0]
     _folder_name = f"/simvue_unit_testing/{_uuid}"
     _folder = Folder.new(path=_folder_name)
@@ -27,8 +27,8 @@ def test_artifact_creation_online() -> None:
         _path = pathlib.Path(temp_f.name)
         with _path.open("w") as out_f:
             out_f.write(f"Hello World! {_uuid}")
-        _artifact = Artifact.new_file(
-            name=f"test_artifact_{_uuid}",
+        _artifact = FileArtifact.new(
+            name=f"test_file_artifact_{_uuid}",
             file_path=_path,
             storage=None,
             mime_type=None,
@@ -41,18 +41,10 @@ def test_artifact_creation_online() -> None:
                 getattr(_artifact, member)
             except Exception as e:
                 _failed.append((member, f"{e}"))
-        assert _artifact.name == f"test_artifact_{_uuid}"
+        assert _artifact.name == f"test_file_artifact_{_uuid}"
         _content = b"".join(_artifact.download_content()).decode("UTF-8")
         assert _content == f"Hello World! {_uuid}"
         assert _artifact.to_dict()
-    _test_array = numpy.array(range(10))
-    _artifact = Artifact.new_object(
-        name=f"test_artifact_obj_{_uuid}",
-        storage=None,
-        obj=_test_array,
-        metadata=None
-    )
-    _artifact.attach_to_run(_run.id, "output")
     _run.delete()
     _folder.delete(recursive=True, delete_runs=True, runs_only=False)
     if _failed:
@@ -61,11 +53,11 @@ def test_artifact_creation_online() -> None:
 
 @pytest.mark.api
 @pytest.mark.offline
-def test_artifact_creation_offline(offline_test: pathlib.Path) -> None:
+def test_file_artifact_creation_offline(offline_test: pathlib.Path) -> None:
     _uuid: str = f"{uuid.uuid4()}".split("-")[0]
     _folder_name = f"/simvue_unit_testing/{_uuid}"
     _folder = Folder.new(path=_folder_name, offline=True)
-    _run = Run.new(name=f"test_artifact_creation_offline_{_uuid}",folder=_folder_name, offline=True) 
+    _run = Run.new(name=f"test_file_artifact_creation_offline_{_uuid}",folder=_folder_name, offline=True) 
 
     _path = offline_test.joinpath("hello_world.txt")
 
@@ -74,8 +66,8 @@ def test_artifact_creation_offline(offline_test: pathlib.Path) -> None:
 
     _folder.commit()
     _run.commit()
-    _artifact = Artifact.new_file(
-        name=f"test_artifact_{_uuid}",
+    _artifact = FileArtifact.new(
+        name=f"test_file_artifact_{_uuid}",
         file_path=_path,
         storage=None,
         mime_type=None,
@@ -83,11 +75,11 @@ def test_artifact_creation_offline(offline_test: pathlib.Path) -> None:
         metadata=None
     )
     _artifact.attach_to_run(_run._identifier, category="input")
-    assert _artifact.name == f"test_artifact_{_uuid}"
+    assert _artifact.name == f"test_file_artifact_{_uuid}"
     sender(offline_test.joinpath(".simvue"), 1, 10)
     time.sleep(1)
     client = Client()
-    _run_id = client.get_run_id_from_name(f"test_artifact_creation_offline_{_uuid}")
+    _run_id = client.get_run_id_from_name(f"test_file_artifact_creation_offline_{_uuid}")
     client.get_artifact_as_file(_run_id, _artifact.name, offline_test.joinpath("downloaded").mkdir())
     assert offline_test.joinpath("downloaded.txt").read_text() == "Hello World!"
     _run.delete()

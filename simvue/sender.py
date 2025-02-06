@@ -10,7 +10,6 @@ import pydantic
 import logging
 from concurrent.futures import ThreadPoolExecutor
 import threading
-from simvue.api.objects.base import SimvueObject
 from simvue.config.user import SimvueConfiguration
 
 import simvue.api.objects
@@ -57,11 +56,11 @@ def upload_cached_file(
     _data = json.load(file_path.open())
     _exact_type: str = _data.pop("obj_type")
     try:
-        _instance_class: SimvueObject = getattr(simvue.api.objects, _exact_type)
+        _instance_class = getattr(simvue.api.objects, _exact_type)
     except AttributeError as e:
         raise RuntimeError(f"Attempt to initialise unknown type '{_exact_type}'") from e
     # We want to reconnect if there is an online ID stored for this file
-    if _online_id := id_mapping.get(_current_id, None):
+    if _online_id := id_mapping.get(_current_id):
         obj_for_upload = _instance_class(
             identifier=_online_id, _read_only=False, **_data
         )
@@ -82,7 +81,7 @@ def upload_cached_file(
         raise RuntimeError(
             f"Object of type '{obj_for_upload.__class__.__name__}' has no identifier"
         )
-    if id_mapping.get(_current_id, None):
+    if id_mapping.get(_current_id):
         _logger.info(f"Updated {obj_for_upload.__class__.__name__} '{_new_id}'")
     else:
         _logger.info(f"Created {obj_for_upload.__class__.__name__} '{_new_id}'")
@@ -91,7 +90,7 @@ def upload_cached_file(
     with lock:
         id_mapping[_current_id] = _new_id
 
-    if obj_type in ["alerts", "runs", "folders", "tags"]:
+    if obj_type in {"alerts", "runs", "folders", "tags"}:
         cache_dir.joinpath("server_ids", f"{_current_id}.txt").write_text(_new_id)
 
     if (

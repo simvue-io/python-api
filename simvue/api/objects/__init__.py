@@ -21,9 +21,13 @@ from .storage import (
     FileStorage as FileStorage,
     Storage as Storage,
 )
+from .artifact import (
+    FileArtifact as FileArtifact,
+    ObjectArtifact as ObjectArtifact,
+    Artifact as Artifact,
+)
 
 from .stats import Stats as Stats
-from .artifact import Artifact as Artifact
 from .run import Run as Run
 from .tag import Tag as Tag
 from .folder import Folder as Folder, get_folder_from_path as get_folder_from_path

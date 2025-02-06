@@ -52,7 +52,8 @@ from .utilities import (
 )
 from .api.objects import (
     Run as RunObject,
-    Artifact,
+    FileArtifact,
+    ObjectArtifact,
     MetricsThresholdAlert,
     MetricsRangeAlert,
     UserAlert,
@@ -1279,7 +1280,7 @@ class Run:
         _name: str = name or f"{obj.__class__.__name__.lower()}_{id(obj)}"
 
         try:
-            _artifact = Artifact.new_object(
+            _artifact = ObjectArtifact.new(
                 name=_name,
                 obj=obj,
                 allow_pickling=allow_pickle,
@@ -1346,7 +1347,7 @@ class Run:
 
         try:
             # Register file
-            _artifact = Artifact.new_file(
+            _artifact = FileArtifact.new(
                 name=name or stored_file_name,
                 storage=self._storage_id,
                 file_path=file_path,
