@@ -80,7 +80,7 @@ class ArtifactBase(SimvueObject):
         )
 
     def on_reconnect(self, id_mapping: dict[str, str]) -> None:
-        _offline_staging = dict(self._init_data["runs"].items())
+        _offline_staging = self._init_data["runs"].copy()
         for id, category in _offline_staging.items():
             self.attach_to_run(run_id=id_mapping[id], category=category)
 

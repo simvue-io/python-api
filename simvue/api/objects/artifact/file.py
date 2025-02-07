@@ -74,10 +74,14 @@ class FileArtifact(ArtifactBase):
             **kwargs,
         )
         _artifact._staging["file_path"] = str(file_path)
+        if offline:
+            _artifact._init_data = {}
 
-        _artifact._init_data = _artifact._post(**_artifact._staging)
-        _artifact._init_data["runs"] = {}
-        _artifact._staging["url"] = _artifact._init_data["url"]
+        else:
+            _artifact._init_data = _artifact._post(**_artifact._staging)
+            _artifact._staging["url"] = _artifact._init_data["url"]
+
+        _artifact._init_data["runs"] = kwargs.get("runs") or {}
 
         if offline:
             return _artifact

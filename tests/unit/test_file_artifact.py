@@ -1,11 +1,10 @@
-import os
 import pytest
 import uuid
 import time
 import pathlib
 import tempfile
-
-from simvue.api.objects import FileArtifact, Run
+import json
+from simvue.api.objects import FileArtifact, Run, Artifact
 from simvue.api.objects.folder import Folder
 from simvue.sender import sender
 from simvue.client import Client
@@ -61,7 +60,7 @@ def test_file_artifact_creation_offline(offline_test: pathlib.Path) -> None:
     _path = offline_test.joinpath("hello_world.txt")
 
     with _path.open("w") as out_f:
-        out_f.write("Hello World!")
+        out_f.write(f"Hello World! {_uuid}")
 
     _folder.commit()
     _run.commit()
@@ -74,10 +73,19 @@ def test_file_artifact_creation_offline(offline_test: pathlib.Path) -> None:
         metadata=None
     )
     _artifact.attach_to_run(_run._identifier, category="input")
-    assert _artifact.name == f"test_file_artifact_{_uuid}"
-    sender(offline_test.joinpath(".simvue"), 1, 10)
-    import pdb; pdb.set_trace()
-    _content = b"".join(_artifact.download_content()).decode("UTF-8")
+    
+    with _artifact._local_staging_file.open() as in_f:
+        _local_data = json.load(in_f)
+        
+    assert _local_data.get("name") == f"test_file_artifact_{_uuid}"
+    assert _local_data.get("runs") == {_run._identifier: "input"}
+    
+    _id_mapping = sender(offline_test.joinpath(".simvue"), 1, 10)
+    time.sleep(1)
+    
+    _online_artifact = Artifact(_id_mapping[_artifact.id])
+    assert _online_artifact.name == _artifact.name
+    _content = b"".join(_online_artifact.download_content()).decode("UTF-8")
     assert _content == f"Hello World! {_uuid}"
     _run.delete()
     _folder.delete()
