@@ -85,16 +85,20 @@ class Artifact:
             headers=_class_instance._headers,
             params={"start": offset, "count": count},
         )
+        _label: str = _class_instance.__class__.__name__.lower()
+        _label = _label.replace("base", "")
         _json_response = get_json_from_response(
             response=_response,
             expected_status=[http.HTTPStatus.OK],
-            scenario=f"Retrieval of {_class_instance.__class__.__name__.lower()}s",
-            expected_type=list,
+            scenario=f"Retrieval of {_label}s",
         )
+
+        if (_data := _json_response.get("data")) is None:
+            raise RuntimeError(f"Expected key 'data' for retrieval of {_label}s")
 
         _out_dict: dict[str, FileArtifact | ObjectArtifact] = {}
 
-        for _entry in _json_response:
+        for _entry in _data:
             _id = _entry.pop("id")
             if _entry["original_path"]:
                 yield (

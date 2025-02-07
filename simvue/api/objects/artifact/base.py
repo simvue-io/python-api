@@ -15,12 +15,12 @@ import pydantic
 try:
     from typing import Self
 except ImportError:
-    pass
+    from typing_extensions import Self
 
 from simvue.api.url import URL
 from simvue.exception import ObjectNotFoundError
 from simvue.models import DATETIME_FORMAT
-from simvue.api.objects.base import SimvueObject
+from simvue.api.objects.base import SimvueObject, staging_check, write_only
 from simvue.api.objects.run import Run
 from simvue.api.request import (
     put as sv_put,
@@ -117,17 +117,8 @@ class ArtifactBase(SimvueObject):
             response=_response,
         )
 
-        _response = sv_put(
-            url=f"{self.url}",
-            data={"uploaded": True},
-            headers=self._headers,
-        )
-
-        get_json_from_response(
-            response=_response,
-            scenario=f"Information server of upload of file for artifact '{self._identifier}'",
-            expected_status=[http.HTTPStatus.OK],
-        )
+        self.uploaded = True
+        self.commit()
 
     def _get(
         self, storage: str | None = None, url: str | None = None, **kwargs
@@ -180,6 +171,19 @@ class ArtifactBase(SimvueObject):
         return (
             datetime.datetime.strptime(_created, DATETIME_FORMAT) if _created else None
         )
+
+    @property
+    @staging_check
+    def uploaded(self) -> bool:
+        """Returns whether a file was uploaded for this artifact."""
+        return self._get_attribute("uploaded")
+
+    @uploaded.setter
+    @write_only
+    @pydantic.validate_call
+    def uploaded(self, is_uploaded: bool) -> None:
+        """Set if a file was successfully uploaded for this artifact."""
+        self._staging["uploaded"] = is_uploaded
 
     @property
     def download_url(self) -> URL | None:

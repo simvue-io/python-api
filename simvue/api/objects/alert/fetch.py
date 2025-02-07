@@ -87,16 +87,16 @@ class Alert:
             params={"start": offset, "count": count},
         )
 
+        _label: str = _class_instance.__class__.__name__.lower()
+        _label = _label.replace("base", "")
         _json_response = get_json_from_response(
             response=_response,
             expected_status=[http.HTTPStatus.OK],
-            scenario=f"Retrieval of {_class_instance.__class__.__name__.lower()}s",
+            scenario=f"Retrieval of {_label}s",
         )
 
         if (_data := _json_response.get("data")) is None:
-            raise RuntimeError(
-                f"Expected key 'data' for retrieval of {_class_instance.__class__.__name__.lower()}s"
-            )
+            raise RuntimeError(f"Expected key 'data' for retrieval of {_label}s")
 
         _out_dict: dict[str, AlertType] = {}
 

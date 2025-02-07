@@ -67,10 +67,12 @@ class Storage:
             headers=_class_instance._headers,
             params={"start": offset, "count": count},
         )
+        _label: str = _class_instance.__class__.__name__.lower()
+        _label = _label.replace("base", "")
         _json_response = get_json_from_response(
             response=_response,
             expected_status=[http.HTTPStatus.OK],
-            scenario=f"Retrieval of {_class_instance.__class__.__name__.lower()}s",
+            scenario=f"Retrieval of {_label}s",
             expected_type=list,
         )
 

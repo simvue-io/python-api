@@ -234,6 +234,13 @@ class SimvueObject(abc.ABC):
             try:
                 return self._staging[attribute]
             except KeyError as e:
+                # If the key is not in staging, but the object is not in offline mode
+                # retrieve from the server and update cache instead
+                if not _offline_state and (
+                    _attribute := self._get(url=url).get(attribute)
+                ):
+                    self._staging[attribute] = _attribute
+                    return _attribute
                 raise AttributeError(
                     f"Could not retrieve attribute '{attribute}' "
                     f"for {self._label} '{self._identifier}' from cached data"
