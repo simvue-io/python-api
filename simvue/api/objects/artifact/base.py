@@ -55,9 +55,10 @@ class ArtifactBase(SimvueObject):
 
     def attach_to_run(self, run_id: str, category: Category) -> None:
         """Attach this artifact to a given run"""
-        self._staging["runs"][run_id] = category
+        self._init_data["runs"][run_id] = category
 
         if self._offline:
+            self._staging["runs"] = self._init_data["runs"]
             super().commit()
             return
 
@@ -119,7 +120,7 @@ class ArtifactBase(SimvueObject):
 
         # Update the server status to confirm file uploaded
         self.uploaded = True
-        self.commit()
+        super().commit()
         self.read_only(True)
 
     def _get(

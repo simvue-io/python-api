@@ -68,7 +68,8 @@ class FileArtifact(ArtifactBase):
         )
 
         _artifact._init_data = _artifact._post(**_artifact._staging)
-        _artifact._staging["runs"] = {}
+        _artifact._init_data["runs"] = {}
+        _artifact._staging["url"] = _artifact._init_data["url"]
 
         if offline:
             return _artifact
