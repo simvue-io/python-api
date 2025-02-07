@@ -3,7 +3,7 @@ from .base import ArtifactBase
 import typing
 import pydantic
 import os
-
+import pathlib
 from simvue.models import NAME_REGEX
 from simvue.utilities import get_mimetype_for_file, get_mimetypes, calculate_sha256
 
@@ -24,6 +24,7 @@ class FileArtifact(ArtifactBase):
         mime_type: str | None,
         metadata: dict[str, typing.Any] | None,
         offline: bool = False,
+        **kwargs,
     ) -> Self:
         """Create a new artifact either locally or on the server
 
@@ -51,10 +52,14 @@ class FileArtifact(ArtifactBase):
 
         if _mime_type not in get_mimetypes():
             raise ValueError(f"Invalid MIME type '{mime_type}' specified")
-
+        file_path = pathlib.Path(file_path)
         _file_size = file_path.stat().st_size
         _file_orig_path = file_path.expanduser().absolute()
         _file_checksum = calculate_sha256(f"{file_path}", is_file=True)
+
+        kwargs.pop("original_path", None)
+        kwargs.pop("size", None)
+        kwargs.pop("checksum", None)
 
         _artifact = FileArtifact(
             name=name,
@@ -66,7 +71,9 @@ class FileArtifact(ArtifactBase):
             _offline=offline,
             _read_only=False,
             metadata=metadata,
+            **kwargs,
         )
+        _artifact._staging["file_path"] = str(file_path)
 
         _artifact._init_data = _artifact._post(**_artifact._staging)
         _artifact._init_data["runs"] = {}

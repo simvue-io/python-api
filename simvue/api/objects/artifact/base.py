@@ -55,7 +55,7 @@ class ArtifactBase(SimvueObject):
 
     def attach_to_run(self, run_id: str, category: Category) -> None:
         """Attach this artifact to a given run"""
-        self._staging["runs"][run_id] = category
+        self._init_data["runs"][run_id] = category
 
         if self._offline:
             self._staging["runs"] = self._init_data["runs"]
@@ -80,8 +80,7 @@ class ArtifactBase(SimvueObject):
         )
 
     def on_reconnect(self, id_mapping: dict[str, str]) -> None:
-        _offline_staging = dict(self._staging["runs"].items())
-        self._staging["runs"] = {}
+        _offline_staging = dict(self._init_data["runs"].items())
         for id, category in _offline_staging.items():
             self.attach_to_run(run_id=id_mapping[id], category=category)
 

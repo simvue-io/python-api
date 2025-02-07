@@ -31,6 +31,7 @@ class ObjectArtifact(ArtifactBase):
         metadata: dict[str, typing.Any] | None,
         allow_pickling: bool = True,
         offline: bool = False,
+        **kwargs,
     ) -> Self:
         """Create a new artifact either locally or on the server
 
@@ -65,6 +66,9 @@ class ObjectArtifact(ArtifactBase):
 
         _checksum = calculate_sha256(_serialized, is_file=False)
 
+        kwargs.pop("size", None)
+        kwargs.pop("checksum", None)
+
         _artifact = ObjectArtifact(
             name=name,
             storage=storage,
@@ -74,6 +78,7 @@ class ObjectArtifact(ArtifactBase):
             metadata=metadata,
             _offline=offline,
             _read_only=False,
+            **kwargs,
         )
 
         if offline:

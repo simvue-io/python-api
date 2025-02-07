@@ -76,11 +76,9 @@ def test_file_artifact_creation_offline(offline_test: pathlib.Path) -> None:
     _artifact.attach_to_run(_run._identifier, category="input")
     assert _artifact.name == f"test_file_artifact_{_uuid}"
     sender(offline_test.joinpath(".simvue"), 1, 10)
-    time.sleep(1)
-    client = Client()
-    _run_id = client.get_run_id_from_name(f"test_file_artifact_creation_offline_{_uuid}")
-    client.get_artifact_as_file(_run_id, _artifact.name, offline_test.joinpath("downloaded").mkdir())
-    assert offline_test.joinpath("downloaded.txt").read_text() == "Hello World!"
+    import pdb; pdb.set_trace()
+    _content = b"".join(_artifact.download_content()).decode("UTF-8")
+    assert _content == f"Hello World! {_uuid}"
     _run.delete()
     _folder.delete()
 
