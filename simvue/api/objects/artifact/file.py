@@ -67,14 +67,14 @@ class FileArtifact(ArtifactBase):
             metadata=metadata,
         )
 
-        if offline:
-            return _artifact
-
         # Firstly submit a request for a new artifact, remove the run IDs
         # as these are not an argument for artifact creation
         _post_args = _artifact._staging.copy()
         _post_args.pop("runs", None)
         _artifact._init_data = _artifact._post(**_post_args)
+
+        if offline:
+            return _artifact
 
         with open(file_path, "rb") as out_f:
             _artifact._upload(file=out_f)
