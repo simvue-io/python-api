@@ -59,6 +59,12 @@ def upload_cached_file(
         _instance_class = getattr(simvue.api.objects, _exact_type)
     except AttributeError as e:
         raise RuntimeError(f"Attempt to initialise unknown type '{_exact_type}'") from e
+
+    # If it is an ObjectArtifact, need to load the object as bytes from a different file
+    if issubclass(_instance_class, simvue.api.objects.ObjectArtifact):
+        with open(file_path.parent.joinpath(f"{_current_id}.object"), "rb") as file:
+            _data["serialized"] = file.read()
+
     # We want to reconnect if there is an online ID stored for this file
     if _online_id := id_mapping.get(_current_id):
         obj_for_upload = _instance_class(

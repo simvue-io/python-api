@@ -18,7 +18,7 @@ class ObjectArtifact(ArtifactBase):
     def __init__(
         self, identifier: str | None = None, _read_only: bool = True, **kwargs
     ) -> None:
-        super().__init__(identifier, _read_only, original_path=None, **kwargs)
+        super().__init__(identifier, _read_only, original_path="", **kwargs)
 
     @classmethod
     @pydantic.validate_call
@@ -54,20 +54,29 @@ class ObjectArtifact(ArtifactBase):
             whether to define this artifact locally, default is False
 
         """
-        _serialization = serialize_object(obj, allow_pickling)
+        # If the object has been saved as a bytes file, obj will be None
+        if obj is None:
+            try:
+                _data_type = kwargs.pop("mime_type")
+                _serialized = kwargs.pop("serialized")
+                _checksum = kwargs.pop("checksum")
+                kwargs.pop("size")
+                kwargs.pop("original_path")
+            except KeyError:
+                raise ValueError("Must provide an object to be saved, not None.")
 
-        if not _serialization or not (_serialized := _serialization[0]):
-            raise ValueError(f"Could not serialize object of type '{type(obj)}'")
+        else:
+            _serialization = serialize_object(obj, allow_pickling)
 
-        if not (_data_type := _serialization[1]) and not allow_pickling:
-            raise ValueError(
-                f"Could not serialize object of type '{type(obj)}' without pickling"
-            )
+            if not _serialization or not (_serialized := _serialization[0]):
+                raise ValueError(f"Could not serialize object of type '{type(obj)}'")
 
-        _checksum = calculate_sha256(_serialized, is_file=False)
+            if not (_data_type := _serialization[1]) and not allow_pickling:
+                raise ValueError(
+                    f"Could not serialize object of type '{type(obj)}' without pickling"
+                )
 
-        kwargs.pop("size", None)
-        kwargs.pop("checksum", None)
+            _checksum = calculate_sha256(_serialized, is_file=False)
 
         _artifact = ObjectArtifact(
             name=name,
@@ -83,6 +92,13 @@ class ObjectArtifact(ArtifactBase):
 
         if offline:
             _artifact._init_data = {}
+            _artifact._staging["obj"] = None
+            _artifact._local_staging_file.parent.mkdir(parents=True, exist_ok=True)
+            with open(
+                _artifact._local_staging_file.parent.joinpath(f"{_artifact.id}.object"),
+                "wb",
+            ) as file:
+                file.write(_serialized)
 
         else:
             _artifact._init_data = _artifact._post(**_artifact._staging)
