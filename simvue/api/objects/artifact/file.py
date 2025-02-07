@@ -63,7 +63,8 @@ class FileArtifact(ArtifactBase):
             size=_file_size,
             mime_type=_mime_type,
             checksum=_file_checksum,
-            offline=offline,
+            _offline=offline,
+            _read_only=False,
             metadata=metadata,
         )
 

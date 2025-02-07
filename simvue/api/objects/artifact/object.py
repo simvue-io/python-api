@@ -72,6 +72,8 @@ class ObjectArtifact(ArtifactBase):
             mime_type=_data_type,
             checksum=_checksum,
             metadata=metadata,
+            _offline=offline,
+            _read_only=False,
         )
 
         if offline:
