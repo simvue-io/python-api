@@ -65,7 +65,7 @@ from .api.objects import (
 try:
     from typing import Self
 except ImportError:
-    from typing_extensions import Self
+    from typing_extensions import Self  # noqa: F401
 
 
 if typing.TYPE_CHECKING:

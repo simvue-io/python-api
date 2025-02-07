@@ -15,7 +15,7 @@ import pydantic
 try:
     from typing import Self
 except ImportError:
-    from typing_extensions import Self
+    from typing_extensions import Self  # noqa: F401
 
 from simvue.api.url import URL
 from simvue.exception import ObjectNotFoundError
@@ -49,8 +49,6 @@ class ArtifactBase(SimvueObject):
         # If the artifact is an online instance, need a place to store the response
         # from the initial creation
         self._init_data: dict[str, dict] = {}
-        if not self._staging.get("runs", None):
-            self._staging |= {"runs": {}}
 
     def commit(self) -> None:
         self._logger.info("Cannot call method 'commit' on write-once type 'Artifact'")
@@ -63,7 +61,6 @@ class ArtifactBase(SimvueObject):
             super().commit()
             return
 
-        _name = self._staging["name"]
         _run_artifacts_url = (
             URL(self._user_config.server.url)
             / f"runs/{run_id}/artifacts/{self._init_data['id']}"
@@ -77,7 +74,7 @@ class ArtifactBase(SimvueObject):
 
         get_json_from_response(
             expected_status=[http.HTTPStatus.OK],
-            scenario=f"adding artifact '{_name}' to run '{run_id}'",
+            scenario=f"adding artifact '{self.name}' to run '{run_id}'",
             response=_response,
         )
 
@@ -92,7 +89,7 @@ class ArtifactBase(SimvueObject):
             super().commit()
             return
 
-        if not (_url := self._init_data.get("url")):
+        if not (_url := self._staging.get("url")):
             return
 
         _name = self._staging["name"]
@@ -117,8 +114,13 @@ class ArtifactBase(SimvueObject):
             response=_response,
         )
 
+        # Temporarily remove read-only state
+        self.read_only(False)
+
+        # Update the server status to confirm file uploaded
         self.uploaded = True
         self.commit()
+        self.read_only(True)
 
     def _get(
         self, storage: str | None = None, url: str | None = None, **kwargs

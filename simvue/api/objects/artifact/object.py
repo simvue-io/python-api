@@ -73,14 +73,12 @@ class ObjectArtifact(ArtifactBase):
             checksum=_checksum,
             metadata=metadata,
         )
-        # Firstly submit a request for a new artifact, remove the run IDs
-        # as these are not an argument for artifact creation
-        _post_args = _artifact._staging.copy()
-        _post_args.pop("runs", None)
-        _artifact._init_data = _artifact._post(**_post_args)
 
         if offline:
             return _artifact
 
+        _artifact._init_data = _artifact._post(**_artifact._staging)
+
         _artifact._upload(file=io.BytesIO(_serialized))
+        _artifact._staging["runs"] = {}
         return _artifact
