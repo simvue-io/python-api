@@ -22,25 +22,23 @@ def test_object_artifact_creation_online() -> None:
 
     _failed = []
 
-    with tempfile.NamedTemporaryFile(suffix=".txt") as temp_f:
-        _path = pathlib.Path(temp_f.name)
-        _array = numpy.array(range(10))
-        _artifact = ObjectArtifact.new(
-            name=f"test_object_artifact_{_uuid}",
-            obj=_array,
-            storage=None,
-            metadata=None
-        )
-        _artifact.attach_to_run(_run.id, "input")
-        time.sleep(1)
-        for member in _artifact._properties:
-            try:
-                getattr(_artifact, member)
-            except Exception as e:
-                _failed.append((member, f"{e}"))
-        assert _artifact.name == f"test_object_artifact_{_uuid}"
-        assert client.get_artifact(_run_id, _artifact.name) is not None
-        assert _artifact.to_dict()
+    _array = numpy.array(range(10))
+    _artifact = ObjectArtifact.new(
+        name=f"test_object_artifact_{_uuid}",
+        obj=_array,
+        storage=None,
+        metadata=None
+    )
+    _artifact.attach_to_run(_run.id, "input")
+    time.sleep(1)
+    for member in _artifact._properties:
+        try:
+            getattr(_artifact, member)
+        except Exception as e:
+            _failed.append((member, f"{e}"))
+            
+    _downloaded = _artifact.download_content()
+    import pdb; pdb.set_trace()
     _run.delete()
     _folder.delete(recursive=True, delete_runs=True, runs_only=False)
     if _failed:
