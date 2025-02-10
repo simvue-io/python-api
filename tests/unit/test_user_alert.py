@@ -190,10 +190,10 @@ def test_user_alert_status_offline() -> None:
     _folder.commit()
     _run.alerts = [_alert.id]
     _run.commit()
-    
+
     sender(_alert._local_staging_file.parents[1], 1, 10, ["folders", "runs", "alerts"])
     time.sleep(1) 
-    
+
     _alert.set_status(_run.id, "critical")
     _alert.commit()
     import pdb; pdb.set_trace()
