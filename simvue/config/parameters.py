@@ -14,6 +14,7 @@ import pathlib
 
 import simvue.models as sv_models
 from simvue.utilities import get_expiry
+from simvue.api.url import URL
 
 
 logger = logging.getLogger(__file__)
@@ -25,8 +26,11 @@ class ServerSpecifications(pydantic.BaseModel):
 
     @pydantic.field_validator("url")
     @classmethod
-    def url_to_str(cls, v: typing.Any) -> str:
-        return f"{v}"
+    def url_to_api_url(cls, v: typing.Any) -> str:
+        if f"{v}".endswith("/api"):
+            return f"{v}"
+        _url = URL(f"{v}") / "api"
+        return f"{_url}"
 
     @pydantic.field_validator("token")
     def check_token(cls, v: typing.Any) -> str:
@@ -35,24 +39,25 @@ class ServerSpecifications(pydantic.BaseModel):
             raise AssertionError("Failed to parse Simvue token - invalid token form")
         if time.time() - expiry > 0:
             raise AssertionError("Simvue token has expired")
-        return value
+        return v
 
 
 class OfflineSpecifications(pydantic.BaseModel):
-    cache: typing.Optional[pathlib.Path] = None
+    cache: pathlib.Path | None = None
 
-    @pydantic.field_validator("cache")
-    @classmethod
-    def cache_to_str(cls, v: typing.Any) -> str:
-        return f"{v}"
+
+class MetricsSpecifications(pydantic.BaseModel):
+    resources_metrics_interval: pydantic.PositiveInt | None = -1
+    emission_metrics_interval: pydantic.PositiveInt | None = None
+    enable_emission_metrics: bool = False
 
 
 class DefaultRunSpecifications(pydantic.BaseModel):
-    name: typing.Optional[str] = None
-    description: typing.Optional[str] = None
-    tags: typing.Optional[list[str]] = None
+    name: str | None = None
+    description: str | None = None
+    tags: list[str] | None = None
     folder: str = pydantic.Field("/", pattern=sv_models.FOLDER_REGEX)
-    metadata: typing.Optional[dict[str, typing.Union[str, int, float, bool]]] = None
+    metadata: dict[str, str | int | float | bool] | None = None
     mode: typing.Literal["offline", "disabled", "online"] = "online"
 
 

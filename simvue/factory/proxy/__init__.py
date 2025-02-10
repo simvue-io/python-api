@@ -16,7 +16,7 @@ from .remote import Remote
 
 
 def Simvue(
-    name: typing.Optional[str],
+    name: str | None,
     uniq_id: str,
     mode: str,
     config: "SimvueConfiguration",

@@ -20,6 +20,7 @@ import simvue.utilities as sv_util
 from simvue.config.parameters import (
     ClientGeneralOptions,
     DefaultRunSpecifications,
+    MetricsSpecifications,
     ServerSpecifications,
     OfflineSpecifications,
 )
@@ -30,14 +31,13 @@ from simvue.config.files import (
     DEFAULT_OFFLINE_DIRECTORY,
 )
 from simvue.version import __version__
-from simvue.api import get
+from simvue.api.request import get as sv_get
+from simvue.api.url import URL
 
 logger = logging.getLogger(__name__)
 
-SIMVUE_SERVER_UPPER_CONSTRAINT: typing.Optional[semver.Version] = semver.Version.parse(
-    "1.0.0"
-)
-SIMVUE_SERVER_LOWER_CONSTRAINT: typing.Optional[semver.Version] = None
+SIMVUE_SERVER_UPPER_CONSTRAINT: semver.Version | None = semver.Version.parse("2.0.0")
+SIMVUE_SERVER_LOWER_CONSTRAINT: semver.Version | None = semver.Version.parse("1.0.0")
 
 
 class SimvueConfiguration(pydantic.BaseModel):
@@ -49,21 +49,22 @@ class SimvueConfiguration(pydantic.BaseModel):
     )
     run: DefaultRunSpecifications = DefaultRunSpecifications()
     offline: OfflineSpecifications = OfflineSpecifications()
+    metrics: MetricsSpecifications = MetricsSpecifications()
 
     @classmethod
-    def _load_pyproject_configs(cls) -> typing.Optional[dict]:
+    def _load_pyproject_configs(cls) -> dict | None:
         """Recover any Simvue non-authentication configurations from pyproject.toml"""
         _pyproject_toml = sv_util.find_first_instance_of_file(
             file_names=["pyproject.toml"], check_user_space=False
         )
 
         if not _pyproject_toml:
-            return
+            return None
 
         _project_data = toml.load(_pyproject_toml)
 
         if not (_simvue_setup := _project_data.get("tool", {}).get("simvue")):
-            return
+            return None
 
         # Do not allow reading of authentication credentials within a project file
         _server_credentials = _simvue_setup.get("server", {})
@@ -95,18 +96,21 @@ class SimvueConfiguration(pydantic.BaseModel):
             "User-Agent": f"Simvue Python client {__version__}",
         }
         try:
-            response = get(f"{url}/api/version", headers)
+            _url = URL(url) / "version"
+            _response = sv_get(f"{_url}", headers)
 
-            if response.status_code != http.HTTPStatus.OK or not (
-                _version_str := response.json().get("version")
+            if _response.status_code != http.HTTPStatus.OK or not (
+                _version_str := _response.json().get("version")
             ):
                 raise AssertionError
 
-            if response.status_code == http.HTTPStatus.UNAUTHORIZED:
+            if _response.status_code == http.HTTPStatus.UNAUTHORIZED:
                 raise AssertionError("Unauthorised token")
 
         except Exception as err:
-            raise AssertionError(f"Exception retrieving server version: {str(err)}")
+            raise AssertionError(
+                f"Exception retrieving server version:\n {str(err)}"
+            ) from err
 
         _version = semver.Version.parse(_version_str)
 
@@ -124,6 +128,11 @@ class SimvueConfiguration(pydantic.BaseModel):
                 f"< {SIMVUE_SERVER_LOWER_CONSTRAINT}"
             )
 
+    @pydantic.validate_call
+    def write(self, out_directory: pydantic.DirectoryPath) -> None:
+        with out_directory.joinpath(CONFIG_FILE_NAMES[0]).open("w") as out_f:
+            toml.dump(self.model_dump(), out_f)
+
     @pydantic.model_validator(mode="after")
     @classmethod
     def check_valid_server(cls, values: "SimvueConfiguration") -> bool:
@@ -138,9 +147,9 @@ class SimvueConfiguration(pydantic.BaseModel):
     @sv_util.prettify_pydantic
     def fetch(
         cls,
-        server_url: typing.Optional[str] = None,
-        server_token: typing.Optional[str] = None,
-        mode: typing.Optional[typing.Literal["offline", "online", "disabled"]] = None,
+        server_url: str | None = None,
+        server_token: str | None = None,
+        mode: typing.Literal["offline", "online", "disabled"] | None = None,
     ) -> "SimvueConfiguration":
         """Retrieve the Simvue configuration from this project
 
@@ -149,7 +158,7 @@ class SimvueConfiguration(pydantic.BaseModel):
 
         Parameters
         ----------
-        server_url : str, optional
+        server_url : str | URL, optional
             override the URL used for this session
         server_token : str, optional
             override the token used for this session
@@ -165,8 +174,6 @@ class SimvueConfiguration(pydantic.BaseModel):
         _config_dict: dict[str, dict[str, str]] = cls._load_pyproject_configs() or {}
 
         try:
-            logger.info(f"Using config file '{cls.config_file()}'")
-
             # NOTE: Legacy INI support has been removed
             _config_dict |= toml.load(cls.config_file())
 
@@ -190,17 +197,20 @@ class SimvueConfiguration(pydantic.BaseModel):
         _config_dict["offline"]["cache"] = _default_dir
 
         # Ranking of configurations for token and URl is:
-        # Envionment Variables > Run Definition > Configuration File
+        # Environment Variables > Run Definition > Configuration File
 
         _server_url = os.environ.get(
             "SIMVUE_URL", server_url or _config_dict["server"].get("url")
         )
 
+        if isinstance(_server_url, URL):
+            _server_url = str(_server_url)
+
         _server_token = os.environ.get(
             "SIMVUE_TOKEN", server_token or _config_dict["server"].get("token")
         )
 
-        _run_mode = mode or _config_dict["run"].get("mode")
+        _run_mode = mode or _config_dict["run"].get("mode") or "online"
 
         if not _server_url:
             raise RuntimeError("No server URL was specified")
@@ -218,10 +228,8 @@ class SimvueConfiguration(pydantic.BaseModel):
     @functools.lru_cache
     def config_file(cls) -> pathlib.Path:
         """Returns the path of top level configuration file used for the session"""
-        _config_file: typing.Optional[pathlib.Path] = (
-            sv_util.find_first_instance_of_file(
-                CONFIG_FILE_NAMES, check_user_space=True
-            )
+        _config_file: pathlib.Path | None = sv_util.find_first_instance_of_file(
+            CONFIG_FILE_NAMES, check_user_space=True
         )
 
         # NOTE: Legacy INI support has been removed

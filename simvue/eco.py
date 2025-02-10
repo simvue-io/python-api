@@ -3,7 +3,6 @@ import logging
 import datetime
 
 from codecarbon import EmissionsTracker
-from codecarbon.external.logger import logger
 from codecarbon.output_methods.base_output import BaseOutput as cc_BaseOutput
 from simvue.utilities import simvue_timestamp
 
@@ -12,21 +11,27 @@ if typing.TYPE_CHECKING:
     from codecarbon.output_methods.emissions_data import EmissionsData
 
 
+logger = logging.getLogger(__file__)
+
+
 class CodeCarbonOutput(cc_BaseOutput):
     def __init__(self, run: "Run") -> None:
-        self._meta_update: bool = True
         self._simvue_run = run
         self._metrics_step: int = 0
 
-    def out(self, total: "EmissionsData", delta: "EmissionsData") -> None:
+    def out(
+        self, total: "EmissionsData", delta: "EmissionsData", meta_update: bool = True
+    ) -> None:
         # Check if the run has been shutdown, if so do nothing
         if (
             self._simvue_run._shutdown_event
             and self._simvue_run._shutdown_event.is_set()
         ):
+            logger.debug("Terminating CodeCarbon tracker")
             return
 
-        if self._meta_update:
+        if meta_update:
+            logger.debug("Logging CodeCarbon metadata")
             self._simvue_run.update_metadata(
                 {
                     "codecarbon.country": total.country_name,
@@ -35,12 +40,12 @@ class CodeCarbonOutput(cc_BaseOutput):
                     "codecarbon.version": total.codecarbon_version,
                 }
             )
-            self._meta_update = False
 
         _cc_timestamp: datetime.datetime = datetime.datetime.strptime(
             total.timestamp, "%Y-%m-%dT%H:%M:%S"
         )
 
+        logger.debug("Logging CodeCarbon metrics")
         self._simvue_run.log_metrics(
             metrics={
                 "codecarbon.total.emissions": total.emissions,
@@ -54,7 +59,7 @@ class CodeCarbonOutput(cc_BaseOutput):
         self._metrics_step += 1
 
     def live_out(self, total: "EmissionsData", delta: "EmissionsData") -> None:
-        self.out(total, delta)
+        self.out(total, delta, meta_update=False)
 
 
 class SimvueEmissionsTracker(EmissionsTracker):
@@ -81,3 +86,4 @@ class SimvueEmissionsTracker(EmissionsTracker):
     def post_init(self) -> None:
         self._set_from_conf(self._simvue_run._id, "experiment_id")
         self._set_from_conf(self._simvue_run._name, "experiment_name")
+        self.start()

@@ -1,3 +1,5 @@
+import contextlib
+from numpy import fix
 import pytest
 import pytest_mock
 import typing
@@ -8,7 +10,11 @@ import os
 import json
 import pathlib
 import logging
+from simvue.api.objects.artifact import Artifact
+from simvue.exception import ObjectNotFoundError
 import simvue.run as sv_run
+import simvue.api.objects as sv_api_obj
+import simvue.config.user as sv_cfg
 import simvue.utilities
 
 MAX_BUFFER_SIZE: int = 10
@@ -33,7 +39,6 @@ def clear_out_files() -> None:
     out_files += list(pathlib.Path.cwd().glob("test_*.err"))
 
     for file_obj in out_files:
-        print(file_obj)
         file_obj.unlink()
 
 
@@ -54,7 +59,13 @@ def log_messages(caplog):
 @pytest.fixture
 def create_test_run(request) -> typing.Generator[typing.Tuple[sv_run.Run, dict], None, None]:
     with sv_run.Run() as run:
-        yield run, setup_test_run(run, True, request)
+        _test_run_data = setup_test_run(run, True, request)
+        yield run, _test_run_data
+    with contextlib.suppress(ObjectNotFoundError):
+        sv_api_obj.Folder(identifier=run._folder.id).delete(recursive=True, delete_runs=True, runs_only=False)
+    for alert_id in _test_run_data.get("alert_ids", []):
+        with contextlib.suppress(ObjectNotFoundError):
+            sv_api_obj.Alert(identifier=alert_id).delete()
     clear_out_files()
 
 
@@ -90,6 +101,17 @@ def create_plain_run_offline(mocker: pytest_mock.MockerFixture, request, monkeyp
     clear_out_files()
 
 
+@pytest.fixture
+def create_run_object() -> sv_api_obj.Run:
+    _fix_use_id: str = str(uuid.uuid4()).split('-', 1)[0]
+    _folder = sv_api_obj.Folder.new(path=f"/simvue_unit_testing/{_fix_use_id}")
+    _folder.commit()
+    _run = sv_api_obj.Run.new(folder=f"/simvue_unit_testing/{_fix_use_id}")
+    yield _run
+    _run.delete()
+    _folder.delete(recursive=True, runs_only=False, delete_runs=True)
+
+
 def setup_test_run(run: sv_run.Run, create_objects: bool, request: pytest.FixtureRequest, created_only: bool=False):
     fix_use_id: str = str(uuid.uuid4()).split('-', 1)[0]
     TEST_DATA = {
@@ -107,7 +129,7 @@ def setup_test_run(run: sv_run.Run, create_objects: bool, request: pytest.Fixtur
 
     run.config(suppress_errors=False)
     run.init(
-        name=f"test_run_{TEST_DATA['metadata']['test_identifier']}",
+        name=f"test_run_{TEST_DATA['metadata']['test_identifier']}_{uuid.uuid4()}",
         tags=TEST_DATA["tags"],
         folder=TEST_DATA["folder"],
         visibility="tenant" if os.environ.get("CI") else None,
@@ -120,37 +142,45 @@ def setup_test_run(run: sv_run.Run, create_objects: bool, request: pytest.Fixtur
     if run._dispatcher:
         run._dispatcher._max_buffer_size = MAX_BUFFER_SIZE
 
+    _alert_ids = []
+
     if create_objects:
         for i in range(5):
             run.log_event(f"{TEST_DATA['event_contains']} {i}")
 
         TEST_DATA['created_alerts'] = []
 
-        for i in range(5):
-            run.create_alert(name=f"test_alert/alert_{i}", source="events", frequency=1, pattern=TEST_DATA['event_contains'])
-            TEST_DATA['created_alerts'].append(f"test_alert/alert_{i}")
 
-        run.create_alert(
-            name='test_alert/value_below_1',
-            source='metrics',
+        for i in range(5):
+            _aid = run.create_event_alert(
+                name=f"test_alert/alert_{i}/{fix_use_id}",
+                frequency=1,
+                pattern=TEST_DATA['event_contains']
+            )
+            TEST_DATA['created_alerts'].append(f"test_alert/alert_{i}/{fix_use_id}")
+            _alert_ids.append(_aid)
+
+        _ta_id = run.create_metric_threshold_alert(
+            name=f'test_alert/value_below_1/{fix_use_id}',
             frequency=1,
             rule='is below',
             threshold=1,
             metric='metric_counter',
             window=2
         )
-        run.create_alert(
-            name='test_alert/value_above_1',
-            source='metrics',
+        _mr_id = run.create_metric_range_alert(
+            name=f'test_alert/value_within_1/{fix_use_id}',
             frequency=1,
-            rule='is above',
-            threshold=1,
+            rule = "is inside range",
+            range_low = 2,
+            range_high = 5,
             metric='metric_counter',
             window=2
         )
+        _alert_ids += [_ta_id, _mr_id]
         TEST_DATA['created_alerts'] += [
-            "test_alert/value_above_1",
-            "test_alert/value_below_1"
+            f"test_alert/value_below_1/{fix_use_id}",
+            f"test_alert/value_within_1/{fix_use_id}"
         ]
 
         for i in range(5):
@@ -160,6 +190,7 @@ def setup_test_run(run: sv_run.Run, create_objects: bool, request: pytest.Fixtur
 
     if create_objects:
         TEST_DATA["metrics"] = ("metric_counter", "metric_val")
+
     TEST_DATA["run_id"] = run._id
     TEST_DATA["run_name"] = run._name
     TEST_DATA["url"] = run._user_config.server.url
@@ -183,9 +214,21 @@ def setup_test_run(run: sv_run.Run, create_objects: bool, request: pytest.Fixtur
                 out_f.write(
                     "print('Hello World!')"
                 )
-            run.save_file(test_script, category="code", name="test_empty_file")
-            TEST_DATA["file_3"] = "test_empty_file"
+            run.save_file(test_script, category="code", name="test_code_upload")
+            TEST_DATA["file_3"] = "test_code_upload"
 
-    time.sleep(1.)
+    TEST_DATA["alert_ids"] = _alert_ids
+
     return TEST_DATA
+
+
+@pytest.fixture
+def offline_test() -> pathlib.Path:
+    with tempfile.TemporaryDirectory() as tempd:
+        _tempdir = pathlib.Path(tempd)
+        _cache_dir = _tempdir.joinpath(".simvue")
+        _cache_dir.mkdir(exist_ok=True)
+        os.environ["SIMVUE_OFFLINE_DIRECTORY"] = f"{_cache_dir}"
+        assert sv_cfg.SimvueConfiguration.fetch().offline.cache == _cache_dir
+        yield _tempdir
 

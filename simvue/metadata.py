@@ -8,13 +8,15 @@ Contains functions for extracting additional metadata about the current project
 
 import contextlib
 import typing
-import re
 import json
 import toml
-import importlib.metadata
+import logging
 import pathlib
+import flatdict
 
 from simvue.utilities import simvue_timestamp
+
+logger = logging.getLogger(__file__)
 
 
 def git_info(repository: str) -> dict[str, typing.Any]:
@@ -42,14 +44,12 @@ def git_info(repository: str) -> dict[str, typing.Any]:
     try:
         git_repo = git.Repo(repository, search_parent_directories=True)
         current_commit: git.Commit = git_repo.head.commit
-        author_list: set[str] = set(
+        author_list: set[str] = {
             email
             for commit in git_repo.iter_commits("--all")
             if "noreply" not in (email := (commit.author.email or ""))
             and "[bot]" not in (commit.author.name or "")
-        )
-
-        ref: str = current_commit.hexsha
+        }
 
         # In the case where the repository is dirty blame should point to the
         # current developer, not the person responsible for the latest commit
@@ -58,71 +58,65 @@ def git_info(repository: str) -> dict[str, typing.Any]:
         else:
             blame = current_commit.committer.email
 
-        for tag in git_repo.tags:
-            if tag.commit == current_commit:
-                ref = tag.name
-                break
-
+        ref: str = next(
+            (tag.name for tag in git_repo.tags if tag.commit == current_commit),
+            current_commit.hexsha,
+        )
         return {
-            "git.authors": json.dumps(list(author_list)),
-            "git.ref": ref,
-            "git.msg": current_commit.message.strip(),
-            "git.time_stamp": simvue_timestamp(current_commit.committed_datetime),
-            "git.blame": blame,
-            "git.url": git_repo.remote().url,
-            "git.dirty": dirty,
+            "git": {
+                "authors": json.dumps(list(author_list)),
+                "ref": ref,
+                "msg": current_commit.message.strip(),
+                "time_stamp": simvue_timestamp(current_commit.committed_datetime),
+                "blame": blame,
+                "url": git_repo.remote().url,
+                "dirty": dirty,
+            }
         }
     except (git.InvalidGitRepositoryError, ValueError):
         return {}
 
 
 def _python_env(repository: pathlib.Path) -> dict[str, typing.Any]:
-    """Retrieve a dictionary of Python dependencies if a file is available"""
-    meta: dict[str, str] = {}
-    req_meta: dict[str, str] = {}
+    """Retrieve a dictionary of Python dependencies if lock file is available"""
+    python_meta: dict[str, str] = {}
 
-    if (reqfile := pathlib.Path(repository).joinpath("requirements.txt")).exists():
-        with reqfile.open() as in_req:
-            requirement_lines = in_req.readlines()
-            req_meta = {}
+    if (pyproject_file := pathlib.Path(repository).joinpath("pyproject.toml")).exists():
+        content = toml.load(pyproject_file)
+        if (poetry_content := content.get("tool", {}).get("poetry", {})).get("name"):
+            python_meta |= {
+                "python.project.name": poetry_content["name"],
+                "python.project.version": poetry_content["version"],
+            }
+        elif other_content := content.get("project"):
+            python_meta |= {
+                "python.project.name": other_content["name"],
+                "python.project.version": other_content["version"],
+            }
 
-            for line in requirement_lines:
-                dependency, version = line.split("=", 1)
-                req_meta[dependency] = version
-    if (pptoml := pathlib.Path(repository).joinpath("pyproject.toml")).exists():
-        content = toml.load(pptoml)
+    if (poetry_lock_file := pathlib.Path(repository).joinpath("poetry.lock")).exists():
+        content = toml.load(poetry_lock_file).get("package", {})
+        python_meta |= {
+            f"python.environment.{package['name']}": package["version"]
+            for package in content
+        }
+    elif (uv_lock_file := pathlib.Path(repository).joinpath("uv.lock")).exists():
+        content = toml.load(uv_lock_file).get("package", {})
+        python_meta |= {
+            f"python.environment.{package['name']}": package["version"]
+            for package in content
+        }
+    else:
+        with contextlib.suppress((KeyError, ImportError)):
+            from pip._internal.operations.freeze import freeze
 
-        requirements = (project := content.get("project", {})).get("dependencies")
+            python_meta |= {
+                f"python.environment.{entry[0]}": entry[-1]
+                for line in freeze(local_only=True)
+                if (entry := line.split("=="))
+            }
 
-        if requirements:
-            requirements = [re.split("[=><]", dep, 1)[0] for dep in requirements]
-
-        requirements = requirements or (
-            project := content.get("tool", {}).get("poetry", {})
-        ).get("dependencies")
-
-        if version := project.get("version"):
-            meta |= {"python.project.version": version}
-
-        if name := project.get("name"):
-            meta |= {"python.project.name": name}
-
-        if not requirements:
-            return meta
-
-        req_meta = {}
-
-        for package in requirements:
-            if package == "python":
-                continue
-            # Cover case where package is an optional dependency and not installed
-            with contextlib.suppress(importlib.metadata.PackageNotFoundError):
-                req_meta[package] = importlib.metadata.version(package)
-
-    return meta | {
-        f"python.environment.{dependency}": version
-        for dependency, version in req_meta.items()
-    }
+    return python_meta
 
 
 def _rust_env(repository: pathlib.Path) -> dict[str, typing.Any]:
@@ -148,6 +142,62 @@ def _rust_env(repository: pathlib.Path) -> dict[str, typing.Any]:
     }
 
 
+def _julia_env(repository: pathlib.Path) -> dict[str, typing.Any]:
+    """Retrieve a dictionary of Julia dependencies if a project file is available"""
+    julia_meta: dict[str, str] = {}
+    if (project_file := pathlib.Path(repository).joinpath("Project.toml")).exists():
+        content = toml.load(project_file)
+        julia_meta |= {
+            f"julia.project.{key}": value
+            for key, value in content.items()
+            if not isinstance(value, dict)
+        }
+        julia_meta |= {
+            f"julia.environment.{key}": value
+            for key, value in content.get("compat", {}).items()
+        }
+    return julia_meta
+
+
+def _node_js_env(repository: pathlib.Path) -> dict[str, typing.Any]:
+    js_meta: dict[str, str] = {}
+    if (
+        project_file := pathlib.Path(repository).joinpath("package-lock.json")
+    ).exists():
+        content = json.load(project_file.open())
+        if (lfv := content["lockfileVersion"]) not in (1, 2, 3):
+            logger.warning(
+                f"Unsupported package-lock.json lockfileVersion {lfv}, ignoring JS project metadata"
+            )
+            return {}
+
+        js_meta |= {
+            f"javascript.project.{key}": value
+            for key, value in content.items()
+            if key in ("name", "version")
+        }
+        js_meta |= {
+            f"javascript.environment.{key.replace('@', '')}": value["version"]
+            for key, value in content.get(
+                "packages" if lfv in (2, 3) else "dependencies", {}
+            ).items()
+            if key and not value.get("dev", True)
+        }
+    return js_meta
+
+
 def environment(repository: pathlib.Path = pathlib.Path.cwd()) -> dict[str, typing.Any]:
     """Retrieve environment metadata"""
-    return _python_env(repository) | _rust_env(repository)
+    _environment_meta = flatdict.FlatDict(
+        _python_env(repository), delimiter="."
+    ).as_dict()
+    _environment_meta |= flatdict.FlatDict(
+        _rust_env(repository), delimiter="."
+    ).as_dict()
+    _environment_meta |= flatdict.FlatDict(
+        _julia_env(repository), delimiter="."
+    ).as_dict()
+    _environment_meta |= flatdict.FlatDict(
+        _node_js_env(repository), delimiter="."
+    ).as_dict()
+    return _environment_meta

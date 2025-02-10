@@ -2,7 +2,7 @@ import datetime
 import hashlib
 import logging
 import json
-import sys
+import mimetypes
 import tabulate
 import pydantic
 import importlib.util
@@ -15,6 +15,7 @@ import typing
 import jwt
 
 from datetime import timezone
+from simvue.models import DATETIME_FORMAT
 
 
 CHECKSUM_BLOCK_SIZE = 4096
@@ -27,8 +28,8 @@ if typing.TYPE_CHECKING:
 
 
 def find_first_instance_of_file(
-    file_names: typing.Union[list[str], str], check_user_space: bool = True
-) -> typing.Optional[pathlib.Path]:
+    file_names: list[str] | str, check_user_space: bool = True
+) -> pathlib.Path | None:
     """Traverses a file hierarchy from bottom upwards to find file
 
     Returns the first instance of 'file_names' found when moving
@@ -36,7 +37,6 @@ def find_first_instance_of_file(
 
     Parameters
     ----------
-    file_name: list[str] | str
         candidate names of file to locate
     check_user_space: bool, optional
         check the users home area if current working directory is not
@@ -95,12 +95,10 @@ def parse_validation_response(
         obj_type: str = issue["type"]
         location: list[str] = issue["loc"]
         location.remove("body")
-        location_addr: str = ""
-        for i, loc in enumerate(location):
-            if isinstance(loc, int):
-                location_addr += f"[{loc}]"
-            else:
-                location_addr += f"{'.' if i > 0 else ''}{loc}"
+        location_addr: str = "".join(
+            (f"[{loc}]" if isinstance(loc, int) else f"{'.' if i > 0 else ''}{loc}")
+            for i, loc in enumerate(location)
+        )
         headers = ["Type", "Location", "Message"]
         information = [obj_type, location_addr]
 
@@ -110,7 +108,7 @@ def parse_validation_response(
             input_arg = body
             for loc in location:
                 try:
-                    input_arg = input_arg[loc]
+                    input_arg = None if obj_type == "missing" else input_arg[loc]
                 except TypeError:
                     break
             information.append(input_arg)
@@ -125,8 +123,8 @@ def parse_validation_response(
 
 def check_extra(extra_name: str) -> typing.Callable:
     def decorator(
-        class_func: typing.Optional[typing.Callable] = None,
-    ) -> typing.Optional[typing.Callable]:
+        class_func: typing.Callable | None = None,
+    ) -> typing.Callable | None:
         @functools.wraps(class_func)
         def wrapper(self, *args, **kwargs) -> typing.Any:
             if extra_name == "plot" and not all(
@@ -139,13 +137,9 @@ def check_extra(extra_name: str) -> typing.Callable:
                     f"Plotting features require the '{extra_name}' extension to Simvue"
                 )
             elif extra_name == "torch":
-                if importlib.util.find_spec("torch"):
+                if not importlib.util.find_spec("torch"):
                     raise RuntimeError(
                         "PyTorch features require the 'torch' module to be installed"
-                    )
-                if sys.version_info.minor > 12:
-                    raise RuntimeError(
-                        "PyTorch features are not yet supported for python>3.12"
                     )
             elif extra_name not in EXTRAS:
                 raise RuntimeError(f"Unrecognised extra '{extra_name}'")
@@ -156,14 +150,44 @@ def check_extra(extra_name: str) -> typing.Callable:
     return decorator
 
 
-def parse_pydantic_error(class_name: str, error: pydantic.ValidationError) -> str:
+def parse_pydantic_error(error: pydantic.ValidationError) -> str:
     out_table: list[str] = []
     for data in json.loads(error.json()):
+        _input = data.get("input") if data["input"] is not None else "None"
+        if isinstance(_input, dict):
+            _input_str = json.dumps(_input, indent=2)
+            _input_str = "\n".join(
+                f"{line[:47]}..." if len(line) > 50 else line
+                for line in _input_str.split("\n")
+            )
+        else:
+            _input_str = (
+                _input_str
+                if len((_input_str := f"{_input}")) < 50
+                else f"{_input_str[:50]}..."
+            )
+        _type: str = data["type"]
+
+        _skip_type_compare_for = (
+            "error",
+            "missing",
+            "unexpected",
+            "union_tag",
+            "parsing",
+            "scheme",
+            "syntax",
+        )
+
+        if (_input_type := type(_input)) != _type and all(
+            e not in _type for e in _skip_type_compare_for
+        ):
+            _type = f"{_input_type.__name__} != {_type}"
+
         out_table.append(
             [
-                data.get("input") if data["input"] is not None else "None",
+                _input_str,
                 data["loc"],
-                data["type"],
+                _type,
                 data["msg"],
             ]
         )
@@ -172,13 +196,13 @@ def parse_pydantic_error(class_name: str, error: pydantic.ValidationError) -> st
         headers=["Input", "Location", "Type", "Message"],
         tablefmt="fancy_grid",
     )
-    return f"`{class_name}` Validation:\n{err_table}"
+    return f"`{error.title}` Validation:\n{err_table}"
 
 
 def skip_if_failed(
     failure_attr: str,
     ignore_exc_attr: str,
-    on_failure_return: typing.Optional[typing.Any] = None,
+    on_failure_return: typing.Any | None = None,
 ) -> typing.Callable:
     """Decorator for ensuring if Simvue throws an exception any other code continues.
 
@@ -219,7 +243,7 @@ def skip_if_failed(
             try:
                 return class_func(self, *args, **kwargs)
             except pydantic.ValidationError as e:
-                error_str = parse_pydantic_error(class_func.__name__, e)
+                error_str = parse_pydantic_error(e)
                 if getattr(self, ignore_exc_attr, True):
                     setattr(self, failure_attr, True)
                     logger.error(error_str)
@@ -256,7 +280,7 @@ def prettify_pydantic(class_func: typing.Callable) -> typing.Callable:
         try:
             return class_func(self, *args, **kwargs)
         except pydantic.ValidationError as e:
-            error_str = parse_pydantic_error(class_func.__name__, e)
+            error_str = parse_pydantic_error(e)
             raise RuntimeError(error_str)
 
     return wrapper
@@ -284,11 +308,11 @@ def remove_file(filename: str) -> None:
             logger.error("Unable to remove file %s due to: %s", filename, str(err))
 
 
-def get_expiry(token) -> typing.Optional[int]:
+def get_expiry(token) -> int | None:
     """
     Get expiry date from a JWT token
     """
-    expiry: typing.Optional[int] = None
+    expiry: int | None = None
     with contextlib.suppress(jwt.DecodeError):
         expiry = jwt.decode(token, options={"verify_signature": False})["exp"]
 
@@ -307,7 +331,7 @@ def prepare_for_api(data_in, all=True):
     return data
 
 
-def calculate_sha256(filename: str, is_file: bool) -> typing.Optional[str]:
+def calculate_sha256(filename: str | typing.Any, is_file: bool) -> str | None:
     """
     Calculate sha256 checksum of the specified file
     """
@@ -340,29 +364,7 @@ def validate_timestamp(timestamp):
     return True
 
 
-def compare_alerts(first, second):
-    """ """
-    for key in ("name", "description", "source", "frequency", "notification"):
-        if key in first and key in second:
-            if not first[key]:
-                continue
-
-            if first[key] != second[key]:
-                return False
-
-    if "alerts" in first and "alerts" in second:
-        for key in ("rule", "window", "metric", "threshold", "range_low", "range_high"):
-            if key in first["alerts"] and key in second["alerts"]:
-                if not first[key]:
-                    continue
-
-                if first["alerts"][key] != second["alerts"]["key"]:
-                    return False
-
-    return True
-
-
-def simvue_timestamp(date_time: typing.Optional[datetime.datetime] = None) -> str:
+def simvue_timestamp(date_time: datetime.datetime | None = None) -> str:
     """Return the Simvue valid timestamp
 
     Parameters
@@ -377,4 +379,19 @@ def simvue_timestamp(date_time: typing.Optional[datetime.datetime] = None) -> st
     """
     if not date_time:
         date_time = datetime.datetime.now(timezone.utc)
-    return date_time.strftime("%Y-%m-%d %H:%M:%S.%f")
+    return date_time.strftime(DATETIME_FORMAT)
+
+
+@functools.lru_cache
+def get_mimetypes() -> list[str]:
+    """Returns a list of allowed MIME types"""
+    mimetypes.init()
+    _valid_mimetypes = ["application/vnd.plotly.v1+json"]
+    _valid_mimetypes += list(mimetypes.types_map.values())
+    return _valid_mimetypes
+
+
+def get_mimetype_for_file(file_path: pathlib.Path) -> str:
+    """Return MIME type for the given file"""
+    _guess, *_ = mimetypes.guess_type(file_path)
+    return _guess or "application/octet-stream"

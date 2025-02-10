@@ -1,7 +1,9 @@
 from simvue.serialization import serialize_object
 import numpy as np
+import pytest
 
-def test_numpy_array_mime_type():
+@pytest.mark.local
+def test_numpy_array_mime_type() -> None:
     """
     Check that the mimetype for numpy arrays is correct
     """

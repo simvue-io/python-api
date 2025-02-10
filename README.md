@@ -76,14 +76,15 @@ if __name__ == "__main__":
         run.save_file('params.in', 'input')
 
         # Add an alert (the alert definition will be created if necessary)
-        run.create_alert(name='loss-too-high',   # Name
-                      source='metrics',       # Source
-                      rule='is above',        # Rule
-                      metric='loss',          # Metric
-                      frequency=1,            # Frequency
-                      window=1,               # Window
-                      threshold=10,           # Threshold
-                      notification='email')   # Notification type
+        run.create_metric_threshold_alert(
+              name='loss-too-high',   # Name
+              rule='is above',        # Rule
+              metric='loss',          # Metric
+              frequency=1,            # Frequency
+              window=1,               # Window
+              threshold=10,           # Threshold
+              notification='email'   # Notification type
+        )
 
         ...
 

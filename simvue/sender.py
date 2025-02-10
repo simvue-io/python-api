@@ -1,331 +1,163 @@
-from concurrent.futures import ThreadPoolExecutor
-import glob
+"""
+Simvue Sender
+==============
+
+Function to send data cached by Simvue in Offline mode to the server.
+"""
+
 import json
-import typing
+import pydantic
 import logging
-import os
-import shutil
-import time
-
-import msgpack
-
+from concurrent.futures import ThreadPoolExecutor
+import threading
 from simvue.config.user import SimvueConfiguration
 
-from .factory.proxy.remote import Remote
-from .utilities import create_file, remove_file
+import simvue.api.objects
 
-logger = logging.getLogger(__name__)
+UPLOAD_ORDER: list[str] = [
+    "tenants",
+    "users",
+    "storage",
+    "folders",
+    "tags",
+    "alerts",
+    "runs",
+    "artifacts",
+    "metrics",
+    "events",
+]
 
-NUM_PARALLEL_WORKERS = 10
-MAX_RUNS = 10
+_logger = logging.getLogger(__name__)
 
 
-def set_details(name, id, filename):
+def upload_cached_file(
+    cache_dir: pydantic.DirectoryPath,
+    obj_type: str,
+    file_path: pydantic.FilePath,
+    id_mapping: dict[str, str],
+    lock: threading.Lock,
+):
+    """Upload data stored in a cached file to the Simvue server.
+
+    Parameters
+    ----------
+    cache_dir : pydantic.DirectoryPath
+        The directory where cached files are stored
+    obj_type : str
+        The type of object which should be created for this cached file
+    file_path : pydantic.FilePath
+        The path to the cached file to upload
+    id_mapping : dict[str, str]
+        A mapping of offline to online object IDs
+    lock : threading.Lock
+        A lock to prevent multiple threads accessing the id mapping directory at once
     """
-    Write name & id to file
-    """
-    data = {"name": name, "id": id}
-    with open(filename, "w") as fh:
-        json.dump(data, fh)
+    _current_id = file_path.name.split(".")[0]
+    _data = json.load(file_path.open())
+    _exact_type: str = _data.pop("obj_type")
+    try:
+        _instance_class = getattr(simvue.api.objects, _exact_type)
+    except AttributeError as e:
+        raise RuntimeError(f"Attempt to initialise unknown type '{_exact_type}'") from e
 
+    # If it is an ObjectArtifact, need to load the object as bytes from a different file
+    if issubclass(_instance_class, simvue.api.objects.ObjectArtifact):
+        with open(file_path.parent.joinpath(f"{_current_id}.object"), "rb") as file:
+            _data["serialized"] = file.read()
 
-def get_details(name):
-    """
-    Get name & id from file
-    """
-    with open(name) as fh:
-        data = json.load(fh)
-        return data["name"], data["id"]
-
-
-def update_name(id, data):
-    """
-    Update id in metrics/events
-    """
-    for item in data:
-        item["id"] = id
-
-
-def add_name(name, data, filename):
-    """
-    Update name in JSON
-    """
-    if not data["name"]:
-        data["name"] = name
-        with open(filename, "w") as fh:
-            json.dump(data, fh)
-
-    return data
-
-
-def read_json(filename):
-    with open(filename, "r") as fh:
-        return json.load(fh)
-
-
-def get_json(filename, run_id=None, artifact=False):
-    """
-    Get JSON from a file
-    """
-    with open(filename, "r") as fh:
-        data = json.load(fh)
-    if run_id:
-        if artifact:
-            for item in data:
-                if item == "run":
-                    data[item] = run_id
-            return data
-
-        if "run" in data:
-            data["run"] = run_id
-        else:
-            data["id"] = run_id
-
-    return data
-
-
-def sender(
-    server_url: typing.Optional[str] = None, server_token: typing.Optional[str] = None
-) -> str:
-    """
-    Asynchronous upload of runs to Simvue server
-    """
-    directory = SimvueConfiguration.fetch(mode="offline").offline.cache
-
-    # Clean up old runs after waiting 5 mins
-    runs = glob.glob(f"{directory}/*/sent")
-
-    for run in runs:
-        id = run.split("/")[len(run.split("/")) - 2]
-        logger.info("Cleaning up directory with id %s", id)
-
-        if time.time() - os.path.getmtime(run) > 300:
-            try:
-                shutil.rmtree(f"{directory}/{id}")
-            except Exception:
-                logger.error("Got exception trying to cleanup run in directory %s", id)
-
-    # Deal with runs in the created, running or a terminal state
-    runs = (
-        glob.glob(f"{directory}/*/created")
-        + glob.glob(f"{directory}/*/running")
-        + glob.glob(f"{directory}/*/completed")
-        + glob.glob(f"{directory}/*/failed")
-        + glob.glob(f"{directory}/*/terminated")
-    )
-
-    if len(runs) > MAX_RUNS:
-        logger.info("Lauching %d workers", NUM_PARALLEL_WORKERS)
-        with ThreadPoolExecutor(NUM_PARALLEL_WORKERS) as executor:
-            for run in runs:
-                executor.submit(
-                    process(run, server_token=server_token, server_url=server_url)
-                )
-        return [executor.result() for _ in runs]
-    else:
-        return [process(run) for run in runs]
-
-
-def process(
-    run, server_url: typing.Optional[str], server_token: typing.Optional[str]
-) -> typing.Optional[str]:
-    """
-    Handle updates for the specified run
-    """
-    status = None
-
-    if run.endswith("running"):
-        status = "running"
-    if run.endswith("created"):
-        status = "created"
-    elif run.endswith("completed"):
-        status = "completed"
-    elif run.endswith("failed"):
-        status = "failed"
-    elif run.endswith("terminated"):
-        status = "terminated"
-
-    current = (
-        run.replace("/running", "")
-        .replace("/completed", "")
-        .replace("/failed", "")
-        .replace("/terminated", "")
-        .replace("/created", "")
-    )
-
-    if os.path.isfile(f"{current}/sent"):
-        if status == "running":
-            remove_file(f"{current}/running")
-        elif status == "completed":
-            remove_file(f"{current}/completed")
-        elif status == "failed":
-            remove_file(f"{current}/failed")
-        elif status == "terminated":
-            remove_file(f"{current}/terminated")
-        elif status == "created":
-            remove_file(f"{current}/created")
-        return
-
-    id = run.split("/")[len(run.split("/")) - 2]
-
-    run_init = get_json(f"{current}/run.json")
-    start_time = os.path.getctime(f"{current}/run.json")
-
-    if run_init["name"]:
-        logger.info("Considering run with name %s and id %s", run_init["name"], id)
-    else:
-        logger.info("Considering run with no name yet and id %s", id)
-
-    # Create run if it hasn't previously been created
-    created_file = f"{current}/init"
-    name = None
-    config = SimvueConfiguration.fetch(
-        mode="online", server_token=server_token, server_url=server_url
-    )
-    if not os.path.isfile(created_file):
-        remote = Remote(
-            name=run_init["name"], uniq_id=id, config=config, suppress_errors=False
+    # We want to reconnect if there is an online ID stored for this file
+    if _online_id := id_mapping.get(_current_id):
+        obj_for_upload = _instance_class(
+            identifier=_online_id, _read_only=False, **_data
         )
+    else:
+        obj_for_upload = _instance_class.new(**_data)
 
-        name, run_id = remote.create_run(run_init)
-        if name:
-            logger.info("Creating run with name %s and id %s", name, id)
-            run_init = add_name(name, run_init, f"{current}/run.json")
-            set_details(name, run_id, created_file)
-        else:
-            logger.error("Failure creating run")
+    with lock:
+        obj_for_upload.on_reconnect(id_mapping)
+
+    try:
+        obj_for_upload.commit()
+        _new_id = obj_for_upload.id
+    except RuntimeError as error:
+        if "status 409" in error.args[0]:
             return
-    else:
-        name, run_id = get_details(created_file)
-        run_init["name"] = name
-        remote = Remote(
-            name=run_init["name"], uniq_id=run_id, config=config, suppress_errors=False
+        raise error
+    if not _new_id:
+        raise RuntimeError(
+            f"Object of type '{obj_for_upload.__class__.__name__}' has no identifier"
         )
+    if id_mapping.get(_current_id):
+        _logger.info(f"Updated {obj_for_upload.__class__.__name__} '{_new_id}'")
+    else:
+        _logger.info(f"Created {obj_for_upload.__class__.__name__} '{_new_id}'")
+    file_path.unlink(missing_ok=True)
+    if issubclass(_instance_class, simvue.api.objects.ObjectArtifact):
+        file_path.parent.joinpath(f"{_current_id}.object").unlink()
 
-    if status == "running":
-        # Check for recent heartbeat
-        heartbeat_filename = f"{current}/heartbeat"
-        if os.path.isfile(heartbeat_filename):
-            mtime = os.path.getmtime(heartbeat_filename)
-            if time.time() - mtime > 180:
-                status = "lost"
+    with lock:
+        id_mapping[_current_id] = _new_id
 
-        # Check for no recent heartbeat
-        if not os.path.isfile(heartbeat_filename):
-            if time.time() - start_time > 180:
-                status = "lost"
+    if obj_type in {"alerts", "runs", "folders", "tags"}:
+        cache_dir.joinpath("server_ids", f"{_current_id}.txt").write_text(_new_id)
 
-    # Handle lost runs
-    if status == "lost":
-        logger.info("Changing status to lost, name %s and id %s", run_init["name"], id)
-        status = "lost"
-        create_file(f"{current}/lost")
-        remove_file(f"{current}/running")
+    if (
+        obj_type == "runs"
+        and cache_dir.joinpath(f"{obj_type}", f"{_current_id}.closed").exists()
+    ):
+        # Get list of alerts created by this run - their IDs can be deleted
+        for id in _data.get("alerts", []):
+            cache_dir.joinpath("server_ids", f"{id}.txt").unlink()
 
-    # Send heartbeat if the heartbeat file was touched recently
-    heartbeat_filename = f"{current}/heartbeat"
-    if os.path.isfile(heartbeat_filename):
-        if (
-            status == "running"
-            and time.time() - os.path.getmtime(heartbeat_filename) < 120
-        ):
-            logger.info("Sending heartbeat for run with name %s", run_init["name"])
-            remote.send_heartbeat()
+        cache_dir.joinpath("server_ids", f"{_current_id}.txt").unlink()
+        cache_dir.joinpath(f"{obj_type}", f"{_current_id}.closed").unlink()
+        _logger.info(f"Run {_current_id} closed - deleting cached copies...")
 
-    metrics_gathered = []
-    events_gathered = []
 
-    # Upload metrics, events, files & metadata as necessary
-    files = sorted(glob.glob(f"{current}/*"), key=os.path.getmtime)
-    updates = 0
-    for record in files:
-        if (
-            record.endswith("/run.json")
-            or record.endswith("/running")
-            or record.endswith("/completed")
-            or record.endswith("/failed")
-            or record.endswith("/terminated")
-            or record.endswith("/lost")
-            or record.endswith("/sent")
-            or record.endswith("-proc")
-        ):
-            continue
+@pydantic.validate_call
+def sender(
+    cache_dir: pydantic.DirectoryPath | None = None,
+    max_workers: int = 5,
+    threading_threshold: int = 10,
+    objects_to_upload: list[str] = UPLOAD_ORDER,
+):
+    """Send data from a local cache directory to the Simvue server.
 
-        rename = False
+    Parameters
+    ----------
+    cache_dir : pydantic.DirectoryPath
+         The directory where cached files are stored
+    max_workers : int
+        The maximum number of threads to use
+    threading_threshold : int
+        The number of cached files above which threading will be used
+    objects_to_upload : list[str]
+        Types of objects to upload, by default uploads all types of objects present in cache
+    """
+    cache_dir = cache_dir or SimvueConfiguration.fetch().offline.cache
+    cache_dir.joinpath("server_ids").mkdir(parents=True, exist_ok=True)
+    _id_mapping: dict[str, str] = {
+        file_path.name.split(".")[0]: file_path.read_text()
+        for file_path in cache_dir.glob("server_ids/*.txt")
+    }
+    _lock = threading.Lock()
+    _upload_order = [item for item in UPLOAD_ORDER if item in objects_to_upload]
 
-        # Handle metrics
-        if "/metrics-" in record:
-            logger.info("Gathering metrics for run %s", run_init["name"])
-            data = get_json(record, run_id)
-            metrics_gathered = metrics_gathered + data["metrics"]
-            rename = True
-
-        # Handle events
-        if "/events-" in record:
-            logger.info("Gathering events for run %s", run_init["name"])
-            data = get_json(record, run_id)
-            events_gathered = events_gathered + data["events"]
-            rename = True
-
-        # Handle updates
-        if "/update-" in record:
-            logger.info("Sending update for run %s", run_init["name"])
-            data = get_json(record, run_id)
-            if remote.update(data):
-                for item in data:
-                    if item == "status" and data[item] in (
-                        "completed",
-                        "failed",
-                        "terminated",
-                    ):
-                        create_file(f"{current}/sent")
-                        remove_file(f"{current}/{status}")
-                rename = True
-
-        # Handle folders
-        if "/folder-" in record:
-            logger.info("Sending folder details for run %s", run_init["name"])
-            if remote.set_folder_details(get_json(record, run_id)):
-                rename = True
-
-        # Handle alerts
-        if "/alert-" in record:
-            logger.info("Sending alert details for run %s", run_init["name"])
-            if remote.add_alert(get_json(record, run_id)):
-                rename = True
-
-        # Handle files
-        if "/file-" in record:
-            logger.info("Saving file for run %s", run_init["name"])
-            if remote.save_file(get_json(record, run_id, True)):
-                rename = True
-
-        # Rename processed files
-        if rename:
-            os.rename(record, f"{record}-proc")
-            updates += 1
-
-    # Send metrics if necessary
-    if metrics_gathered:
-        logger.info("Sending metrics for run %s", run_init["name"])
-        data = {"metrics": metrics_gathered, "run": run_id}
-        remote.send_metrics(msgpack.packb(data, use_bin_type=True))
-
-    # Send events if necessary
-    if events_gathered:
-        logger.info("Sending events for run %s", run_init["name"])
-        data = {"events": events_gathered, "run": run_id}
-        remote.send_event(msgpack.packb(data, use_bin_type=True))
-
-    # If the status is completed and there were no updates, the run must have completely finished
-    if updates == 0 and status in ("completed", "failed", "terminated"):
-        logger.info("Finished sending run %s", run_init["name"])
-        data = {"id": run_id, "status": status}
-        if remote.update(data):
-            create_file(f"{current}/sent")
-            remove_file(f"{current}/{status}")
-    elif updates == 0 and status == "lost":
-        logger.info("Finished sending run %s as it was lost", run_init["name"])
-        create_file(f"{current}/sent")
-
-    return run_id
+    for _obj_type in _upload_order:
+        _offline_files = list(cache_dir.glob(f"{_obj_type}/*.json"))
+        if len(_offline_files) < threading_threshold:
+            for file_path in _offline_files:
+                upload_cached_file(cache_dir, _obj_type, file_path, _id_mapping, _lock)
+        else:
+            with ThreadPoolExecutor(max_workers=max_workers) as executor:
+                _results = executor.map(
+                    lambda file_path: upload_cached_file(
+                        cache_dir=cache_dir,
+                        obj_type=_obj_type,
+                        file_path=file_path,
+                        id_mapping=_id_mapping,
+                        lock=_lock,
+                    ),
+                    _offline_files,
+                )
+    return _id_mapping

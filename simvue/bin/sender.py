@@ -1,35 +1,44 @@
 """Send runs to server"""
 
-import getpass
 import logging
-import os
-import sys
-import tempfile
 
-from simvue.sender import sender
-from simvue.utilities import create_file, remove_file
+from simvue.sender import sender, UPLOAD_ORDER
+import argparse
 
-logger = logging.getLogger()
-logger.setLevel(logging.DEBUG)
-
-handler = logging.StreamHandler(sys.stdout)
-handler.setLevel(logging.INFO)
-formatter = logging.Formatter("%(asctime)s - %(name)s - %(levelname)s - %(message)s")
-handler.setFormatter(formatter)
-logger.addHandler(handler)
+_logger = logging.getLogger(__name__)
+_logger.setLevel(logging.INFO)
 
 
 def run() -> None:
-    lockfile = os.path.join(tempfile.gettempdir(), f"simvue-{getpass.getuser()}.lock")
-
-    if os.path.isfile(lockfile):
-        logger.error("Cannot initiate run, locked by other process.")
-        sys.exit(1)
-
-    create_file(lockfile)
+    parser = argparse.ArgumentParser(description="My script description")
+    parser.add_argument(
+        "-w",
+        "--max-workers",
+        type=int,
+        required=False,
+        default=5,
+        help="The maximum number of worker threads to use in parallel, by default 5",
+    )
+    parser.add_argument(
+        "-n",
+        "--threading-threshold",
+        type=int,
+        required=False,
+        default=10,
+        help="The number of objects of a given type above which items will be sent to the server in parallel, by default 10",
+    )
+    parser.add_argument(
+        "-o",
+        "--objects-to-upload",
+        type=str,
+        nargs="+",
+        required=False,
+        default=UPLOAD_ORDER,
+        help="The object types to upload, by default All",
+    )
+    args = parser.parse_args()
     try:
-        sender()
+        _logger.info("Starting Simvue Sender")
+        sender(**vars(args))
     except Exception as err:
-        logger.critical("Exception running sender: %s", str(err))
-
-    remove_file(lockfile)
+        _logger.critical("Exception running sender: %s", str(err))

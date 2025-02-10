@@ -24,9 +24,9 @@ from simvue.factory.dispatch.direct import DirectDispatcher
 @pytest.mark.parametrize("multiple", (True, False), ids=("multiple", "single"))
 def test_queued_dispatcher(overload_buffer: bool, multiple: bool, append_during_dispatch: bool) -> None:
     buffer_size: int = 10
-    n_elements: int = buffer_size - 1 if not overload_buffer else 2 * buffer_size
+    n_elements: int = 2 * buffer_size if overload_buffer else buffer_size - 1
     max_read_rate: float = 0.2
-    time_threshold: float = 1 if not overload_buffer else 1 + (1 / max_read_rate)
+    time_threshold: float = 1 + (1 / max_read_rate) if overload_buffer else 1
 
     start_time = time.time()
 
@@ -80,7 +80,7 @@ def test_nested_queued_dispatch(multi_queue: bool) -> None:
     buffer_size: int = 10
     n_elements: int = 2 * buffer_size
     max_read_rate: float = 0.2
-    variable: str | list[str] = "demo" if not multi_queue else ["events", "metrics"]
+    variable: str | list[str] = ["events", "metrics"] if multi_queue else "demo"
 
     result_queue = Queue()
 
@@ -111,7 +111,7 @@ def test_nested_queued_dispatch(multi_queue: bool) -> None:
                         dispatcher.add_item({string.ascii_uppercase[i % 26]: i}, var, False)
         except(RuntimeError):
             res_queue.put("AARGHGHGHGHAHSHGHSDHFSEDHSE")
-        
+ 
         time.sleep(0.1)
 
         while not dispatcher.empty:

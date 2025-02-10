@@ -5,7 +5,7 @@ import http
 if typing.TYPE_CHECKING:
     from simvue.config.user import SimvueConfiguration
 
-from simvue.api import get, post, put
+from simvue.api.request import get, post, put
 from simvue.factory.proxy.base import SimvueBaseClass
 from simvue.utilities import prepare_for_api, skip_if_failed
 from simvue.version import __version__
@@ -23,7 +23,7 @@ class Remote(SimvueBaseClass):
 
     def __init__(
         self,
-        name: typing.Optional[str],
+        name: str | None,
         uniq_id: str,
         config: "SimvueConfiguration",
         suppress_errors: bool = True,
@@ -46,7 +46,7 @@ class Remote(SimvueBaseClass):
         logger.debug("Retrieving existing tags")
         try:
             response = get(
-                f"{self._user_config.server.url}/api/runs/{self._id}", self._headers
+                f"{self._user_config.server.url}/runs/{self._id}", self._headers
             )
         except Exception as err:
             self._error(f"Exception retrieving tags: {str(err)}")
@@ -66,13 +66,10 @@ class Remote(SimvueBaseClass):
             )
             return []
 
-        if response.status_code == http.HTTPStatus.OK:
-            return data
-
-        return []
+        return data if response.status_code == http.HTTPStatus.OK else []
 
     @skip_if_failed("_aborted", "_suppress_errors", (None, None))
-    def create_run(self, data) -> tuple[typing.Optional[str], typing.Optional[int]]:
+    def create_run(self, data) -> tuple[str, str | None]:
         """
         Create a run
         """
@@ -80,7 +77,7 @@ class Remote(SimvueBaseClass):
             logger.debug("Creating folder %s if necessary", data.get("folder"))
             try:
                 response = post(
-                    f"{self._user_config.server.url}/api/folders",
+                    f"{self._user_config.server.url}/folders",
                     self._headers,
                     {"path": data.get("folder")},
                 )
@@ -104,9 +101,7 @@ class Remote(SimvueBaseClass):
         logger.debug('Creating run with data: "%s"', data)
 
         try:
-            response = post(
-                f"{self._user_config.server.url}/api/runs", self._headers, data
-            )
+            response = post(f"{self._user_config.server.url}/runs", self._headers, data)
         except Exception as err:
             self._error(f"Exception creating run: {str(err)}")
             return (None, None)
@@ -135,7 +130,7 @@ class Remote(SimvueBaseClass):
     @skip_if_failed("_aborted", "_suppress_errors", None)
     def update(
         self, data: dict[str, typing.Any], _=None
-    ) -> typing.Optional[dict[str, typing.Any]]:
+    ) -> dict[str, typing.Any] | None:
         """
         Update metadata, tags or status
         """
@@ -145,9 +140,7 @@ class Remote(SimvueBaseClass):
         logger.debug('Updating run with data: "%s"', data)
 
         try:
-            response = put(
-                f"{self._user_config.server.url}/api/runs", self._headers, data
-            )
+            response = put(f"{self._user_config.server.url}/runs", self._headers, data)
         except Exception as err:
             self._error(f"Exception updating run: {err}")
             return None
@@ -165,9 +158,7 @@ class Remote(SimvueBaseClass):
         return None
 
     @skip_if_failed("_aborted", "_suppress_errors", None)
-    def set_folder_details(
-        self, data, run=None
-    ) -> typing.Optional[dict[str, typing.Any]]:
+    def set_folder_details(self, data, run=None) -> dict[str, typing.Any] | None:
         """
         Set folder details
         """
@@ -176,7 +167,7 @@ class Remote(SimvueBaseClass):
 
         try:
             response = post(
-                f"{self._user_config.server.url}/api/folders", self._headers, data
+                f"{self._user_config.server.url}/folders", self._headers, data
             )
         except Exception as err:
             self._error(f"Exception creating folder: {err}")
@@ -195,7 +186,7 @@ class Remote(SimvueBaseClass):
 
         try:
             response = put(
-                f"{self._user_config.server.url}/api/folders", self._headers, data
+                f"{self._user_config.server.url}/folders", self._headers, data
             )
         except Exception as err:
             self._error(f"Exception setting folder details: {err}")
@@ -216,9 +207,7 @@ class Remote(SimvueBaseClass):
         return None
 
     @skip_if_failed("_aborted", "_suppress_errors", False)
-    def save_file(
-        self, data: dict[str, typing.Any]
-    ) -> typing.Optional[dict[str, typing.Any]]:
+    def save_file(self, data: dict[str, typing.Any]) -> dict[str, typing.Any] | None:
         """
         Save file
         """
@@ -227,7 +216,7 @@ class Remote(SimvueBaseClass):
         # Get presigned URL
         try:
             response = post(
-                f"{self._user_config.server.url}/api/artifacts",
+                f"{self._user_config.server.url}/artifacts",
                 self._headers,
                 prepare_for_api(data),
             )
@@ -283,11 +272,7 @@ class Remote(SimvueBaseClass):
                     )
                     return None
             else:
-                if "pickledFile" in data:
-                    use_filename = data["pickledFile"]
-                else:
-                    use_filename = data["originalPath"]
-
+                use_filename = data.get("pickledFile", data["originalPath"])
                 try:
                     with open(use_filename, "rb") as fh:
                         response = put(
@@ -311,7 +296,7 @@ class Remote(SimvueBaseClass):
                     return None
 
         if storage_id:
-            path = f"{self._user_config.server.url}/api/runs/{self._id}/artifacts"
+            path = f"{self._user_config.server.url}/runs/{self._id}/artifacts"
             data["storage"] = storage_id
 
             try:
@@ -342,7 +327,7 @@ class Remote(SimvueBaseClass):
 
         try:
             response = post(
-                f"{self._user_config.server.url}/api/alerts", self._headers, data
+                f"{self._user_config.server.url}/alerts", self._headers, data
             )
         except Exception as err:
             self._error(f"Got exception when creating an alert: {str(err)}")
@@ -361,25 +346,20 @@ class Remote(SimvueBaseClass):
         return False
 
     @skip_if_failed("_aborted", "_suppress_errors", {})
-    def set_alert_state(
-        self, alert_id, status
-    ) -> typing.Optional[dict[str, typing.Any]]:
+    def set_alert_state(self, alert_id, status) -> dict[str, typing.Any] | None:
         """
         Set alert state
         """
         data = {"run": self._id, "alert": alert_id, "status": status}
         try:
             response = put(
-                f"{self._user_config.server.url}/api/alerts/status", self._headers, data
+                f"{self._user_config.server.url}/alerts/status", self._headers, data
             )
         except Exception as err:
             self._error(f"Got exception when setting alert state: {err}")
             return {}
 
-        if response.status_code == http.HTTPStatus.OK:
-            return response.json()
-
-        return {}
+        return response.json() if response.status_code == http.HTTPStatus.OK else {}
 
     @skip_if_failed("_aborted", "_suppress_errors", [])
     def list_alerts(self) -> list[dict[str, typing.Any]]:
@@ -387,7 +367,7 @@ class Remote(SimvueBaseClass):
         List alerts
         """
         try:
-            response = get(f"{self._user_config.server.url}/api/alerts", self._headers)
+            response = get(f"{self._user_config.server.url}/alerts", self._headers)
         except Exception as err:
             self._error(f"Got exception when listing alerts: {str(err)}")
             return []
@@ -400,15 +380,10 @@ class Remote(SimvueBaseClass):
             )
             return []
 
-        if response.status_code == http.HTTPStatus.OK:
-            return data
-
-        return []
+        return data if response.status_code == http.HTTPStatus.OK else []
 
     @skip_if_failed("_aborted", "_suppress_errors", None)
-    def send_metrics(
-        self, data: dict[str, typing.Any]
-    ) -> typing.Optional[dict[str, typing.Any]]:
+    def send_metrics(self, data: dict[str, typing.Any]) -> dict[str, typing.Any] | None:
         """
         Send metrics
         """
@@ -416,7 +391,7 @@ class Remote(SimvueBaseClass):
 
         try:
             response = post(
-                f"{self._user_config.server.url}/api/metrics",
+                f"{self._user_config.server.url}/metrics",
                 self._headers_mp,
                 data,
                 is_json=False,
@@ -434,9 +409,7 @@ class Remote(SimvueBaseClass):
         return None
 
     @skip_if_failed("_aborted", "_suppress_errors", None)
-    def send_event(
-        self, data: dict[str, typing.Any]
-    ) -> typing.Optional[dict[str, typing.Any]]:
+    def send_event(self, data: dict[str, typing.Any]) -> dict[str, typing.Any] | None:
         """
         Send events
         """
@@ -444,7 +417,7 @@ class Remote(SimvueBaseClass):
 
         try:
             response = post(
-                f"{self._user_config.server.url}/api/events",
+                f"{self._user_config.server.url}/events",
                 self._headers_mp,
                 data,
                 is_json=False,
@@ -462,7 +435,7 @@ class Remote(SimvueBaseClass):
         return None
 
     @skip_if_failed("_aborted", "_suppress_errors", None)
-    def send_heartbeat(self) -> typing.Optional[dict[str, typing.Any]]:
+    def send_heartbeat(self) -> dict[str, typing.Any] | None:
         """
         Send heartbeat
         """
@@ -470,7 +443,7 @@ class Remote(SimvueBaseClass):
 
         try:
             response = put(
-                f"{self._user_config.server.url}/api/runs/heartbeat",
+                f"{self._user_config.server.url}/runs/heartbeat",
                 self._headers,
                 {"id": self._id},
             )
@@ -488,11 +461,11 @@ class Remote(SimvueBaseClass):
 
     @skip_if_failed("_aborted", "_suppress_errors", False)
     def get_abort_status(self) -> bool:
-        logger.debug("Retrieving alert status")
+        logger.debug("Retrieving abort status")
 
         try:
             response = get(
-                f"{self._user_config.server.url}/api/runs/{self._id}/abort",
+                f"{self._user_config.server.url}/runs/{self._id}/abort",
                 self._headers_mp,
             )
         except Exception as err:
