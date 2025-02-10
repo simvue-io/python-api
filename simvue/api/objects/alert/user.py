@@ -83,8 +83,8 @@ class UserAlert(AlertBase):
 
     def on_reconnect(self, id_mapping: dict[str, str]) -> None:
         """Set status update on reconnect"""
-        for run_id, status in self._staging.get("status", self._local_status).items():
-            self.set_status(run_id, status)
+        for offline_id, status in self._staging.get("status", {}).items():
+            self.set_status(id_mapping.get(offline_id), status)
 
     @pydantic.validate_call
     def set_status(self, run_id: str, status: typing.Literal["ok", "critical"]) -> None:

@@ -172,4 +172,33 @@ def test_user_alert_status() -> None:
     _run.delete()
     _folder.delete(recursive=True, runs_only=False, delete_runs=True)
     _alert.delete()
+    
+    
+@pytest.mark.api
+@pytest.mark.offline
+def test_user_alert_status_offline() -> None:
+    _uuid: str = f"{uuid.uuid4()}".split("-")[0]
+    _alert = UserAlert.new(
+        name=f"users_alert_{_uuid}",
+        notification="none",
+        description=None,
+        offline=True
+    )
+    _alert.commit()
+    _folder = Folder.new(path=f"/simvue_unit_tests/{_uuid}", offline=True)
+    _run = Run.new(folder=f"/simvue_unit_tests/{_uuid}", offline=True)
+    _folder.commit()
+    _run.alerts = [_alert.id]
+    _run.commit()
+    
+    sender(_alert._local_staging_file.parents[1], 1, 10, ["folders", "runs", "alerts"])
+    time.sleep(1) 
+    
+    _alert.set_status(_run.id, "critical")
+    _alert.commit()
+    import pdb; pdb.set_trace()
+    time.sleep(1)
+    _run.delete()
+    _folder.delete(recursive=True, runs_only=False, delete_runs=True)
+    _alert.delete()
 
