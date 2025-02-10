@@ -23,6 +23,10 @@ from simvue.models import NAME_REGEX
 class UserAlert(AlertBase):
     """Connect to/create a user defined alert either locally or on server"""
 
+    def __init__(self, identifier: str | None = None, **kwargs) -> None:
+        super().__init__(identifier, **kwargs)
+        self._local_status: dict[str, str | None] = kwargs.pop("status", {})
+
     @classmethod
     @pydantic.validate_call
     def new(
@@ -70,9 +74,27 @@ class UserAlert(AlertBase):
         """Return only UserAlerts"""
         raise NotImplementedError("Retrieve of only user alerts is not yet supported")
 
+    def get_status(self, run_id: str) -> typing.Literal["ok", "critical"] | None:
+        """Retrieve current alert status for the given run"""
+        if self._offline:
+            return self._staging.get("status", self._local_status).get(run_id)
+
+        return super().get_status(run_id)
+
+    def on_reconnect(self, id_mapping: dict[str, str]) -> None:
+        """Set status update on reconnect"""
+        for run_id, status in self._staging.get("status", self._local_status).items():
+            self.set_status(run_id, status)
+
     @pydantic.validate_call
     def set_status(self, run_id: str, status: typing.Literal["ok", "critical"]) -> None:
         """Set the status of this alert for a given run"""
+        if self._offline:
+            if "status" not in self._staging:
+                self._staging["status"] = {}
+            self._staging["status"][run_id] = status
+            return
+
         _response = sv_put(
             url=self.url / "status" / run_id,
             data={"status": status},

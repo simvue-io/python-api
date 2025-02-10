@@ -549,7 +549,7 @@ class Client:
             if there was a failure during retrieval of information from the
             server
         """
-        _artifacts = self._retrieve_artifacts_from_server(run_id, name)
+        _artifacts = self._retrieve_artifacts_from_server(run_id, name, count=1)
 
         try:
             _id, _artifact = next(_artifacts)

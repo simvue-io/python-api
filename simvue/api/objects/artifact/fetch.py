@@ -17,8 +17,8 @@ class Artifact:
 
     def __new__(cls, identifier: str | None = None, **kwargs):
         """Retrieve an object representing an Artifact by id"""
-        _storage_pre = ArtifactBase(identifier=identifier, **kwargs)
-        if _storage_pre.original_path:
+        _artifact_pre = ArtifactBase(identifier=identifier, **kwargs)
+        if _artifact_pre.original_path:
             return FileArtifact(identifier=identifier, **kwargs)
         else:
             return ObjectArtifact(identifier=identifier, **kwargs)
@@ -49,7 +49,7 @@ class Artifact:
         _first_result: dict[str, typing.Any] = _json_response[0]
         _artifact_id: str = _first_result.pop("id")
 
-        return Artifact.__new__(
+        return Artifact(
             identifier=_artifact_id,
             run=run_id,
             **_first_result,
@@ -60,7 +60,10 @@ class Artifact:
     @classmethod
     @pydantic.validate_call
     def get(
-        cls, count: int | None = None, offset: int | None = None, **kwargs
+        cls,
+        count: int | None = None,
+        offset: int | None = None,
+        **kwargs,
     ) -> typing.Generator[tuple[str, FileArtifact | ObjectArtifact], None, None]:
         """Returns artifacts associated with the current user.
 
@@ -78,12 +81,12 @@ class Artifact:
             the artifact itself as a class instance
         """
 
-        _class_instance = ArtifactBase(_local=True, _read_only=True, **kwargs)
+        _class_instance = ArtifactBase(_local=True, _read_only=True)
         _url = f"{_class_instance._base_url}"
         _response = sv_get(
             _url,
             headers=_class_instance._headers,
-            params={"start": offset, "count": count},
+            params={"start": offset, "count": count} | kwargs,
         )
         _label: str = _class_instance.__class__.__name__.lower()
         _label = _label.replace("base", "")

@@ -18,6 +18,7 @@ class ObjectArtifact(ArtifactBase):
     def __init__(
         self, identifier: str | None = None, _read_only: bool = True, **kwargs
     ) -> None:
+        kwargs.pop("original_path", None)
         super().__init__(identifier, _read_only, original_path="", **kwargs)
 
     @classmethod

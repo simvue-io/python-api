@@ -17,11 +17,6 @@ from .s3 import S3Storage
 from .file import FileStorage
 from .base import StorageBase
 
-try:
-    from typing import Self
-except ImportError:
-    from typing_extensions import Self
-
 
 class Storage:
     """Generic Simvue storage retrieval class"""
@@ -60,12 +55,12 @@ class Storage:
         # Currently no storage filters
         kwargs.pop("filters", None)
 
-        _class_instance = StorageBase(_local=True, _read_only=True, **kwargs)
+        _class_instance = StorageBase(_local=True, _read_only=True)
         _url = f"{_class_instance._base_url}"
         _response = sv_get(
             _url,
             headers=_class_instance._headers,
-            params={"start": offset, "count": count},
+            params={"start": offset, "count": count} | kwargs,
         )
         _label: str = _class_instance.__class__.__name__.lower()
         _label = _label.replace("base", "")

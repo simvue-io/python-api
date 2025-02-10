@@ -215,7 +215,7 @@ def test_offline_tags(create_plain_run_offline: tuple[sv_run.Run, dict]) -> None
     run_tags = [tag for tag in tags if tag[1].name == run_data["tags"][-1]]
     assert len(run_tags) == 1
     client.delete_tag(run_tags[0][0])
-    
+
 
 
 @pytest.mark.run

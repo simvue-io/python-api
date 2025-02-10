@@ -7,14 +7,17 @@ import filecmp
 import simvue.sender as sv_send
 
 from simvue import Run, Client
+from simvue.sender import sender
 
 @pytest.mark.executor
 @pytest.mark.offline
 def test_monitor_processes(create_plain_run_offline: tuple[Run, dict]):
+    _run: Run
     _run, _ = create_plain_run_offline
     _run.add_process("process_1", "Hello world!", executable="echo", n=True)
     _run.add_process("process_2", "bash" if sys.platform != "win32" else "powershell", debug=True, c="exit 0")
     _run.add_process("process_3", "ls", "-ltr")
+    sender(_run._sv_obj._local_staging_file.parents[1], 1, 10, ["runs", "alerts"])
 
 
 @pytest.mark.executor

@@ -78,13 +78,13 @@ class Alert:
         # Currently no alert filters
         kwargs.pop("filters", None)
 
-        _class_instance = AlertBase(_local=True, _read_only=True, **kwargs)
+        _class_instance = AlertBase(_local=True, _read_only=True)
         _url = f"{_class_instance._base_url}"
 
         _response = sv_get(
             _url,
             headers=_class_instance._headers,
-            params={"start": offset, "count": count},
+            params={"start": offset, "count": count} | kwargs,
         )
 
         _label: str = _class_instance.__class__.__name__.lower()

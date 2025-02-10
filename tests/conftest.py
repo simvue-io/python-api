@@ -1,3 +1,4 @@
+import contextlib
 from numpy import fix
 import pytest
 import pytest_mock
@@ -10,6 +11,7 @@ import json
 import pathlib
 import logging
 from simvue.api.objects.artifact import Artifact
+from simvue.exception import ObjectNotFoundError
 import simvue.run as sv_run
 import simvue.api.objects as sv_api_obj
 import simvue.config.user as sv_cfg
@@ -59,9 +61,11 @@ def create_test_run(request) -> typing.Generator[typing.Tuple[sv_run.Run, dict],
     with sv_run.Run() as run:
         _test_run_data = setup_test_run(run, True, request)
         yield run, _test_run_data
-    sv_api_obj.Folder(identifier=run._folder.id).delete(recursive=True, delete_runs=True, runs_only=False)
+    with contextlib.suppress(ObjectNotFoundError):
+        sv_api_obj.Folder(identifier=run._folder.id).delete(recursive=True, delete_runs=True, runs_only=False)
     for alert_id in _test_run_data.get("alert_ids", []):
-        sv_api_obj.Alert(identifier=alert_id).delete()
+        with contextlib.suppress(ObjectNotFoundError):
+            sv_api_obj.Alert(identifier=alert_id).delete()
     clear_out_files()
 
 
