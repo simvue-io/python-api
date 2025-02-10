@@ -1922,13 +1922,13 @@ class Run:
             self._error('state must be either "ok" or "critical"')
             return False
 
-        _alert = Alert(identifier=identifier)
-        if not isinstance(_alert, UserAlert):
-            self._error(
-                f"Cannot update state for alert '{identifier}' "
-                f"of type '{_alert.__class__.__name__.lower()}'"
-            )
-            return False
+        _alert = UserAlert(identifier=identifier)
+        # if not isinstance(_alert, UserAlert):
+        #     self._error(
+        #         f"Cannot update state for alert '{identifier}' "
+        #         f"of type '{_alert.__class__.__name__.lower()}'"
+        #     )
+        #     return False
         _alert.read_only(False)
         _alert.set_status(run_id=self._id, status=state)
         _alert.commit()

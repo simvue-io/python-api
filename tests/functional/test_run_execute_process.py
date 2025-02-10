@@ -17,7 +17,7 @@ def test_monitor_processes(create_plain_run_offline: tuple[Run, dict]):
     _run.add_process("process_1", "Hello world!", executable="echo", n=True)
     _run.add_process("process_2", "bash" if sys.platform != "win32" else "powershell", debug=True, c="exit 0")
     _run.add_process("process_3", "ls", "-ltr")
-    sender(_run._sv_obj._local_staging_file.parents[1], 1, 10, ["runs", "alerts"])
+    sender(_run._sv_obj._local_staging_file.parents[1], 1, 10, ["folders", "runs", "alerts"])
 
 
 @pytest.mark.executor
