@@ -1,6 +1,6 @@
 # Change log
 
-## Unreleased
+## [v2.0.0-alpha0](https://github.com/simvue-io/client/releases/tag/v2.0.0a0) - 2025-02-10
 
 * Add support for defining Simvue run defaults using `tool.simvue` in a project `pyproject.toml` file.
 * Drop support for INI based configuration files.
@@ -9,6 +9,8 @@
 * Create lower level API for directly interacting with the Simvue RestAPI endpoints.
 * **Removes support for Python <3.10 due to dependency constraints.**
 * Separates `create_alert` into specific methods `create_event_alert` etc.
+* Adds additional functionality and support for offline mode.
+* Support for Simvue servers `>=3`.
 ## [v1.1.4](https://github.com/simvue-io/client/releases/tag/v1.1.4) - 2024-12-11
 
 * Remove incorrect identifier reference for latest Simvue servers during reconnection.

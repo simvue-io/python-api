@@ -42,16 +42,16 @@ keywords:
   - alerting
   - simulation
 license: Apache-2.0
-commit: 3ea5c3f1a579a44bc144a8fa0e2983475e46dd63
-version: 1.1.4
-date-released: '2024-12-11'
+commit: 5aaebe682d7ec2f80fefc3eb2a8a26f5bdca1e0c
+version: 2.0.0a0
+date-released: '2025-02-11'
 references:
 - title: mlco2/codecarbon
-  version: v2.4.1
+  version: v2.8.2
   type: software
-  date-released: 2024-05
-  doi: 10.5281/zenodo.11171501
-  url: https://doi.org/10.5281/zenodo.11171501
+  date-released: 2024-12-08
+  doi: 10.5281/zenodo.14518377
+  url: https://doi.org/10.5281/zenodo.14518377
   repository-code: https://github.com/mlco2/codecarbon
   authors:
     - given-names: Benoit
