@@ -37,7 +37,7 @@ class Metrics(SimvueObject):
     def new(
         cls, *, run: str, offline: bool = False, metrics: list[MetricSet], **kwargs
     ):
-        """Create a new Events entry on the Simvue server"""
+        """Create a new Metrics entry on the Simvue server"""
         return Metrics(
             run=run,
             metrics=[metric.model_dump() for metric in metrics],
@@ -51,27 +51,23 @@ class Metrics(SimvueObject):
         cls,
         metrics: list[str],
         xaxis: typing.Literal["timestamp", "step", "time"],
+        runs: list[str],
         *,
         count: pydantic.PositiveInt | None = None,
         offset: pydantic.PositiveInt | None = None,
         **kwargs,
     ) -> typing.Generator[MetricSet, None, None]:
         _class_instance = cls(_read_only=True, _local=True)
-        if (
-            _data := cls._get_all_objects(
-                count,
-                offset,
-                metrics=json.dumps(metrics),
-                xaxis=xaxis,
-                **kwargs,
-            ).get("data")
-        ) is None:
-            raise RuntimeError(
-                f"Expected key 'data' for retrieval of {_class_instance.__class__.__name__.lower()}s"
-            )
-
-        for _entry in _data:
-            yield MetricSet(**_entry)
+        _data = cls._get_all_objects(
+            count,
+            offset,
+            metrics=json.dumps(metrics),
+            runs=json.dumps(runs),
+            xaxis=xaxis,
+            **kwargs,
+        )
+        # TODO: Temp fix, just return the dictionary. Not sure what format we really want this in...
+        return _data
 
     @pydantic.validate_call
     def span(self, run_ids: list[str]) -> dict[str, int | float]:
