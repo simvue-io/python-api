@@ -191,13 +191,28 @@ def test_user_alert_status_offline() -> None:
     _run.alerts = [_alert.id]
     _run.commit()
 
-    sender(_alert._local_staging_file.parents[1], 1, 10, ["folders", "runs", "alerts"])
+    _id_mapping = sender(_alert._local_staging_file.parents[1], 1, 10, ["folders", "runs", "alerts"])
     time.sleep(1) 
+    
+    # Get online aler, check status is not set
+    _online_alert = UserAlert(_id_mapping.get(_alert.id))
+    assert not _online_alert.get_status(run_id=_id_mapping.get(_run.id))
 
     _alert.set_status(_run.id, "critical")
     _alert.commit()
-    import pdb; pdb.set_trace()
     time.sleep(1)
+    
+    # Check online status is still not set as change has not been sent
+    _online_alert.refresh()
+    assert not _online_alert.get_status(run_id=_id_mapping.get(_run.id))
+    
+    sender(_alert._local_staging_file.parents[1], 1, 10, ["alerts"])
+    time.sleep(1)
+    
+    # Check online status has been updated
+    _online_alert.refresh()
+    assert _online_alert.get_status(run_id=_id_mapping.get(_run.id)) == "critical"
+
     _run.delete()
     _folder.delete(recursive=True, runs_only=False, delete_runs=True)
     _alert.delete()
