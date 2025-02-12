@@ -11,6 +11,7 @@ import http
 import typing
 import pydantic
 import datetime
+import time
 
 try:
     from typing import Self
@@ -256,7 +257,7 @@ class Run(SimvueObject):
     def runtime(self) -> datetime.datetime | None:
         """Retrieve created datetime for the run"""
         _runtime: str | None = self._get_attribute("runtime")
-        return datetime.datetime.strptime(_runtime, "%H:%M:%S.%f") if _runtime else None
+        return time.strptime(_runtime, "%H:%M:%S.%f") if _runtime else None
 
     @property
     @staging_check
