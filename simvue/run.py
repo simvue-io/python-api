@@ -465,11 +465,12 @@ class Run:
 
         logger.debug("Starting run")
 
+        self._start_time = time.time()
+
         if self._sv_obj:
             self._sv_obj.status = self._status
+            self._sv_obj.started = self._start_time
             self._sv_obj.commit()
-
-        self._start_time = time.time()
 
         if self._pid == 0:
             self._pid = os.getpid()
@@ -1459,7 +1460,7 @@ class Run:
     ) -> bool:
         """Set run status
 
-        status to assign to this run
+        status to assign to this run once finished
 
         Parameters
         ----------
@@ -1479,6 +1480,7 @@ class Run:
 
         if self._sv_obj:
             self._sv_obj.status = status
+            self._sv_obj.endtime = time.time()
             self._sv_obj.commit()
             return True
 
