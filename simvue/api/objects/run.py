@@ -253,6 +253,13 @@ class Run(SimvueObject):
 
     @property
     @staging_check
+    def runtime(self) -> datetime.datetime | None:
+        """Retrieve created datetime for the run"""
+        _runtime: str | None = self._get_attribute("runtime")
+        return datetime.datetime.strptime(_runtime, "%H:%M:%S.%f") if _runtime else None
+
+    @property
+    @staging_check
     def started(self) -> datetime.datetime | None:
         """Retrieve started datetime for the run"""
         _started: str | None = self._get_attribute("started")
