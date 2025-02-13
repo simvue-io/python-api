@@ -590,9 +590,9 @@ class Client:
         RuntimeError
             if there was a failure retrieving artifacts from the server
         """
-        _artifacts: typing.Generator[tuple[str, Artifact], None, None] = Artifact.get(
-            runs=json.dumps([run_id]), category=category
-        )  # type: ignore
+        _artifacts: typing.Generator[tuple[str, Artifact], None, None] = (
+            Artifact.from_run(run_id=run_id, category=category)
+        )
 
         with ThreadPoolExecutor(CONCURRENT_DOWNLOADS) as executor:
             futures = [
