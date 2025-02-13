@@ -30,6 +30,31 @@ class Artifact:
         category: typing.Literal["input", "output", "code"] | None = None,
         **kwargs,
     ) -> typing.Generator[tuple[str, FileArtifact | ObjectArtifact], None, None]:
+        """Return artifacts associated with a given run.
+
+        Parameters
+        ----------
+        run_id : str
+            The ID of the run to retriece artifacts from
+        category : typing.Literal["input", "output", "code"] | None, optional
+            The category of artifacts to return, by default all artifacts are returned
+
+        Returns
+        -------
+        typing.Generator[tuple[str, FileArtifact | ObjectArtifact], None, None]
+            The artifacts
+
+        Yields
+        ------
+        Iterator[typing.Generator[tuple[str, FileArtifact | ObjectArtifact], None, None]]
+            identifier for artifact
+            the artifact itself as a class instance
+
+        Raises
+        ------
+        ObjectNotFoundError
+            Raised if artifacts could not be found for that run
+        """
         _temp = ArtifactBase(**kwargs)
         _url = URL(_temp._user_config.server.url) / f"runs/{run_id}/artifacts"
         _response = sv_get(

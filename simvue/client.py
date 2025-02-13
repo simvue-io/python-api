@@ -565,9 +565,6 @@ class Client:
         run_id: str,
         category: typing.Literal["input", "output", "code"] | None = None,
         output_dir: pydantic.DirectoryPath | None = None,
-        startswith: str | None = None,
-        contains: str | None = None,
-        endswith: str | None = None,
     ) -> None:
         """Retrieve artifacts from the given run as a set of files
 
@@ -575,15 +572,11 @@ class Client:
         ----------
         run_id : str
             the unique identifier for the run
+        category : typing.Literal["input", "output", "code"] |
+            the type of files to retrieve
         output_dir : str | None, optional
             location to download files to, the default of None will download
             them to the current working directory
-        startswith : str, optional
-            only download artifacts with this prefix in their name, by default None
-        contains : str, optional
-            only download artifacts containing this term in their name, by default None
-        endswith : str, optional
-            only download artifacts ending in this term in their name, by default None
 
         Raises
         ------
