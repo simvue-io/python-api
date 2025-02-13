@@ -1798,6 +1798,7 @@ class Run:
             notification=notification,
             offline=self._user_config.run.mode == "offline",
         )
+
         _alert.abort = trigger_abort
         _alert.commit()
         if attach_to_run:

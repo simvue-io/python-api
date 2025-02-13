@@ -57,7 +57,7 @@ class UserAlert(AlertBase):
             whether this alert should be created locally, default is False
 
         """
-        return UserAlert(
+        _alert = UserAlert(
             name=name,
             description=description,
             notification=notification,
@@ -66,6 +66,8 @@ class UserAlert(AlertBase):
             _read_only=False,
             _offline=offline,
         )
+        _alert._params = {"deduplicate": True}
+        return _alert
 
     @classmethod
     def get(
