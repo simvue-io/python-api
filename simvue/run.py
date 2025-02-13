@@ -1651,20 +1651,8 @@ class Run:
         return False
 
     def _attach_alert_to_run(self, alert: AlertBase) -> str | None:
-        # Check if the alert already exists
-        _alert_id: str | None = None
-
-        for _, _existing_alert in Alert.get(
-            offline=self._user_config.run.mode == "offline"
-        ):
-            if _existing_alert.compare(alert):
-                _alert_id = _existing_alert.id
-                logger.info("Existing alert found with id: %s", _existing_alert.id)
-                break
-
-        if not _alert_id:
-            alert.commit()
-            _alert_id = alert.id
+        alert.commit()
+        _alert_id: str = alert.id
 
         self._sv_obj.alerts = [_alert_id]
 

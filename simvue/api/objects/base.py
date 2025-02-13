@@ -169,6 +169,8 @@ class SimvueObject(abc.ABC):
             "User-Agent": _user_agent or f"Simvue Python client {__version__}",
         }
 
+        self._params: dict[str, str] = {}
+
         self._staging: dict[str, typing.Any] = {}
 
         # If this object is read-only, but not a local construction, make an API call
@@ -412,6 +414,7 @@ class SimvueObject(abc.ABC):
         _response = sv_post(
             url=f"{self._base_url}",
             headers=self._headers | {"Content-Type": "application/msgpack"},
+            params=self._params,
             data=kwargs,
             is_json=is_json,
         )
@@ -423,7 +426,7 @@ class SimvueObject(abc.ABC):
 
         _json_response = get_json_from_response(
             response=_response,
-            expected_status=[http.HTTPStatus.OK],
+            expected_status=[http.HTTPStatus.OK, http.HTTPStatus.CONFLICT],
             scenario=f"Creation of {self._label}",
         )
 
@@ -452,7 +455,7 @@ class SimvueObject(abc.ABC):
 
         return get_json_from_response(
             response=_response,
-            expected_status=[http.HTTPStatus.OK],
+            expected_status=[http.HTTPStatus.OK, http.HTTPStatus.CONFLICT],
             scenario=f"Creation of {self._label} '{self._identifier}",
         )
 

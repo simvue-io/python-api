@@ -29,6 +29,7 @@ class AlertBase(SimvueObject):
     def __init__(self, identifier: str | None = None, **kwargs) -> None:
         """Retrieve an alert from the Simvue server by identifier"""
         self._label = "alert"
+        self._staging = {"deduplicate": True}
         super().__init__(identifier=identifier, **kwargs)
 
     def compare(self, other: "AlertBase") -> bool:
