@@ -1650,12 +1650,12 @@ class Run:
 
         return False
 
+    @check_run_initialised
     def _attach_alert_to_run(self, alert: AlertBase) -> str | None:
         self._sv_obj.alerts = [alert.id]
         self._sv_obj.commit()
 
     @skip_if_failed("_aborted", "_suppress_errors", None)
-    @check_run_initialised
     @pydantic.validate_call
     def create_metric_range_alert(
         self,
@@ -1732,7 +1732,6 @@ class Run:
         return _alert.id
 
     @skip_if_failed("_aborted", "_suppress_errors", None)
-    @check_run_initialised
     @pydantic.validate_call
     def create_metric_threshold_alert(
         self,
@@ -1806,7 +1805,6 @@ class Run:
         return _alert.id
 
     @skip_if_failed("_aborted", "_suppress_errors", None)
-    @check_run_initialised
     @pydantic.validate_call
     def create_event_alert(
         self,
@@ -1859,7 +1857,6 @@ class Run:
         return _alert.id
 
     @skip_if_failed("_aborted", "_suppress_errors", None)
-    @check_run_initialised
     @pydantic.validate_call
     def create_user_alert(
         self,
