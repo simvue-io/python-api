@@ -1653,26 +1653,8 @@ class Run:
         return False
 
     def _attach_alert_to_run(self, alert: AlertBase) -> str | None:
-        # Check if the alert already exists
-        _alert_id: str | None = None
-
-        for _, _existing_alert in Alert.get(
-            offline=self._user_config.run.mode == "offline"
-        ):
-            if _existing_alert.compare(alert):
-                _alert_id = _existing_alert.id
-                logger.info("Existing alert found with id: %s", _existing_alert.id)
-                break
-
-        if not _alert_id:
-            alert.commit()
-            _alert_id = alert.id
-
-        self._sv_obj.alerts = [_alert_id]
-
+        self._sv_obj.alerts = [alert.id]
         self._sv_obj.commit()
-
-        return _alert_id
 
     @skip_if_failed("_aborted", "_suppress_errors", None)
     @check_run_initialised
@@ -1693,6 +1675,7 @@ class Run:
         ] = "average",
         notification: typing.Literal["email", "none"] = "none",
         trigger_abort: bool = False,
+        attach_to_run: bool = True,
     ) -> str | None:
         """Creates a metric range alert with the specified name (if it doesn't exist)
         and applies it to the current run. If alert already exists it will
@@ -1722,6 +1705,8 @@ class Run:
             whether to notify on trigger, by default "none"
         trigger_abort : bool, optional
             whether this alert can trigger a run abort, default False
+        attach_to_run : bool, optional
+            whether to attach this alert to the current run, default True
 
         Returns
         -------
@@ -1743,7 +1728,10 @@ class Run:
             offline=self._user_config.run.mode == "offline",
         )
         _alert.abort = trigger_abort
-        return self._attach_alert_to_run(_alert)
+        _alert.commit()
+        if attach_to_run:
+            self._attach_alert_to_run(_alert)
+        return _alert.id
 
     @skip_if_failed("_aborted", "_suppress_errors", None)
     @check_run_initialised
@@ -1763,6 +1751,7 @@ class Run:
         ] = "average",
         notification: typing.Literal["email", "none"] = "none",
         trigger_abort: bool = False,
+        attach_to_run: bool = True,
     ) -> str | None:
         """Creates a metric threshold alert with the specified name (if it doesn't exist)
         and applies it to the current run. If alert already exists it will
@@ -1790,6 +1779,8 @@ class Run:
             whether to notify on trigger, by default "none"
         trigger_abort : bool, optional
             whether this alert can trigger a run abort, default False
+        attach_to_run : bool, optional
+            whether to attach this alert to the current run, default True
 
         Returns
         -------
@@ -1809,8 +1800,12 @@ class Run:
             notification=notification,
             offline=self._user_config.run.mode == "offline",
         )
+
         _alert.abort = trigger_abort
-        return self._attach_alert_to_run(_alert)
+        _alert.commit()
+        if attach_to_run:
+            self._attach_alert_to_run(_alert)
+        return _alert.id
 
     @skip_if_failed("_aborted", "_suppress_errors", None)
     @check_run_initialised
@@ -1824,6 +1819,7 @@ class Run:
         frequency: pydantic.PositiveInt = 1,
         notification: typing.Literal["email", "none"] = "none",
         trigger_abort: bool = False,
+        attach_to_run: bool = True,
     ) -> str | None:
         """Creates an events alert with the specified name (if it doesn't exist)
         and applies it to the current run. If alert already exists it will
@@ -1841,6 +1837,8 @@ class Run:
             whether to notify on trigger, by default "none"
         trigger_abort : bool, optional
             whether this alert can trigger a run abort
+        attach_to_run : bool, optional
+            whether to attach this alert to the current run, default True
 
         Returns
         -------
@@ -1857,7 +1855,10 @@ class Run:
             offline=self._user_config.run.mode == "offline",
         )
         _alert.abort = trigger_abort
-        return self._attach_alert_to_run(_alert)
+        _alert.commit()
+        if attach_to_run:
+            self._attach_alert_to_run(_alert)
+        return _alert.id
 
     @skip_if_failed("_aborted", "_suppress_errors", None)
     @check_run_initialised
@@ -1869,6 +1870,7 @@ class Run:
         description: str | None = None,
         notification: typing.Literal["email", "none"] = "none",
         trigger_abort: bool = False,
+        attach_to_run: bool = True,
     ) -> None:
         """Creates a user alert with the specified name (if it doesn't exist)
         and applies it to the current run. If alert already exists it will
@@ -1884,6 +1886,8 @@ class Run:
             whether to notify on trigger, by default "none"
         trigger_abort : bool, optional
             whether this alert can trigger a run abort, default False
+        attach_to_run : bool, optional
+            whether to attach this alert to the current run, default True
 
         Returns
         -------
@@ -1898,7 +1902,10 @@ class Run:
             offline=self._user_config.run.mode == "offline",
         )
         _alert.abort = trigger_abort
-        return self._attach_alert_to_run(_alert)
+        _alert.commit()
+        if attach_to_run:
+            self._attach_alert_to_run(_alert)
+        return _alert.id
 
     @skip_if_failed("_aborted", "_suppress_errors", False)
     @check_run_initialised
