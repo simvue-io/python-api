@@ -1647,7 +1647,7 @@ class Run:
             return False
 
         # Avoid duplication
-        self._sv_obj.alerts = list(set(self._sv_obj.alerts + [ids]))
+        self._sv_obj.alerts = list(set(self._sv_obj.alerts + ids))
         self._sv_obj.commit()
 
         return False
