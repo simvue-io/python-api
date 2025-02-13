@@ -225,9 +225,8 @@ class Run(SimvueObject):
 
     @property
     @staging_check
-    def alerts(self) -> typing.Generator[str, None, None]:
-        for alert in self.get_alert_details():
-            yield alert["id"]
+    def alerts(self) -> list[str]:
+        return [alert["id"] for alert in self.get_alert_details()]
 
     def get_alert_details(self) -> typing.Generator[dict[str, typing.Any], None, None]:
         """Retrieve the full details of alerts for this run"""
