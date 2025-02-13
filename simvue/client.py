@@ -9,7 +9,6 @@ server including deletion and retrieval.
 import contextlib
 import json
 import logging
-import os
 import pathlib
 import typing
 import http
@@ -45,12 +44,9 @@ logger = logging.getLogger(__file__)
 def _download_artifact_to_file(
     artifact: Artifact, output_dir: pathlib.Path | None
 ) -> None:
-    try:
-        _file_name = os.path.basename(artifact.name)
-    except AttributeError:
-        _file_name = os.path.basename(artifact)
-    _output_file = (output_dir or pathlib.Path.cwd()).joinpath(_file_name)
-
+    _output_file = (output_dir or pathlib.Path.cwd()).joinpath(artifact.name)
+    # If this is a hierarchical structure being downloaded, need to create directories
+    _output_file.parent.mkdir(parents=True, exist_ok=True)
     with _output_file.open("wb") as out_f:
         for content in artifact.download_content():
             out_f.write(content)
