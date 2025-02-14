@@ -226,10 +226,17 @@ class Run(SimvueObject):
     @property
     @staging_check
     def alerts(self) -> list[str]:
+        if self._offline:
+            return self._get_attribute("alerts")
+
         return [alert["id"] for alert in self.get_alert_details()]
 
     def get_alert_details(self) -> typing.Generator[dict[str, typing.Any], None, None]:
         """Retrieve the full details of alerts for this run"""
+        if self._offline:
+            raise RuntimeError(
+                "Cannot get alert details from an offline run - use .alerts to access a list of IDs instead"
+            )
         for alert in self._get_attribute("alerts"):
             yield alert["alert"]
 
