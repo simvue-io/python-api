@@ -29,7 +29,6 @@ import uuid
 import click
 import psutil
 
-from simvue.api.objects.alert.base import AlertBase
 from simvue.api.objects.alert.fetch import Alert
 from simvue.api.objects.folder import Folder, get_folder_from_path
 from simvue.exception import ObjectNotFoundError, SimvueRunError
@@ -1650,11 +1649,6 @@ class Run:
 
         return False
 
-    @check_run_initialised
-    def _attach_alert_to_run(self, alert: AlertBase) -> str | None:
-        self._sv_obj.alerts = [alert.id]
-        self._sv_obj.commit()
-
     @skip_if_failed("_aborted", "_suppress_errors", None)
     @pydantic.validate_call
     def create_metric_range_alert(
@@ -1728,7 +1722,7 @@ class Run:
         _alert.abort = trigger_abort
         _alert.commit()
         if attach_to_run:
-            self._attach_alert_to_run(_alert)
+            self.add_alerts(ids=[_alert.id])
         return _alert.id
 
     @skip_if_failed("_aborted", "_suppress_errors", None)
@@ -1801,7 +1795,7 @@ class Run:
         _alert.abort = trigger_abort
         _alert.commit()
         if attach_to_run:
-            self._attach_alert_to_run(_alert)
+            self.add_alerts(ids=[_alert.id])
         return _alert.id
 
     @skip_if_failed("_aborted", "_suppress_errors", None)
@@ -1853,7 +1847,7 @@ class Run:
         _alert.abort = trigger_abort
         _alert.commit()
         if attach_to_run:
-            self._attach_alert_to_run(_alert)
+            self.add_alerts(ids=[_alert.id])
         return _alert.id
 
     @skip_if_failed("_aborted", "_suppress_errors", None)
@@ -1899,7 +1893,7 @@ class Run:
         _alert.abort = trigger_abort
         _alert.commit()
         if attach_to_run:
-            self._attach_alert_to_run(_alert)
+            self.add_alerts(ids=[_alert.id])
         return _alert.id
 
     @skip_if_failed("_aborted", "_suppress_errors", False)
