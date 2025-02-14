@@ -1645,10 +1645,11 @@ class Run:
             return False
 
         # Avoid duplication
-        self._sv_obj.alerts = list(set(self._sv_obj.alerts + ids))
+        _deduplicated = list(set(self._sv_obj.alerts + ids))
+        self._sv_obj.alerts = _deduplicated
         self._sv_obj.commit()
 
-        return False
+        return True
 
     @skip_if_failed("_aborted", "_suppress_errors", None)
     @pydantic.validate_call
