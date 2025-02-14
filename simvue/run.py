@@ -1632,13 +1632,13 @@ class Run:
             try:
                 if alerts := Alert.get(offline=self._user_config.run.mode == "offline"):
                     for alert in alerts:
-                        if alert.name in names:
-                            ids.append(alert.id)
+                        if alert[1].name in names:
+                            ids.append(alert[1].id)
+                else:
+                    self._error("No existing alerts")
+                    return False
             except RuntimeError as e:
                 self._error(f"{e.args[0]}")
-                return False
-            else:
-                self._error("No existing alerts")
                 return False
         elif not names and not ids:
             self._error("Need to provide alert ids or alert names")
