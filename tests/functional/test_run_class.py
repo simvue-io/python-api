@@ -269,12 +269,11 @@ def test_update_metadata_offline(
     run.update_metadata({"d": "new"})
     # Try updating an already defined piece of metadata
     run.update_metadata({"a": 1})
-    
+
     sv_send.sender(os.environ["SIMVUE_OFFLINE_DIRECTORY"], 2, 10)
-    import pdb; pdb.set_trace()
     run.close()
     time.sleep(1.0)
-    import pdb; pdb.set_trace()
+    
     client = sv_cl.Client()
     run_info = client.get_run(client.get_run_id_from_name(run_name))
 
