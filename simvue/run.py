@@ -686,6 +686,7 @@ class Run:
         self._sv_obj.tags = tags
         self._sv_obj.metadata = (metadata or {}) | git_info(os.getcwd()) | environment()
         self._sv_obj.heartbeat_timeout = timeout
+        self._sv_obj.alerts = []
 
         if self._status == "running":
             self._sv_obj.system = get_system()
