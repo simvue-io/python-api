@@ -245,9 +245,7 @@ class Run(SimvueObject):
     @write_only
     @pydantic.validate_call
     def alerts(self, alerts: list[str]) -> None:
-        self._staging["alerts"] = [
-            alert for alert in alerts if alert not in self._staging.get("alerts", [])
-        ]
+        self._staging["alerts"] = list(set(self._staging.get("alerts", []) + alerts))
 
     @property
     @staging_check
