@@ -676,6 +676,94 @@ def test_save_object(
         save_obj = array([1, 2, 3, 4])
     simvue_run.save_object(save_obj, "input", f"test_object_{object_type}")
 
+@pytest.mark.run
+def test_add_alerts() -> None:
+    _uuid = f"{uuid.uuid4()}".split("-")[0]
+
+    run = sv_run.Run()
+    run.init(
+        name="test_add_alerts",
+        folder="/simvue_unit_tests",
+        retention_period="1 min",
+        tags=["test_add_alerts"],
+        visibility="tenant"
+    )
+    
+    _expected_alerts = []
+    
+    # Create alerts, have them attach to run automatically
+    _id = run.create_event_alert(
+        name=f"event_alert_{_uuid}",
+        pattern = "test",
+    )
+    _expected_alerts.append(_id)
+    time.sleep(1)
+    # Retrieve run, check if alert has been added
+    _online_run = RunObject(identifier=run._id)
+    assert _id in _online_run.alerts
+    
+    # Create another alert and attach to run
+    _id = run.create_metric_range_alert(
+        name=f"metric_range_alert_{_uuid}",
+        metric="test",
+        range_low=10,
+        range_high=100,
+        rule="is inside range",
+    )
+    _expected_alerts.append(_id)
+    time.sleep(1)
+    # Retrieve run, check both alerts have been added
+    _online_run.refresh()
+    assert sorted(_online_run.alerts) == sorted(_expected_alerts)
+    
+    # Create another alert, do not attach to run
+    _id = run.create_metric_threshold_alert(
+        name=f"metric_threshold_alert_{_uuid}",
+        metric="test",
+        threshold=10,
+        rule="is above",
+        attach_to_run=False
+    )
+    time.sleep(1)
+    # Retrieve run, check alert has NOT been added
+    _online_run.refresh()
+    assert sorted(_online_run.alerts) == sorted(_expected_alerts)
+    
+    # Try adding all three alerts using add_alerts
+    _expected_alerts.append(_id)
+    run.add_alerts(names=[f"event_alert_{_uuid}", f"metric_range_alert_{_uuid}", f"metric_threshold_alert_{_uuid}"])
+    time.sleep(1)
+    
+    # Check that there is no duplication
+    _online_run.refresh()
+    assert sorted(_online_run.alerts) == sorted(_expected_alerts)
+    
+    # Create another run without adding to run
+    _id = run.create_user_alert(
+        name=f"user_alert_{_uuid}",
+        attach_to_run=False
+    )
+    time.sleep(1)
+    
+    # Check alert is not added
+    _online_run.refresh()
+    assert sorted(_online_run.alerts) == sorted(_expected_alerts)
+    
+    # Try adding alerts with IDs, check there is no duplication
+    _expected_alerts.append(_id)
+    run.add_alerts(ids=_expected_alerts)
+    time.sleep(1)
+    
+    _online_run.refresh()
+    assert sorted(_online_run.alerts) == sorted(_expected_alerts)
+    
+    run.close()
+    
+    client = sv_cl.Client()
+    client.delete_run(run._id)
+    for _id in _expected_alerts:
+        client.delete_alert(_id)
+
 
 @pytest.mark.run
 def test_abort_on_alert_process(mocker: pytest_mock.MockerFixture) -> None:
