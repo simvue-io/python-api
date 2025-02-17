@@ -423,7 +423,7 @@ class SimvueObject(abc.ABC):
 
         _json_response = get_json_from_response(
             response=_response,
-            expected_status=[http.HTTPStatus.OK],
+            expected_status=[http.HTTPStatus.OK, http.HTTPStatus.CONFLICT],
             scenario=f"Creation of {self._label}",
         )
 

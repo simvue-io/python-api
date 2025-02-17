@@ -31,8 +31,8 @@ import psutil
 
 from simvue.api.objects.alert.base import AlertBase
 from simvue.api.objects.alert.fetch import Alert
-from simvue.api.objects.folder import Folder, get_folder_from_path
-from simvue.exception import ObjectNotFoundError, SimvueRunError
+from simvue.api.objects.folder import Folder
+from simvue.exception import SimvueRunError
 from simvue.utilities import prettify_pydantic
 
 
@@ -621,13 +621,10 @@ class Run:
 
         self._term_color = not no_color
 
-        try:
-            self._folder = get_folder_from_path(path=folder)
-        except ObjectNotFoundError:
-            self._folder = Folder.new(
-                path=folder, offline=self._user_config.run.mode == "offline"
-            )
-            self._folder.commit()  # type: ignore
+        self._folder = Folder.new(
+            path=folder, offline=self._user_config.run.mode == "offline"
+        )
+        self._folder.commit()  # type: ignore
 
         if isinstance(visibility, str) and visibility not in ("public", "tenant"):
             self._error(
