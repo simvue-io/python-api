@@ -87,6 +87,7 @@ class EventsAlert(AlertBase):
             _offline=offline,
         )
         _alert._staging |= _alert_definition
+        _alert._params = {"deduplicate": True}
         return _alert
 
 

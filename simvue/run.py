@@ -29,7 +29,6 @@ import uuid
 import click
 import psutil
 
-from simvue.api.objects.alert.base import AlertBase
 from simvue.api.objects.alert.fetch import Alert
 from simvue.api.objects.folder import Folder, get_folder_from_path
 from simvue.exception import ObjectNotFoundError, SimvueRunError
@@ -686,6 +685,7 @@ class Run:
         self._sv_obj.tags = tags
         self._sv_obj.metadata = (metadata or {}) | git_info(os.getcwd()) | environment()
         self._sv_obj.heartbeat_timeout = timeout
+        self._sv_obj.alerts = []
 
         if self._status == "running":
             self._sv_obj.system = get_system()
@@ -1632,48 +1632,26 @@ class Run:
             try:
                 if alerts := Alert.get(offline=self._user_config.run.mode == "offline"):
                     for alert in alerts:
-                        if alert.name in names:
-                            ids.append(alert.id)
+                        if alert[1].name in names:
+                            ids.append(alert[1].id)
+                else:
+                    self._error("No existing alerts")
+                    return False
             except RuntimeError as e:
                 self._error(f"{e.args[0]}")
-                return False
-            else:
-                self._error("No existing alerts")
                 return False
         elif not names and not ids:
             self._error("Need to provide alert ids or alert names")
             return False
 
         # Avoid duplication
-        self._sv_obj.alerts = list(set(self._sv_obj.alerts + [ids]))
+        _deduplicated = list(set(self._sv_obj.alerts + ids))
+        self._sv_obj.alerts = _deduplicated
         self._sv_obj.commit()
 
-        return False
-
-    def _attach_alert_to_run(self, alert: AlertBase) -> str | None:
-        # Check if the alert already exists
-        _alert_id: str | None = None
-
-        for _, _existing_alert in Alert.get(
-            offline=self._user_config.run.mode == "offline"
-        ):
-            if _existing_alert.compare(alert):
-                _alert_id = _existing_alert.id
-                logger.info("Existing alert found with id: %s", _existing_alert.id)
-                break
-
-        if not _alert_id:
-            alert.commit()
-            _alert_id = alert.id
-
-        self._sv_obj.alerts = [_alert_id]
-
-        self._sv_obj.commit()
-
-        return _alert_id
+        return True
 
     @skip_if_failed("_aborted", "_suppress_errors", None)
-    @check_run_initialised
     @pydantic.validate_call
     def create_metric_range_alert(
         self,
@@ -1691,6 +1669,7 @@ class Run:
         ] = "average",
         notification: typing.Literal["email", "none"] = "none",
         trigger_abort: bool = False,
+        attach_to_run: bool = True,
     ) -> str | None:
         """Creates a metric range alert with the specified name (if it doesn't exist)
         and applies it to the current run. If alert already exists it will
@@ -1720,6 +1699,8 @@ class Run:
             whether to notify on trigger, by default "none"
         trigger_abort : bool, optional
             whether this alert can trigger a run abort, default False
+        attach_to_run : bool, optional
+            whether to attach this alert to the current run, default True
 
         Returns
         -------
@@ -1741,10 +1722,12 @@ class Run:
             offline=self._user_config.run.mode == "offline",
         )
         _alert.abort = trigger_abort
-        return self._attach_alert_to_run(_alert)
+        _alert.commit()
+        if attach_to_run:
+            self.add_alerts(ids=[_alert.id])
+        return _alert.id
 
     @skip_if_failed("_aborted", "_suppress_errors", None)
-    @check_run_initialised
     @pydantic.validate_call
     def create_metric_threshold_alert(
         self,
@@ -1761,6 +1744,7 @@ class Run:
         ] = "average",
         notification: typing.Literal["email", "none"] = "none",
         trigger_abort: bool = False,
+        attach_to_run: bool = True,
     ) -> str | None:
         """Creates a metric threshold alert with the specified name (if it doesn't exist)
         and applies it to the current run. If alert already exists it will
@@ -1788,6 +1772,8 @@ class Run:
             whether to notify on trigger, by default "none"
         trigger_abort : bool, optional
             whether this alert can trigger a run abort, default False
+        attach_to_run : bool, optional
+            whether to attach this alert to the current run, default True
 
         Returns
         -------
@@ -1807,11 +1793,14 @@ class Run:
             notification=notification,
             offline=self._user_config.run.mode == "offline",
         )
+
         _alert.abort = trigger_abort
-        return self._attach_alert_to_run(_alert)
+        _alert.commit()
+        if attach_to_run:
+            self.add_alerts(ids=[_alert.id])
+        return _alert.id
 
     @skip_if_failed("_aborted", "_suppress_errors", None)
-    @check_run_initialised
     @pydantic.validate_call
     def create_event_alert(
         self,
@@ -1822,6 +1811,7 @@ class Run:
         frequency: pydantic.PositiveInt = 1,
         notification: typing.Literal["email", "none"] = "none",
         trigger_abort: bool = False,
+        attach_to_run: bool = True,
     ) -> str | None:
         """Creates an events alert with the specified name (if it doesn't exist)
         and applies it to the current run. If alert already exists it will
@@ -1839,6 +1829,8 @@ class Run:
             whether to notify on trigger, by default "none"
         trigger_abort : bool, optional
             whether this alert can trigger a run abort
+        attach_to_run : bool, optional
+            whether to attach this alert to the current run, default True
 
         Returns
         -------
@@ -1855,10 +1847,12 @@ class Run:
             offline=self._user_config.run.mode == "offline",
         )
         _alert.abort = trigger_abort
-        return self._attach_alert_to_run(_alert)
+        _alert.commit()
+        if attach_to_run:
+            self.add_alerts(ids=[_alert.id])
+        return _alert.id
 
     @skip_if_failed("_aborted", "_suppress_errors", None)
-    @check_run_initialised
     @pydantic.validate_call
     def create_user_alert(
         self,
@@ -1867,6 +1861,7 @@ class Run:
         description: str | None = None,
         notification: typing.Literal["email", "none"] = "none",
         trigger_abort: bool = False,
+        attach_to_run: bool = True,
     ) -> None:
         """Creates a user alert with the specified name (if it doesn't exist)
         and applies it to the current run. If alert already exists it will
@@ -1882,6 +1877,8 @@ class Run:
             whether to notify on trigger, by default "none"
         trigger_abort : bool, optional
             whether this alert can trigger a run abort, default False
+        attach_to_run : bool, optional
+            whether to attach this alert to the current run, default True
 
         Returns
         -------
@@ -1896,7 +1893,10 @@ class Run:
             offline=self._user_config.run.mode == "offline",
         )
         _alert.abort = trigger_abort
-        return self._attach_alert_to_run(_alert)
+        _alert.commit()
+        if attach_to_run:
+            self.add_alerts(ids=[_alert.id])
+        return _alert.id
 
     @skip_if_failed("_aborted", "_suppress_errors", False)
     @check_run_initialised
