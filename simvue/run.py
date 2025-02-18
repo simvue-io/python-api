@@ -718,7 +718,7 @@ class Run:
                 fg="green" if self._term_color else None,
             )
             click.secho(
-                f"[simvue] Monitor in the UI at {self._user_config.server.url}/dashboard/runs/run/{self._id}",
+                f"[simvue] Monitor in the UI at {self._user_config.server.url.rsplit('/api', 1)[0]}/dashboard/runs/run/{self._id}",
                 bold=self._term_color,
                 fg="green" if self._term_color else None,
             )
