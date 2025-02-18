@@ -25,7 +25,7 @@ import platform
 import typing
 import warnings
 import uuid
-
+import randomname
 import click
 import psutil
 
@@ -647,6 +647,8 @@ class Run:
         if name and not re.match(r"^[a-zA-Z0-9\-\_\s\/\.:]+$", name):
             self._error("specified name is invalid")
             return False
+        elif not name and self._user_config.run.mode != "online":
+            name = randomname.get_name()
 
         self._name = name
 
