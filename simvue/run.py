@@ -248,19 +248,12 @@ class Run:
             else f"An exception was thrown: {_exception_thrown}"
         )
 
-        self.log_event(_event_msg)
-        self.set_status("terminated" if _is_terminated else "failed")
-
         # If the dispatcher has already been aborted then this will
         # fail so just continue without the event
         with contextlib.suppress(RuntimeError):
-            self.log_event(f"{_exception_thrown}: {value}")
+            self.log_event(_event_msg)
 
-        if not traceback:
-            return
-
-        with contextlib.suppress(RuntimeError):
-            self.log_event(f"Traceback: {traceback}")
+        self.set_status("terminated" if _is_terminated else "failed")
 
     def __exit__(
         self,
