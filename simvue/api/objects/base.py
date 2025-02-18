@@ -164,10 +164,14 @@ class SimvueObject(abc.ABC):
             )
         )
 
-        self._headers: dict[str, str] = {
-            "Authorization": f"Bearer {self._user_config.server.token.get_secret_value()}",
-            "User-Agent": _user_agent or f"Simvue Python client {__version__}",
-        }
+        self._headers: dict[str, str] = (
+            {
+                "Authorization": f"Bearer {self._user_config.server.token.get_secret_value()}",
+                "User-Agent": _user_agent or f"Simvue Python client {__version__}",
+            }
+            if not self._offline
+            else {}
+        )
 
         self._staging: dict[str, typing.Any] = {}
 
