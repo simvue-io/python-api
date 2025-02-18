@@ -21,25 +21,29 @@ logger = logging.getLogger(__file__)
 
 
 class ServerSpecifications(pydantic.BaseModel):
-    url: pydantic.AnyHttpUrl
-    token: pydantic.SecretStr
+    url: pydantic.AnyHttpUrl | None
+    token: pydantic.SecretStr | None
 
     @pydantic.field_validator("url")
     @classmethod
     def url_to_api_url(cls, v: typing.Any) -> str:
-        if f"{v}".endswith("/api"):
-            return f"{v}"
-        _url = URL(f"{v}") / "api"
-        return f"{_url}"
+        if v:
+            if f"{v}".endswith("/api"):
+                return f"{v}"
+            _url = URL(f"{v}") / "api"
+            return f"{_url}"
 
     @pydantic.field_validator("token")
     def check_token(cls, v: typing.Any) -> str:
-        value = v.get_secret_value()
-        if not (expiry := get_expiry(value)):
-            raise AssertionError("Failed to parse Simvue token - invalid token form")
-        if time.time() - expiry > 0:
-            raise AssertionError("Simvue token has expired")
-        return v
+        if v:
+            value = v.get_secret_value()
+            if not (expiry := get_expiry(value)):
+                raise AssertionError(
+                    "Failed to parse Simvue token - invalid token form"
+                )
+            if time.time() - expiry > 0:
+                raise AssertionError("Simvue token has expired")
+            return v
 
 
 class OfflineSpecifications(pydantic.BaseModel):

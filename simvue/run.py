@@ -30,8 +30,8 @@ import click
 import psutil
 
 from simvue.api.objects.alert.fetch import Alert
-from simvue.api.objects.folder import Folder, get_folder_from_path
-from simvue.exception import ObjectNotFoundError, SimvueRunError
+from simvue.api.objects.folder import Folder
+from simvue.exception import SimvueRunError
 from simvue.utilities import prettify_pydantic
 
 
@@ -184,9 +184,13 @@ class Run:
             if self._user_config.metrics.resources_metrics_interval < 1
             else self._user_config.metrics.resources_metrics_interval
         )
-        self._headers: dict[str, str] = {
-            "Authorization": f"Bearer {self._user_config.server.token.get_secret_value()}"
-        }
+        self._headers: dict[str, str] = (
+            {
+                "Authorization": f"Bearer {self._user_config.server.token.get_secret_value()}"
+            }
+            if mode != "offline"
+            else {}
+        )
         self._sv_obj: RunObject | None = None
         self._pid: int | None = 0
         self._shutdown_event: threading.Event | None = None
@@ -418,7 +422,9 @@ class Run:
         if self._user_config.run.mode == "online" and not self._id:
             raise RuntimeError("Expected identifier for run")
 
-        if not self._user_config.server.url or not self._sv_obj:
+        if (
+            self._user_config.run.mode != "offline" and not self._user_config.server.url
+        ) or not self._sv_obj:
             raise RuntimeError("Cannot commence dispatch, run not initialised")
 
         def _dispatch_callback(
@@ -620,13 +626,10 @@ class Run:
 
         self._term_color = not no_color
 
-        try:
-            self._folder = get_folder_from_path(path=folder)
-        except ObjectNotFoundError:
-            self._folder = Folder.new(
-                path=folder, offline=self._user_config.run.mode == "offline"
-            )
-            self._folder.commit()  # type: ignore
+        self._folder = Folder.new(
+            path=folder, offline=self._user_config.run.mode == "offline"
+        )
+        self._folder.commit()  # type: ignore
 
         if isinstance(visibility, str) and visibility not in ("public", "tenant"):
             self._error(
@@ -637,7 +640,9 @@ class Run:
             self._error("invalid mode specified, must be online, offline or disabled")
             return False
 
-        if not self._user_config.server.token or not self._user_config.server.url:
+        if self._user_config.run.mode != "offline" and (
+            not self._user_config.server.token or not self._user_config.server.url
+        ):
             self._error(
                 "Unable to get URL and token from environment variables or config file"
             )

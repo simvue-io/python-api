@@ -212,10 +212,10 @@ class SimvueConfiguration(pydantic.BaseModel):
 
         _run_mode = mode or _config_dict["run"].get("mode") or "online"
 
-        if not _server_url:
+        if not _server_url and _run_mode != "offline":
             raise RuntimeError("No server URL was specified")
 
-        if not _server_token:
+        if not _server_token and _run_mode != "offline":
             raise RuntimeError("No server token was specified")
 
         _config_dict["server"]["token"] = _server_token
