@@ -145,12 +145,21 @@ def test_get_artifacts_as_files(
             create_test_run[1]["run_id"], category=category, output_dir=tempd
         )
         files = [os.path.basename(i) for i in glob.glob(os.path.join(tempd, "*"))]
-        if not category or category == "input":
-            assert create_test_run[1]["file_1"] in files
-        if not category or category == "output":
-            assert create_test_run[1]["file_2"] in files
-        if not category or category == "code":
-            assert create_test_run[1]["file_3"] in files
+        
+        if not category:
+            expected_files = ["file_1", "file_2", "file_3"]
+        elif category == "input":
+            expected_files = ["file_1"]
+        elif category == "output":
+            expected_files = ["file_2"]
+        elif category == "code":
+            expected_files = ["file_3"]
+            
+        for file in ["file_1", "file_2", "file_3"]:
+            if file in expected_files:
+                assert create_test_run[1][file] in files
+            else:
+                assert create_test_run[1][file] not in files
 
 
 @pytest.mark.dependency

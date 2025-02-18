@@ -358,7 +358,7 @@ def validate_timestamp(timestamp):
     Validate a user-provided timestamp
     """
     try:
-        datetime.datetime.strptime(timestamp, "%Y-%m-%d %H:%M:%S.%f")
+        datetime.datetime.strptime(timestamp, DATETIME_FORMAT)
     except ValueError:
         return False
 

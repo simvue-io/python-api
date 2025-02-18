@@ -52,14 +52,15 @@ class FileArtifact(ArtifactBase):
 
         if _mime_type not in get_mimetypes():
             raise ValueError(f"Invalid MIME type '{mime_type}' specified")
-        file_path = pathlib.Path(file_path)
-        _file_size = file_path.stat().st_size
-        _file_orig_path = file_path.expanduser().absolute()
-        _file_checksum = calculate_sha256(f"{file_path}", is_file=True)
 
-        kwargs.pop("original_path", None)
-        kwargs.pop("size", None)
-        kwargs.pop("checksum", None)
+        if _file_orig_path := kwargs.pop("original_path", None):
+            _file_size = kwargs.pop("size")
+            _file_checksum = kwargs.pop("checksum")
+        else:
+            file_path = pathlib.Path(file_path)
+            _file_size = file_path.stat().st_size
+            _file_orig_path = file_path.expanduser().absolute()
+            _file_checksum = calculate_sha256(f"{file_path}", is_file=True)
 
         _artifact = FileArtifact(
             name=name,
