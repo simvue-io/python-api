@@ -50,16 +50,17 @@ def find_first_instance_of_file(
     if isinstance(file_names, str):
         file_names = [file_names]
 
-    for root, _, files in os.walk(os.getcwd(), topdown=False):
-        for file_name in file_names:
-            if file_name in files:
-                return pathlib.Path(root).joinpath(file_name)
+    for file_name in file_names:
+        _user_file = pathlib.Path.cwd().joinpath(file_name)
+        if _user_file.exists():
+            return _user_file
 
     # If the user is running on different mounted volume or outside
     # of their user space then the above will not return the file
     if check_user_space:
         for file_name in file_names:
-            if os.path.exists(_user_file := pathlib.Path.home().joinpath(file_name)):
+            _user_file = pathlib.Path.home().joinpath(file_name)
+            if _user_file.exists():
                 return _user_file
 
     return None
