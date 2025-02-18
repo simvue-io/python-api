@@ -24,6 +24,62 @@ class Artifact:
             return ObjectArtifact(identifier=identifier, **kwargs)
 
     @classmethod
+    def from_run(
+        cls,
+        run_id: str,
+        category: typing.Literal["input", "output", "code"] | None = None,
+        **kwargs,
+    ) -> typing.Generator[tuple[str, FileArtifact | ObjectArtifact], None, None]:
+        """Return artifacts associated with a given run.
+
+        Parameters
+        ----------
+        run_id : str
+            The ID of the run to retriece artifacts from
+        category : typing.Literal["input", "output", "code"] | None, optional
+            The category of artifacts to return, by default all artifacts are returned
+
+        Returns
+        -------
+        typing.Generator[tuple[str, FileArtifact | ObjectArtifact], None, None]
+            The artifacts
+
+        Yields
+        ------
+        Iterator[typing.Generator[tuple[str, FileArtifact | ObjectArtifact], None, None]]
+            identifier for artifact
+            the artifact itself as a class instance
+
+        Raises
+        ------
+        ObjectNotFoundError
+            Raised if artifacts could not be found for that run
+        """
+        _temp = ArtifactBase(**kwargs)
+        _url = URL(_temp._user_config.server.url) / f"runs/{run_id}/artifacts"
+        _response = sv_get(
+            url=f"{_url}", params={"category": category}, headers=_temp._headers
+        )
+        _json_response = get_json_from_response(
+            expected_type=list,
+            response=_response,
+            expected_status=[http.HTTPStatus.OK, http.HTTPStatus.NOT_FOUND],
+            scenario=f"Retrieval of artifacts for run '{run_id}'",
+        )
+
+        if _response.status_code == http.HTTPStatus.NOT_FOUND or not _json_response:
+            raise ObjectNotFoundError(
+                _temp._label, category, extra=f"for run '{run_id}'"
+            )
+
+        for _entry in _json_response:
+            _id = _entry.pop("id")
+            yield (
+                _id,
+                Artifact(_local=True, _read_only=True, identifier=_id, **_entry),
+            )
+
+    @classmethod
     def from_name(
         cls, run_id: str, name: str, **kwargs
     ) -> typing.Union[FileArtifact | ObjectArtifact, None]:
@@ -99,21 +155,9 @@ class Artifact:
         if (_data := _json_response.get("data")) is None:
             raise RuntimeError(f"Expected key 'data' for retrieval of {_label}s")
 
-        _out_dict: dict[str, FileArtifact | ObjectArtifact] = {}
-
         for _entry in _data:
             _id = _entry.pop("id")
-            if _entry["original_path"]:
-                yield (
-                    _id,
-                    FileArtifact(
-                        _local=True, _read_only=True, identifier=_id, **_entry
-                    ),
-                )
-            else:
-                yield (
-                    _id,
-                    ObjectArtifact(
-                        _local=True, _read_only=True, identifier=_id, **_entry
-                    ),
-                )
+            yield (
+                _id,
+                Artifact(_local=True, _read_only=True, identifier=_id, **_entry),
+            )
