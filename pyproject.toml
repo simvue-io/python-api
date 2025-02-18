@@ -53,6 +53,7 @@ dependencies = [
   "psutil (>=6.1.1,<7.0.0)",
   "tenacity (>=9.0.0,<10.0.0)",
   "typing-extensions (>=4.12.2,<5.0.0) ; python_version < \"3.11\"",
+  "deepmerge (>=2.0,<3.0)",
 ]
 
 [project.urls]
