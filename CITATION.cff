@@ -43,8 +43,8 @@ keywords:
   - simulation
 license: Apache-2.0
 commit: 5aaebe682d7ec2f80fefc3eb2a8a26f5bdca1e0c
-version: 2.0.0a0
-date-released: '2025-02-11'
+version: 2.0.0a1
+date-released: '2025-02-19'
 references:
 - title: mlco2/codecarbon
   version: v2.8.2
