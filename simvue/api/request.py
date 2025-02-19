@@ -64,6 +64,7 @@ def is_retryable_exception(exception: Exception) -> bool:
 def post(
     url: str,
     headers: dict[str, str],
+    params: dict[str, str],
     data: typing.Any,
     is_json: bool = True,
     files: dict[str, typing.Any] | None = None,
@@ -76,6 +77,8 @@ def post(
         URL to post to
     headers : dict[str, str]
         headers for the post request
+    params : dict[str, str]
+        query parameters for the post request
     data : dict[str, typing.Any]
         data to post
     is_json : bool, optional
@@ -95,7 +98,12 @@ def post(
 
     logging.debug(f"POST: {url}\n\tdata={data_sent}")
     response = requests.post(
-        url, headers=headers, data=data_sent, timeout=DEFAULT_API_TIMEOUT, files=files
+        url,
+        headers=headers,
+        params=params,
+        data=data_sent,
+        timeout=DEFAULT_API_TIMEOUT,
+        files=files,
     )
 
     if response.status_code == http.HTTPStatus.UNPROCESSABLE_ENTITY:
