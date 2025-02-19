@@ -1,6 +1,6 @@
 # Change log
 
-## [v2.0.0-alpha0](https://github.com/simvue-io/client/releases/tag/v2.0.0a1) - 2025-02-19
+## [v2.0.0-alpha1](https://github.com/simvue-io/client/releases/tag/v2.0.0a1) - 2025-02-19
 * Fixed `add_alerts` so that it now works with both IDs and names
 * Improved alert and folder deduplication methods to rely on 409 responses from server upon creation
 * Added `attach_to_run` option to create alerts methods so that alerts can be created without a run attached
