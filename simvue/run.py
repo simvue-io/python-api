@@ -25,7 +25,7 @@ import platform
 import typing
 import warnings
 import uuid
-
+import randomname
 import click
 import psutil
 
@@ -252,19 +252,12 @@ class Run:
             else f"An exception was thrown: {_exception_thrown}"
         )
 
-        self.log_event(_event_msg)
-        self.set_status("terminated" if _is_terminated else "failed")
-
         # If the dispatcher has already been aborted then this will
         # fail so just continue without the event
         with contextlib.suppress(RuntimeError):
-            self.log_event(f"{_exception_thrown}: {value}")
+            self.log_event(_event_msg)
 
-        if not traceback:
-            return
-
-        with contextlib.suppress(RuntimeError):
-            self.log_event(f"Traceback: {traceback}")
+        self.set_status("terminated" if _is_terminated else "failed")
 
     def __exit__(
         self,
@@ -470,11 +463,12 @@ class Run:
 
         logger.debug("Starting run")
 
+        self._start_time = time.time()
+
         if self._sv_obj and self._sv_obj.status != "running":
             self._sv_obj.status = self._status
+            self._sv_obj.started = self._start_time
             self._sv_obj.commit()
-
-        self._start_time = time.time()
 
         if self._pid == 0:
             self._pid = os.getpid()
@@ -655,6 +649,8 @@ class Run:
         if name and not re.match(r"^[a-zA-Z0-9\-\_\s\/\.:]+$", name):
             self._error("specified name is invalid")
             return False
+        elif not name and self._user_config.run.mode == "offline":
+            name = randomname.get_name()
 
         self._name = name
 
@@ -695,6 +691,7 @@ class Run:
         self._sv_obj.metadata = (metadata or {}) | git_info(os.getcwd()) | environment()
         self._sv_obj.heartbeat_timeout = timeout
         self._sv_obj.alerts = []
+        self._sv_obj.created = time.time()
         self._sv_obj.notifications = notification
 
         if self._status == "running":
@@ -724,7 +721,7 @@ class Run:
                 fg="green" if self._term_color else None,
             )
             click.secho(
-                f"[simvue] Monitor in the UI at {self._user_config.server.url}/dashboard/runs/run/{self._id}",
+                f"[simvue] Monitor in the UI at {self._user_config.server.url.rsplit('/api', 1)[0]}/dashboard/runs/run/{self._id}",
                 bold=self._term_color,
                 fg="green" if self._term_color else None,
             )
@@ -1469,7 +1466,7 @@ class Run:
     ) -> bool:
         """Set run status
 
-        status to assign to this run
+        status to assign to this run once finished
 
         Parameters
         ----------
@@ -1489,6 +1486,7 @@ class Run:
 
         if self._sv_obj:
             self._sv_obj.status = status
+            self._sv_obj.endtime = time.time()
             self._sv_obj.commit()
             return True
 
@@ -1641,9 +1639,7 @@ class Run:
         if names and not ids:
             try:
                 if alerts := Alert.get(offline=self._user_config.run.mode == "offline"):
-                    for alert in alerts:
-                        if alert[1].name in names:
-                            ids.append(alert[1].id)
+                    ids += [id for id, alert in alerts if alert.name in names]
                 else:
                     self._error("No existing alerts")
                     return False
