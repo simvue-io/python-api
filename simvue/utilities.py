@@ -11,8 +11,8 @@ import contextlib
 import os
 import pathlib
 import typing
-
 import jwt
+from deepmerge import Merger
 
 from datetime import timezone
 from simvue.models import DATETIME_FORMAT
@@ -396,3 +396,18 @@ def get_mimetype_for_file(file_path: pathlib.Path) -> str:
     """Return MIME type for the given file"""
     _guess, *_ = mimetypes.guess_type(file_path)
     return _guess or "application/octet-stream"
+
+
+# Create a new Merge strategy for merging local file and staging attributes
+staging_merger = Merger(
+    # pass in a list of tuple, with the
+    # strategies you are looking to apply
+    # to each type.
+    [(list, ["override"]), (dict, ["merge"]), (set, ["union"])],
+    # next, choose the fallback strategies,
+    # applied to all other types:
+    ["override"],
+    # finally, choose the strategies in
+    # the case where the types conflict:
+    ["override"],
+)

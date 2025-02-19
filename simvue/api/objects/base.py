@@ -17,6 +17,7 @@ import logging
 import msgpack
 import pydantic
 
+from simvue.utilities import staging_merger
 from simvue.config.user import SimvueConfiguration
 from simvue.exception import ObjectNotFoundError
 from simvue.version import __version__
@@ -524,7 +525,8 @@ class SimvueObject(abc.ABC):
             with self._local_staging_file.open() as in_f:
                 _local_data = json.load(in_f)
 
-        _local_data |= self._staging
+        staging_merger.merge(_local_data, self._staging)
+
         with self._local_staging_file.open("w", encoding="utf-8") as out_f:
             json.dump(_local_data, out_f, indent=2)
 
