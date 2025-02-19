@@ -165,10 +165,14 @@ class SimvueObject(abc.ABC):
             )
         )
 
-        self._headers: dict[str, str] = {
-            "Authorization": f"Bearer {self._user_config.server.token.get_secret_value()}",
-            "User-Agent": _user_agent or f"Simvue Python client {__version__}",
-        }
+        self._headers: dict[str, str] = (
+            {
+                "Authorization": f"Bearer {self._user_config.server.token.get_secret_value()}",
+                "User-Agent": _user_agent or f"Simvue Python client {__version__}",
+            }
+            if not self._offline
+            else {}
+        )
 
         self._staging: dict[str, typing.Any] = {}
 
@@ -424,7 +428,7 @@ class SimvueObject(abc.ABC):
 
         _json_response = get_json_from_response(
             response=_response,
-            expected_status=[http.HTTPStatus.OK],
+            expected_status=[http.HTTPStatus.OK, http.HTTPStatus.CONFLICT],
             scenario=f"Creation of {self._label}",
         )
 
