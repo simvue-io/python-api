@@ -465,8 +465,9 @@ class Run:
 
         self._start_time = time.time()
 
-        if self._sv_obj and self._sv_obj.status != "running":
-            self._sv_obj.status = self._status
+        if self._sv_obj:
+            if self._sv_obj.status != "running":
+                self._sv_obj.status = self._status
             self._sv_obj.started = self._start_time
             self._sv_obj.commit()
 
