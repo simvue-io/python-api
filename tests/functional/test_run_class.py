@@ -220,9 +220,14 @@ def test_offline_tags(create_plain_run_offline: tuple[sv_run.Run, dict]) -> None
 
 @pytest.mark.run
 def test_update_metadata_running(create_test_run: tuple[sv_run.Run, dict]) -> None:
-    METADATA = {"a": 10, "b": 1.2, "c": "word"}
+    METADATA = {"a": 1, "b": 1.2, "c": "word", "d": "new"}
     run, _ = create_test_run
-    run.update_metadata(METADATA)
+    # Add an initial set of metadata
+    run.update_metadata({"a": 10, "b": 1.2, "c": "word"})
+    # Try updating a second time, check original dict isnt overwritten
+    run.update_metadata({"d": "new"})
+    # Try updating an already defined piece of metadata
+    run.update_metadata({"a": 1})
     run.close()
     time.sleep(1.0)
     client = sv_cl.Client()
@@ -234,9 +239,14 @@ def test_update_metadata_running(create_test_run: tuple[sv_run.Run, dict]) -> No
 
 @pytest.mark.run
 def test_update_metadata_created(create_pending_run: tuple[sv_run.Run, dict]) -> None:
-    METADATA = {"a": 10, "b": 1.2, "c": "word"}
+    METADATA = {"a": 1, "b": 1.2, "c": "word", "d": "new"}
     run, _ = create_pending_run
-    run.update_metadata(METADATA)
+    # Add an initial set of metadata
+    run.update_metadata({"a": 10, "b": 1.2, "c": "word"})
+    # Try updating a second time, check original dict isnt overwritten
+    run.update_metadata({"d": "new"})
+    # Try updating an already defined piece of metadata
+    run.update_metadata({"a": 1})
     time.sleep(1.0)
     client = sv_cl.Client()
     run_info = client.get_run(run.id)
@@ -250,13 +260,20 @@ def test_update_metadata_created(create_pending_run: tuple[sv_run.Run, dict]) ->
 def test_update_metadata_offline(
     create_plain_run_offline: tuple[sv_run.Run, dict],
 ) -> None:
-    METADATA = {"a": 10, "b": 1.2, "c": "word"}
+    METADATA = {"a": 1, "b": 1.2, "c": "word", "d": "new"}
     run, _ = create_plain_run_offline
     run_name = run._name
-    run.update_metadata(METADATA)
+    # Add an initial set of metadata
+    run.update_metadata({"a": 10, "b": 1.2, "c": "word"})
+    # Try updating a second time, check original dict isnt overwritten
+    run.update_metadata({"d": "new"})
+    # Try updating an already defined piece of metadata
+    run.update_metadata({"a": 1})
+
     sv_send.sender(os.environ["SIMVUE_OFFLINE_DIRECTORY"], 2, 10)
     run.close()
     time.sleep(1.0)
+    
     client = sv_cl.Client()
     run_info = client.get_run(client.get_run_id_from_name(run_name))
 
@@ -655,6 +672,29 @@ def test_update_tags_created(
     assert sorted(run_data.tags) == sorted(tags + ["additional"])
 
 
+@pytest.mark.offline
+@pytest.mark.run
+def test_update_tags_offline(
+    create_plain_run_offline: typing.Tuple[sv_run.Run, dict],
+) -> None:
+    simvue_run, _ = create_plain_run_offline
+    run_name = simvue_run._name
+    
+    simvue_run.set_tags(["simvue_client_unit_tests",])
+
+    simvue_run.update_tags(["additional"])
+    
+    sv_send.sender(os.environ["SIMVUE_OFFLINE_DIRECTORY"], 2, 10)
+    simvue_run.close()
+    time.sleep(1.0)
+
+    client = sv_cl.Client()
+    run_data = client.get_run(client.get_run_id_from_name(run_name))
+
+    time.sleep(1)
+    run_data = client.get_run(simvue_run._id)
+    assert sorted(run_data.tags) == sorted(["simvue_client_unit_tests", "additional"])
+    
 @pytest.mark.run
 @pytest.mark.parametrize("object_type", ("DataFrame", "ndarray"))
 def test_save_object(
