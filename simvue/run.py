@@ -1639,9 +1639,7 @@ class Run:
         if names and not ids:
             try:
                 if alerts := Alert.get(offline=self._user_config.run.mode == "offline"):
-                    for alert in alerts:
-                        if alert[1].name in names:
-                            ids.append(alert[1].id)
+                    ids += [id for id, alert in alerts if alert.name in names]
                 else:
                     self._error("No existing alerts")
                     return False
