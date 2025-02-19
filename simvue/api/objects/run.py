@@ -215,14 +215,16 @@ class Run(SimvueObject):
 
     @property
     @staging_check
-    def notifications(self) -> typing.Literal["none", "email"]:
-        return self._get_attribute("notifications")
+    def notifications(self) -> typing.Literal["none", "all", "error", "lost"]:
+        return self._get_attribute("notifications")["state"]
 
     @notifications.setter
     @write_only
     @pydantic.validate_call
-    def notifications(self, notifications: typing.Literal["none", "email"]) -> None:
-        self._staging["notifications"] = notifications
+    def notifications(
+        self, notifications: typing.Literal["none", "all", "error", "lost"]
+    ) -> None:
+        self._staging["notifications"] = {"state": notifications}
 
     @property
     @staging_check
