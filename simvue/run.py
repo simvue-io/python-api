@@ -465,7 +465,7 @@ class Run:
 
         logger.debug("Starting run")
 
-        if self._sv_obj:
+        if self._sv_obj and self._sv_obj.status != "running":
             self._sv_obj.status = self._status
             self._sv_obj.commit()
 
@@ -565,6 +565,7 @@ class Run:
         folder: typing.Annotated[
             str, pydantic.Field(None, pattern=FOLDER_REGEX)
         ] = None,
+        notification: typing.Literal["none", "all", "error", "lost"] = "none",
         running: bool = True,
         retention_period: str | None = None,
         timeout: int | None = 180,
@@ -586,6 +587,9 @@ class Run:
             description of the run, by default None
         folder : str, optional
             folder within which to store the run, by default "/"
+        notification: typing.Literal["none", "all", "error", "lost"], optional
+            whether to notify the user by email upon completion of the run if
+            the run is in the specified state, by default "none"
         running : bool, optional
             whether to set the status as running or created, the latter implying
             the run will be commenced at a later time. Default is True.
@@ -686,6 +690,7 @@ class Run:
         self._sv_obj.tags = tags
         self._sv_obj.metadata = (metadata or {}) | git_info(os.getcwd()) | environment()
         self._sv_obj.heartbeat_timeout = timeout
+        self._sv_obj.notifications = notification
 
         if self._status == "running":
             self._sv_obj.system = get_system()
