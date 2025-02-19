@@ -465,7 +465,7 @@ class Run:
 
         logger.debug("Starting run")
 
-        if self._sv_obj:
+        if self._sv_obj and self._sv_obj.status != "running":
             self._sv_obj.status = self._status
             self._sv_obj.commit()
 
