@@ -14,7 +14,7 @@ import psutil
 import pathlib
 import concurrent.futures
 import random
-
+import datetime
 import simvue
 from simvue.api.objects.alert.fetch import Alert
 from simvue.exception import SimvueRunError
@@ -59,12 +59,14 @@ def test_run_with_emissions() -> None:
 
 
 @pytest.mark.run
+@pytest.mark.parametrize("timestamp", (datetime.datetime.now().strftime("%Y-%m-%dT%H:%M:%S.%f"), None), ids=("timestamp", "no_timestamp"))
 @pytest.mark.parametrize("overload_buffer", (True, False), ids=("overload", "normal"))
 @pytest.mark.parametrize(
     "visibility", ("bad_option", "tenant", "public", ["ciuser01"], None)
 )
 def test_log_metrics(
     overload_buffer: bool,
+    timestamp: str | None,
     setup_logging: "CountingLogHandler",
     mocker,
     request: pytest.FixtureRequest,
@@ -112,9 +114,9 @@ def test_log_metrics(
 
     if overload_buffer:
         for i in range(run._dispatcher._max_buffer_size * 3):
-            run.log_metrics({key: i for key in METRICS})
+            run.log_metrics({key: i for key in METRICS}, timestamp=timestamp)
     else:
-        run.log_metrics(METRICS)
+        run.log_metrics(METRICS, timestamp=timestamp)
     time.sleep(2.0 if overload_buffer else 1.0)
     run.close()
     client = sv_cl.Client()
