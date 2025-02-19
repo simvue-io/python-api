@@ -466,10 +466,15 @@ class Run:
         self._start_time = time.time()
 
         if self._sv_obj:
+            _changed = False
             if self._sv_obj.status != "running":
                 self._sv_obj.status = self._status
-            self._sv_obj.started = self._start_time
-            self._sv_obj.commit()
+                _changed = True
+            if self._user_config.run.mode == "offline":
+                self._sv_obj.started = self._start_time
+                _changed = True
+            if _changed:
+                self._sv_obj.commit()
 
         if self._pid == 0:
             self._pid = os.getpid()
