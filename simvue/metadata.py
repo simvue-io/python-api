@@ -64,7 +64,7 @@ def git_info(repository: str) -> dict[str, typing.Any]:
         )
         return {
             "git": {
-                "authors": json.dumps(list(author_list)),
+                "authors": list(author_list),
                 "ref": ref,
                 "msg": current_commit.message.strip(),
                 "time_stamp": simvue_timestamp(current_commit.committed_datetime),
