@@ -97,6 +97,7 @@ class ArtifactBase(SimvueObject):
         _response = sv_post(
             url=_url,
             headers={},
+            params={},
             is_json=False,
             files={"file": file},
             data=self._init_data.get("fields"),

@@ -11,6 +11,7 @@ import http
 import typing
 import pydantic
 import datetime
+import time
 
 try:
     from typing import Self
@@ -214,23 +215,31 @@ class Run(SimvueObject):
 
     @property
     @staging_check
-    def notifications(self) -> typing.Literal["none", "email"]:
-        return self._get_attribute("notifications")
+    def notifications(self) -> typing.Literal["none", "all", "error", "lost"]:
+        return self._get_attribute("notifications")["state"]
 
     @notifications.setter
     @write_only
     @pydantic.validate_call
-    def notifications(self, notifications: typing.Literal["none", "email"]) -> None:
-        self._staging["notifications"] = notifications
+    def notifications(
+        self, notifications: typing.Literal["none", "all", "error", "lost"]
+    ) -> None:
+        self._staging["notifications"] = {"state": notifications}
 
     @property
     @staging_check
-    def alerts(self) -> typing.Generator[str, None, None]:
-        for alert in self.get_alert_details():
-            yield alert["id"]
+    def alerts(self) -> list[str]:
+        if self._offline:
+            return self._get_attribute("alerts")
+
+        return [alert["id"] for alert in self.get_alert_details()]
 
     def get_alert_details(self) -> typing.Generator[dict[str, typing.Any], None, None]:
         """Retrieve the full details of alerts for this run"""
+        if self._offline:
+            raise RuntimeError(
+                "Cannot get alert details from an offline run - use .alerts to access a list of IDs instead"
+            )
         for alert in self._get_attribute("alerts"):
             yield alert["alert"]
 
@@ -238,9 +247,7 @@ class Run(SimvueObject):
     @write_only
     @pydantic.validate_call
     def alerts(self, alerts: list[str]) -> None:
-        self._staging["alerts"] = [
-            alert for alert in alerts if alert not in self._staging.get("alerts", [])
-        ]
+        self._staging["alerts"] = list(set(self._staging.get("alerts", []) + alerts))
 
     @property
     @staging_check
@@ -250,6 +257,19 @@ class Run(SimvueObject):
         return (
             datetime.datetime.strptime(_created, DATETIME_FORMAT) if _created else None
         )
+
+    @created.setter
+    @write_only
+    @pydantic.validate_call
+    def created(self, created: datetime.datetime) -> None:
+        self._staging["created"] = created.strftime(DATETIME_FORMAT)
+
+    @property
+    @staging_check
+    def runtime(self) -> datetime.datetime | None:
+        """Retrieve created datetime for the run"""
+        _runtime: str | None = self._get_attribute("runtime")
+        return time.strptime(_runtime, "%H:%M:%S.%f") if _runtime else None
 
     @property
     @staging_check

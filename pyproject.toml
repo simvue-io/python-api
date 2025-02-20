@@ -1,6 +1,6 @@
 [project]
 name = "simvue"
-version = "2.0.0a0"
+version = "2.0.0a1"
 description = "Simulation tracking and monitoring"
 authors = [
   {name = "Simvue Development Team", email = "info@simvue.io"}
@@ -46,13 +46,14 @@ dependencies = [
   "humanfriendly (>=10.0,<11.0)",
   "randomname (>=0.2.1,<0.3.0)",
   "codecarbon (>=2.8.3,<3.0.0)",
-  "numpy (>=2.2.2,<3.0.0)",
+  "numpy (>=2.0.0,<3.0.0)",
   "flatdict (>=4.0.1,<5.0.0)",
   "semver (>=3.0.4,<4.0.0)",
   "email-validator (>=2.2.0,<3.0.0)",
   "psutil (>=6.1.1,<7.0.0)",
   "tenacity (>=9.0.0,<10.0.0)",
   "typing-extensions (>=4.12.2,<5.0.0) ; python_version < \"3.11\"",
+  "deepmerge (>=2.0,<3.0)",
 ]
 
 [project.urls]
