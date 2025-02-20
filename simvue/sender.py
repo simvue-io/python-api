@@ -10,9 +10,11 @@ import pydantic
 import logging
 from concurrent.futures import ThreadPoolExecutor
 import threading
+import requests
 from simvue.config.user import SimvueConfiguration
 
 import simvue.api.objects
+from simvue.version import __version__
 
 UPLOAD_ORDER: list[str] = [
     "tenants",
@@ -134,7 +136,8 @@ def sender(
     objects_to_upload : list[str]
         Types of objects to upload, by default uploads all types of objects present in cache
     """
-    cache_dir = cache_dir or SimvueConfiguration.fetch().offline.cache
+    _user_config = SimvueConfiguration.fetch()
+    cache_dir = cache_dir or _user_config.offline.cache
     cache_dir.joinpath("server_ids").mkdir(parents=True, exist_ok=True)
     _id_mapping: dict[str, str] = {
         file_path.name.split(".")[0]: file_path.read_text()
@@ -160,4 +163,29 @@ def sender(
                     ),
                     _offline_files,
                 )
+
+    # Send heartbeats
+    _headers: dict[str, str] = {
+        "Authorization": f"Bearer {_user_config.server.token.get_secret_value()}",
+        "User-Agent": f"Simvue Python client {__version__}",
+    }
+
+    for _heartbeat_file in cache_dir.glob("runs/*.heartbeat"):
+        _offline_id = _heartbeat_file.name.split(".")[0]
+        _online_id = _id_mapping.get(_offline_id)
+        if not _online_id:
+            # Run has been closed - can just remove heartbeat and continue
+            _heartbeat_file.unlink()
+            continue
+        _logger.info(f"Sending heartbeat to run {_online_id}")
+        _response = requests.put(
+            f"{_user_config.server.url}/runs/{_online_id}/heartbeat",
+            headers=_headers,
+        )
+        if _response.status_code == 200:
+            _heartbeat_file.unlink()
+        else:
+            _logger.warning(
+                f"Attempting to send heartbeat to run {_online_id} returned status code {_response.status_code}."
+            )
     return _id_mapping
