@@ -1521,7 +1521,11 @@ class Run:
             self._dispatcher.purge()
             self._dispatcher.join()
 
-        if self._user_config.run.mode == "offline" and self._status != "created":
+        if (
+            self._sv_obj
+            and self._user_config.run.mode == "offline"
+            and self._status != "created"
+        ):
             self._user_config.offline.cache.joinpath(
                 "runs", f"{self._id}.closed"
             ).touch()
