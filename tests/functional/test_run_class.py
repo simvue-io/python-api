@@ -14,7 +14,7 @@ import psutil
 import pathlib
 import concurrent.futures
 import random
-
+import datetime
 import simvue
 from simvue.api.objects.alert.fetch import Alert
 from simvue.exception import SimvueRunError
@@ -59,12 +59,14 @@ def test_run_with_emissions() -> None:
 
 
 @pytest.mark.run
+@pytest.mark.parametrize("timestamp", (datetime.datetime.now().strftime("%Y-%m-%dT%H:%M:%S.%f"), None), ids=("timestamp", "no_timestamp"))
 @pytest.mark.parametrize("overload_buffer", (True, False), ids=("overload", "normal"))
 @pytest.mark.parametrize(
     "visibility", ("bad_option", "tenant", "public", ["ciuser01"], None)
 )
 def test_log_metrics(
     overload_buffer: bool,
+    timestamp: str | None,
     setup_logging: "CountingLogHandler",
     mocker,
     request: pytest.FixtureRequest,
@@ -112,9 +114,9 @@ def test_log_metrics(
 
     if overload_buffer:
         for i in range(run._dispatcher._max_buffer_size * 3):
-            run.log_metrics({key: i for key in METRICS})
+            run.log_metrics({key: i for key in METRICS}, timestamp=timestamp)
     else:
-        run.log_metrics(METRICS)
+        run.log_metrics(METRICS, timestamp=timestamp)
     time.sleep(2.0 if overload_buffer else 1.0)
     run.close()
     client = sv_cl.Client()
@@ -220,9 +222,14 @@ def test_offline_tags(create_plain_run_offline: tuple[sv_run.Run, dict]) -> None
 
 @pytest.mark.run
 def test_update_metadata_running(create_test_run: tuple[sv_run.Run, dict]) -> None:
-    METADATA = {"a": 10, "b": 1.2, "c": "word"}
+    METADATA = {"a": 1, "b": 1.2, "c": "word", "d": "new"}
     run, _ = create_test_run
-    run.update_metadata(METADATA)
+    # Add an initial set of metadata
+    run.update_metadata({"a": 10, "b": 1.2, "c": "word"})
+    # Try updating a second time, check original dict isnt overwritten
+    run.update_metadata({"d": "new"})
+    # Try updating an already defined piece of metadata
+    run.update_metadata({"a": 1})
     run.close()
     time.sleep(1.0)
     client = sv_cl.Client()
@@ -234,9 +241,14 @@ def test_update_metadata_running(create_test_run: tuple[sv_run.Run, dict]) -> No
 
 @pytest.mark.run
 def test_update_metadata_created(create_pending_run: tuple[sv_run.Run, dict]) -> None:
-    METADATA = {"a": 10, "b": 1.2, "c": "word"}
+    METADATA = {"a": 1, "b": 1.2, "c": "word", "d": "new"}
     run, _ = create_pending_run
-    run.update_metadata(METADATA)
+    # Add an initial set of metadata
+    run.update_metadata({"a": 10, "b": 1.2, "c": "word"})
+    # Try updating a second time, check original dict isnt overwritten
+    run.update_metadata({"d": "new"})
+    # Try updating an already defined piece of metadata
+    run.update_metadata({"a": 1})
     time.sleep(1.0)
     client = sv_cl.Client()
     run_info = client.get_run(run.id)
@@ -250,13 +262,20 @@ def test_update_metadata_created(create_pending_run: tuple[sv_run.Run, dict]) ->
 def test_update_metadata_offline(
     create_plain_run_offline: tuple[sv_run.Run, dict],
 ) -> None:
-    METADATA = {"a": 10, "b": 1.2, "c": "word"}
+    METADATA = {"a": 1, "b": 1.2, "c": "word", "d": "new"}
     run, _ = create_plain_run_offline
     run_name = run._name
-    run.update_metadata(METADATA)
+    # Add an initial set of metadata
+    run.update_metadata({"a": 10, "b": 1.2, "c": "word"})
+    # Try updating a second time, check original dict isnt overwritten
+    run.update_metadata({"d": "new"})
+    # Try updating an already defined piece of metadata
+    run.update_metadata({"a": 1})
+
     sv_send.sender(os.environ["SIMVUE_OFFLINE_DIRECTORY"], 2, 10)
     run.close()
     time.sleep(1.0)
+    
     client = sv_cl.Client()
     run_info = client.get_run(client.get_run_id_from_name(run_name))
 
@@ -655,6 +674,29 @@ def test_update_tags_created(
     assert sorted(run_data.tags) == sorted(tags + ["additional"])
 
 
+@pytest.mark.offline
+@pytest.mark.run
+def test_update_tags_offline(
+    create_plain_run_offline: typing.Tuple[sv_run.Run, dict],
+) -> None:
+    simvue_run, _ = create_plain_run_offline
+    run_name = simvue_run._name
+    
+    simvue_run.set_tags(["simvue_client_unit_tests",])
+
+    simvue_run.update_tags(["additional"])
+    
+    sv_send.sender(os.environ["SIMVUE_OFFLINE_DIRECTORY"], 2, 10)
+    simvue_run.close()
+    time.sleep(1.0)
+
+    client = sv_cl.Client()
+    run_data = client.get_run(client.get_run_id_from_name(run_name))
+
+    time.sleep(1)
+    run_data = client.get_run(simvue_run._id)
+    assert sorted(run_data.tags) == sorted(["simvue_client_unit_tests", "additional"])
+    
 @pytest.mark.run
 @pytest.mark.parametrize("object_type", ("DataFrame", "ndarray"))
 def test_save_object(
@@ -675,6 +717,94 @@ def test_save_object(
             pytest.skip("Numpy is not installed")
         save_obj = array([1, 2, 3, 4])
     simvue_run.save_object(save_obj, "input", f"test_object_{object_type}")
+
+@pytest.mark.run
+def test_add_alerts() -> None:
+    _uuid = f"{uuid.uuid4()}".split("-")[0]
+
+    run = sv_run.Run()
+    run.init(
+        name="test_add_alerts",
+        folder="/simvue_unit_tests",
+        retention_period="1 min",
+        tags=["test_add_alerts"],
+        visibility="tenant"
+    )
+    
+    _expected_alerts = []
+    
+    # Create alerts, have them attach to run automatically
+    _id = run.create_event_alert(
+        name=f"event_alert_{_uuid}",
+        pattern = "test",
+    )
+    _expected_alerts.append(_id)
+    time.sleep(1)
+    # Retrieve run, check if alert has been added
+    _online_run = RunObject(identifier=run._id)
+    assert _id in _online_run.alerts
+    
+    # Create another alert and attach to run
+    _id = run.create_metric_range_alert(
+        name=f"metric_range_alert_{_uuid}",
+        metric="test",
+        range_low=10,
+        range_high=100,
+        rule="is inside range",
+    )
+    _expected_alerts.append(_id)
+    time.sleep(1)
+    # Retrieve run, check both alerts have been added
+    _online_run.refresh()
+    assert sorted(_online_run.alerts) == sorted(_expected_alerts)
+    
+    # Create another alert, do not attach to run
+    _id = run.create_metric_threshold_alert(
+        name=f"metric_threshold_alert_{_uuid}",
+        metric="test",
+        threshold=10,
+        rule="is above",
+        attach_to_run=False
+    )
+    time.sleep(1)
+    # Retrieve run, check alert has NOT been added
+    _online_run.refresh()
+    assert sorted(_online_run.alerts) == sorted(_expected_alerts)
+    
+    # Try adding all three alerts using add_alerts
+    _expected_alerts.append(_id)
+    run.add_alerts(names=[f"event_alert_{_uuid}", f"metric_range_alert_{_uuid}", f"metric_threshold_alert_{_uuid}"])
+    time.sleep(1)
+    
+    # Check that there is no duplication
+    _online_run.refresh()
+    assert sorted(_online_run.alerts) == sorted(_expected_alerts)
+    
+    # Create another run without adding to run
+    _id = run.create_user_alert(
+        name=f"user_alert_{_uuid}",
+        attach_to_run=False
+    )
+    time.sleep(1)
+    
+    # Check alert is not added
+    _online_run.refresh()
+    assert sorted(_online_run.alerts) == sorted(_expected_alerts)
+    
+    # Try adding alerts with IDs, check there is no duplication
+    _expected_alerts.append(_id)
+    run.add_alerts(ids=_expected_alerts)
+    time.sleep(1)
+    
+    _online_run.refresh()
+    assert sorted(_online_run.alerts) == sorted(_expected_alerts)
+    
+    run.close()
+    
+    client = sv_cl.Client()
+    client.delete_run(run._id)
+    for _id in _expected_alerts:
+        client.delete_alert(_id)
 
 
 @pytest.mark.run
@@ -756,8 +886,8 @@ def test_abort_on_alert_raise(create_plain_run: typing.Tuple[sv_run.Run, dict], 
     run.add_process(identifier="forever_long", executable="bash", c="sleep 10")
     time.sleep(2)
     run.log_alert(alert_id, "critical")
-    _alert = Alert(identifier=alert_id)
     time.sleep(1)
+    _alert = Alert(identifier=alert_id)
     assert _alert.get_status(run.id) == "critical"
     counter = 0
     while run._status != "terminated" and counter < 15:

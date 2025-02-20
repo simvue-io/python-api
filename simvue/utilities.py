@@ -11,8 +11,8 @@ import contextlib
 import os
 import pathlib
 import typing
-
 import jwt
+from deepmerge import Merger
 
 from datetime import timezone
 from simvue.models import DATETIME_FORMAT
@@ -50,16 +50,17 @@ def find_first_instance_of_file(
     if isinstance(file_names, str):
         file_names = [file_names]
 
-    for root, _, files in os.walk(os.getcwd(), topdown=False):
-        for file_name in file_names:
-            if file_name in files:
-                return pathlib.Path(root).joinpath(file_name)
+    for file_name in file_names:
+        _user_file = pathlib.Path.cwd().joinpath(file_name)
+        if _user_file.exists():
+            return _user_file
 
     # If the user is running on different mounted volume or outside
     # of their user space then the above will not return the file
     if check_user_space:
         for file_name in file_names:
-            if os.path.exists(_user_file := pathlib.Path.home().joinpath(file_name)):
+            _user_file = pathlib.Path.home().joinpath(file_name)
+            if _user_file.exists():
                 return _user_file
 
     return None
@@ -357,7 +358,7 @@ def validate_timestamp(timestamp):
     Validate a user-provided timestamp
     """
     try:
-        datetime.datetime.strptime(timestamp, "%Y-%m-%d %H:%M:%S.%f")
+        datetime.datetime.strptime(timestamp, DATETIME_FORMAT)
     except ValueError:
         return False
 
@@ -395,3 +396,18 @@ def get_mimetype_for_file(file_path: pathlib.Path) -> str:
     """Return MIME type for the given file"""
     _guess, *_ = mimetypes.guess_type(file_path)
     return _guess or "application/octet-stream"
+
+
+# Create a new Merge strategy for merging local file and staging attributes
+staging_merger = Merger(
+    # pass in a list of tuple, with the
+    # strategies you are looking to apply
+    # to each type.
+    [(list, ["override"]), (dict, ["merge"]), (set, ["union"])],
+    # next, choose the fallback strategies,
+    # applied to all other types:
+    ["override"],
+    # finally, choose the strategies in
+    # the case where the types conflict:
+    ["override"],
+)

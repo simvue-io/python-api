@@ -67,9 +67,10 @@ def test_queued_dispatcher(overload_buffer: bool, multiple: bool, append_during_
     event.set()
 
     dispatcher.join()
+    time.sleep(0.1)
 
     for variable in variables:
-        assert check_dict[variable]["counter"] >= 2 if overload_buffer else 1, f"Check of counter for dispatcher '{variable}' failed with count = {check_dict[variable]['counter']}"
+        assert check_dict[variable]["counter"] >= (2 if overload_buffer else 1), f"Check of counter for dispatcher '{variable}' failed with count = {check_dict[variable]['counter']}"
     assert time.time() - start_time < time_threshold
 
 

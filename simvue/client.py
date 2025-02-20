@@ -9,7 +9,6 @@ server including deletion and retrieval.
 import contextlib
 import json
 import logging
-import os
 import pathlib
 import typing
 import http
@@ -45,12 +44,9 @@ logger = logging.getLogger(__file__)
 def _download_artifact_to_file(
     artifact: Artifact, output_dir: pathlib.Path | None
 ) -> None:
-    try:
-        _file_name = os.path.basename(artifact.name)
-    except AttributeError:
-        _file_name = os.path.basename(artifact)
-    _output_file = (output_dir or pathlib.Path.cwd()).joinpath(_file_name)
-
+    _output_file = (output_dir or pathlib.Path.cwd()).joinpath(artifact.name)
+    # If this is a hierarchical structure being downloaded, need to create directories
+    _output_file.parent.mkdir(parents=True, exist_ok=True)
     with _output_file.open("wb") as out_f:
         for content in artifact.download_content():
             out_f.write(content)
@@ -565,9 +561,6 @@ class Client:
         run_id: str,
         category: typing.Literal["input", "output", "code"] | None = None,
         output_dir: pydantic.DirectoryPath | None = None,
-        startswith: str | None = None,
-        contains: str | None = None,
-        endswith: str | None = None,
     ) -> None:
         """Retrieve artifacts from the given run as a set of files
 
@@ -575,24 +568,20 @@ class Client:
         ----------
         run_id : str
             the unique identifier for the run
+        category : typing.Literal["input", "output", "code"] |
+            the type of files to retrieve
         output_dir : str | None, optional
             location to download files to, the default of None will download
             them to the current working directory
-        startswith : str, optional
-            only download artifacts with this prefix in their name, by default None
-        contains : str, optional
-            only download artifacts containing this term in their name, by default None
-        endswith : str, optional
-            only download artifacts ending in this term in their name, by default None
 
         Raises
         ------
         RuntimeError
             if there was a failure retrieving artifacts from the server
         """
-        _artifacts: typing.Generator[tuple[str, Artifact], None, None] = Artifact.get(
-            runs=json.dumps([run_id]), category=category
-        )  # type: ignore
+        _artifacts: typing.Generator[tuple[str, Artifact], None, None] = (
+            Artifact.from_run(run_id=run_id, category=category)
+        )
 
         with ThreadPoolExecutor(CONCURRENT_DOWNLOADS) as executor:
             futures = [
