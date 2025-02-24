@@ -1621,7 +1621,6 @@ class Run:
             if description:
                 self._folder.description = description
             self._folder.commit()
-            self._folder.read_only(True)
         except (RuntimeError, ValueError, pydantic.ValidationError) as e:
             self._error(f"Failed to update folder '{self._folder.name}' details: {e}")
             return False
