@@ -931,7 +931,7 @@ class Run:
         self._status = "running"
 
         self._id = run_id
-        self._sv_obj = RunObject(identifier=self._id)
+        self._sv_obj = RunObject(identifier=self._id, _read_only=False)
         self._start(reconnect=True)
 
         return True
