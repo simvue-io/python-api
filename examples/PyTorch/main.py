@@ -4,11 +4,13 @@
 This is an example of how to track PyTorch ML model training with Simvue.
 
 To run this example, do:
+
     pip install -r examples/PyTorch/requirements.txt
     python examples/PyTorch/main.py
     
 You can optionally specify command line arguments to change the batch or
 epoch size, training hardware details, learning rate etc. To see possible options:
+
     python examples/PyTorch/main.py --help
 """
 
