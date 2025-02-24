@@ -180,7 +180,7 @@ class SimvueConfiguration(pydantic.BaseModel):
         except FileNotFoundError:
             if not server_token or not server_url:
                 _config_dict = {"server": {}}
-                logger.warning("No config file found, checking environment variables")
+                logger.debug("No config file found, checking environment variables")
 
         _config_dict["server"] = _config_dict.get("server", {})
 

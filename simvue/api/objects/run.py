@@ -315,7 +315,14 @@ class Run(SimvueObject):
 
     @write_only
     def send_heartbeat(self) -> dict[str, typing.Any] | None:
-        if self._offline or not self._identifier:
+        if not self._identifier:
+            return None
+
+        if self._offline:
+            if not (_dir := self._local_staging_file.parent).exists():
+                _dir.mkdir(parents=True)
+            _heartbeat_file = self._local_staging_file.with_suffix(".heartbeat")
+            _heartbeat_file.touch()
             return None
 
         _url = self._base_url
