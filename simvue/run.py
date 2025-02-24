@@ -305,15 +305,20 @@ class Run:
 
         return list(set(process_list))
 
-    def _get_sysinfo(self) -> dict[str, typing.Any]:
+    def _get_sysinfo(self, interval: float | None = None) -> dict[str, typing.Any]:
         """Retrieve system administration
+
+        Parameters
+        ----------
+        interval : float | None
+            The interval to use for collection of CPU metrics, by default None (non blocking)
 
         Returns
         -------
         dict[str, typing.Any]
             retrieved system specifications
         """
-        cpu = get_process_cpu(self.processes)
+        cpu = get_process_cpu(self.processes, interval=interval)
         memory = get_process_memory(self.processes)
         gpu = get_gpu_metrics(self.processes)
         data: dict[str, typing.Any] = {}
@@ -347,6 +352,12 @@ class Run:
         ) -> None:
             if not heartbeat_trigger:
                 raise RuntimeError("Expected initialisation of heartbeat")
+
+            # Add initial resource metrics
+            if self._resources_metrics_interval:
+                self._add_metrics_to_dispatch(
+                    self._get_sysinfo(interval=0.1), join_on_fail=False
+                )
 
             last_heartbeat = time.time()
             last_res_metric_call = time.time()
