@@ -1,3 +1,17 @@
+"""PyTorch Example
+===================
+
+This is an example of how to track PyTorch ML model training with Simvue.
+
+To run this example, do:
+    pip install -r examples/PyTorch/requirements.txt
+    python examples/PyTorch/main.py
+    
+You can optionally specify command line arguments to change the batch or
+epoch size, training hardware details, learning rate etc. To see possible options:
+    python examples/PyTorch/main.py --help
+"""
+
 # Taken from https://github.com/pytorch/examples/blob/main/mnist/main.py
 from __future__ import print_function
 

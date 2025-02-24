@@ -11,6 +11,10 @@ Install Simvue:
 ```
 pip install simvue
 ```
+Create a `simvue.toml` file by going to the web UI, clicking 'Create New Run', and copying the details given into:
+```
+nano simvue.toml
+```
 Download and install the appropriate version of SU2, e.g. on Linux:
 ```
 wget https://github.com/su2code/SU2/releases/download/v7.0.2/SU2-v7.0.2-linux64-mpi.zip
