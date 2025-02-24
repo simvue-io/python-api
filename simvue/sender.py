@@ -116,6 +116,31 @@ def upload_cached_file(
         _logger.info(f"Run {_current_id} closed - deleting cached copies...")
 
 
+def send_heartbeat(
+    file_path: pydantic.FilePath,
+    id_mapping: dict[str, str],
+    server_url: str,
+    headers: dict[str, str],
+):
+    _offline_id = file_path.name.split(".")[0]
+    _online_id = id_mapping.get(_offline_id)
+    if not _online_id:
+        # Run has been closed - can just remove heartbeat and continue
+        file_path.unlink()
+        return
+    _logger.info(f"Sending heartbeat to run {_online_id}")
+    _response = requests.put(
+        f"{server_url}/runs/{_online_id}/heartbeat",
+        headers=headers,
+    )
+    if _response.status_code == 200:
+        file_path.unlink()
+    else:
+        _logger.warning(
+            f"Attempting to send heartbeat to run {_online_id} returned status code {_response.status_code}."
+        )
+
+
 @pydantic.validate_call
 def sender(
     cache_dir: pydantic.DirectoryPath | None = None,
@@ -169,23 +194,26 @@ def sender(
         "Authorization": f"Bearer {_user_config.server.token.get_secret_value()}",
         "User-Agent": f"Simvue Python client {__version__}",
     }
-
-    for _heartbeat_file in cache_dir.glob("runs/*.heartbeat"):
-        _offline_id = _heartbeat_file.name.split(".")[0]
-        _online_id = _id_mapping.get(_offline_id)
-        if not _online_id:
-            # Run has been closed - can just remove heartbeat and continue
-            _heartbeat_file.unlink()
-            continue
-        _logger.info(f"Sending heartbeat to run {_online_id}")
-        _response = requests.put(
-            f"{_user_config.server.url}/runs/{_online_id}/heartbeat",
-            headers=_headers,
-        )
-        if _response.status_code == 200:
-            _heartbeat_file.unlink()
-        else:
-            _logger.warning(
-                f"Attempting to send heartbeat to run {_online_id} returned status code {_response.status_code}."
+    _heartbeat_files = list(cache_dir.glob("runs/*.heartbeat"))
+    if len(_heartbeat_files) < threading_threshold:
+        for _heartbeat_file in _heartbeat_files:
+            (
+                send_heartbeat(
+                    file_path=_heartbeat_file,
+                    id_mapping=_id_mapping,
+                    server_url=_user_config.server.url,
+                    headers=_headers,
+                ),
+            )
+    else:
+        with ThreadPoolExecutor(max_workers=max_workers) as executor:
+            _results = executor.map(
+                lambda _heartbeat_file: send_heartbeat(
+                    file_path=_heartbeat_file,
+                    id_mapping=_id_mapping,
+                    server_url=_user_config.server.url,
+                    headers=_headers,
+                ),
+                _heartbeat_files,
             )
     return _id_mapping
