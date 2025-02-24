@@ -1,13 +1,25 @@
-# Colab notebooks
+# Example Notebooks
+These example notebooks give you some simple examples of integrating Simvue into your workflow to track and monitor any simulation or data processing task.
 
-## Using Simvue in Google Colab
+## Basic Example
 
-This demonstrates how to use Simvue in Google Colab.
+[![Open In Collab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/drive/1VleQ-Ga010w9TE2oTBnTnJdGHlWZMJKn?usp=sharing)
 
-## Simple Tensorflow example
+In this example we take a simple piece of Python code which finds the average of a set of random numbers, and use Simvue to:
 
-[![Open In Collab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/drive/1HDN0gUKC9pGtroOQhylrH_eM6BnIvcRC?usp=sharing)
+* Start a new run to track the progress of the code
+* Upload metrics in real time to the server
+* Upload events to tell us when the code is complete
 
-In this example we take an existing Python code and then make use of Simvue to:
-* collect metadata,
-* collect metrics which can be visualised in real time in the Simvue dashboard.
+## Detailed Example
+
+[![Open In Collab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/drive/1GHItQvWS9HBUoTmdZxDYnGq0wfmdYhsc?usp=sharing)
+
+In this more detailed example, we create a simple simulation of customers arriving at a bank counter and either being served or running out of patience and leaving. We then use Simvue to:
+
+* Start a new run to track the progress of this simulation
+* Upload artifacts for storage in the form of a file and a Numpy array
+* Add metadata to keep track of input parameters for the simulation
+* Upload metrics in real time to the server to keep track of the average customer wait time and percentage who don't get served
+* Add events which show us the status of each customer
+* Add alerts which notify us if too many customers are not being served in time
