@@ -1614,7 +1614,6 @@ class Run:
             return False
 
         try:
-            self._folder.read_only(False)
             if metadata:
                 self._folder.metadata = metadata
             if tags:
