@@ -958,6 +958,7 @@ class Run:
             PID of the process to be monitored
         """
         self._pid = pid
+        self._parent_process = psutil.Process(self._pid)
 
     @skip_if_failed("_aborted", "_suppress_errors", False)
     @pydantic.validate_call
