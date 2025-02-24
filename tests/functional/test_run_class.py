@@ -929,3 +929,41 @@ def test_run_created_with_no_timeout() -> None:
     client = simvue.Client()
     assert client.get_run(run._id)
 
+@pytest.mark.parametrize("mode", ("online", "offline"), ids=("online", "offline"))
+@pytest.mark.run
+def test_reconnect(mode, monkeypatch: pytest.MonkeyPatch) -> None:
+    if mode == "offline":
+        temp_d = tempfile.TemporaryDirectory()
+        monkeypatch.setenv("SIMVUE_OFFLINE_DIRECTORY", temp_d)
+        
+    with simvue.Run(mode=mode) as run:
+        run.init(
+            name="test_reconnect",
+            folder="/simvue_unit_testing",
+            retention_period="2 minutes",
+            timeout=None,
+            running=False
+        )
+        run_id = run.id
+    if mode == "offline":
+        _id_mapping = sv_send.sender(os.environ["SIMVUE_OFFLINE_DIRECTORY"], 2, 10)
+        run_id = _id_mapping.get(run_id)
+        
+    client = simvue.Client()
+    _created_run = client.get_run(run_id)
+    assert _created_run.status == "created"
+    time.sleep(1)
+    
+    with simvue.Run() as run:
+        run.reconnect(run_id)
+        run.log_metrics({"test_metric": 1})
+        run.log_event("Testing!")
+        
+    if mode == "offline":
+        _id_mapping = sv_send.sender(os.environ["SIMVUE_OFFLINE_DIRECTORY"], 2, 10)
+        
+    _reconnected_run = client.get_run(run_id)
+    assert dict(_reconnected_run.metrics)["test_metric"]["last"] == 1
+    assert client.get_events(run_id)[0]["message"] == "Testing!"
+        
+    
