@@ -170,9 +170,14 @@ def sender(
     }
     _lock = threading.Lock()
     _upload_order = [item for item in UPLOAD_ORDER if item in objects_to_upload]
+    # Glob all files to look in at the start, to prevent extra files being written while other types are being uploaded
+    _all_offline_files = {
+        obj_type: list(cache_dir.glob(f"{obj_type}/*.json"))
+        for obj_type in _upload_order
+    }
 
     for _obj_type in _upload_order:
-        _offline_files = list(cache_dir.glob(f"{_obj_type}/*.json"))
+        _offline_files = _all_offline_files[_obj_type]
         if len(_offline_files) < threading_threshold:
             for file_path in _offline_files:
                 upload_cached_file(cache_dir, _obj_type, file_path, _id_mapping, _lock)
