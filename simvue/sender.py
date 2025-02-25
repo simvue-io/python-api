@@ -165,6 +165,14 @@ def sender(
     """
     _user_config = SimvueConfiguration.fetch()
     cache_dir = cache_dir or _user_config.offline.cache
+
+    # Check that no other sender is already currently running...
+    if cache_dir.joinpath("sender.lock").exists():
+        raise RuntimeError("A sender is already running for this cache!")
+
+    # Create lock file to prevent other senders running while this one isn't finished
+    cache_dir.joinpath("sender.lock").touch()
+
     cache_dir.joinpath("server_ids").mkdir(parents=True, exist_ok=True)
     _id_mapping: dict[str, str] = {
         file_path.name.split(".")[0]: file_path.read_text()
@@ -223,4 +231,6 @@ def sender(
                 ),
                 _heartbeat_files,
             )
+    # Remove lock file to allow another sender to start in the future
+    cache_dir.joinpath("sender.lock").unlink()
     return _id_mapping
