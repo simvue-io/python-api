@@ -92,6 +92,7 @@ def upload_cached_file(
     _logger.info(
         f"{'Updated' if id_mapping.get(_current_id) else 'Created'} {obj_for_upload.__class__.__name__} '{_new_id}'"
     )
+
     file_path.unlink(missing_ok=True)
     if issubclass(_instance_class, simvue.api.objects.ObjectArtifact):
         file_path.parent.joinpath(f"{_current_id}.object").unlink()
@@ -106,9 +107,11 @@ def upload_cached_file(
         obj_type == "runs"
         and cache_dir.joinpath(f"{obj_type}", f"{_current_id}.closed").exists()
     ):
-        # Get list of alerts created by this run - their IDs can be deleted
+        # Get alerts and folder created by this run - their IDs can be deleted
         for id in _data.get("alerts", []):
             cache_dir.joinpath("server_ids", f"{id}.txt").unlink()
+        if _folder_id := _data.get("folder_id"):
+            cache_dir.joinpath("server_ids", f"{_folder_id}.txt").unlink()
 
         cache_dir.joinpath("server_ids", f"{_current_id}.txt").unlink()
         cache_dir.joinpath(f"{obj_type}", f"{_current_id}.closed").unlink()
