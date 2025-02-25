@@ -89,10 +89,9 @@ def upload_cached_file(
         raise RuntimeError(
             f"Object of type '{obj_for_upload.__class__.__name__}' has no identifier"
         )
-    if id_mapping.get(_current_id):
-        _logger.info(f"Updated {obj_for_upload.__class__.__name__} '{_new_id}'")
-    else:
-        _logger.info(f"Created {obj_for_upload.__class__.__name__} '{_new_id}'")
+    _logger.info(
+        f"{'Updated' if id_mapping.get(_current_id) else 'Created'} {obj_for_upload.__class__.__name__} '{_new_id}'"
+    )
     file_path.unlink(missing_ok=True)
     if issubclass(_instance_class, simvue.api.objects.ObjectArtifact):
         file_path.parent.joinpath(f"{_current_id}.object").unlink()
