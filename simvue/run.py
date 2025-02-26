@@ -318,9 +318,10 @@ class Run:
         dict[str, typing.Any]
             retrieved system specifications
         """
-        cpu = get_process_cpu(self.processes, interval=interval)
-        memory = get_process_memory(self.processes)
-        gpu = get_gpu_metrics(self.processes)
+        processes = self.processes
+        cpu = get_process_cpu(processes, interval=0.1)
+        memory = get_process_memory(processes)
+        gpu = get_gpu_metrics(processes)
         data: dict[str, typing.Any] = {}
 
         if memory is not None and cpu is not None:
@@ -352,12 +353,6 @@ class Run:
         ) -> None:
             if not heartbeat_trigger:
                 raise RuntimeError("Expected initialisation of heartbeat")
-
-            # Add initial resource metrics
-            if self._resources_metrics_interval:
-                self._add_metrics_to_dispatch(
-                    self._get_sysinfo(interval=0.1), join_on_fail=False
-                )
 
             last_heartbeat = time.time()
             last_res_metric_call = time.time()
