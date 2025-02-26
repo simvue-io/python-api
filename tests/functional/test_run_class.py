@@ -834,11 +834,10 @@ def test_log_alert() -> None:
     
     # Set alert state to OK by ID
     run.log_alert(identifier=_id, state="ok")
-    time.sleep(1)
+    time.sleep(2)
 
     _alert.refresh()
     assert _alert.get_status(_run_id) == "ok"
-    import pdb; pdb.set_trace()
     
     # Check invalid name throws sensible error
     with pytest.raises(RuntimeError) as e:
