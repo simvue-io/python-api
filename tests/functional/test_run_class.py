@@ -806,6 +806,50 @@ def test_add_alerts() -> None:
     for _id in _expected_alerts:
         client.delete_alert(_id)
 
+@pytest.mark.run
+def test_log_alert() -> None:
+    _uuid = f"{uuid.uuid4()}".split("-")[0]
+
+    run = sv_run.Run()
+    run.init(
+        name="test_log_alerts",
+        folder="/simvue_unit_tests",
+        retention_period="1 min",
+        tags=["test_add_alerts"],
+        visibility="tenant"
+    )
+    _run_id = run._id
+    # Create a user alert
+    _id = run.create_user_alert(
+        name=f"user_alert_{_uuid}",
+    )
+
+    # Set alert state to critical by name
+    run.log_alert(name=f"user_alert_{_uuid}", state="critical")
+    time.sleep(1)
+    
+    client = sv_cl.Client()
+    _alert = client.get_alerts(run_id=_run_id, critical_only=False, names_only=False)[0]
+    assert _alert.get_status(_run_id) == "critical"
+    
+    # Set alert state to OK by ID
+    run.log_alert(identifier=_id, state="ok")
+    time.sleep(1)
+
+    _alert.refresh()
+    assert _alert.get_status(_run_id) == "ok"
+    import pdb; pdb.set_trace()
+    
+    # Check invalid name throws sensible error
+    with pytest.raises(RuntimeError) as e:
+        run.log_alert(name="fake_name_1234321", state='critical')
+    assert "Alert with name 'fake_name_1234321' could not be found." in str(e.value)
+
+    # Check you cannot specify both ID and name
+    with pytest.raises(RuntimeError) as e:
+        run.log_alert(identifier="myid", name="myname", state='critical')
+    assert "Please specify alert to update either by ID or by name." in str(e.value)
+
 
 @pytest.mark.run
 def test_abort_on_alert_process(mocker: pytest_mock.MockerFixture) -> None:
