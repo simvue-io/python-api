@@ -1929,16 +1929,21 @@ class Run:
     @check_run_initialised
     @pydantic.validate_call
     def log_alert(
-        self, identifier: str, state: typing.Literal["ok", "critical"]
+        self,
+        identifier: str | None = None,
+        name: str | None = None,
+        state: typing.Literal["ok", "critical"] = "critical",
     ) -> bool:
-        """Set the state of an alert
+        """Set the state of an alert - either specify the alert by ID or name.
 
         Parameters
         ----------
-        identifier : str
-            identifier of alert to update
+        identifier : str | None
+            ID of alert to update, by default None
+        name : str | None
+            Name of the alert to update, by default None
         state : Literal['ok', 'critical']
-            state to set alert to
+            state to set alert to, by default 'critical'
 
         Returns
         -------
@@ -1949,13 +1954,33 @@ class Run:
             self._error('state must be either "ok" or "critical"')
             return False
 
+        if (identifier and name) or (not identifier and not name):
+            self._error("Please specify alert to update either by ID or by name.")
+            return False
+
+        if name:
+            try:
+                if alerts := Alert.get(offline=self._user_config.run.mode == "offline"):
+                    identifier = next(
+                        (id for id, alert in alerts if alert.name == name), None
+                    )
+                else:
+                    self._error("No existing alerts")
+                    return False
+            except RuntimeError as e:
+                self._error(f"{e.args[0]}")
+                return False
+
+        if not identifier:
+            self._error(f"Alert with name '{name}' could not be found.")
+
         _alert = UserAlert(identifier=identifier)
-        # if not isinstance(_alert, UserAlert):
-        #     self._error(
-        #         f"Cannot update state for alert '{identifier}' "
-        #         f"of type '{_alert.__class__.__name__.lower()}'"
-        #     )
-        #     return False
+        if not isinstance(_alert, UserAlert):
+            self._error(
+                f"Cannot update state for alert '{identifier}' "
+                f"of type '{_alert.__class__.__name__.lower()}'"
+            )
+            return False
         _alert.read_only(False)
         _alert.set_status(run_id=self._id, status=state)
         _alert.commit()
