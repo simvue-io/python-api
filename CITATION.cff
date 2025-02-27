@@ -42,9 +42,9 @@ keywords:
   - alerting
   - simulation
 license: Apache-2.0
-commit: 124b2993d91dbff2e475aa972916b11e7bd02fa4
-version: 2.0.0a1
-date-released: '2025-02-19'
+commit: 83b9144abd2092d4be304bf742d72a249ad1d8ff
+version: 2.0.0a2
+date-released: '2025-02-27'
 references:
 - title: mlco2/codecarbon
   version: v2.8.2
