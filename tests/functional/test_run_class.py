@@ -806,6 +806,49 @@ def test_add_alerts() -> None:
     for _id in _expected_alerts:
         client.delete_alert(_id)
 
+@pytest.mark.run
+def test_log_alert() -> None:
+    _uuid = f"{uuid.uuid4()}".split("-")[0]
+
+    run = sv_run.Run()
+    run.init(
+        name="test_log_alerts",
+        folder="/simvue_unit_tests",
+        retention_period="1 min",
+        tags=["test_add_alerts"],
+        visibility="tenant"
+    )
+    _run_id = run._id
+    # Create a user alert
+    _id = run.create_user_alert(
+        name=f"user_alert_{_uuid}",
+    )
+
+    # Set alert state to critical by name
+    run.log_alert(name=f"user_alert_{_uuid}", state="critical")
+    time.sleep(1)
+    
+    client = sv_cl.Client()
+    _alert = client.get_alerts(run_id=_run_id, critical_only=False, names_only=False)[0]
+    assert _alert.get_status(_run_id) == "critical"
+    
+    # Set alert state to OK by ID
+    run.log_alert(identifier=_id, state="ok")
+    time.sleep(2)
+
+    _alert.refresh()
+    assert _alert.get_status(_run_id) == "ok"
+    
+    # Check invalid name throws sensible error
+    with pytest.raises(RuntimeError) as e:
+        run.log_alert(name="fake_name_1234321", state='critical')
+    assert "Alert with name 'fake_name_1234321' could not be found." in str(e.value)
+
+    # Check you cannot specify both ID and name
+    with pytest.raises(RuntimeError) as e:
+        run.log_alert(identifier="myid", name="myname", state='critical')
+    assert "Please specify alert to update either by ID or by name." in str(e.value)
+
 
 @pytest.mark.run
 def test_abort_on_alert_process(mocker: pytest_mock.MockerFixture) -> None:
@@ -885,7 +928,7 @@ def test_abort_on_alert_raise(create_plain_run: typing.Tuple[sv_run.Run, dict], 
     alert_id = run.create_user_alert("abort_test", trigger_abort=True)
     run.add_process(identifier="forever_long", executable="bash", c="sleep 10")
     time.sleep(2)
-    run.log_alert(alert_id, "critical")
+    run.log_alert(identifier=alert_id, state="critical")
     time.sleep(1)
     _alert = Alert(identifier=alert_id)
     assert _alert.get_status(run.id) == "critical"
@@ -929,3 +972,41 @@ def test_run_created_with_no_timeout() -> None:
     client = simvue.Client()
     assert client.get_run(run._id)
 
+@pytest.mark.parametrize("mode", ("online", "offline"), ids=("online", "offline"))
+@pytest.mark.run
+def test_reconnect(mode, monkeypatch: pytest.MonkeyPatch) -> None:
+    if mode == "offline":
+        temp_d = tempfile.TemporaryDirectory()
+        monkeypatch.setenv("SIMVUE_OFFLINE_DIRECTORY", temp_d)
+        
+    with simvue.Run(mode=mode) as run:
+        run.init(
+            name="test_reconnect",
+            folder="/simvue_unit_testing",
+            retention_period="2 minutes",
+            timeout=None,
+            running=False
+        )
+        run_id = run.id
+    if mode == "offline":
+        _id_mapping = sv_send.sender(os.environ["SIMVUE_OFFLINE_DIRECTORY"], 2, 10)
+        run_id = _id_mapping.get(run_id)
+        
+    client = simvue.Client()
+    _created_run = client.get_run(run_id)
+    assert _created_run.status == "created"
+    time.sleep(1)
+    
+    with simvue.Run() as run:
+        run.reconnect(run_id)
+        run.log_metrics({"test_metric": 1})
+        run.log_event("Testing!")
+        
+    if mode == "offline":
+        _id_mapping = sv_send.sender(os.environ["SIMVUE_OFFLINE_DIRECTORY"], 2, 10)
+        
+    _reconnected_run = client.get_run(run_id)
+    assert dict(_reconnected_run.metrics)["test_metric"]["last"] == 1
+    assert client.get_events(run_id)[0]["message"] == "Testing!"
+        
+    
