@@ -308,14 +308,20 @@ class Run:
     def _get_sysinfo(self) -> dict[str, typing.Any]:
         """Retrieve system administration
 
+        Parameters
+        ----------
+        interval : float | None
+            The interval to use for collection of CPU metrics, by default None (non blocking)
+
         Returns
         -------
         dict[str, typing.Any]
             retrieved system specifications
         """
-        cpu = get_process_cpu(self.processes)
-        memory = get_process_memory(self.processes)
-        gpu = get_gpu_metrics(self.processes)
+        processes = self.processes
+        cpu = get_process_cpu(processes, interval=0.1)
+        memory = get_process_memory(processes)
+        gpu = get_gpu_metrics(processes)
         data: dict[str, typing.Any] = {}
 
         if memory is not None and cpu is not None:
@@ -350,6 +356,9 @@ class Run:
 
             last_heartbeat = time.time()
             last_res_metric_call = time.time()
+
+            if self._resources_metrics_interval:
+                self._add_metrics_to_dispatch(self._get_sysinfo(), join_on_fail=False)
 
             while not heartbeat_trigger.is_set():
                 time.sleep(0.1)
@@ -699,6 +708,7 @@ class Run:
         self._sv_obj.alerts = []
         self._sv_obj.created = time.time()
         self._sv_obj.notifications = notification
+        self._sv_obj._staging["folder_id"] = self._folder.id
 
         if self._status == "running":
             self._sv_obj.system = get_system()
@@ -931,7 +941,7 @@ class Run:
         self._status = "running"
 
         self._id = run_id
-        self._sv_obj = RunObject(identifier=self._id)
+        self._sv_obj = RunObject(identifier=self._id, _read_only=False)
         self._start(reconnect=True)
 
         return True
@@ -947,6 +957,7 @@ class Run:
             PID of the process to be monitored
         """
         self._pid = pid
+        self._parent_process = psutil.Process(self._pid)
 
     @skip_if_failed("_aborted", "_suppress_errors", False)
     @pydantic.validate_call
@@ -1602,7 +1613,6 @@ class Run:
             return False
 
         try:
-            self._folder.read_only(False)
             if metadata:
                 self._folder.metadata = metadata
             if tags:
@@ -1610,7 +1620,6 @@ class Run:
             if description:
                 self._folder.description = description
             self._folder.commit()
-            self._folder.read_only(True)
         except (RuntimeError, ValueError, pydantic.ValidationError) as e:
             self._error(f"Failed to update folder '{self._folder.name}' details: {e}")
             return False
@@ -1918,16 +1927,21 @@ class Run:
     @check_run_initialised
     @pydantic.validate_call
     def log_alert(
-        self, identifier: str, state: typing.Literal["ok", "critical"]
+        self,
+        identifier: str | None = None,
+        name: str | None = None,
+        state: typing.Literal["ok", "critical"] = "critical",
     ) -> bool:
-        """Set the state of an alert
+        """Set the state of an alert - either specify the alert by ID or name.
 
         Parameters
         ----------
-        identifier : str
-            identifier of alert to update
+        identifier : str | None
+            ID of alert to update, by default None
+        name : str | None
+            Name of the alert to update, by default None
         state : Literal['ok', 'critical']
-            state to set alert to
+            state to set alert to, by default 'critical'
 
         Returns
         -------
@@ -1938,13 +1952,33 @@ class Run:
             self._error('state must be either "ok" or "critical"')
             return False
 
+        if (identifier and name) or (not identifier and not name):
+            self._error("Please specify alert to update either by ID or by name.")
+            return False
+
+        if name:
+            try:
+                if alerts := Alert.get(offline=self._user_config.run.mode == "offline"):
+                    identifier = next(
+                        (id for id, alert in alerts if alert.name == name), None
+                    )
+                else:
+                    self._error("No existing alerts")
+                    return False
+            except RuntimeError as e:
+                self._error(f"{e.args[0]}")
+                return False
+
+        if not identifier:
+            self._error(f"Alert with name '{name}' could not be found.")
+
         _alert = UserAlert(identifier=identifier)
-        # if not isinstance(_alert, UserAlert):
-        #     self._error(
-        #         f"Cannot update state for alert '{identifier}' "
-        #         f"of type '{_alert.__class__.__name__.lower()}'"
-        #     )
-        #     return False
+        if not isinstance(_alert, UserAlert):
+            self._error(
+                f"Cannot update state for alert '{identifier}' "
+                f"of type '{_alert.__class__.__name__.lower()}'"
+            )
+            return False
         _alert.read_only(False)
         _alert.set_status(run_id=self._id, status=state)
         _alert.commit()

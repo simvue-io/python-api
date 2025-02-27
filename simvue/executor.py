@@ -348,9 +348,11 @@ class Executor:
                 if self._runner._dispatcher:
                     self._runner._dispatcher.purge()
 
-                self._runner.log_alert(self._alert_ids[proc_id], "critical")
+                self._runner.log_alert(
+                    identifier=self._alert_ids[proc_id], state="critical"
+                )
             else:
-                self._runner.log_alert(self._alert_ids[proc_id], "ok")
+                self._runner.log_alert(identifier=self._alert_ids[proc_id], state="ok")
 
             _current_time: float = 0
             while (

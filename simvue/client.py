@@ -990,17 +990,23 @@ class Client:
         RuntimeError
             if there was a failure retrieving data from the server
         """
-
         if not run_id:
+            if critical_only:
+                raise RuntimeError(
+                    "critical_only is ambiguous when returning alerts with no run ID specified."
+                )
             return [alert.name if names_only else alert for _, alert in Alert.get()]  # type: ignore
 
-        return [
-            alert.get("name")
-            if names_only
-            else Alert(identifier=alert.get("id"), **alert)
+        _alerts = [
+            Alert(identifier=alert.get("id"), **alert)
             for alert in Run(identifier=run_id).get_alert_details()
-            if not critical_only or alert["status"].get("current") == "critical"
-        ]  # type: ignore
+        ]
+
+        return [
+            alert.name if names_only else alert
+            for alert in _alerts
+            if not critical_only or alert.get_status(run_id) == "critical"
+        ]
 
     @prettify_pydantic
     @pydantic.validate_call
