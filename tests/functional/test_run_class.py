@@ -53,9 +53,11 @@ def test_run_with_emissions() -> None:
     with sv_run.Run() as run_created:
         run_created.init(retention_period="1 min")
         run_created.config(enable_emission_metrics=True, emission_metrics_interval=1)
-        time.sleep(5)
+        time.sleep(60)
         _run = RunObject(identifier=run_created.id)
-        assert list(_run.metrics)
+        _metric_names = [item[0] for item in _run.metrics]        
+        assert 'codecarbon.energy_consumed' in _metric_names
+        assert 'codecarbon.emissions' in _metric_names
 
 
 @pytest.mark.run

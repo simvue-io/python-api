@@ -1,7 +1,7 @@
 import typing
 import logging
 import datetime
- 
+
 from codecarbon import EmissionsTracker
 from codecarbon.output import BaseOutput as cc_BaseOutput
 from simvue.utilities import simvue_timestamp
@@ -37,10 +37,12 @@ class CodeCarbonOutput(cc_BaseOutput):
             try:
                 self._simvue_run.update_metadata(
                     {
-                        "codecarbon.country": total.country_name,
-                        "codecarbon.country_iso_code": total.country_iso_code,
-                        "codecarbon.region": total.region,
-                        "codecarbon.version": total.codecarbon_version,
+                        "codecarbon": {
+                            "country": total.country_name,
+                            "country_iso_code": total.country_iso_code,
+                            "region": total.region,
+                            "version": total.codecarbon_version,
+                        }
                     }
                 )
             except AttributeError as e:
@@ -55,13 +57,11 @@ class CodeCarbonOutput(cc_BaseOutput):
 
         # Accumulate the emissions and energy consumed
         self.emissions += total.emissions  # Add new emissions to the total
-        self.energy_consumed += total.energy_consumed  # Add new energy consumed to the total
+        self.energy_consumed += (
+            total.energy_consumed
+        )  # Add new energy consumed to the total
 
         logger.debug("Logging CodeCarbon metrics")
-        print("total.emissions=", self.emissions)
-        print("total.energy_consumed=", self.energy_consumed)
-        print("total.timestamp=",total.timestamp)
-        print("_cc_timestamp=",_cc_timestamp)
         try:
             self._simvue_run.log_metrics(
                 metrics={
@@ -74,7 +74,7 @@ class CodeCarbonOutput(cc_BaseOutput):
         except ArithmeticError as e:
             logger.error(f"Failed to log metrics: {e}")
             return
-                    
+
         self._metrics_step += 1
 
     def live_out(self, total: "EmissionsData", delta: "EmissionsData") -> None:
@@ -87,6 +87,7 @@ class CodeCarbonOutput(cc_BaseOutput):
     def get_total_energy_consumed(self) -> float:
         """Getter for the total accumulated energy consumed"""
         return self.energy_consumed
+
 
 class SimvueEmissionsTracker(EmissionsTracker):
     def __init__(
