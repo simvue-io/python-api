@@ -23,14 +23,16 @@ class AlertBase(SimvueObject):
 
     @classmethod
     def new(cls, **kwargs):
+        """Create a new alert"""
         pass
 
     def __init__(self, identifier: str | None = None, **kwargs) -> None:
         """Retrieve an alert from the Simvue server by identifier"""
         self._label = "alert"
-        super().__init__(identifier, **kwargs)
+        super().__init__(identifier=identifier, **kwargs)
 
     def compare(self, other: "AlertBase") -> bool:
+        """Compare this alert to another"""
         return type(self) is type(other) and self.name == other.name
 
     @staging_check
@@ -139,10 +141,12 @@ class AlertBase(SimvueObject):
 
     def get_status(self, run_id: str) -> typing.Literal["ok", "critical"]:
         """Retrieve the status of this alert for a given run"""
-        _url: URL = URL(self._user_config.server.url) / f"runs/{run_id}/{self.id}"
-        _response = sv_get(url=f"{_url}")
+        _url: URL = self.url / f"status/{run_id}"
+        _response = sv_get(url=f"{_url}", headers=self._headers)
         _json_response = get_json_from_response(
             response=_response,
             expected_status=[http.HTTPStatus.OK],
             scenario=f"Retrieving status for alert '{self.id}' in run '{run_id}'",
         )
+
+        return _json_response.get("status")

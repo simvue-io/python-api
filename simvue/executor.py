@@ -105,23 +105,23 @@ class Executor:
         """
         self._runner = simvue_runner
         self._keep_logs = keep_logs
-        self._completion_callbacks: dict[str, typing.Optional[CompletionCallback]] = {}
+        self._completion_callbacks: dict[str, CompletionCallback] | None = {}
         self._completion_triggers: dict[
-            str, typing.Optional[multiprocessing.synchronize.Event]
+            str, multiprocessing.synchronize.Event | None
         ] = {}
-        self._completion_processes: dict[str, typing.Optional[threading.Thread]] = {}
+        self._completion_processes: dict[str, threading.Thread] | None = {}
         self._alert_ids: dict[str, str] = {}
         self.command_str: dict[str, str] = {}
         self._processes: dict[str, subprocess.Popen] = {}
 
-    def std_out(self, process_id: str) -> typing.Optional[str]:
+    def std_out(self, process_id: str) -> str | None:
         if not os.path.exists(out_file := f"{self._runner.name}_{process_id}.out"):
             return None
 
         with open(out_file) as out:
             return out.read() or None
 
-    def std_err(self, process_id: str) -> typing.Optional[str]:
+    def std_err(self, process_id: str) -> str | None:
         if not os.path.exists(err_file := f"{self._runner.name}_{process_id}.err"):
             return None
 
@@ -185,7 +185,7 @@ class Executor:
             you should provide it as such and perform the upload manually, by default None
         env : dict[str, str], optional
             environment variables for process
-        cwd: typing.Optional[pathlib.Path], optional
+        cwd: pathlib.Path | None, optional
             working directory to execute the process within
         completion_callback : typing.Callable | None, optional
             callback to run when process terminates
@@ -209,7 +209,7 @@ class Executor:
         if input_file:
             self._runner.save_file(file_path=input_file, category="input")
 
-        command: typing.List[str] = []
+        command: list[str] = []
 
         if executable:
             command += [f"{executable}"]
@@ -299,7 +299,7 @@ class Executor:
 
         return 0
 
-    def get_error_summary(self) -> dict[str, typing.Optional[str]]:
+    def get_error_summary(self) -> dict[str, str] | None:
         """Returns the summary messages of all errors"""
         return {
             identifier: self._get_error_status(identifier)
@@ -324,8 +324,8 @@ class Executor:
             raise KeyError(f"Failed to retrieve '{process_id}', no such process")
         return self.command_str[process_id]
 
-    def _get_error_status(self, process_id: str) -> typing.Optional[str]:
-        err_msg: typing.Optional[str] = None
+    def _get_error_status(self, process_id: str) -> str | None:
+        err_msg: str | None = None
 
         # Return last 10 lines of stdout if stderr empty
         if not (err_msg := self.std_err(process_id)) and (
@@ -348,9 +348,11 @@ class Executor:
                 if self._runner._dispatcher:
                     self._runner._dispatcher.purge()
 
-                self._runner.log_alert(self._alert_ids[proc_id], "critical")
+                self._runner.log_alert(
+                    identifier=self._alert_ids[proc_id], state="critical"
+                )
             else:
-                self._runner.log_alert(self._alert_ids[proc_id], "ok")
+                self._runner.log_alert(identifier=self._alert_ids[proc_id], state="ok")
 
             _current_time: float = 0
             while (
@@ -374,7 +376,7 @@ class Executor:
                 )
 
     def kill_process(
-        self, process_id: typing.Union[int, str], kill_children_only: bool = False
+        self, process_id: int | str, kill_children_only: bool = False
     ) -> None:
         """Kill a running process by ID
 
@@ -383,7 +385,7 @@ class Executor:
 
         Parameters
         ----------
-        process_id : typing.Union[int, str]
+        process_id : int | str
             either the identifier for a client created process or the PID
             of an external process
         kill_children_only : bool, optional

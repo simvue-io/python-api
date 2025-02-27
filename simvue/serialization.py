@@ -102,7 +102,7 @@ def _serialize_plotly_figure(data: typing.Any) -> tuple[str, str]:
 
 
 @check_extra("plot")
-def _serialize_matplotlib(data: typing.Any) -> typing.Optional[tuple[str, str]]:
+def _serialize_matplotlib(data: typing.Any) -> tuple[str, str] | None:
     try:
         import plotly
     except ImportError:

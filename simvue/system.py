@@ -67,8 +67,7 @@ def get_system() -> dict[str, typing.Any]:
     cpu = get_cpu_info()
     gpu = get_gpu_info()
 
-    system: dict[str, typing.Any] = {}
-    system["cwd"] = os.getcwd()
+    system: dict[str, typing.Any] = {"cwd": os.getcwd()}
     system["hostname"] = socket.gethostname()
     system["pythonversion"] = (
         f"{sys.version_info.major}.{sys.version_info.minor}.{sys.version_info.micro}"

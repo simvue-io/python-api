@@ -21,19 +21,23 @@ logger = logging.getLogger(__file__)
 
 
 class ServerSpecifications(pydantic.BaseModel):
-    url: pydantic.AnyHttpUrl
-    token: pydantic.SecretStr
+    url: pydantic.AnyHttpUrl | None
+    token: pydantic.SecretStr | None
 
     @pydantic.field_validator("url")
     @classmethod
-    def url_to_api_url(cls, v: typing.Any) -> str:
+    def url_to_api_url(cls, v: typing.Any) -> str | None:
+        if not v:
+            return
         if f"{v}".endswith("/api"):
             return f"{v}"
         _url = URL(f"{v}") / "api"
         return f"{_url}"
 
     @pydantic.field_validator("token")
-    def check_token(cls, v: typing.Any) -> str:
+    def check_token(cls, v: typing.Any) -> str | None:
+        if not v:
+            return
         value = v.get_secret_value()
         if not (expiry := get_expiry(value)):
             raise AssertionError("Failed to parse Simvue token - invalid token form")
@@ -43,7 +47,7 @@ class ServerSpecifications(pydantic.BaseModel):
 
 
 class OfflineSpecifications(pydantic.BaseModel):
-    cache: typing.Optional[pathlib.Path] = None
+    cache: pathlib.Path | None = None
 
 
 class MetricsSpecifications(pydantic.BaseModel):
@@ -53,11 +57,11 @@ class MetricsSpecifications(pydantic.BaseModel):
 
 
 class DefaultRunSpecifications(pydantic.BaseModel):
-    name: typing.Optional[str] = None
-    description: typing.Optional[str] = None
-    tags: typing.Optional[list[str]] = None
+    name: str | None = None
+    description: str | None = None
+    tags: list[str] | None = None
     folder: str = pydantic.Field("/", pattern=sv_models.FOLDER_REGEX)
-    metadata: typing.Optional[dict[str, typing.Union[str, int, float, bool]]] = None
+    metadata: dict[str, str | int | float | bool] | None = None
     mode: typing.Literal["offline", "disabled", "online"] = "online"
 
 

@@ -11,8 +11,8 @@ import contextlib
 import os
 import pathlib
 import typing
-
 import jwt
+from deepmerge import Merger
 
 from datetime import timezone
 from simvue.models import DATETIME_FORMAT
@@ -28,8 +28,8 @@ if typing.TYPE_CHECKING:
 
 
 def find_first_instance_of_file(
-    file_names: typing.Union[list[str], str], check_user_space: bool = True
-) -> typing.Optional[pathlib.Path]:
+    file_names: list[str] | str, check_user_space: bool = True
+) -> pathlib.Path | None:
     """Traverses a file hierarchy from bottom upwards to find file
 
     Returns the first instance of 'file_names' found when moving
@@ -50,16 +50,17 @@ def find_first_instance_of_file(
     if isinstance(file_names, str):
         file_names = [file_names]
 
-    for root, _, files in os.walk(os.getcwd(), topdown=False):
-        for file_name in file_names:
-            if file_name in files:
-                return pathlib.Path(root).joinpath(file_name)
+    for file_name in file_names:
+        _user_file = pathlib.Path.cwd().joinpath(file_name)
+        if _user_file.exists():
+            return _user_file
 
     # If the user is running on different mounted volume or outside
     # of their user space then the above will not return the file
     if check_user_space:
         for file_name in file_names:
-            if os.path.exists(_user_file := pathlib.Path.home().joinpath(file_name)):
+            _user_file = pathlib.Path.home().joinpath(file_name)
+            if _user_file.exists():
                 return _user_file
 
     return None
@@ -95,12 +96,10 @@ def parse_validation_response(
         obj_type: str = issue["type"]
         location: list[str] = issue["loc"]
         location.remove("body")
-        location_addr: str = ""
-        for i, loc in enumerate(location):
-            if isinstance(loc, int):
-                location_addr += f"[{loc}]"
-            else:
-                location_addr += f"{'.' if i > 0 else ''}{loc}"
+        location_addr: str = "".join(
+            (f"[{loc}]" if isinstance(loc, int) else f"{'.' if i > 0 else ''}{loc}")
+            for i, loc in enumerate(location)
+        )
         headers = ["Type", "Location", "Message"]
         information = [obj_type, location_addr]
 
@@ -110,10 +109,7 @@ def parse_validation_response(
             input_arg = body
             for loc in location:
                 try:
-                    if obj_type == "missing":
-                        input_arg = None
-                    else:
-                        input_arg = input_arg[loc]
+                    input_arg = None if obj_type == "missing" else input_arg[loc]
                 except TypeError:
                     break
             information.append(input_arg)
@@ -128,8 +124,8 @@ def parse_validation_response(
 
 def check_extra(extra_name: str) -> typing.Callable:
     def decorator(
-        class_func: typing.Optional[typing.Callable] = None,
-    ) -> typing.Optional[typing.Callable]:
+        class_func: typing.Callable | None = None,
+    ) -> typing.Callable | None:
         @functools.wraps(class_func)
         def wrapper(self, *args, **kwargs) -> typing.Any:
             if extra_name == "plot" and not all(
@@ -207,7 +203,7 @@ def parse_pydantic_error(error: pydantic.ValidationError) -> str:
 def skip_if_failed(
     failure_attr: str,
     ignore_exc_attr: str,
-    on_failure_return: typing.Optional[typing.Any] = None,
+    on_failure_return: typing.Any | None = None,
 ) -> typing.Callable:
     """Decorator for ensuring if Simvue throws an exception any other code continues.
 
@@ -313,11 +309,11 @@ def remove_file(filename: str) -> None:
             logger.error("Unable to remove file %s due to: %s", filename, str(err))
 
 
-def get_expiry(token) -> typing.Optional[int]:
+def get_expiry(token) -> int | None:
     """
     Get expiry date from a JWT token
     """
-    expiry: typing.Optional[int] = None
+    expiry: int | None = None
     with contextlib.suppress(jwt.DecodeError):
         expiry = jwt.decode(token, options={"verify_signature": False})["exp"]
 
@@ -336,7 +332,7 @@ def prepare_for_api(data_in, all=True):
     return data
 
 
-def calculate_sha256(filename: str | typing.Any, is_file: bool) -> typing.Optional[str]:
+def calculate_sha256(filename: str | typing.Any, is_file: bool) -> str | None:
     """
     Calculate sha256 checksum of the specified file
     """
@@ -362,14 +358,14 @@ def validate_timestamp(timestamp):
     Validate a user-provided timestamp
     """
     try:
-        datetime.datetime.strptime(timestamp, "%Y-%m-%d %H:%M:%S.%f")
+        datetime.datetime.strptime(timestamp, DATETIME_FORMAT)
     except ValueError:
         return False
 
     return True
 
 
-def simvue_timestamp(date_time: typing.Optional[datetime.datetime] = None) -> str:
+def simvue_timestamp(date_time: datetime.datetime | None = None) -> str:
     """Return the Simvue valid timestamp
 
     Parameters
@@ -400,3 +396,18 @@ def get_mimetype_for_file(file_path: pathlib.Path) -> str:
     """Return MIME type for the given file"""
     _guess, *_ = mimetypes.guess_type(file_path)
     return _guess or "application/octet-stream"
+
+
+# Create a new Merge strategy for merging local file and staging attributes
+staging_merger = Merger(
+    # pass in a list of tuple, with the
+    # strategies you are looking to apply
+    # to each type.
+    [(list, ["override"]), (dict, ["merge"]), (set, ["union"])],
+    # next, choose the fallback strategies,
+    # applied to all other types:
+    ["override"],
+    # finally, choose the strategies in
+    # the case where the types conflict:
+    ["override"],
+)

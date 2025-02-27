@@ -35,6 +35,7 @@ class MetricsThresholdAlert(AlertBase):
     def get(
         cls, count: int | None = None, offset: int | None = None
     ) -> dict[str, typing.Any]:
+        """Retrieve only MetricsThresholdAlerts"""
         raise NotImplementedError("Retrieve of only metric alerts is not yet supported")
 
     @classmethod
@@ -53,6 +54,7 @@ class MetricsThresholdAlert(AlertBase):
         frequency: pydantic.PositiveInt,
         enabled: bool = True,
         offline: bool = False,
+        **_,
     ) -> Self:
         """Create a new metric threshold alert either locally or on the server
 
@@ -65,7 +67,7 @@ class MetricsThresholdAlert(AlertBase):
         description : str | None
             description for this alert
         metric : str
-            the metric to monitor
+            the metric to monitor, or a globular expression to match multiple metrics
         notification : "none" | "email"
             the notification settings for this alert
         aggregation : "average" | "sum" | "at least one" | "all"
@@ -100,8 +102,11 @@ class MetricsThresholdAlert(AlertBase):
             alert=_alert_definition,
             enabled=enabled,
             _read_only=False,
+            _offline=offline,
         )
-        _alert.offline_mode(offline)
+        _alert._staging |= _alert_definition
+        _alert._params = {"deduplicate": True}
+
         return _alert
 
 
@@ -114,10 +119,8 @@ class MetricsRangeAlert(AlertBase):
         super().__init__(identifier, **kwargs)
 
     def compare(self, other: "MetricsRangeAlert") -> bool:
-        if not super().compare(other):
-            return False
-
-        return self.alert.compare(other)
+        """Compare two MetricRangeAlerts"""
+        return self.alert.compare(other) if super().compare(other) else False
 
     @classmethod
     @pydantic.validate_call
@@ -136,6 +139,7 @@ class MetricsRangeAlert(AlertBase):
         frequency: pydantic.PositiveInt,
         enabled: bool = True,
         offline: bool = False,
+        **_,
     ) -> Self:
         """Create a new metric range alert either locally or on the server
 
@@ -181,7 +185,7 @@ class MetricsRangeAlert(AlertBase):
             "range_low": range_low,
             "range_high": range_high,
         }
-        _alert = MetricsThresholdAlert(
+        _alert = MetricsRangeAlert(
             name=name,
             description=description,
             notification=notification,
@@ -189,8 +193,10 @@ class MetricsRangeAlert(AlertBase):
             enabled=enabled,
             alert=_alert_definition,
             _read_only=False,
+            _offline=offline,
         )
-        _alert.offline_mode(offline)
+        _alert._staging |= _alert_definition
+        _alert._params = {"deduplicate": True}
         return _alert
 
 
@@ -202,6 +208,7 @@ class MetricsAlertDefinition:
         self._sv_obj = alert
 
     def compare(self, other: "MetricsAlertDefinition") -> bool:
+        """Compare a MetricsAlertDefinition with another"""
         return all(
             [
                 self.aggregation == other.aggregation,
@@ -258,6 +265,7 @@ class MetricThresholdAlertDefinition(MetricsAlertDefinition):
     """Alert definition for metric threshold alerts"""
 
     def compare(self, other: "MetricThresholdAlertDefinition") -> bool:
+        """Compare this MetricThresholdAlertDefinition with another"""
         if not isinstance(other, MetricThresholdAlertDefinition):
             return False
 
@@ -275,6 +283,7 @@ class MetricRangeAlertDefinition(MetricsAlertDefinition):
     """Alert definition for metric range alerts"""
 
     def compare(self, other: "MetricRangeAlertDefinition") -> bool:
+        """Compare a MetricRangeAlertDefinition with another"""
         if not isinstance(other, MetricRangeAlertDefinition):
             return False
 

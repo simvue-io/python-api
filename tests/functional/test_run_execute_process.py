@@ -7,13 +7,17 @@ import filecmp
 import simvue.sender as sv_send
 
 from simvue import Run, Client
+from simvue.sender import sender
 
 @pytest.mark.executor
+@pytest.mark.offline
 def test_monitor_processes(create_plain_run_offline: tuple[Run, dict]):
+    _run: Run
     _run, _ = create_plain_run_offline
     _run.add_process("process_1", "Hello world!", executable="echo", n=True)
     _run.add_process("process_2", "bash" if sys.platform != "win32" else "powershell", debug=True, c="exit 0")
     _run.add_process("process_3", "ls", "-ltr")
+    sender(_run._sv_obj._local_staging_file.parents[1], 1, 10, ["folders", "runs", "alerts"])
 
 
 @pytest.mark.executor
@@ -32,7 +36,7 @@ def test_abort_all_processes(create_plain_run: tuple[Run, dict]) -> None:
             _run.add_process(f"process_{i}", executable="python", script=temp_f.name)
             assert _run.executor.get_command(f"process_{i}") == f"python {temp_f.name}"
 
-        time.sleep(5)
+        time.sleep(3)
 
         _run.kill_all_processes()
         end_time = time.time()

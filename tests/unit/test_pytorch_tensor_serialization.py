@@ -8,7 +8,7 @@ except ImportError:
 
 @pytest.mark.local
 @pytest.mark.skipif(not torch, reason="Torch is not installed")
-def test_pytorch_tensor_serialization():
+def test_pytorch_tensor_serialization() -> None:
     """
     Check that a PyTorch tensor can be serialized then deserialized successfully
     """

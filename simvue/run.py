@@ -25,14 +25,13 @@ import platform
 import typing
 import warnings
 import uuid
-
+import randomname
 import click
 import psutil
 
-from simvue.api.objects.alert.base import AlertBase
 from simvue.api.objects.alert.fetch import Alert
-from simvue.api.objects.folder import Folder, get_folder_from_path
-from simvue.exception import ObjectNotFoundError, SimvueRunError
+from simvue.api.objects.folder import Folder
+from simvue.exception import SimvueRunError
 from simvue.utilities import prettify_pydantic
 
 
@@ -52,7 +51,8 @@ from .utilities import (
 )
 from .api.objects import (
     Run as RunObject,
-    Artifact,
+    FileArtifact,
+    ObjectArtifact,
     MetricsThresholdAlert,
     MetricsRangeAlert,
     UserAlert,
@@ -64,7 +64,7 @@ from .api.objects import (
 try:
     from typing import Self
 except ImportError:
-    from typing_extensions import Self
+    from typing_extensions import Self  # noqa: F401
 
 
 if typing.TYPE_CHECKING:
@@ -184,9 +184,13 @@ class Run:
             if self._user_config.metrics.resources_metrics_interval < 1
             else self._user_config.metrics.resources_metrics_interval
         )
-        self._headers: dict[str, str] = {
-            "Authorization": f"Bearer {self._user_config.server.token.get_secret_value()}"
-        }
+        self._headers: dict[str, str] = (
+            {
+                "Authorization": f"Bearer {self._user_config.server.token.get_secret_value()}"
+            }
+            if mode != "offline"
+            else {}
+        )
         self._sv_obj: RunObject | None = None
         self._pid: int | None = 0
         self._shutdown_event: threading.Event | None = None
@@ -217,9 +221,7 @@ class Run:
         self,
         exc_type: typing.Type[BaseException] | None,
         value: BaseException,
-        traceback: typing.Optional[
-            typing.Union[typing.Type[BaseException], BaseException]
-        ],
+        traceback: typing.Type[BaseException] | BaseException | None,
     ) -> None:
         _exception_thrown: str | None = exc_type.__name__ if exc_type else None
         _is_running: bool = self._status == "running"
@@ -250,27 +252,18 @@ class Run:
             else f"An exception was thrown: {_exception_thrown}"
         )
 
-        self.log_event(_event_msg)
-        self.set_status("terminated" if _is_terminated else "failed")
-
         # If the dispatcher has already been aborted then this will
         # fail so just continue without the event
         with contextlib.suppress(RuntimeError):
-            self.log_event(f"{_exception_thrown}: {value}")
+            self.log_event(_event_msg)
 
-        if not traceback:
-            return
-
-        with contextlib.suppress(RuntimeError):
-            self.log_event(f"Traceback: {traceback}")
+        self.set_status("terminated" if _is_terminated else "failed")
 
     def __exit__(
         self,
         exc_type: typing.Type[BaseException] | None,
         value: BaseException,
-        traceback: typing.Optional[
-            typing.Union[typing.Type[BaseException], BaseException]
-        ],
+        traceback: typing.Type[BaseException] | BaseException | None,
     ) -> None:
         logger.debug(
             "Automatically closing run '%s' in status %s",
@@ -315,14 +308,20 @@ class Run:
     def _get_sysinfo(self) -> dict[str, typing.Any]:
         """Retrieve system administration
 
+        Parameters
+        ----------
+        interval : float | None
+            The interval to use for collection of CPU metrics, by default None (non blocking)
+
         Returns
         -------
         dict[str, typing.Any]
             retrieved system specifications
         """
-        cpu = get_process_cpu(self.processes)
-        memory = get_process_memory(self.processes)
-        gpu = get_gpu_metrics(self.processes)
+        processes = self.processes
+        cpu = get_process_cpu(processes, interval=0.1)
+        memory = get_process_memory(processes)
+        gpu = get_gpu_metrics(processes)
         data: dict[str, typing.Any] = {}
 
         if memory is not None and cpu is not None:
@@ -357,6 +356,9 @@ class Run:
 
             last_heartbeat = time.time()
             last_res_metric_call = time.time()
+
+            if self._resources_metrics_interval:
+                self._add_metrics_to_dispatch(self._get_sysinfo(), join_on_fail=False)
 
             while not heartbeat_trigger.is_set():
                 time.sleep(0.1)
@@ -422,7 +424,9 @@ class Run:
         if self._user_config.run.mode == "online" and not self._id:
             raise RuntimeError("Expected identifier for run")
 
-        if not self._user_config.server.url or not self._sv_obj:
+        if (
+            self._user_config.run.mode != "offline" and not self._user_config.server.url
+        ) or not self._sv_obj:
             raise RuntimeError("Cannot commence dispatch, run not initialised")
 
         def _dispatch_callback(
@@ -432,14 +436,14 @@ class Run:
         ) -> None:
             if category == "events":
                 _events = Events.new(
-                    run_id=self.id,
+                    run=self.id,
                     offline=self._user_config.run.mode == "offline",
                     events=buffer,
                 )
                 _events.commit()
             else:
                 _metrics = Metrics.new(
-                    run_id=self.id,
+                    run=self.id,
                     offline=self._user_config.run.mode == "offline",
                     metrics=buffer,
                 )
@@ -468,11 +472,18 @@ class Run:
 
         logger.debug("Starting run")
 
-        if self._sv_obj:
-            self._sv_obj.status = self._status
-            self._sv_obj.commit()
-
         self._start_time = time.time()
+
+        if self._sv_obj:
+            _changed = False
+            if self._sv_obj.status != "running":
+                self._sv_obj.status = self._status
+                _changed = True
+            if self._user_config.run.mode == "offline":
+                self._sv_obj.started = self._start_time
+                _changed = True
+            if _changed:
+                self._sv_obj.commit()
 
         if self._pid == 0:
             self._pid = os.getpid()
@@ -568,12 +579,11 @@ class Run:
         folder: typing.Annotated[
             str, pydantic.Field(None, pattern=FOLDER_REGEX)
         ] = None,
+        notification: typing.Literal["none", "all", "error", "lost"] = "none",
         running: bool = True,
         retention_period: str | None = None,
         timeout: int | None = 180,
-        visibility: typing.Union[
-            typing.Literal["public", "tenant"], list[str], None
-        ] = None,
+        visibility: typing.Literal["public", "tenant"] | list[str] | None = None,
         no_color: bool = False,
     ) -> bool:
         """Initialise a Simvue run
@@ -591,6 +601,9 @@ class Run:
             description of the run, by default None
         folder : str, optional
             folder within which to store the run, by default "/"
+        notification: typing.Literal["none", "all", "error", "lost"], optional
+            whether to notify the user by email upon completion of the run if
+            the run is in the specified state, by default "none"
         running : bool, optional
             whether to set the status as running or created, the latter implying
             the run will be commenced at a later time. Default is True.
@@ -626,13 +639,10 @@ class Run:
 
         self._term_color = not no_color
 
-        try:
-            self._folder = get_folder_from_path(path=folder)
-        except ObjectNotFoundError:
-            self._folder = Folder.new(
-                path=folder, offline=self._user_config.run.mode == "offline"
-            )
-            self._folder.commit()  # type: ignore
+        self._folder = Folder.new(
+            path=folder, offline=self._user_config.run.mode == "offline"
+        )
+        self._folder.commit()  # type: ignore
 
         if isinstance(visibility, str) and visibility not in ("public", "tenant"):
             self._error(
@@ -643,7 +653,9 @@ class Run:
             self._error("invalid mode specified, must be online, offline or disabled")
             return False
 
-        if not self._user_config.server.token or not self._user_config.server.url:
+        if self._user_config.run.mode != "offline" and (
+            not self._user_config.server.token or not self._user_config.server.url
+        ):
             self._error(
                 "Unable to get URL and token from environment variables or config file"
             )
@@ -652,6 +664,8 @@ class Run:
         if name and not re.match(r"^[a-zA-Z0-9\-\_\s\/\.:]+$", name):
             self._error("specified name is invalid")
             return False
+        elif not name and self._user_config.run.mode == "offline":
+            name = randomname.get_name()
 
         self._name = name
 
@@ -691,6 +705,10 @@ class Run:
         self._sv_obj.tags = tags
         self._sv_obj.metadata = (metadata or {}) | git_info(os.getcwd()) | environment()
         self._sv_obj.heartbeat_timeout = timeout
+        self._sv_obj.alerts = []
+        self._sv_obj.created = time.time()
+        self._sv_obj.notifications = notification
+        self._sv_obj._staging["folder_id"] = self._folder.id
 
         if self._status == "running":
             self._sv_obj.system = get_system()
@@ -719,7 +737,7 @@ class Run:
                 fg="green" if self._term_color else None,
             )
             click.secho(
-                f"[simvue] Monitor in the UI at {self._user_config.server.url}/dashboard/runs/run/{self._id}",
+                f"[simvue] Monitor in the UI at {self._user_config.server.url.rsplit('/api', 1)[0]}/dashboard/runs/run/{self._id}",
                 bold=self._term_color,
                 fg="green" if self._term_color else None,
             )
@@ -736,14 +754,14 @@ class Run:
         self,
         identifier: str,
         *cmd_args,
-        executable: typing.Union[str, pathlib.Path] | None = None,
+        executable: str | pathlib.Path | None = None,
         script: pydantic.FilePath | None = None,
         input_file: pydantic.FilePath | None = None,
         completion_callback: typing.Optional[
             typing.Callable[[int, str, str], None]
         ] = None,
         completion_trigger: multiprocessing.synchronize.Event | None = None,
-        env: typing.Dict[str, str] | None = None,
+        env: dict[str, str] | None = None,
         cwd: pathlib.Path | None = None,
         **cmd_kwargs,
     ) -> None:
@@ -798,7 +816,7 @@ class Run:
             callback to run when process terminates (not supported on Windows)
         completion_trigger : multiprocessing.Event | None, optional
             this trigger event is set when the processes completes
-        env : typing.Dict[str, str], optional
+        env : dict[str, str], optional
             environment variables for process
         cwd: pathlib.Path | None, optional
             working directory to execute the process within. Note that executable, input and script file paths should
@@ -815,7 +833,7 @@ class Run:
         if isinstance(executable, pathlib.Path) and not executable.is_file():
             raise FileNotFoundError(f"Executable '{executable}' is not a valid file")
 
-        cmd_list: typing.List[str] = []
+        cmd_list: list[str] = []
         pos_args = list(cmd_args)
         executable_str: str | None = None
 
@@ -923,7 +941,7 @@ class Run:
         self._status = "running"
 
         self._id = run_id
-        self._sv_obj = RunObject(identifier=self._id)
+        self._sv_obj = RunObject(identifier=self._id, _read_only=False)
         self._start(reconnect=True)
 
         return True
@@ -939,6 +957,7 @@ class Run:
             PID of the process to be monitored
         """
         self._pid = pid
+        self._parent_process = psutil.Process(self._pid)
 
     @skip_if_failed("_aborted", "_suppress_errors", False)
     @pydantic.validate_call
@@ -952,9 +971,7 @@ class Run:
         enable_emission_metrics: bool | None = None,
         disable_resources_metrics: bool | None = None,
         storage_id: str | None = None,
-        abort_on_alert: typing.Optional[
-            typing.Union[typing.Literal["run", "all", "ignore"], bool]
-        ] = None,
+        abort_on_alert: typing.Literal["run", "all", "ignore"] | bool | None = None,
     ) -> bool:
         """Optional configuration
 
@@ -1172,7 +1189,7 @@ class Run:
 
     def _add_metrics_to_dispatch(
         self,
-        metrics: dict[str, typing.Union[int, float]],
+        metrics: dict[str, int | float],
         step: int | None = None,
         time: float | None = None,
         timestamp: str | None = None,
@@ -1218,7 +1235,7 @@ class Run:
     @pydantic.validate_call
     def log_metrics(
         self,
-        metrics: dict[MetricKeyString, typing.Union[int, float]],
+        metrics: dict[MetricKeyString, int | float],
         step: int | None = None,
         time: float | None = None,
         timestamp: str | None = None,
@@ -1227,7 +1244,7 @@ class Run:
 
         Parameters
         ----------
-        metrics : dict[str, typing.Union[int, float]]
+        metrics : dict[str, int | float]
             set of metrics to upload to server for this run
         step : int, optional
             manually specify the step index for this log, by default None
@@ -1287,11 +1304,11 @@ class Run:
         _name: str = name or f"{obj.__class__.__name__.lower()}_{id(obj)}"
 
         try:
-            _artifact = Artifact.new_object(
+            _artifact = ObjectArtifact.new(
                 name=_name,
                 obj=obj,
                 allow_pickling=allow_pickle,
-                storage_id=self._storage_id,
+                storage=self._storage_id,
                 metadata=metadata,
             )
             _artifact.attach_to_run(self.id, category)
@@ -1308,7 +1325,7 @@ class Run:
         self,
         file_path: pydantic.FilePath,
         category: typing.Literal["input", "output", "code"],
-        filetype: str | None = None,
+        file_type: str | None = None,
         preserve_path: bool = False,
         name: typing.Optional[
             typing.Annotated[str, pydantic.Field(pattern=NAME_REGEX)]
@@ -1323,7 +1340,7 @@ class Run:
             path to the file to upload
         category : Literal['input', 'output', 'code']
             category of file with respect to this run
-        filetype : str, optional
+        file_type : str, optional
             the MIME file type else this is deduced, by default None
         preserve_path : bool, optional
             whether to preserve the path during storage, by default False
@@ -1354,12 +1371,12 @@ class Run:
 
         try:
             # Register file
-            _artifact = Artifact.new_file(
+            _artifact = FileArtifact.new(
                 name=name or stored_file_name,
-                storage_id=self._storage_id,
+                storage=self._storage_id,
                 file_path=file_path,
                 offline=self._user_config.run.mode == "offline",
-                file_type=filetype,
+                mime_type=file_type,
                 metadata=metadata,
             )
             _artifact.attach_to_run(self.id, category)
@@ -1376,7 +1393,7 @@ class Run:
         self,
         directory: pydantic.DirectoryPath,
         category: typing.Literal["output", "input", "code"],
-        filetype: str | None = None,
+        file_type: str | None = None,
         preserve_path: bool = False,
     ) -> bool:
         """Upload files from a whole directory
@@ -1387,7 +1404,7 @@ class Run:
             the directory to save to the run
         category : Literal[['output', 'input', 'code']
             the category to assign to the saved objects within this directory
-        filetype : str, optional
+        file_type : str, optional
             manually specify the MIME type for items in the directory, by default None
         preserve_path : bool, optional
             preserve the full path, by default False
@@ -1401,17 +1418,17 @@ class Run:
             self._error("Cannot save directory, run not inirialised")
             return False
 
-        if filetype:
+        if file_type:
             mimetypes.init()
             mimetypes_valid = [value for _, value in mimetypes.types_map.items()]
-            if filetype not in mimetypes_valid:
+            if file_type not in mimetypes_valid:
                 self._error("Invalid MIME type specified")
                 return False
 
         for dirpath, _, filenames in os.walk(directory):
             for filename in filenames:
                 if (full_path := pathlib.Path(dirpath).joinpath(filename)).is_file():
-                    self.save_file(full_path, category, filetype, preserve_path)
+                    self.save_file(full_path, category, file_type, preserve_path)
 
         return True
 
@@ -1420,9 +1437,9 @@ class Run:
     @pydantic.validate_call
     def save_all(
         self,
-        items: list[typing.Union[pydantic.FilePath, pydantic.DirectoryPath]],
+        items: list[pydantic.FilePath | pydantic.DirectoryPath],
         category: typing.Literal["input", "output", "code"],
-        filetype: str | None = None,
+        file_type: str | None = None,
         preserve_path: bool = False,
     ) -> bool:
         """Save a set of files and directories
@@ -1433,7 +1450,7 @@ class Run:
             list of file paths and directories to save
         category : Literal['input', 'output', 'code']
             the category to assign to the saved objects
-        filetype : str, optional
+        file_type : str, optional
             manually specify the MIME type for all items, by default None
         preserve_path : bool, optional
             _preserve the full path, by default False
@@ -1445,9 +1462,11 @@ class Run:
         """
         for item in items:
             if item.is_file():
-                save_file = self.save_file(item, category, filetype, preserve_path)
+                save_file = self.save_file(item, category, file_type, preserve_path)
             elif item.is_dir():
-                save_file = self.save_directory(item, category, filetype, preserve_path)
+                save_file = self.save_directory(
+                    item, category, file_type, preserve_path
+                )
             else:
                 self._error(f"{item}: No such file or directory")
                 save_file = False
@@ -1464,7 +1483,7 @@ class Run:
     ) -> bool:
         """Set run status
 
-        status to assign to this run
+        status to assign to this run once finished
 
         Parameters
         ----------
@@ -1484,6 +1503,7 @@ class Run:
 
         if self._sv_obj:
             self._sv_obj.status = status
+            self._sv_obj.endtime = time.time()
             self._sv_obj.commit()
             return True
 
@@ -1511,6 +1531,15 @@ class Run:
         elif self._dispatcher:
             self._dispatcher.purge()
             self._dispatcher.join()
+
+        if (
+            self._sv_obj
+            and self._user_config.run.mode == "offline"
+            and self._status != "created"
+        ):
+            self._user_config.offline.cache.joinpath(
+                "runs", f"{self._id}.closed"
+            ).touch()
 
         if _non_zero := self.executor.exit_status:
             _error_msgs: dict[str, str] | None = self.executor.get_error_summary()
@@ -1555,7 +1584,7 @@ class Run:
     @pydantic.validate_call
     def set_folder_details(
         self,
-        metadata: dict[str, typing.Union[int, str, float]] | None = None,
+        metadata: dict[str, int | str | float] | None = None,
         tags: list[str] | None = None,
         description: str | None = None,
     ) -> bool:
@@ -1584,7 +1613,6 @@ class Run:
             return False
 
         try:
-            self._folder.read_only(False)
             if metadata:
                 self._folder.metadata = metadata
             if tags:
@@ -1592,7 +1620,6 @@ class Run:
             if description:
                 self._folder.description = description
             self._folder.commit()
-            self._folder.read_only(True)
         except (RuntimeError, ValueError, pydantic.ValidationError) as e:
             self._error(f"Failed to update folder '{self._folder.name}' details: {e}")
             return False
@@ -1630,48 +1657,26 @@ class Run:
 
         if names and not ids:
             try:
-                if alerts := Alert.get():
-                    for alert in alerts:
-                        if alert.name in names:
-                            ids.append(alert.id)
+                if alerts := Alert.get(offline=self._user_config.run.mode == "offline"):
+                    ids += [id for id, alert in alerts if alert.name in names]
+                else:
+                    self._error("No existing alerts")
+                    return False
             except RuntimeError as e:
                 self._error(f"{e.args[0]}")
-                return False
-            else:
-                self._error("No existing alerts")
                 return False
         elif not names and not ids:
             self._error("Need to provide alert ids or alert names")
             return False
 
         # Avoid duplication
-        self._sv_obj.alerts = list(set(self._sv_obj.alerts + [ids]))
+        _deduplicated = list(set(self._sv_obj.alerts + ids))
+        self._sv_obj.alerts = _deduplicated
         self._sv_obj.commit()
 
-        return False
-
-    def _attach_alert_to_run(self, alert: AlertBase) -> str | None:
-        # Check if the alert already exists
-        _alert_id: str | None = None
-
-        for _, _existing_alert in Alert.get():
-            if _existing_alert.compare(alert):
-                _alert_id = _existing_alert.id
-                logger.info("Existing alert found with id: %s", _existing_alert.id)
-                break
-
-        if not _alert_id:
-            alert.commit()
-            _alert_id = alert.id
-
-        self._sv_obj.alerts = [_alert_id]
-
-        self._sv_obj.commit()
-
-        return _alert_id
+        return True
 
     @skip_if_failed("_aborted", "_suppress_errors", None)
-    @check_run_initialised
     @pydantic.validate_call
     def create_metric_range_alert(
         self,
@@ -1689,6 +1694,7 @@ class Run:
         ] = "average",
         notification: typing.Literal["email", "none"] = "none",
         trigger_abort: bool = False,
+        attach_to_run: bool = True,
     ) -> str | None:
         """Creates a metric range alert with the specified name (if it doesn't exist)
         and applies it to the current run. If alert already exists it will
@@ -1718,6 +1724,8 @@ class Run:
             whether to notify on trigger, by default "none"
         trigger_abort : bool, optional
             whether this alert can trigger a run abort, default False
+        attach_to_run : bool, optional
+            whether to attach this alert to the current run, default True
 
         Returns
         -------
@@ -1739,10 +1747,12 @@ class Run:
             offline=self._user_config.run.mode == "offline",
         )
         _alert.abort = trigger_abort
-        return self._attach_alert_to_run(_alert)
+        _alert.commit()
+        if attach_to_run:
+            self.add_alerts(ids=[_alert.id])
+        return _alert.id
 
     @skip_if_failed("_aborted", "_suppress_errors", None)
-    @check_run_initialised
     @pydantic.validate_call
     def create_metric_threshold_alert(
         self,
@@ -1759,6 +1769,7 @@ class Run:
         ] = "average",
         notification: typing.Literal["email", "none"] = "none",
         trigger_abort: bool = False,
+        attach_to_run: bool = True,
     ) -> str | None:
         """Creates a metric threshold alert with the specified name (if it doesn't exist)
         and applies it to the current run. If alert already exists it will
@@ -1786,6 +1797,8 @@ class Run:
             whether to notify on trigger, by default "none"
         trigger_abort : bool, optional
             whether this alert can trigger a run abort, default False
+        attach_to_run : bool, optional
+            whether to attach this alert to the current run, default True
 
         Returns
         -------
@@ -1805,11 +1818,14 @@ class Run:
             notification=notification,
             offline=self._user_config.run.mode == "offline",
         )
+
         _alert.abort = trigger_abort
-        return self._attach_alert_to_run(_alert)
+        _alert.commit()
+        if attach_to_run:
+            self.add_alerts(ids=[_alert.id])
+        return _alert.id
 
     @skip_if_failed("_aborted", "_suppress_errors", None)
-    @check_run_initialised
     @pydantic.validate_call
     def create_event_alert(
         self,
@@ -1820,6 +1836,7 @@ class Run:
         frequency: pydantic.PositiveInt = 1,
         notification: typing.Literal["email", "none"] = "none",
         trigger_abort: bool = False,
+        attach_to_run: bool = True,
     ) -> str | None:
         """Creates an events alert with the specified name (if it doesn't exist)
         and applies it to the current run. If alert already exists it will
@@ -1837,6 +1854,8 @@ class Run:
             whether to notify on trigger, by default "none"
         trigger_abort : bool, optional
             whether this alert can trigger a run abort
+        attach_to_run : bool, optional
+            whether to attach this alert to the current run, default True
 
         Returns
         -------
@@ -1853,10 +1872,12 @@ class Run:
             offline=self._user_config.run.mode == "offline",
         )
         _alert.abort = trigger_abort
-        return self._attach_alert_to_run(_alert)
+        _alert.commit()
+        if attach_to_run:
+            self.add_alerts(ids=[_alert.id])
+        return _alert.id
 
     @skip_if_failed("_aborted", "_suppress_errors", None)
-    @check_run_initialised
     @pydantic.validate_call
     def create_user_alert(
         self,
@@ -1865,6 +1886,7 @@ class Run:
         description: str | None = None,
         notification: typing.Literal["email", "none"] = "none",
         trigger_abort: bool = False,
+        attach_to_run: bool = True,
     ) -> None:
         """Creates a user alert with the specified name (if it doesn't exist)
         and applies it to the current run. If alert already exists it will
@@ -1880,6 +1902,8 @@ class Run:
             whether to notify on trigger, by default "none"
         trigger_abort : bool, optional
             whether this alert can trigger a run abort, default False
+        attach_to_run : bool, optional
+            whether to attach this alert to the current run, default True
 
         Returns
         -------
@@ -1894,22 +1918,30 @@ class Run:
             offline=self._user_config.run.mode == "offline",
         )
         _alert.abort = trigger_abort
-        return self._attach_alert_to_run(_alert)
+        _alert.commit()
+        if attach_to_run:
+            self.add_alerts(ids=[_alert.id])
+        return _alert.id
 
     @skip_if_failed("_aborted", "_suppress_errors", False)
     @check_run_initialised
     @pydantic.validate_call
     def log_alert(
-        self, identifier: str, state: typing.Literal["ok", "critical"]
+        self,
+        identifier: str | None = None,
+        name: str | None = None,
+        state: typing.Literal["ok", "critical"] = "critical",
     ) -> bool:
-        """Set the state of an alert
+        """Set the state of an alert - either specify the alert by ID or name.
 
         Parameters
         ----------
-        identifier : str
-            identifier of alert to update
+        identifier : str | None
+            ID of alert to update, by default None
+        name : str | None
+            Name of the alert to update, by default None
         state : Literal['ok', 'critical']
-            state to set alert to
+            state to set alert to, by default 'critical'
 
         Returns
         -------
@@ -1920,7 +1952,27 @@ class Run:
             self._error('state must be either "ok" or "critical"')
             return False
 
-        _alert = Alert(identifier=identifier)
+        if (identifier and name) or (not identifier and not name):
+            self._error("Please specify alert to update either by ID or by name.")
+            return False
+
+        if name:
+            try:
+                if alerts := Alert.get(offline=self._user_config.run.mode == "offline"):
+                    identifier = next(
+                        (id for id, alert in alerts if alert.name == name), None
+                    )
+                else:
+                    self._error("No existing alerts")
+                    return False
+            except RuntimeError as e:
+                self._error(f"{e.args[0]}")
+                return False
+
+        if not identifier:
+            self._error(f"Alert with name '{name}' could not be found.")
+
+        _alert = UserAlert(identifier=identifier)
         if not isinstance(_alert, UserAlert):
             self._error(
                 f"Cannot update state for alert '{identifier}' "

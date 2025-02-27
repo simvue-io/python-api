@@ -30,7 +30,7 @@ class Folder(SimvueObject):
 
     """
 
-    def __init__(self, identifier: typing.Optional[str] = None, **kwargs) -> None:
+    def __init__(self, identifier: str | None = None, **kwargs) -> None:
         """Initialise a Folder
 
         If an identifier is provided a connection will be made to the
@@ -55,11 +55,10 @@ class Folder(SimvueObject):
         *,
         path: typing.Annotated[str, pydantic.Field(pattern=FOLDER_REGEX)],
         offline: bool = False,
+        **kwargs,
     ):
         """Create a new Folder on the Simvue server with the given path"""
-        _folder = Folder(path=path, _read_only=False)
-        _folder.offline_mode(offline)
-        return _folder
+        return Folder(path=path, _read_only=False, _offline=offline, **kwargs)
 
     @property
     @staging_check
@@ -81,7 +80,7 @@ class Folder(SimvueObject):
 
     @property
     @staging_check
-    def description(self) -> typing.Optional[str]:
+    def description(self) -> str | None:
         """Return the folder description"""
         return self._get().get("description")
 
@@ -94,7 +93,7 @@ class Folder(SimvueObject):
 
     @property
     @staging_check
-    def name(self) -> typing.Optional[str]:
+    def name(self) -> str | None:
         """Return the folder name"""
         return self._get().get("name")
 

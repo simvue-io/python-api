@@ -30,9 +30,7 @@ class Events(SimvueObject):
         **kwargs,
     ) -> None:
         self._label = "event"
-        super().__init__(
-            identifier=None, _read_only=_read_only, _local=_local, **kwargs
-        )
+        super().__init__(_read_only=_read_only, _local=_local, **kwargs)
         self._run_id = self._staging.get("run")
 
     @classmethod
@@ -60,15 +58,15 @@ class Events(SimvueObject):
 
     @classmethod
     @pydantic.validate_call
-    def new(cls, *, run_id: str, offline: bool = False, events: list[EventSet]):
+    def new(cls, *, run: str, offline: bool = False, events: list[EventSet], **kwargs):
         """Create a new Events entry on the Simvue server"""
-        _events = Events(
-            run=run_id,
+        return Events(
+            run=run,
             events=[event.model_dump() for event in events],
             _read_only=False,
+            _offline=offline,
+            **kwargs,
         )
-        _events.offline_mode(offline)
-        return _events
 
     def _post(self, **kwargs) -> dict[str, typing.Any]:
         return super()._post(is_json=False, **kwargs)
@@ -114,3 +112,7 @@ class Events(SimvueObject):
         self, _linked_objects: list[str] | None = None, **kwargs
     ) -> dict[str, typing.Any]:
         raise NotImplementedError("Cannot delete event set")
+
+    def on_reconnect(self, id_mapping: dict[str, str]):
+        if online_run_id := id_mapping.get(self._staging["run"]):
+            self._staging["run"] = online_run_id

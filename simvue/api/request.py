@@ -64,6 +64,7 @@ def is_retryable_exception(exception: Exception) -> bool:
 def post(
     url: str,
     headers: dict[str, str],
+    params: dict[str, str],
     data: typing.Any,
     is_json: bool = True,
     files: dict[str, typing.Any] | None = None,
@@ -76,6 +77,8 @@ def post(
         URL to post to
     headers : dict[str, str]
         headers for the post request
+    params : dict[str, str]
+        query parameters for the post request
     data : dict[str, typing.Any]
         data to post
     is_json : bool, optional
@@ -88,14 +91,19 @@ def post(
 
     """
     if is_json:
-        data_sent: typing.Union[str, dict[str, typing.Any]] = json_module.dumps(data)
+        data_sent: str | dict[str, typing.Any] = json_module.dumps(data)
         headers = set_json_header(headers)
     else:
         data_sent = data
 
     logging.debug(f"POST: {url}\n\tdata={data_sent}")
     response = requests.post(
-        url, headers=headers, data=data_sent, timeout=DEFAULT_API_TIMEOUT, files=files
+        url,
+        headers=headers,
+        params=params,
+        data=data_sent,
+        timeout=DEFAULT_API_TIMEOUT,
+        files=files,
     )
 
     if response.status_code == http.HTTPStatus.UNPROCESSABLE_ENTITY:
@@ -144,7 +152,7 @@ def put(
         response from executing PUT
     """
     if is_json and data:
-        data_sent: typing.Union[str, dict[str, typing.Any]] = json_module.dumps(data)
+        data_sent: str | dict[str, typing.Any] = json_module.dumps(data)
         headers = set_json_header(headers)
     else:
         data_sent = data
@@ -164,7 +172,7 @@ def put(
 )
 def get(
     url: str,
-    headers: dict[str, str],
+    headers: dict[str, str] | None = None,
     params: dict[str, str | int | float | None] | None = None,
     timeout: int = DEFAULT_API_TIMEOUT,
     json: dict[str, typing.Any] | None = None,
@@ -230,8 +238,8 @@ def get_json_from_response(
     scenario: str,
     response: requests.Response,
     allow_parse_failure: bool = False,
-    expected_type: list | dict = dict,
-) -> typing.Union[dict, list]:
+    expected_type: typing.Type[dict | list] = dict,
+) -> dict | list:
     try:
         json_response = response.json()
         json_response = json_response or ({} if expected_type is dict else [])
@@ -241,6 +249,7 @@ def get_json_from_response(
         decode_error = f"{e}"
 
     error_str = f"{scenario} failed for url '{response.url}'"
+    details: str | None = None
 
     if (_status_code := response.status_code) in expected_status:
         if not isinstance(json_response, expected_type):
@@ -249,9 +258,9 @@ def get_json_from_response(
             return json_response
         else:
             details = f"could not request JSON response: {decode_error}"
-    else:
+    elif isinstance(json_response, dict):
         error_str += f" with status {_status_code}"
-        details = (json_response or ({} if expected_type is dict else [])).get("detail")
+        details = (json_response or {}).get("detail")
 
     try:
         txt_response = response.text

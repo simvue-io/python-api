@@ -2,7 +2,7 @@ from simvue import Run
 import pytest
 
 @pytest.mark.local
-def test_run_init_folder():
+def test_run_init_folder() -> None:
     """
     Check that run.init throws an exception if folder input is not specified correctly
     """

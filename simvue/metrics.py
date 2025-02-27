@@ -36,14 +36,18 @@ def get_process_memory(processes: list[psutil.Process]) -> int:
     return rss
 
 
-def get_process_cpu(processes: list[psutil.Process]) -> int:
+def get_process_cpu(
+    processes: list[psutil.Process], interval: float | None = None
+) -> int:
     """
     Get the CPU usage
+
+    If first time being called, use a small interval to collect initial CPU metrics.
     """
     cpu_percent: int = 0
     for process in processes:
         with contextlib.suppress(Exception):
-            cpu_percent += process.cpu_percent()
+            cpu_percent += process.cpu_percent(interval=interval)
 
     return cpu_percent
 

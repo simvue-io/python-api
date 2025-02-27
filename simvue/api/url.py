@@ -1,3 +1,11 @@
+"""
+URL Library
+===========
+
+Module contains classes for easier handling of URLs.
+
+"""
+
 try:
     from typing import Self
 except ImportError:
@@ -9,8 +17,11 @@ import pydantic
 
 
 class URL:
+    """URL class for ease of construction and use of server endpoints."""
+
     @pydantic.validate_call
     def __init__(self, url: str) -> None:
+        """Initialise a url from string form"""
         url = url[:-1] if url.endswith("/") else url
 
         _url = urllib.parse.urlparse(url)
@@ -21,12 +32,14 @@ class URL:
         self._fragment: str = _url.fragment
 
     def __truediv__(self, other: str) -> Self:
+        """Define URL extension through use of '/'"""
         _new = copy.deepcopy(self)
         _new /= other
         return _new
 
     @pydantic.validate_call
     def __itruediv__(self, other: str) -> Self:
+        """Define URL extension through use of '/'"""
         other = other[1:] if other.startswith("/") else other
         other = other[:-1] if other.endswith("/") else other
 
@@ -54,6 +67,7 @@ class URL:
         return self._port
 
     def __str__(self) -> str:
+        """Construct string form of the URL"""
         _out_str: str = ""
         if self.scheme:
             _out_str += f"{self.scheme}://"

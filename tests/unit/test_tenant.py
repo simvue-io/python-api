@@ -5,7 +5,7 @@ import json
 import uuid
 
 from simvue.api.objects.administrator import Tenant
-
+from simvue.sender import sender
 
 @pytest.mark.api
 @pytest.mark.online
@@ -20,7 +20,7 @@ def test_create_tenant_online() -> None:
     time.sleep(1)
     _new_tenant = Tenant(_tenant.id)
     assert _new_tenant.name == _uuid
-    assert _new_tenant.enabled
+    assert _new_tenant.is_enabled
     _new_tenant.delete()
 
 
@@ -33,8 +33,21 @@ def test_create_tenant_offline() -> None:
     time.sleep(1)
     _new_tenant = Tenant(_tenant.id)
     assert _new_tenant.name == _uuid
-    assert _new_tenant.enabled
-    _new_tenant.delete()
+    assert _new_tenant.is_enabled
+    
+    with _new_tenant._local_staging_file.open() as in_f:
+        _local_data = json.load(in_f)
+    assert _local_data.get("name") == _uuid
+    assert _local_data.get("is_enabled") == True
+    
+    _id_mapping = sender(_new_tenant._local_staging_file.parents[1], 1, 10, ["tenants"])
+    time.sleep(1)
+    _online_user = Tenant(_id_mapping.get(_new_tenant.id))
+    assert _online_user.name == _uuid
+    assert _online_user.is_enabled == True
+    
+    _online_user.read_only(False)
+    _online_user.delete()
 
 
 @pytest.mark.api

@@ -1,5 +1,4 @@
 from logging import critical
-from numpy import tri
 import pytest
 import uuid
 import random
@@ -13,7 +12,7 @@ import simvue.client as svc
 from simvue.exception import ObjectNotFoundError
 import simvue.run as sv_run
 import simvue.api.objects as sv_api_obj
-
+from simvue.api.objects.alert.base import AlertBase
 
 @pytest.mark.dependency
 @pytest.mark.client
@@ -25,25 +24,60 @@ def test_get_events(create_test_run: tuple[sv_run.Run, dict]) -> None:
 @pytest.mark.dependency
 @pytest.mark.client
 @pytest.mark.parametrize(
-    "from_run", (True, False)
+    "from_run", (True, False), ids=("from_run", "all_runs")
 )
-def test_get_alerts(create_test_run: tuple[sv_run.Run, dict], from_run: bool) -> None:
-    time.sleep(1.0)
+@pytest.mark.parametrize(
+    "names_only", (True, False), ids=("names_only", "all_details")
+)
+@pytest.mark.parametrize(
+    "critical_only", (True, False), ids=("critical_only", "all_states")
+)
+def test_get_alerts(create_plain_run: tuple[sv_run.Run, dict], from_run: bool, names_only: bool, critical_only: bool) -> None:
+    run, run_data = create_plain_run
+    run_id = run.id
+    unique_id = f"{uuid.uuid4()}".split("-")[0]
+    _id_1 = run.create_user_alert(
+        name=f"user_alert_1_{unique_id}", 
+    )
+    _id_2 = run.create_user_alert(
+        name=f"user_alert_2_{unique_id}", 
+    )
+    _id_3 = run.create_user_alert(
+        name=f"user_alert_3_{unique_id}",
+        attach_to_run=False
+    )
+    run.log_alert(identifier=_id_1, state="critical")
+    time.sleep(2)
+    run.close()
+    
     client = svc.Client()
-    _, run_data = create_test_run
-    if from_run:
-        triggered_alerts_full = client.get_alerts(run_id=create_test_run[1]["run_id"], critical_only=False, names_only=False)
-        assert len(triggered_alerts_full) == 7
-        for alert in triggered_alerts_full:
-            if alert.name == "value_above_1":
-                assert alert["alert"]["status"]["current"] == "critical"
+    
+    if critical_only and not from_run:
+        with pytest.raises(RuntimeError) as e:
+            _alerts = client.get_alerts(run_id=run_id if from_run else None, critical_only=critical_only, names_only=names_only)
+        assert "critical_only is ambiguous when returning alerts with no run ID specified." in str(e.value)
     else:
-        assert (triggered_alerts_full := client.get_alerts(names_only=True, critical_only=False))
-
-        for alert in run_data["created_alerts"]:
-            assert alert in triggered_alerts_full, f"Alert '{alert}' was not triggered"
-
-
+        _alerts = client.get_alerts(run_id=run_id if from_run else None, critical_only=critical_only, names_only=names_only)
+    
+        if names_only:
+            assert all(isinstance(item, str) for item in _alerts)
+        else:
+            assert all(isinstance(item, AlertBase) for item in _alerts)            
+            _alerts = [alert.name for alert in _alerts]
+            
+        assert f"user_alert_1_{unique_id}" in _alerts
+            
+        if not from_run:
+            assert len(_alerts) > 2
+            assert f"user_alert_3_{unique_id}" in _alerts
+        else:
+            assert f"user_alert_3_{unique_id}" not in _alerts
+            if critical_only:
+                assert len(_alerts) == 1
+            else:
+                assert len(_alerts) == 2
+                assert f"user_alert_2_{unique_id}" in _alerts
+            
 @pytest.mark.dependency
 @pytest.mark.client
 def test_get_run_id_from_name(create_test_run: tuple[sv_run.Run, dict]) -> None:
@@ -87,7 +121,7 @@ def test_get_metric_values(
         assert all(
             i in _value_types for i in ("average", "min", "max")
         ), f"Expected ('average', 'min', 'max') in {_value_types}"
-    else:
+    elif not use_name_labels:
         _runs = {i[1] for i in _first_entry}
         assert create_test_run[1]["run_id"] in _runs
 
@@ -146,12 +180,21 @@ def test_get_artifacts_as_files(
             create_test_run[1]["run_id"], category=category, output_dir=tempd
         )
         files = [os.path.basename(i) for i in glob.glob(os.path.join(tempd, "*"))]
-        if not category or category == "input":
-            assert create_test_run[1]["file_1"] in files
-        if not category or category == "output":
-            assert create_test_run[1]["file_2"] in files
-        if not category or category == "code":
-            assert create_test_run[1]["file_3"] in files
+        
+        if not category:
+            expected_files = ["file_1", "file_2", "file_3"]
+        elif category == "input":
+            expected_files = ["file_1"]
+        elif category == "output":
+            expected_files = ["file_2"]
+        elif category == "code":
+            expected_files = ["file_3"]
+            
+        for file in ["file_1", "file_2", "file_3"]:
+            if file in expected_files:
+                assert create_test_run[1][file] in files
+            else:
+                assert create_test_run[1][file] not in files
 
 
 @pytest.mark.dependency

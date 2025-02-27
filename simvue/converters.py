@@ -19,9 +19,7 @@ def aggregated_metrics_to_dataframe(
     request_response_data: dict[str, list[dict[str, float]]],
     xaxis: str,
     parse_to: typing.Literal["dict", "dataframe"] = "dict",
-) -> typing.Union[
-    "DataFrame", dict[str, dict[tuple[float, str], typing.Optional[float]]]
-]:
+) -> typing.Union["DataFrame", dict[str, dict[tuple[float, str], float]] | None]:
     """Create data frame for an aggregate of metrics
 
     Returns a dataframe with columns being metrics and sub-columns being the
@@ -58,7 +56,7 @@ def aggregated_metrics_to_dataframe(
     _value_types = list(_value_types)
     _value_types.remove(xaxis)
 
-    result_dict: dict[str, dict[tuple[float, str], typing.Optional[float]]] = {
+    result_dict: dict[str, dict[tuple[float, str], float]] | None = {
         metric_name: {} for metric_name in request_response_data
     }
 
@@ -91,9 +89,7 @@ def parse_run_set_metrics(
     xaxis: str,
     run_labels: list[str],
     parse_to: typing.Literal["dict", "dataframe"] = "dict",
-) -> typing.Union[
-    dict[str, dict[tuple[float, str], typing.Optional[float]]], "DataFrame"
-]:
+) -> typing.Union[dict[str, dict[tuple[float, str], float]] | None, "DataFrame"]:
     """Parse JSON response metric data from the server into the specified form
 
     Creates either a dictionary or a pandas dataframe of the data collected
@@ -112,7 +108,7 @@ def parse_run_set_metrics(
 
     Returns
     -------
-    dict[str, dict[tuple[float, str], typing.Optional[float]]] | DataFrame
+    dict[str, dict[tuple[float, str], float]] | None | DataFrame
         either a dictionary or Pandas DataFrame containing the results
 
     Raises
@@ -144,7 +140,7 @@ def parse_run_set_metrics(
     _value_types = list(_value_types)
     _value_types.remove(xaxis)
 
-    result_dict: dict[str, dict[tuple[float, str], typing.Optional[float]]] = {
+    result_dict: dict[str, dict[tuple[float, str], float]] | None = {
         metric_name: {} for metric_name in _all_metrics
     }
 
@@ -224,7 +220,7 @@ def to_dataframe(data) -> pandas.DataFrame:
 def metric_time_series_to_dataframe(
     data: list[dict[str, float]],
     xaxis: typing.Literal["step", "time", "timestamp"],
-    name: typing.Optional[str] = None,
+    name: str | None = None,
 ) -> "DataFrame":
     """Convert a single metric value set from a run into a dataframe
 

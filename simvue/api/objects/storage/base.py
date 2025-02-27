@@ -1,3 +1,10 @@
+"""
+Simvue Storage Base
+===================
+
+Contains general definitions for Simvue Storage objects.
+"""
+
 import typing
 
 import pydantic
@@ -8,9 +15,15 @@ from simvue.models import NAME_REGEX, DATETIME_FORMAT
 
 
 class StorageBase(SimvueObject):
+    """Storage object base class from which all storage types inherit.
+
+    This represents a single storage backend used to store uploaded artifacts.
+
+    """
+
     def __init__(
         self,
-        identifier: typing.Optional[str] = None,
+        identifier: str | None = None,
         _read_only: bool = False,
         **kwargs,
     ) -> None:
@@ -20,7 +33,8 @@ class StorageBase(SimvueObject):
         super().__init__(identifier, _read_only=_read_only, **kwargs)
 
     @classmethod
-    def new(cls, **kwargs):
+    def new(cls, **_):
+        """Create a new instance of a storage type"""
         pass
 
     @property
@@ -39,46 +53,46 @@ class StorageBase(SimvueObject):
         self._staging["name"] = name
 
     @property
-    def type(self) -> str:
-        """Retrieve the type of storage"""
-        return self._get_attribute("type")
+    def backend(self) -> str:
+        """Retrieve the backend of storage"""
+        return self._get_attribute("backend")
 
     @property
     @staging_check
-    def default(self) -> bool:
+    def is_default(self) -> bool:
         """Retrieve if this is the default storage for the user"""
         return self._get_attribute("is_default")
 
-    @default.setter
+    @is_default.setter
     @write_only
     @pydantic.validate_call
-    def default(self, is_default: bool) -> None:
+    def is_default(self, is_default: bool) -> None:
         """Set this storage to be the default"""
         self._staging["is_default"] = is_default
 
     @property
     @staging_check
-    def tenant_usable(self) -> bool:
+    def is_tenant_useable(self) -> bool:
         """Retrieve if this is usable by the current user tenant"""
         return self._get_attribute("is_tenant_useable")
 
-    @tenant_usable.setter
+    @is_tenant_useable.setter
     @write_only
     @pydantic.validate_call
-    def tenant_usable(self, is_tenant_usable: bool) -> None:
+    def is_tenant_useable(self, is_tenant_useable: bool) -> None:
         """Set this storage to be usable by the current user tenant"""
-        self._staging["is_tenant_useable"] = is_tenant_usable
+        self._staging["is_tenant_useable"] = is_tenant_useable
 
     @property
     @staging_check
-    def enabled(self) -> bool:
+    def is_enabled(self) -> bool:
         """Retrieve if this is enabled"""
         return self._get_attribute("is_enabled")
 
-    @enabled.setter
+    @is_enabled.setter
     @write_only
     @pydantic.validate_call
-    def enabled(self, is_enabled: bool) -> None:
+    def is_enabled(self, is_enabled: bool) -> None:
         """Set this storage to be usable by the current user tenant"""
         self._staging["is_enabled"] = is_enabled
 

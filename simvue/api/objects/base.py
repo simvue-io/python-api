@@ -17,6 +17,7 @@ import logging
 import msgpack
 import pydantic
 
+from simvue.utilities import staging_merger
 from simvue.config.user import SimvueConfiguration
 from simvue.exception import ObjectNotFoundError
 from simvue.version import __version__
@@ -49,6 +50,8 @@ def staging_check(member_func: typing.Callable) -> typing.Callable:
             raise RuntimeError(
                 f"Cannot use 'staging_check' decorator on type '{type(self).__name__}'"
             )
+        if _sv_obj._offline:
+            return member_func(self)
         if not _sv_obj._read_only and member_func.__name__ in _sv_obj._staging:
             _sv_obj._logger.warning(
                 f"Uncommitted change found for attribute '{member_func.__name__}'"
@@ -128,6 +131,8 @@ class SimvueObject(abc.ABC):
         identifier: str | None = None,
         _read_only: bool = True,
         _local: bool = False,
+        _user_agent: str | None = None,
+        _offline: bool = False,
         **kwargs,
     ) -> None:
         self._logger = logging.getLogger(f"simvue.{self.__class__.__name__}")
@@ -142,14 +147,14 @@ class SimvueObject(abc.ABC):
             for name, member in inspect.getmembers(self.__class__)
             if isinstance(member, property)
         ]
-        self._offline: bool = identifier is not None and identifier.startswith(
-            "offline_"
+        self._offline: bool = _offline or (
+            identifier is not None and identifier.startswith("offline_")
         )
 
         _config_args = {
             "server_url": kwargs.pop("server_url", None),
             "server_token": kwargs.pop("server_token", None),
-            "mode": kwargs.pop("mode", "online"),
+            "mode": "offline" if self._offline else "online",
         }
 
         self._user_config = SimvueConfiguration.fetch(**_config_args)
@@ -162,10 +167,16 @@ class SimvueObject(abc.ABC):
             )
         )
 
-        self._headers: dict[str, str] = {
-            "Authorization": f"Bearer {self._user_config.server.token.get_secret_value()}",
-            "User-Agent": f"Simvue Python client {__version__}",
-        }
+        self._headers: dict[str, str] = (
+            {
+                "Authorization": f"Bearer {self._user_config.server.token.get_secret_value()}",
+                "User-Agent": _user_agent or f"Simvue Python client {__version__}",
+            }
+            if not self._offline
+            else {}
+        )
+
+        self._params: dict[str, str] = {}
 
         self._staging: dict[str, typing.Any] = {}
 
@@ -178,7 +189,9 @@ class SimvueObject(abc.ABC):
             self._staging = self._get()
 
         # Recover any locally staged changes if not read-only
-        self._staging |= {} if _read_only else self._get_local_staged()
+        self._staging |= (
+            {} if (_read_only and not self._offline) else self._get_local_staged()
+        )
 
         self._staging |= kwargs
 
@@ -190,7 +203,7 @@ class SimvueObject(abc.ABC):
         with self._local_staging_file.open() as in_f:
             _staged_data = json.load(in_f)
 
-        return _staged_data.get(obj_label or self._label, {}).get(self._identifier, {})
+        return _staged_data
 
     def _stage_to_other(self, obj_label: str, key: str, value: typing.Any) -> None:
         """Stage a change to another object type"""
@@ -230,12 +243,22 @@ class SimvueObject(abc.ABC):
             try:
                 return self._staging[attribute]
             except KeyError as e:
+                # If the key is not in staging, but the object is not in offline mode
+                # retrieve from the server and update cache instead
+                if not _offline_state and (
+                    _attribute := self._get(url=url).get(attribute)
+                ):
+                    self._staging[attribute] = _attribute
+                    return _attribute
                 raise AttributeError(
                     f"Could not retrieve attribute '{attribute}' "
                     f"for {self._label} '{self._identifier}' from cached data"
                 ) from e
 
         try:
+            self._logger.debug(
+                f"Retrieving attribute '{attribute}' from {self._label} '{self._identifier}'"
+            )
             return self._get(url=url)[attribute]
         except KeyError as e:
             if default:
@@ -265,17 +288,14 @@ class SimvueObject(abc.ABC):
         with self._local_staging_file.open("w") as out_f:
             json.dump(_staged_data, out_f, indent=2)
 
-    def offline_mode(self, is_true: bool) -> None:
-        self._offline = is_true
-
     def _get_visibility(self) -> dict[str, bool | list[str]]:
         try:
             return self._get_attribute("visibility")
         except AttributeError:
             return {}
 
-    @abc.abstractclassmethod
-    def new(cls, **_):
+    @classmethod
+    def new(cls, **_) -> Self:
         pass
 
     @classmethod
@@ -364,8 +384,6 @@ class SimvueObject(abc.ABC):
             self._logger.debug(
                 f"Writing updates to staging file for {self._label} '{self.id}': {self._staging}"
             )
-            _offline_dir: pathlib.Path = self._user_config.offline.cache
-            _offline_file = _offline_dir.joinpath("staging.json")
             self._cache()
             return
 
@@ -400,10 +418,10 @@ class SimvueObject(abc.ABC):
     def _post(self, is_json: bool = True, **kwargs) -> dict[str, typing.Any]:
         if not is_json:
             kwargs = msgpack.packb(kwargs, use_bin_type=True)
-
         _response = sv_post(
             url=f"{self._base_url}",
             headers=self._headers | {"Content-Type": "application/msgpack"},
+            params=self._params,
             data=kwargs,
             is_json=is_json,
         )
@@ -415,9 +433,14 @@ class SimvueObject(abc.ABC):
 
         _json_response = get_json_from_response(
             response=_response,
-            expected_status=[http.HTTPStatus.OK],
+            expected_status=[http.HTTPStatus.OK, http.HTTPStatus.CONFLICT],
             scenario=f"Creation of {self._label}",
         )
+
+        if isinstance(_json_response, list):
+            raise RuntimeError(
+                "Expected dictionary from JSON response but got type list"
+            )
 
         if _id := _json_response.get("id"):
             self._logger.debug("'%s' created successfully", _id)
@@ -439,7 +462,7 @@ class SimvueObject(abc.ABC):
 
         return get_json_from_response(
             response=_response,
-            expected_status=[http.HTTPStatus.OK],
+            expected_status=[http.HTTPStatus.OK, http.HTTPStatus.CONFLICT],
             scenario=f"Creation of {self._label} '{self._identifier}",
         )
 
@@ -447,18 +470,7 @@ class SimvueObject(abc.ABC):
         self, _linked_objects: list[str] | None = None, **kwargs
     ) -> dict[str, typing.Any]:
         if self._get_local_staged():
-            with self._local_staging_file.open() as in_f:
-                _local_data = json.load(in_f)
-
-            _local_data[self._label].pop(self._identifier, None)
-
-            # If this object has information within other object types
-            # (e.g. runs can have metrics) ensure this is deleted too
-            for obj_type in _linked_objects or []:
-                _local_data[obj_type].pop(self._identifier, None)
-
-            with self._local_staging_file.open("w") as out_f:
-                json.dump(_local_data, out_f, indent=2)
+            self._local_staging_file.unlink(missing_ok=True)
 
         if self._offline:
             return {"id": self._identifier}
@@ -483,6 +495,7 @@ class SimvueObject(abc.ABC):
 
         if not self.url:
             raise RuntimeError(f"Identifier for instance of {self._label} Unknown")
+
         _response = sv_get(
             url=f"{url or self.url}", headers=self._headers, params=kwargs
         )
@@ -507,6 +520,10 @@ class SimvueObject(abc.ABC):
             )
         return _json_response
 
+    def refresh(self) -> None:
+        if self._read_only:
+            self._staging = self._get()
+
     def _cache(self) -> None:
         if not (_dir := self._local_staging_file.parent).exists():
             _dir.mkdir(parents=True)
@@ -517,16 +534,16 @@ class SimvueObject(abc.ABC):
             with self._local_staging_file.open() as in_f:
                 _local_data = json.load(in_f)
 
-        _local_data |= self._staging
+        staging_merger.merge(_local_data, self._staging)
 
         with self._local_staging_file.open("w", encoding="utf-8") as out_f:
             json.dump(_local_data, out_f, indent=2)
 
     def to_dict(self) -> dict[str, typing.Any]:
-        return {
-            key: value.__str__() if (value := getattr(self, key)) is not None else None
-            for key in self._properties
-        }
+        return self._get() | self._staging
+
+    def on_reconnect(self, id_mapping: dict[str, str]) -> None:
+        pass
 
     @property
     def staged(self) -> dict[str, typing.Any] | None:

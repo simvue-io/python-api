@@ -1,8 +1,17 @@
+"""
+Simvue Runs
+===========
+
+Contains a class for remotely connecting to Simvue runs, or defining
+a new run given relevant arguments.
+
+"""
+
 import http
 import typing
-import msgpack
 import pydantic
 import datetime
+import time
 
 try:
     from typing import Self
@@ -14,11 +23,9 @@ from simvue.api.request import (
     get as sv_get,
     put as sv_put,
     get_json_from_response,
-    post as sv_post,
 )
-from simvue.api.objects.events import Events
 from simvue.api.url import URL
-from simvue.models import FOLDER_REGEX, NAME_REGEX, DATETIME_FORMAT, EventSet, MetricSet
+from simvue.models import FOLDER_REGEX, NAME_REGEX, DATETIME_FORMAT
 
 Status = typing.Literal[
     "lost", "failed", "completed", "terminated", "running", "created"
@@ -28,7 +35,9 @@ __all__ = ["Run"]
 
 
 class Run(SimvueObject):
-    def __init__(self, identifier: typing.Optional[str] = None, **kwargs) -> None:
+    """Class for interacting with/creating runs on the server."""
+
+    def __init__(self, identifier: str | None = None, **kwargs) -> None:
         """Initialise a Run
 
         If an identifier is provided a connection will be made to the
@@ -45,28 +54,46 @@ class Run(SimvueObject):
         self.visibility = Visibility(self)
         super().__init__(identifier, **kwargs)
 
-        self._staged_metrics: list[dict[str, str | dict | int]] = (
-            self._get_local_staged("metrics").get(self._identifier)  # type: ignore
-            if self._identifier
-            else []
-        )
-
     @classmethod
     @pydantic.validate_call
     def new(
         cls,
         *,
         folder: typing.Annotated[str, pydantic.Field(pattern=FOLDER_REGEX)],
+        system: dict[str, typing.Any] | None = None,
+        status: typing.Literal[
+            "terminated", "created", "failed", "completed", "lost", "running"
+        ] = "created",
         offline: bool = False,
+        **kwargs,
     ) -> Self:
-        """Create a new Folder on the Simvue server with the given path"""
-        _run = Run(folder=folder, system=None, status="created", _read_only=False)
-        _run.offline_mode(offline)
-        return _run
+        """Create a new Run on the Simvue server.
+
+        Parameters
+        ----------
+        folder : str
+            folder to contain this run
+        offline : bool, optional
+            create the run in offline mode, default False.
+
+        Returns
+        -------
+        Run
+            run object with staged changes
+        """
+        return Run(
+            folder=folder,
+            system=system,
+            status=status,
+            _read_only=False,
+            _offline=offline,
+            **kwargs,
+        )
 
     @property
     @staging_check
     def name(self) -> str:
+        """Retrieve name associated with this run"""
         return self._get_attribute("name")
 
     def delete(self, **kwargs) -> dict[str, typing.Any]:
@@ -79,28 +106,33 @@ class Run(SimvueObject):
     def name(
         self, name: typing.Annotated[str, pydantic.Field(pattern=NAME_REGEX)]
     ) -> None:
+        """Set the name for this run."""
         self._staging["name"] = name
 
     @property
     @staging_check
     def tags(self) -> list[str]:
+        """Retrieve the tags associated with this run."""
         return self._get_attribute("tags")
 
     @tags.setter
     @write_only
     @pydantic.validate_call
     def tags(self, tags: list[str]) -> None:
+        """Set the tags for this run."""
         self._staging["tags"] = tags
 
     @property
     @staging_check
     def status(self) -> Status:
+        """Get the run status."""
         return self._get_attribute("status")
 
     @status.setter
     @write_only
     @pydantic.validate_call
     def status(self, status: Status) -> None:
+        """Set the run status."""
         self._staging["status"] = status
 
     @property
@@ -119,6 +151,7 @@ class Run(SimvueObject):
     @property
     @staging_check
     def folder(self) -> str:
+        """Get the folder associated with this run."""
         return self._get_attribute("folder")
 
     @folder.setter
@@ -127,43 +160,51 @@ class Run(SimvueObject):
     def folder(
         self, folder: typing.Annotated[str, pydantic.Field(pattern=FOLDER_REGEX)]
     ) -> None:
+        """Set the folder for this run."""
         self._staging["folder"] = folder
 
     @property
     @staging_check
     def metadata(self) -> dict[str, typing.Any]:
+        """Get the metadata for this run."""
         return self._get_attribute("metadata")
 
     @metadata.setter
     @write_only
     @pydantic.validate_call
     def metadata(self, metadata: dict[str, typing.Any]) -> None:
+        """Set the metadata for this run."""
         self._staging["metadata"] = metadata
 
     @property
     @staging_check
     def description(self) -> str:
+        """Get the description for this run."""
         return self._get_attribute("description")
 
     @description.setter
     @write_only
     @pydantic.validate_call
     def description(self, description: str | None) -> None:
+        """Set the description for this run."""
         self._staging["description"] = description
 
     @property
     def system(self) -> dict[str, typing.Any]:
+        """Get the system metadata for this run."""
         return self._get_attribute("system")
 
     @system.setter
     @write_only
     @pydantic.validate_call
     def system(self, system: dict[str, typing.Any]) -> None:
+        """Set the system metadata for this run."""
         self._staging["system"] = system
 
     @property
     @staging_check
     def heartbeat_timeout(self) -> int | None:
+        """Get the timeout for the heartbeat of this run."""
         return self._get_attribute("heartbeat_timeout")
 
     @heartbeat_timeout.setter
@@ -174,23 +215,31 @@ class Run(SimvueObject):
 
     @property
     @staging_check
-    def notifications(self) -> typing.Literal["none", "email"]:
-        return self._get_attribute("notifications")
+    def notifications(self) -> typing.Literal["none", "all", "error", "lost"]:
+        return self._get_attribute("notifications")["state"]
 
     @notifications.setter
     @write_only
     @pydantic.validate_call
-    def notifications(self, notifications: typing.Literal["none", "email"]) -> None:
-        self._staging["notifications"] = notifications
+    def notifications(
+        self, notifications: typing.Literal["none", "all", "error", "lost"]
+    ) -> None:
+        self._staging["notifications"] = {"state": notifications}
 
     @property
     @staging_check
-    def alerts(self) -> typing.Generator[str, None, None]:
-        for alert in self.get_alert_details():
-            yield alert["id"]
+    def alerts(self) -> list[str]:
+        if self._offline:
+            return self._get_attribute("alerts")
+
+        return [alert["id"] for alert in self.get_alert_details()]
 
     def get_alert_details(self) -> typing.Generator[dict[str, typing.Any], None, None]:
         """Retrieve the full details of alerts for this run"""
+        if self._offline:
+            raise RuntimeError(
+                "Cannot get alert details from an offline run - use .alerts to access a list of IDs instead"
+            )
         for alert in self._get_attribute("alerts"):
             yield alert["alert"]
 
@@ -198,9 +247,7 @@ class Run(SimvueObject):
     @write_only
     @pydantic.validate_call
     def alerts(self, alerts: list[str]) -> None:
-        self._staging["alerts"] = [
-            alert for alert in alerts if alert not in self._staging.get("alerts", [])
-        ]
+        self._staging["alerts"] = list(set(self._staging.get("alerts", []) + alerts))
 
     @property
     @staging_check
@@ -210,6 +257,19 @@ class Run(SimvueObject):
         return (
             datetime.datetime.strptime(_created, DATETIME_FORMAT) if _created else None
         )
+
+    @created.setter
+    @write_only
+    @pydantic.validate_call
+    def created(self, created: datetime.datetime) -> None:
+        self._staging["created"] = created.strftime(DATETIME_FORMAT)
+
+    @property
+    @staging_check
+    def runtime(self) -> datetime.datetime | None:
+        """Retrieve created datetime for the run"""
+        _runtime: str | None = self._get_attribute("runtime")
+        return time.strptime(_runtime, "%H:%M:%S.%f") if _runtime else None
 
     @property
     @staging_check
@@ -245,59 +305,24 @@ class Run(SimvueObject):
     def metrics(
         self,
     ) -> typing.Generator[tuple[str, dict[str, int | float | bool]], None, None]:
-        if self._staged_metrics:
-            self._logger.warning(f"Uncommitted metrics found for run '{self.id}'")
         yield from self._get_attribute("metrics").items()
 
     @property
     def events(
         self,
     ) -> typing.Generator[tuple[str, dict[str, int | float | bool]], None, None]:
-        if self._staged_metrics:
-            self._logger.warning(f"Uncommitted metrics found for run '{self.id}'")
         yield from self._get_attribute("events").items()
-
-    @pydantic.validate_call
-    def log_entries(
-        self,
-        entry_type: typing.Literal["metrics", "events"],
-        entries: list[MetricSet | EventSet],
-    ) -> None:
-        """Add entries to server or local staging"""
-        if not self._identifier:
-            raise RuntimeError("Cannot stage metrics, no identifier found")
-
-        _validated_entries: list[dict] = [entry.model_dump() for entry in entries]
-
-        if self._offline or self._identifier.startswith("offline_"):
-            self._stage_to_other(entry_type, self._identifier, _validated_entries)
-            return
-
-        if entry_type == "events":
-            _events = Events.new(run_id=self._identifier, events=entries)
-            _events.commit()
-            return
-
-        _url = URL(self._user_config.server.url) / entry_type
-        _data = {entry_type: _validated_entries, "run": self._identifier}
-        _data_bin = msgpack.packb(_data, use_bin_type=True)
-
-        _msgpack_header = self._headers | {"Content-Type": "application/msgpack"}
-
-        _response = sv_post(
-            f"{_url}", headers=_msgpack_header, data=_data_bin, is_json=False
-        )
-
-        get_json_from_response(
-            response=_response,
-            expected_status=[http.HTTPStatus.OK],
-            scenario=f"Logging of {entry_type} '{entries}' for run '{self.id}'",
-            allow_parse_failure=True,
-        )
 
     @write_only
     def send_heartbeat(self) -> dict[str, typing.Any] | None:
-        if self._offline or not self._identifier:
+        if not self._identifier:
+            return None
+
+        if self._offline:
+            if not (_dir := self._local_staging_file.parent).exists():
+                _dir.mkdir(parents=True)
+            _heartbeat_file = self._local_staging_file.with_suffix(".heartbeat")
+            _heartbeat_file.touch()
             return None
 
         _url = self._base_url
@@ -311,7 +336,7 @@ class Run(SimvueObject):
 
     @property
     def _abort_url(self) -> URL | None:
-        return self.url / "abort" if self._identifier else None
+        return self.url / "abort" if self.url else None
 
     @property
     def _artifact_url(self) -> URL | None:
@@ -352,14 +377,32 @@ class Run(SimvueObject):
     @pydantic.validate_call
     def abort(self, reason: str) -> dict[str, typing.Any]:
         if not self._abort_url:
-            return {}
+            raise RuntimeError("Cannot abort run, no endpoint defined")
 
         _response = sv_put(
             f"{self._abort_url}", headers=self._headers, data={"reason": reason}
         )
 
         return get_json_from_response(
-            expected_status=[http.HTTPStatus.OK, http.HTTPStatus.NOT_FOUND],
+            expected_status=[http.HTTPStatus.OK],
             scenario=f"Abort of run '{self.id}'",
             response=_response,
         )
+
+    def on_reconnect(self, id_mapping: dict[str, str]):
+        online_alert_ids: list[str] = []
+        for id in self._staging.get("alerts", []):
+            try:
+                online_alert_ids.append(id_mapping[id])
+            except KeyError:
+                raise KeyError(
+                    "Could not find alert ID in offline to online ID mapping."
+                )
+        # If run is offline, no alerts have been added yet, so add all alerts:
+        if self._identifier is not None and self._identifier.startswith("offline"):
+            self._staging["alerts"] = online_alert_ids
+        # Otherwise, only add alerts which have not yet been added
+        else:
+            self._staging["alerts"] = [
+                id for id in online_alert_ids if id not in list(self.alerts)
+            ]

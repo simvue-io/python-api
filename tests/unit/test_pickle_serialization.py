@@ -1,7 +1,7 @@
 from simvue.serialization import deserialize_data, serialize_object
 import pytest
 @pytest.mark.local
-def test_pickle_serialization():
+def test_pickle_serialization() -> None:
     """
     Check that a dictionary can be serialized then deserialized successfully
     """

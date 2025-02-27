@@ -9,7 +9,6 @@ server including deletion and retrieval.
 import contextlib
 import json
 import logging
-import os
 import pathlib
 import typing
 import http
@@ -45,12 +44,9 @@ logger = logging.getLogger(__file__)
 def _download_artifact_to_file(
     artifact: Artifact, output_dir: pathlib.Path | None
 ) -> None:
-    try:
-        _file_name = os.path.basename(artifact.name)
-    except AttributeError:
-        _file_name = os.path.basename(artifact)
-    _output_file = (output_dir or pathlib.Path.cwd()).joinpath(_file_name)
-
+    _output_file = (output_dir or pathlib.Path.cwd()).joinpath(artifact.name)
+    # If this is a hierarchical structure being downloaded, need to create directories
+    _output_file.parent.mkdir(parents=True, exist_ok=True)
     with _output_file.open("wb") as out_f:
         for content in artifact.download_content():
             out_f.write(content)
@@ -64,8 +60,8 @@ class Client:
     def __init__(
         self,
         *,
-        server_token: typing.Optional[pydantic.SecretStr] = None,
-        server_url: typing.Optional[str] = None,
+        server_token: pydantic.SecretStr | None = None,
+        server_url: str | None = None,
     ) -> None:
         """Initialise an instance of the Simvue client
 
@@ -136,7 +132,7 @@ class Client:
 
     @prettify_pydantic
     @pydantic.validate_call
-    def get_run(self, run_id: str) -> typing.Optional[Run]:
+    def get_run(self, run_id: str) -> Run | None:
         """Retrieve a single run
 
         Parameters
@@ -177,7 +173,7 @@ class Client:
     @pydantic.validate_call
     def get_runs(
         self,
-        filters: typing.Optional[list[str]],
+        filters: list[str] | None,
         *,
         system: bool = False,
         metrics: bool = False,
@@ -187,7 +183,7 @@ class Client:
         count_limit: pydantic.PositiveInt | None = 100,
         start_index: pydantic.NonNegativeInt = 0,
         show_shared: bool = False,
-    ) -> typing.Union[DataFrame, typing.Generator[tuple[str, Run], None, None], None]:
+    ) -> DataFrame | typing.Generator[tuple[str, Run], None, None] | None:
         """Retrieve all runs matching filters.
 
         Parameters
@@ -216,7 +212,7 @@ class Client:
 
         Returns
         -------
-        dict | pandas.DataFrame
+        pandas.DataFrame | Generator[tuple[str, Run], None, None]
             either the JSON response from the runs request or the results in the
             form of a Pandas DataFrame
 
@@ -280,7 +276,7 @@ class Client:
 
     @prettify_pydantic
     @pydantic.validate_call
-    def delete_run(self, run_id: str) -> typing.Optional[dict]:
+    def delete_run(self, run_id: str) -> dict | None:
         """Delete run by identifier
 
         Parameters
@@ -300,7 +296,7 @@ class Client:
         """
         return Run(identifier=run_id).delete() or None
 
-    def _get_folder_from_path(self, path: str) -> typing.Optional[Folder]:
+    def _get_folder_from_path(self, path: str) -> Folder | None:
         """Retrieve folder for the specified path if found
 
         Parameters
@@ -321,7 +317,7 @@ class Client:
         except StopIteration:
             return None
 
-    def _get_folder_id_from_path(self, path: str) -> typing.Optional[str]:
+    def _get_folder_id_from_path(self, path: str) -> str | None:
         """Retrieve folder identifier for the specified path if found
 
         Parameters
@@ -342,7 +338,7 @@ class Client:
     @pydantic.validate_call
     def delete_runs(
         self, folder_path: typing.Annotated[str, pydantic.Field(pattern=FOLDER_REGEX)]
-    ) -> typing.Optional[list]:
+    ) -> list | None:
         """Delete runs in a named folder
 
         Parameters
@@ -374,7 +370,7 @@ class Client:
         recursive: bool = False,
         remove_runs: bool = False,
         allow_missing: bool = False,
-    ) -> typing.Optional[list]:
+    ) -> list | None:
         """Delete a folder by name
 
         Parameters
@@ -460,7 +456,7 @@ class Client:
 
     @prettify_pydantic
     @pydantic.validate_call
-    def abort_run(self, run_id: str, reason: str) -> typing.Union[dict, list]:
+    def abort_run(self, run_id: str, reason: str) -> dict | list:
         """Abort a currently active run on the server
 
         Parameters
@@ -513,8 +509,8 @@ class Client:
 
         _content = b"".join(_artifact.download_content())
 
-        _deserialized_content: typing.Optional[DeserializedContent] = deserialize_data(
-            _content, _artifact.type, allow_pickle
+        _deserialized_content: DeserializedContent | None = deserialize_data(
+            _content, _artifact.mime_type, allow_pickle
         )
 
         # Numpy array return means just 'if content' will be ambiguous
@@ -527,7 +523,7 @@ class Client:
         self,
         run_id: str,
         name: str,
-        output_dir: typing.Optional[pydantic.DirectoryPath] = None,
+        output_dir: pydantic.DirectoryPath | None = None,
     ) -> None:
         """Retrieve the specified artifact in the form of a file
 
@@ -549,7 +545,7 @@ class Client:
             if there was a failure during retrieval of information from the
             server
         """
-        _artifacts = self._retrieve_artifacts_from_server(run_id, name)
+        _artifacts = self._retrieve_artifacts_from_server(run_id, name, count=1)
 
         try:
             _id, _artifact = next(_artifacts)
@@ -565,9 +561,6 @@ class Client:
         run_id: str,
         category: typing.Literal["input", "output", "code"] | None = None,
         output_dir: pydantic.DirectoryPath | None = None,
-        startswith: str | None = None,
-        contains: str | None = None,
-        endswith: str | None = None,
     ) -> None:
         """Retrieve artifacts from the given run as a set of files
 
@@ -575,24 +568,20 @@ class Client:
         ----------
         run_id : str
             the unique identifier for the run
+        category : typing.Literal["input", "output", "code"] |
+            the type of files to retrieve
         output_dir : str | None, optional
             location to download files to, the default of None will download
             them to the current working directory
-        startswith : str, optional
-            only download artifacts with this prefix in their name, by default None
-        contains : str, optional
-            only download artifacts containing this term in their name, by default None
-        endswith : str, optional
-            only download artifacts ending in this term in their name, by default None
 
         Raises
         ------
         RuntimeError
             if there was a failure retrieving artifacts from the server
         """
-        _artifacts: typing.Generator[tuple[str, Artifact], None, None] = Artifact.get(
-            runs=json.dumps([run_id]), category=category
-        )  # type: ignore
+        _artifacts: typing.Generator[tuple[str, Artifact], None, None] = (
+            Artifact.from_run(run_id=run_id, category=category)
+        )
 
         with ThreadPoolExecutor(CONCURRENT_DOWNLOADS) as executor:
             futures = [
@@ -645,7 +634,7 @@ class Client:
     def get_folders(
         self,
         *,
-        filters: typing.Optional[list[str]] = None,
+        filters: list[str] | None = None,
         count: pydantic.PositiveInt = 100,
         start_index: pydantic.NonNegativeInt = 0,
     ) -> typing.Generator[tuple[str, Folder], None, None]:
@@ -705,9 +694,9 @@ class Client:
         run_ids: list[str],
         xaxis: str,
         aggregate: bool,
-        max_points: typing.Optional[int] = None,
+        max_points: int | None = None,
     ) -> dict[str, typing.Any]:
-        params: dict[str, typing.Union[str, int, None]] = {
+        params: dict[str, str | int | None] = {
             "runs": json.dumps(run_ids),
             "aggregate": aggregate,
             "metrics": json.dumps(metric_names),
@@ -735,12 +724,12 @@ class Client:
         xaxis: typing.Literal["step", "time", "timestamp"],
         *,
         output_format: typing.Literal["dataframe", "dict"] = "dict",
-        run_ids: typing.Optional[list[str]] = None,
-        run_filters: typing.Optional[list[str]] = None,
+        run_ids: list[str] | None = None,
+        run_filters: list[str] | None = None,
         use_run_names: bool = False,
         aggregate: bool = False,
-        max_points: typing.Optional[pydantic.PositiveInt] = None,
-    ) -> typing.Union[dict, DataFrame, None]:
+        max_points: pydantic.PositiveInt | None = None,
+    ) -> dict | DataFrame | None:
         """Retrieve the values for a given metric across multiple runs
 
         Uses filters to specify which runs should be retrieved.
@@ -794,31 +783,30 @@ class Client:
 
         _run_data = dict(Run.get(**_args))
 
-        if _run_metrics := self._get_run_metrics_from_server(
-            metric_names=metric_names,
-            run_ids=run_ids or list(_run_data.keys()),
-            xaxis=xaxis,
-            aggregate=aggregate,
-            max_points=max_points,
+        if not (
+            _run_metrics := self._get_run_metrics_from_server(
+                metric_names=metric_names,
+                run_ids=run_ids or list(_run_data.keys()),
+                xaxis=xaxis,
+                aggregate=aggregate,
+                max_points=max_points,
+            )
         ):
-            if aggregate:
-                return aggregated_metrics_to_dataframe(
-                    _run_metrics, xaxis=xaxis, parse_to=output_format
-                )
-            else:
-                if use_run_names:
-                    _run_metrics = {
-                        _run_data[key].name: _run_metrics[key]
-                        for key in _run_metrics.keys()
-                    }
-                return parse_run_set_metrics(
-                    _run_metrics,
-                    xaxis=xaxis,
-                    run_labels=list(_run_data.keys()),
-                    parse_to=output_format,
-                )
-        else:
             return None
+        if aggregate:
+            return aggregated_metrics_to_dataframe(
+                _run_metrics, xaxis=xaxis, parse_to=output_format
+            )
+        if use_run_names:
+            _run_metrics = {
+                _run_data[key].name: _run_metrics[key] for key in _run_metrics.keys()
+            }
+        return parse_run_set_metrics(
+            _run_metrics,
+            xaxis=xaxis,
+            run_labels=list(_run_metrics.keys()),
+            parse_to=output_format,
+        )
 
     @check_extra("plot")
     @prettify_pydantic
@@ -829,7 +817,7 @@ class Client:
         metric_names: list[str],
         xaxis: typing.Literal["step", "time"],
         *,
-        max_points: typing.Optional[int] = None,
+        max_points: int | None = None,
     ) -> typing.Any:
         """Plt the time series values for multiple metrics/runs
 
@@ -911,9 +899,9 @@ class Client:
         self,
         run_id: str,
         *,
-        message_contains: typing.Optional[str] = None,
-        start_index: typing.Optional[pydantic.NonNegativeInt] = None,
-        count_limit: typing.Optional[pydantic.PositiveInt] = None,
+        message_contains: str | None = None,
+        start_index: pydantic.NonNegativeInt | None = None,
+        count_limit: pydantic.PositiveInt | None = None,
     ) -> list[dict[str, str]]:
         """Return events for a specified run
 
@@ -945,7 +933,7 @@ class Client:
             else ""
         )
 
-        params: dict[str, typing.Union[str, int]] = {
+        params: dict[str, str | int] = {
             "run": run_id,
             "filters": msg_filter,
             "start": start_index or 0,
@@ -971,11 +959,11 @@ class Client:
     def get_alerts(
         self,
         *,
-        run_id: typing.Optional[str] = None,
+        run_id: str | None = None,
         critical_only: bool = True,
         names_only: bool = True,
-        start_index: typing.Optional[pydantic.NonNegativeInt] = None,
-        count_limit: typing.Optional[pydantic.PositiveInt] = None,
+        start_index: pydantic.NonNegativeInt | None = None,
+        count_limit: pydantic.PositiveInt | None = None,
     ) -> list[AlertBase] | list[str | None]:
         """Retrieve alerts for a given run
 
@@ -1002,25 +990,31 @@ class Client:
         RuntimeError
             if there was a failure retrieving data from the server
         """
-
         if not run_id:
+            if critical_only:
+                raise RuntimeError(
+                    "critical_only is ambiguous when returning alerts with no run ID specified."
+                )
             return [alert.name if names_only else alert for _, alert in Alert.get()]  # type: ignore
 
-        return [
-            alert.get("name")
-            if names_only
-            else Alert(identifier=alert.get("id"), **alert)
+        _alerts = [
+            Alert(identifier=alert.get("id"), **alert)
             for alert in Run(identifier=run_id).get_alert_details()
-            if not critical_only or alert["status"].get("current") == "critical"
-        ]  # type: ignore
+        ]
+
+        return [
+            alert.name if names_only else alert
+            for alert in _alerts
+            if not critical_only or alert.get_status(run_id) == "critical"
+        ]
 
     @prettify_pydantic
     @pydantic.validate_call
     def get_tags(
         self,
         *,
-        start_index: typing.Optional[pydantic.NonNegativeInt] = None,
-        count_limit: typing.Optional[pydantic.PositiveInt] = None,
+        start_index: pydantic.NonNegativeInt | None = None,
+        count_limit: pydantic.PositiveInt | None = None,
     ) -> typing.Generator[Tag, None, None]:
         """Retrieve tags
 

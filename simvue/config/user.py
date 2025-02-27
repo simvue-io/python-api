@@ -36,12 +36,8 @@ from simvue.api.url import URL
 
 logger = logging.getLogger(__name__)
 
-SIMVUE_SERVER_UPPER_CONSTRAINT: typing.Optional[semver.Version] = semver.Version.parse(
-    "2.0.0"
-)
-SIMVUE_SERVER_LOWER_CONSTRAINT: typing.Optional[semver.Version] = semver.Version.parse(
-    "1.0.0"
-)
+SIMVUE_SERVER_UPPER_CONSTRAINT: semver.Version | None = semver.Version.parse("2.0.0")
+SIMVUE_SERVER_LOWER_CONSTRAINT: semver.Version | None = semver.Version.parse("1.0.0")
 
 
 class SimvueConfiguration(pydantic.BaseModel):
@@ -56,7 +52,7 @@ class SimvueConfiguration(pydantic.BaseModel):
     metrics: MetricsSpecifications = MetricsSpecifications()
 
     @classmethod
-    def _load_pyproject_configs(cls) -> typing.Optional[dict]:
+    def _load_pyproject_configs(cls) -> dict | None:
         """Recover any Simvue non-authentication configurations from pyproject.toml"""
         _pyproject_toml = sv_util.find_first_instance_of_file(
             file_names=["pyproject.toml"], check_user_space=False
@@ -132,6 +128,11 @@ class SimvueConfiguration(pydantic.BaseModel):
                 f"< {SIMVUE_SERVER_LOWER_CONSTRAINT}"
             )
 
+    @pydantic.validate_call
+    def write(self, out_directory: pydantic.DirectoryPath) -> None:
+        with out_directory.joinpath(CONFIG_FILE_NAMES[0]).open("w") as out_f:
+            toml.dump(self.model_dump(), out_f)
+
     @pydantic.model_validator(mode="after")
     @classmethod
     def check_valid_server(cls, values: "SimvueConfiguration") -> bool:
@@ -179,7 +180,7 @@ class SimvueConfiguration(pydantic.BaseModel):
         except FileNotFoundError:
             if not server_token or not server_url:
                 _config_dict = {"server": {}}
-                logger.warning("No config file found, checking environment variables")
+                logger.debug("No config file found, checking environment variables")
 
         _config_dict["server"] = _config_dict.get("server", {})
 
@@ -196,7 +197,7 @@ class SimvueConfiguration(pydantic.BaseModel):
         _config_dict["offline"]["cache"] = _default_dir
 
         # Ranking of configurations for token and URl is:
-        # Envionment Variables > Run Definition > Configuration File
+        # Environment Variables > Run Definition > Configuration File
 
         _server_url = os.environ.get(
             "SIMVUE_URL", server_url or _config_dict["server"].get("url")
@@ -211,10 +212,10 @@ class SimvueConfiguration(pydantic.BaseModel):
 
         _run_mode = mode or _config_dict["run"].get("mode") or "online"
 
-        if not _server_url:
+        if not _server_url and _run_mode != "offline":
             raise RuntimeError("No server URL was specified")
 
-        if not _server_token:
+        if not _server_token and _run_mode != "offline":
             raise RuntimeError("No server token was specified")
 
         _config_dict["server"]["token"] = _server_token
@@ -227,10 +228,8 @@ class SimvueConfiguration(pydantic.BaseModel):
     @functools.lru_cache
     def config_file(cls) -> pathlib.Path:
         """Returns the path of top level configuration file used for the session"""
-        _config_file: typing.Optional[pathlib.Path] = (
-            sv_util.find_first_instance_of_file(
-                CONFIG_FILE_NAMES, check_user_space=True
-            )
+        _config_file: pathlib.Path | None = sv_util.find_first_instance_of_file(
+            CONFIG_FILE_NAMES, check_user_space=True
         )
 
         # NOTE: Legacy INI support has been removed

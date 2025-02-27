@@ -27,9 +27,17 @@ class Alert:
     @pydantic.validate_call()
     def __new__(cls, identifier: str, **kwargs) -> AlertType:
         """Retrieve an object representing an alert either locally or on the server by id"""
-        if identifier.startswith("offline_"):
-            raise ValueError("Cannot retrieve offline run from server")
         _alert_pre = AlertBase(identifier=identifier, **kwargs)
+        if (
+            identifier is not None
+            and identifier.startswith("offline_")
+            and not _alert_pre._staging.get("source", None)
+        ):
+            raise RuntimeError(
+                "Cannot determine Alert type - this is likely because you are attempting to reconnect "
+                "to an offline alert which has already been sent to the server. To fix this, use the "
+                "exact Alert type instead (eg MetricThresholdAlert, MetricRangeAlert etc)."
+            )
         if _alert_pre.source == "events":
             return EventsAlert(identifier=identifier, **kwargs)
         elif _alert_pre.source == "metrics" and _alert_pre.get_alert().get("threshold"):
@@ -43,29 +51,52 @@ class Alert:
 
     @classmethod
     def get(
-        cls, count: int | None = None, offset: int | None = None, **kwargs
+        cls,
+        offline: bool = False,
+        count: int | None = None,
+        offset: int | None = None,
+        **kwargs,
     ) -> typing.Generator[tuple[str, AlertType], None, None]:
+        """Fetch all alerts from the server for the current user.
+
+        Parameters
+        ----------
+        count : int, optional
+            limit the number of results, default of None returns all.
+        offset : int, optional
+            start index for returned results, default of None starts at 0.
+
+        Yields
+        ------
+        tuple[str, AlertType]
+            identifier for an alert
+            the alert itself as a class instance
+        """
+        if offline:
+            return
+
         # Currently no alert filters
         kwargs.pop("filters", None)
 
-        _class_instance = AlertBase(_local=True, _read_only=True, **kwargs)
+        _class_instance = AlertBase(_local=True, _read_only=True)
         _url = f"{_class_instance._base_url}"
+
         _response = sv_get(
             _url,
             headers=_class_instance._headers,
-            params={"start": offset, "count": count},
+            params={"start": offset, "count": count} | kwargs,
         )
 
+        _label: str = _class_instance.__class__.__name__.lower()
+        _label = _label.replace("base", "")
         _json_response = get_json_from_response(
             response=_response,
             expected_status=[http.HTTPStatus.OK],
-            scenario=f"Retrieval of {_class_instance.__class__.__name__.lower()}s",
+            scenario=f"Retrieval of {_label}s",
         )
 
         if (_data := _json_response.get("data")) is None:
-            raise RuntimeError(
-                f"Expected key 'data' for retrieval of {_class_instance.__class__.__name__.lower()}s"
-            )
+            raise RuntimeError(f"Expected key 'data' for retrieval of {_label}s")
 
         _out_dict: dict[str, AlertType] = {}
 

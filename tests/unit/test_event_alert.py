@@ -1,9 +1,11 @@
 import time
+import json
 import pytest
 import contextlib
 import uuid
 
 from simvue.api.objects import Alert, EventsAlert
+from simvue.sender import sender
 
 @pytest.mark.api
 @pytest.mark.online
@@ -35,7 +37,8 @@ def test_event_alert_creation_offline() -> None:
         frequency=1,
         pattern="completed",
         notification="none",
-        offline=True
+        offline=True,
+        description=None
     )
 
     _alert.commit()
@@ -44,13 +47,28 @@ def test_event_alert_creation_offline() -> None:
     assert _alert.alert.pattern == "completed"
     assert _alert.name == f"events_alert_{_uuid}"
     assert _alert.notification == "none"
-    _alert.delete()
-
+    
     with _alert._local_staging_file.open() as in_f:
         _local_data = json.load(in_f)
+    assert _local_data.get("source") == "events"
+    assert _local_data.get("alert").get("frequency") == 1
+    assert _local_data.get("alert").get("pattern") == "completed"
+    assert _local_data.get("name") == f"events_alert_{_uuid}"
+    assert _local_data.get("notification") == "none"
+    
+    _id_mapping = sender(_alert._local_staging_file.parents[1], 1, 10, ["alerts"])
+    time.sleep(1)
+    
+    # Get online ID and retrieve alert
+    _online_alert = Alert(_id_mapping.get(_alert.id))
+    assert _online_alert.source == "events"
+    assert _online_alert.alert.frequency == 1
+    assert _online_alert.alert.pattern == "completed"
+    assert _online_alert.name == f"events_alert_{_uuid}"
+    assert _online_alert.notification == "none"
 
-    assert not _local_data.get(_alert._label, {}).get(_alert.id)
-
+    _alert.delete()
+    _alert._local_staging_file.parents[1].joinpath("server_ids", f"{_alert._local_staging_file.name.split('.')[0]}.txt").unlink()
 
 @pytest.mark.api
 @pytest.mark.online
@@ -84,20 +102,43 @@ def test_event_alert_modification_offline() -> None:
         frequency=1,
         pattern="completed",
         notification="none",
-        offline=True
+        offline=True,
+        description=None
     )
     _alert.commit()
-    time.sleep(1)
-    _new_alert = Alert(_alert.id)
-    assert isinstance(_new_alert, EventsAlert)
+    _id_mapping = sender(_alert._local_staging_file.parents[1], 1, 10, ["alerts"])
+    time.sleep(1)  
+      
+    # Get online ID and retrieve alert
+    _online_alert = Alert(_id_mapping.get(_alert.id))
+    assert _online_alert.source == "events"
+    assert _online_alert.alert.frequency == 1
+    assert _online_alert.alert.pattern == "completed"
+    assert _online_alert.name == f"events_alert_{_uuid}"
+    assert _online_alert.notification == "none"
+    
+    _new_alert = EventsAlert(_alert.id)
+    _new_alert.read_only(False)
     _new_alert.description = "updated!"
-
-    with pytest.raises(AttributeError):
-        assert _new_alert.description
-
     _new_alert.commit()
-    assert _new_alert.description == "updated!"
-    _new_alert.delete()
+
+    # Since changes havent been sent, check online run not updated
+    _online_alert.refresh()
+    assert _online_alert.description != "updated!"
+    
+    with _alert._local_staging_file.open() as in_f:
+        _local_data = json.load(in_f)
+    assert _local_data.get("description") == "updated!"
+    
+    sender(_alert._local_staging_file.parents[1], 1, 10, ["alerts"])
+    time.sleep(1)
+    
+    _online_alert.refresh()
+    assert _online_alert.description == "updated!"
+    
+    _online_alert.read_only(False)
+    _online_alert.delete()
+    _alert._local_staging_file.parents[1].joinpath("server_ids", f"{_alert._local_staging_file.name.split('.')[0]}.txt").unlink()
 
 
 @pytest.mark.api

@@ -29,22 +29,21 @@ class Metrics(SimvueObject):
         **kwargs,
     ) -> None:
         self._label = "metric"
-        super().__init__(
-            identifier=None, _read_only=_read_only, _local=_local, **kwargs
-        )
+        super().__init__(_read_only=_read_only, _local=_local, **kwargs)
         self._run_id = self._staging.get("run")
 
     @classmethod
     @pydantic.validate_call
-    def new(cls, *, run_id: str, offline: bool = False, metrics: list[MetricSet]):
-        """Create a new Events entry on the Simvue server"""
-        _events = Metrics(
-            run=run_id,
+    def new(
+        cls, *, run: str, offline: bool = False, metrics: list[MetricSet], **kwargs
+    ):
+        """Create a new Metrics entry on the Simvue server"""
+        return Metrics(
+            run=run,
             metrics=[metric.model_dump() for metric in metrics],
             _read_only=False,
+            _offline=offline,
         )
-        _events.offline_mode(offline)
-        return _events
 
     @classmethod
     @pydantic.validate_call
@@ -52,27 +51,23 @@ class Metrics(SimvueObject):
         cls,
         metrics: list[str],
         xaxis: typing.Literal["timestamp", "step", "time"],
+        runs: list[str],
         *,
         count: pydantic.PositiveInt | None = None,
         offset: pydantic.PositiveInt | None = None,
         **kwargs,
     ) -> typing.Generator[MetricSet, None, None]:
         _class_instance = cls(_read_only=True, _local=True)
-        if (
-            _data := cls._get_all_objects(
-                count,
-                offset,
-                metrics=json.dumps(metrics),
-                xaxis=xaxis,
-                **kwargs,
-            ).get("data")
-        ) is None:
-            raise RuntimeError(
-                f"Expected key 'data' for retrieval of {_class_instance.__class__.__name__.lower()}s"
-            )
-
-        for _entry in _data:
-            yield MetricSet(**_entry)
+        _data = cls._get_all_objects(
+            count,
+            offset,
+            metrics=json.dumps(metrics),
+            runs=json.dumps(runs),
+            xaxis=xaxis,
+            **kwargs,
+        )
+        # TODO: Temp fix, just return the dictionary. Not sure what format we really want this in...
+        return _data
 
     @pydantic.validate_call
     def span(self, run_ids: list[str]) -> dict[str, int | float]:
@@ -106,3 +101,10 @@ class Metrics(SimvueObject):
         self, _linked_objects: list[str] | None = None, **kwargs
     ) -> dict[str, typing.Any]:
         raise NotImplementedError("Cannot delete metric set")
+
+    def on_reconnect(self, id_mapping: dict[str, str]):
+        if online_run_id := id_mapping.get(self._staging["run"]):
+            self._staging["run"] = online_run_id
+
+    def to_dict(self) -> dict[str, typing.Any]:
+        return self._staging

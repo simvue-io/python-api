@@ -12,7 +12,6 @@ import json
 import toml
 import logging
 import pathlib
-import flatdict
 
 from simvue.utilities import simvue_timestamp
 
@@ -64,7 +63,7 @@ def git_info(repository: str) -> dict[str, typing.Any]:
         )
         return {
             "git": {
-                "authors": json.dumps(list(author_list)),
+                "authors": list(author_list),
                 "ref": ref,
                 "msg": current_commit.message.strip(),
                 "time_stamp": simvue_timestamp(current_commit.committed_datetime),
@@ -83,35 +82,33 @@ def _python_env(repository: pathlib.Path) -> dict[str, typing.Any]:
 
     if (pyproject_file := pathlib.Path(repository).joinpath("pyproject.toml")).exists():
         content = toml.load(pyproject_file)
-        if poetry_content := content.get("tool", {}).get("poetry"):
-            python_meta |= {
-                "python.project.name": poetry_content["name"],
-                "python.project.version": poetry_content["version"],
+        if (poetry_content := content.get("tool", {}).get("poetry", {})).get("name"):
+            python_meta["project"] = {
+                "name": poetry_content["name"],
+                "version": poetry_content["version"],
             }
         elif other_content := content.get("project"):
-            python_meta |= {
-                "python.project.name": other_content["name"],
-                "python.project.version": other_content["version"],
+            python_meta["project"] = {
+                "name": other_content["name"],
+                "version": other_content["version"],
             }
 
     if (poetry_lock_file := pathlib.Path(repository).joinpath("poetry.lock")).exists():
         content = toml.load(poetry_lock_file).get("package", {})
-        python_meta |= {
-            f"python.environment.{package['name']}": package["version"]
-            for package in content
+        python_meta["environment"] = {
+            package["name"]: package["version"] for package in content
         }
     elif (uv_lock_file := pathlib.Path(repository).joinpath("uv.lock")).exists():
         content = toml.load(uv_lock_file).get("package", {})
-        python_meta |= {
-            f"python.environment.{package['name']}": package["version"]
-            for package in content
+        python_meta["environment"] = {
+            package["name"]: package["version"] for package in content
         }
     else:
         with contextlib.suppress((KeyError, ImportError)):
             from pip._internal.operations.freeze import freeze
 
-            python_meta |= {
-                f"python.environment.{entry[0]}": entry[-1]
+            python_meta["environment"] = {
+                entry[0]: entry[-1]
                 for line in freeze(local_only=True)
                 if (entry := line.split("=="))
             }
@@ -126,20 +123,21 @@ def _rust_env(repository: pathlib.Path) -> dict[str, typing.Any]:
     if (cargo_file := pathlib.Path(repository).joinpath("Cargo.toml")).exists():
         content = toml.load(cargo_file).get("package", {})
         if version := content.get("version"):
-            rust_meta |= {"rust.project.version": version}
+            rust_meta.setdefault("project", {})["version"] = version
 
         if name := content.get("name"):
-            rust_meta |= {"rust.project.name": name}
+            rust_meta.setdefault("project", {})["name"] = name
 
     if not (cargo_lock := pathlib.Path(repository).joinpath("Cargo.lock")).exists():
-        return {}
+        return rust_meta
 
     cargo_dat = toml.load(cargo_lock)
-
-    return rust_meta | {
-        f"rust.environment.{dependency['name']}": dependency["version"]
+    rust_meta["environment"] = {
+        dependency["name"]: dependency["version"]
         for dependency in cargo_dat.get("package")
     }
+
+    return rust_meta
 
 
 def _julia_env(repository: pathlib.Path) -> dict[str, typing.Any]:
@@ -147,14 +145,11 @@ def _julia_env(repository: pathlib.Path) -> dict[str, typing.Any]:
     julia_meta: dict[str, str] = {}
     if (project_file := pathlib.Path(repository).joinpath("Project.toml")).exists():
         content = toml.load(project_file)
-        julia_meta |= {
-            f"julia.project.{key}": value
-            for key, value in content.items()
-            if not isinstance(value, dict)
+        julia_meta["project"] = {
+            key: value for key, value in content.items() if not isinstance(value, dict)
         }
-        julia_meta |= {
-            f"julia.environment.{key}": value
-            for key, value in content.get("compat", {}).items()
+        julia_meta["environment"] = {
+            key: value for key, value in content.get("compat", {}).items()
         }
     return julia_meta
 
@@ -171,13 +166,11 @@ def _node_js_env(repository: pathlib.Path) -> dict[str, typing.Any]:
             )
             return {}
 
-        js_meta |= {
-            f"javascript.project.{key}": value
-            for key, value in content.items()
-            if key in ("name", "version")
+        js_meta["project"] = {
+            key: value for key, value in content.items() if key in ("name", "version")
         }
-        js_meta |= {
-            f"javascript.environment.{key.replace('@', '')}": value["version"]
+        js_meta["environment"] = {
+            key.replace("@", ""): value["version"]
             for key, value in content.get(
                 "packages" if lfv in (2, 3) else "dependencies", {}
             ).items()
@@ -188,16 +181,13 @@ def _node_js_env(repository: pathlib.Path) -> dict[str, typing.Any]:
 
 def environment(repository: pathlib.Path = pathlib.Path.cwd()) -> dict[str, typing.Any]:
     """Retrieve environment metadata"""
-    _environment_meta = flatdict.FlatDict(
-        _python_env(repository), delimiter="."
-    ).as_dict()
-    _environment_meta |= flatdict.FlatDict(
-        _rust_env(repository), delimiter="."
-    ).as_dict()
-    _environment_meta |= flatdict.FlatDict(
-        _julia_env(repository), delimiter="."
-    ).as_dict()
-    _environment_meta |= flatdict.FlatDict(
-        _node_js_env(repository), delimiter="."
-    ).as_dict()
+    _environment_meta = {}
+    if _python_meta := _python_env(repository):
+        _environment_meta["python"] = _python_meta
+    if _rust_meta := _rust_env(repository):
+        _environment_meta["rust"] = _rust_meta
+    if _julia_meta := _julia_env(repository):
+        _environment_meta["julia"] = _julia_meta
+    if _js_meta := _node_js_env(repository):
+        _environment_meta["javascript"] = _js_meta
     return _environment_meta

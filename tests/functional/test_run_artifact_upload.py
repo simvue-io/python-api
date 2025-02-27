@@ -7,7 +7,7 @@ import pathlib
 import tempfile
 import pytest
 
-from simvue.api.objects import Run, Artifact, storage
+from simvue.api.objects import Run, FileArtifact, storage
 from simvue.api.objects.folder import Folder
 
 
@@ -24,11 +24,11 @@ def test_add_artifact_to_run() -> None:
         with open(tempf.name, "w") as in_f:
             in_f.write("Hello")
 
-        _artifact = Artifact.new_file(
+        _artifact = FileArtifact.new(
             name=f"test_{_uuid}",
-            storage_id=None,
+            storage=None,
             file_path=pathlib.Path(tempf.name),
-            file_type=None,
+            mime_type=None,
             metadata=None
         )
         _artifact.attach_to_run(_run.id, "input")

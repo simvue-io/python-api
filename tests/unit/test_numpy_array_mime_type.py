@@ -3,7 +3,7 @@ import numpy as np
 import pytest
 
 @pytest.mark.local
-def test_numpy_array_mime_type():
+def test_numpy_array_mime_type() -> None:
     """
     Check that the mimetype for numpy arrays is correct
     """
