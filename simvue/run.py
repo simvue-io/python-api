@@ -305,7 +305,7 @@ class Run:
 
         return list(set(process_list))
 
-    def _get_sysinfo(self, interval: float | None = None) -> dict[str, typing.Any]:
+    def _get_sysinfo(self) -> dict[str, typing.Any]:
         """Retrieve system administration
 
         Parameters
@@ -356,6 +356,9 @@ class Run:
 
             last_heartbeat = time.time()
             last_res_metric_call = time.time()
+
+            if self._resources_metrics_interval:
+                self._add_metrics_to_dispatch(self._get_sysinfo(), join_on_fail=False)
 
             while not heartbeat_trigger.is_set():
                 time.sleep(0.1)
