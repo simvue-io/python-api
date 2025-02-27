@@ -50,6 +50,8 @@ def staging_check(member_func: typing.Callable) -> typing.Callable:
             raise RuntimeError(
                 f"Cannot use 'staging_check' decorator on type '{type(self).__name__}'"
             )
+        if _sv_obj._offline:
+            return member_func(self)
         if not _sv_obj._read_only and member_func.__name__ in _sv_obj._staging:
             _sv_obj._logger.warning(
                 f"Uncommitted change found for attribute '{member_func.__name__}'"
