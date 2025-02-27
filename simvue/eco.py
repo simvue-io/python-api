@@ -1,9 +1,9 @@
 import typing
 import logging
 import datetime
-
+ 
 from codecarbon import EmissionsTracker
-from codecarbon.output_methods.base_output import BaseOutput as cc_BaseOutput
+from codecarbon.output import BaseOutput as cc_BaseOutput
 from simvue.utilities import simvue_timestamp
 
 if typing.TYPE_CHECKING:
@@ -18,6 +18,8 @@ class CodeCarbonOutput(cc_BaseOutput):
     def __init__(self, run: "Run") -> None:
         self._simvue_run = run
         self._metrics_step: int = 0
+        self.emissions = 0.0  # To store the CO2 emissions data
+        self.energy_consumed = 0.0  # To store the energy consumed data
 
     def out(
         self, total: "EmissionsData", delta: "EmissionsData", meta_update: bool = True
@@ -32,33 +34,59 @@ class CodeCarbonOutput(cc_BaseOutput):
 
         if meta_update:
             logger.debug("Logging CodeCarbon metadata")
-            self._simvue_run.update_metadata(
-                {
-                    "codecarbon.country": total.final_emissions_data.country_name,
-                    "codecarbon.country_iso_code": total.final_emissions_data.country_iso_code,
-                    "codecarbon.region": total.final_emissions_data.region,
-                    "codecarbon.version": total.final_emissions_data.codecarbon_version,
-                }
+            try:
+                self._simvue_run.update_metadata(
+                    {
+                        "codecarbon.country": total.country_name,
+                        "codecarbon.country_iso_code": total.country_iso_code,
+                        "codecarbon.region": total.region,
+                        "codecarbon.version": total.codecarbon_version,
+                    }
+                )
+            except AttributeError as e:
+                logger.error(f"Failed to update metadata: {e}")
+        try:
+            _cc_timestamp = datetime.datetime.strptime(
+                total.timestamp, "%Y-%m-%dT%H:%M:%S"
             )
+        except ValueError as e:
+            logger.error(f"Error parsing timestamp: {e}")
+            return
 
-        _cc_timestamp: datetime.datetime = datetime.datetime.strptime(
-            total.timestamp, "%Y-%m-%dT%H:%M:%S"
-        )
+        # Accumulate the emissions and energy consumed
+        self.emissions += total.emissions  # Add new emissions to the total
+        self.energy_consumed += total.energy_consumed  # Add new energy consumed to the total
 
         logger.debug("Logging CodeCarbon metrics")
-        self._simvue_run.log_metrics(
-            metrics={
-                "codecarbon.total.emissions": total.final_emissions_data.emissions,
-                "codecarbon.total.energy_consumed": total.final_emissions_data.energy_consumed,
-            },
-            step=self._metrics_step,
-            timestamp=simvue_timestamp(_cc_timestamp),
-        )
+        print("total.emissions=", self.emissions)
+        print("total.energy_consumed=", self.energy_consumed)
+        print("total.timestamp=",total.timestamp)
+        print("_cc_timestamp=",_cc_timestamp)
+        try:
+            self._simvue_run.log_metrics(
+                metrics={
+                    "codecarbon.emissions": total.emissions,
+                    "codecarbon.energy_consumed": total.energy_consumed,
+                },
+                step=self._metrics_step,
+                timestamp=simvue_timestamp(_cc_timestamp),
+            )
+        except ArithmeticError as e:
+            logger.error(f"Failed to log metrics: {e}")
+            return
+                    
         self._metrics_step += 1
 
     def live_out(self, total: "EmissionsData", delta: "EmissionsData") -> None:
         self.out(total, delta, meta_update=False)
 
+    def get_total_emissions(self) -> float:
+        """Getter for the total accumulated emissions"""
+        return self.emissions
+
+    def get_total_energy_consumed(self) -> float:
+        """Getter for the total accumulated energy consumed"""
+        return self.energy_consumed
 
 class SimvueEmissionsTracker(EmissionsTracker):
     def __init__(
