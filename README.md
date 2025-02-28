@@ -6,7 +6,7 @@
   <picture>
     <source media="(prefers-color-scheme: dark)" srcset="https://raw.githubusercontent.com/simvue-io/.github/refs/heads/main/simvue-white.png" />
     <source media="(prefers-color-scheme: light)" srcset="https://raw.githubusercontent.com/simvue-io/.github/refs/heads/main/simvue-black.png" />
-    <img alt="Simvue" src="https://github.com/simvue-io/.github/blob/5eb8cfd2edd3269259eccd508029f269d993282f/simvue-black.png" width="500">
+    <img alt="Simvue" src="https://raw.githubusercontent.com/simvue-io/.github/refs/heads/main/simvue-black.png" width="500">
   </picture>
 </p>
 
