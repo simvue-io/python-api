@@ -186,7 +186,8 @@ class Run:
         )
         self._headers: dict[str, str] = (
             {
-                "Authorization": f"Bearer {self._user_config.server.token.get_secret_value()}"
+                "Authorization": f"Bearer {self._user_config.server.token.get_secret_value()}",
+                "Accept-Encoding": "gzip",
             }
             if mode != "offline"
             else {}

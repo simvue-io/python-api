@@ -171,6 +171,7 @@ class SimvueObject(abc.ABC):
             {
                 "Authorization": f"Bearer {self._user_config.server.token.get_secret_value()}",
                 "User-Agent": _user_agent or f"Simvue Python client {__version__}",
+                "Accept-Encoding": "gzip",
             }
             if not self._offline
             else {}
