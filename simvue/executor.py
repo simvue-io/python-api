@@ -347,7 +347,7 @@ class Executor:
             # This is so that if a process incorrectly reports its return code,
             # the user can manually set the correct status depending on logs etc.
             _alert = Alert(identifier=self._alert_ids[proc_id])
-            _is_set = _alert.get_status(run_id=self._id)
+            _is_set = _alert.get_status(run_id=self._runner._id)
 
             if process.returncode != 0:
                 # If the process fails then purge the dispatcher event queue
