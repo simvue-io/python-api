@@ -55,18 +55,14 @@ class CodeCarbonOutput(cc_BaseOutput):
             logger.error(f"Error parsing timestamp: {e}")
             return
 
-        # Accumulate the emissions and energy consumed
-        self.emissions += total.emissions  # Add new emissions to the total
-        self.energy_consumed += (
-            total.energy_consumed
-        )  # Add new energy consumed to the total
-
         logger.debug("Logging CodeCarbon metrics")
         try:
             self._simvue_run.log_metrics(
                 metrics={
-                    "codecarbon.emissions": total.emissions,
-                    "codecarbon.energy_consumed": total.energy_consumed,
+                    "codecarbon.total.emissions": total.emissions,
+                    "codecarbon.total.energy_consumed": total.energy_consumed,
+                    "codecarbon.delta.emissions": delta.emissions,
+                    "codecarbon.delta.energy_consumed": delta.energy_consumed,
                 },
                 step=self._metrics_step,
                 timestamp=simvue_timestamp(_cc_timestamp),
@@ -98,6 +94,7 @@ class SimvueEmissionsTracker(EmissionsTracker):
         super().__init__(
             project_name=project_name,
             measure_power_secs=metrics_interval,
+            api_call_interval=1,
             experiment_id=None,
             experiment_name=None,
             logging_logger=CodeCarbonOutput(simvue_run),
