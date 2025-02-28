@@ -22,6 +22,7 @@ import contextlib
 import pathlib
 import time
 import typing
+from simvue.api.objects.alert.fetch import Alert
 
 if typing.TYPE_CHECKING:
     import simvue
@@ -342,17 +343,26 @@ class Executor:
         # allowing the executor to finish (and as such the run instance to exit)
         _wait_limit: float = 1
         for proc_id, process in self._processes.items():
+            # We don't want to override the user's setting for the alert status
+            # This is so that if a process incorrectly reports its return code,
+            # the user can manually set the correct status depending on logs etc.
+            _alert = Alert(identifier=self._alert_ids[proc_id])
+            _is_set = _alert.get_status(run_id=self._id)
+
             if process.returncode != 0:
                 # If the process fails then purge the dispatcher event queue
                 # and ensure that the stderr event is sent before the run closes
                 if self._runner._dispatcher:
                     self._runner._dispatcher.purge()
-
-                self._runner.log_alert(
-                    identifier=self._alert_ids[proc_id], state="critical"
-                )
+                if not _is_set:
+                    self._runner.log_alert(
+                        identifier=self._alert_ids[proc_id], state="critical"
+                    )
             else:
-                self._runner.log_alert(identifier=self._alert_ids[proc_id], state="ok")
+                if not _is_set:
+                    self._runner.log_alert(
+                        identifier=self._alert_ids[proc_id], state="ok"
+                    )
 
             _current_time: float = 0
             while (
