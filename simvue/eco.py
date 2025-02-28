@@ -2,7 +2,7 @@ import typing
 import logging
 import datetime
 
-from codecarbon import EmissionsTracker
+from codecarbon import EmissionsTracker, OfflineEmissionsTracker
 from codecarbon.output import BaseOutput as cc_BaseOutput
 from simvue.utilities import simvue_timestamp
 
@@ -82,6 +82,35 @@ class SimvueEmissionsTracker(EmissionsTracker):
         self._simvue_run = simvue_run
         logger.setLevel(logging.ERROR)
         super().__init__(
+            project_name=project_name,
+            measure_power_secs=metrics_interval,
+            api_call_interval=1,
+            experiment_id=None,
+            experiment_name=None,
+            logging_logger=CodeCarbonOutput(simvue_run),
+            save_to_logger=True,
+            allow_multiple_runs=True,
+            log_level="error",
+        )
+
+    def set_measure_interval(self, interval: int) -> None:
+        """Set the measure interval"""
+        self._set_from_conf(interval, "measure_power_secs")
+
+    def post_init(self) -> None:
+        self._set_from_conf(self._simvue_run._id, "experiment_id")
+        self._set_from_conf(self._simvue_run._name, "experiment_name")
+        self.start()
+
+
+class OfflineSimvueEmissionsTracker(OfflineEmissionsTracker):
+    def __init__(
+        self, project_name: str, simvue_run: "Run", metrics_interval: int
+    ) -> None:
+        self._simvue_run = simvue_run
+        logger.setLevel(logging.ERROR)
+        super().__init__(
+            country_iso_code=simvue_run._user_config.offline.country_iso_code,
             project_name=project_name,
             measure_power_secs=metrics_interval,
             api_call_interval=1,
