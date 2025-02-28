@@ -18,8 +18,6 @@ class CodeCarbonOutput(cc_BaseOutput):
     def __init__(self, run: "Run") -> None:
         self._simvue_run = run
         self._metrics_step: int = 0
-        self.emissions = 0.0  # To store the CO2 emissions data
-        self.energy_consumed = 0.0  # To store the energy consumed data
 
     def out(
         self, total: "EmissionsData", delta: "EmissionsData", meta_update: bool = True
@@ -75,14 +73,6 @@ class CodeCarbonOutput(cc_BaseOutput):
 
     def live_out(self, total: "EmissionsData", delta: "EmissionsData") -> None:
         self.out(total, delta, meta_update=False)
-
-    def get_total_emissions(self) -> float:
-        """Getter for the total accumulated emissions"""
-        return self.emissions
-
-    def get_total_energy_consumed(self) -> float:
-        """Getter for the total accumulated energy consumed"""
-        return self.energy_consumed
 
 
 class SimvueEmissionsTracker(EmissionsTracker):
