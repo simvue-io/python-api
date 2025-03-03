@@ -1,5 +1,18 @@
 # Change log
 
+## [v2.0.0-alpha2](https://github.com/simvue-io/client/releases/tag/v2.0.0a2) - 2025-02-27
+* Removed 'no config file' and 'unstaged changes' warnings from Offline mode as they do not apply
+* Made `staging_check` not apply in Offline mode
+* Added heartbeat functionality to Offline mode
+* Moved away from `FlatDict` module for metadata collection, fixes Simvue in Jupyter notebooks
+* Fixed `reconnect()` by setting `read_only` to False and added tests
+* Fixed resource metrics collection to return measurement on startup and use short interval for more accurate measurements
+* Fixed `set_pid` so that resource metrics are also collected for child processes of it
+* Improved sender by having all cached files read at start and lock file so only one sender runs at once
+* Added `name` option in `log_alert` and added tests
+* Fixed client `get_alerts` and improved tests
+* Removed all server config checks in Offline mode
+
 ## [v2.0.0-alpha1](https://github.com/simvue-io/client/releases/tag/v2.0.0a1) - 2025-02-19
 * Fixed `add_alerts` so that it now works with both IDs and names
 * Improved alert and folder deduplication methods to rely on 409 responses from server upon creation

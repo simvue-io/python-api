@@ -1,6 +1,6 @@
 [project]
 name = "simvue"
-version = "2.0.0a1"
+version = "2.0.0a2"
 description = "Simulation tracking and monitoring"
 authors = [
   {name = "Simvue Development Team", email = "info@simvue.io"}
@@ -16,10 +16,10 @@ classifiers = [
     "Operating System :: Unix",
     "Operating System :: Microsoft :: Windows",
     "Programming Language :: Python :: 3",
-    "Programming Language :: Python :: 3.9",
     "Programming Language :: Python :: 3.10",
     "Programming Language :: Python :: 3.11",
     "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
     "Topic :: Scientific/Engineering",
     "Topic :: System :: Monitoring",
     "Topic :: Utilities",
