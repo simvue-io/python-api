@@ -11,6 +11,7 @@ import logging
 from concurrent.futures import ThreadPoolExecutor
 import threading
 import requests
+import psutil
 from simvue.config.user import SimvueConfiguration
 
 import simvue.api.objects
@@ -167,13 +168,14 @@ def sender(
     cache_dir = cache_dir or _user_config.offline.cache
 
     cache_dir.joinpath("server_ids").mkdir(parents=True, exist_ok=True)
+    _lock_path = cache_dir.joinpath("sender.lock")
 
     # Check that no other sender is already currently running...
-    if cache_dir.joinpath("sender.lock").exists():
+    if _lock_path.exists() and psutil.pid_exists(int(_lock_path.read_text())):
         raise RuntimeError("A sender is already running for this cache!")
 
     # Create lock file to prevent other senders running while this one isn't finished
-    cache_dir.joinpath("sender.lock").touch()
+    _lock_path.write_text(str(psutil.Process().pid))
 
     _id_mapping: dict[str, str] = {
         file_path.name.split(".")[0]: file_path.read_text()
@@ -233,5 +235,5 @@ def sender(
                 _heartbeat_files,
             )
     # Remove lock file to allow another sender to start in the future
-    cache_dir.joinpath("sender.lock").unlink()
+    _lock_path.unlink()
     return _id_mapping

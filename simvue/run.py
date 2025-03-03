@@ -186,7 +186,8 @@ class Run:
         )
         self._headers: dict[str, str] = (
             {
-                "Authorization": f"Bearer {self._user_config.server.token.get_secret_value()}"
+                "Authorization": f"Bearer {self._user_config.server.token.get_secret_value()}",
+                "Accept-Encoding": "gzip",
             }
             if mode != "offline"
             else {}
@@ -313,16 +314,11 @@ class Run:
             return process_list
 
         process_list += [self._parent_process]
-
-        # Attach child processes relating to the process set by set_pid
-        with contextlib.suppress(psutil.NoSuchProcess, psutil.ZombieProcess):
-            for child in self._parent_process.children(recursive=True):
-                if child not in process_list:
-                    process_list.append(child)
+        process_list += self._child_processes
 
         return list(set(process_list))
 
-    def _get_sysinfo(self) -> dict[str, typing.Any]:
+    def _get_sysinfo(self, interval: float | None = None) -> dict[str, typing.Any]:
         """Retrieve system administration
 
         Parameters
@@ -336,7 +332,7 @@ class Run:
             retrieved system specifications
         """
         processes = self.processes
-        cpu = get_process_cpu(processes, interval=0.1)
+        cpu = get_process_cpu(processes, interval=interval)
         memory = get_process_memory(processes)
         gpu = get_gpu_metrics(processes)
         data: dict[str, typing.Any] = {}
@@ -375,7 +371,10 @@ class Run:
             last_res_metric_call = time.time()
 
             if self._resources_metrics_interval:
-                self._add_metrics_to_dispatch(self._get_sysinfo(), join_on_fail=False)
+                self._add_metrics_to_dispatch(
+                    self._get_sysinfo(interval=1), join_on_fail=False, step=0
+                )
+                res_step = 1
 
             while not heartbeat_trigger.is_set():
                 time.sleep(0.1)
@@ -390,9 +389,10 @@ class Run:
                         # join would be called on this thread and a thread cannot
                         # join itself!
                         self._add_metrics_to_dispatch(
-                            self._get_sysinfo(), join_on_fail=False
+                            self._get_sysinfo(), join_on_fail=False, step=res_step
                         )
                         last_res_metric_call = res_time
+                        res_step += 1
 
                 if time.time() - last_heartbeat < self._heartbeat_interval:
                     continue
@@ -506,6 +506,9 @@ class Run:
             self._pid = os.getpid()
 
         self._parent_process = psutil.Process(self._pid) if self._pid else None
+        self._child_processes = (
+            self._get_child_processes() if self._parent_process else None
+        )
 
         self._shutdown_event = threading.Event()
         self._heartbeat_termination_trigger = threading.Event()
@@ -920,6 +923,16 @@ class Run:
             )
         self._executor.kill_all()
 
+    def _get_child_processes(self) -> list[psutil.Process]:
+        _process_list = []
+        # Attach child processes relating to the process set by set_pid
+        with contextlib.suppress(psutil.NoSuchProcess, psutil.ZombieProcess):
+            for child in self._parent_process.children(recursive=True):
+                if child not in _process_list:
+                    _process_list.append(child)
+
+        return list(set(_process_list))
+
     @property
     def executor(self) -> Executor:
         """Return the executor for this run"""
@@ -975,6 +988,13 @@ class Run:
         """
         self._pid = pid
         self._parent_process = psutil.Process(self._pid)
+        self._child_processes = self._get_child_processes()
+        # Get CPU usage stats for each of those new processes, so that next time it's measured by the heartbeat the value is accurate
+        [
+            _process.cpu_percent()
+            for _process in self._child_processes + [self._parent_process]
+        ]
+        time.sleep(0.1)
 
     @skip_if_failed("_aborted", "_suppress_errors", False)
     @pydantic.validate_call
@@ -1686,6 +1706,11 @@ class Run:
         names = names or []
 
         if names and not ids:
+            if self._user_config.run.mode == "offline":
+                self._error(
+                    "Cannot retrieve alerts based on names in offline mode - please use IDs instead."
+                )
+                return False
             try:
                 if alerts := Alert.get(offline=self._user_config.run.mode == "offline"):
                     ids += [id for id, alert in alerts if alert.name in names]
@@ -1984,6 +2009,12 @@ class Run:
 
         if (identifier and name) or (not identifier and not name):
             self._error("Please specify alert to update either by ID or by name.")
+            return False
+
+        if name and self._user_config.run.mode == "offline":
+            self._error(
+                "Cannot retrieve alerts based on names in offline mode - please use IDs instead."
+            )
             return False
 
         if name:
