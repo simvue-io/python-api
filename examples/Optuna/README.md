@@ -8,6 +8,10 @@ This example is based on the Medium post https://medium.com/optuna/optuna-meets-
 > configuration. As it is too time consuming to use the whole FashionMNIST dataset,
 > we here use a small subset of it.
 
+Move into this directory:
+```
+cd examples/Optuna
+```
 Setup a virtual environment:
 ```
 python3 -m venv venv
