@@ -1657,6 +1657,11 @@ class Run:
         names = names or []
 
         if names and not ids:
+            if self._user_config.run.mode == "offline":
+                self._error(
+                    "Cannot retrieve alerts based on names in offline mode - please use IDs instead."
+                )
+                return False
             try:
                 if alerts := Alert.get(offline=self._user_config.run.mode == "offline"):
                     ids += [id for id, alert in alerts if alert.name in names]
@@ -1955,6 +1960,12 @@ class Run:
 
         if (identifier and name) or (not identifier and not name):
             self._error("Please specify alert to update either by ID or by name.")
+            return False
+
+        if self._user_config.run.mode == "offline":
+            self._error(
+                "Cannot retrieve alerts based on names in offline mode - please use IDs instead."
+            )
             return False
 
         if name:
