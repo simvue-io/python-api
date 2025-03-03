@@ -355,8 +355,9 @@ class Run:
 
             if self._resources_metrics_interval:
                 self._add_metrics_to_dispatch(
-                    self._get_sysinfo(interval=1), join_on_fail=False
+                    self._get_sysinfo(interval=1), join_on_fail=False, step=0
                 )
+                res_step = 1
 
             while not heartbeat_trigger.is_set():
                 time.sleep(0.1)
@@ -371,9 +372,10 @@ class Run:
                         # join would be called on this thread and a thread cannot
                         # join itself!
                         self._add_metrics_to_dispatch(
-                            self._get_sysinfo(), join_on_fail=False
+                            self._get_sysinfo(), join_on_fail=False, step=res_step
                         )
                         last_res_metric_call = res_time
+                        res_step += 1
 
                 if time.time() - last_heartbeat < self._heartbeat_interval:
                     continue
