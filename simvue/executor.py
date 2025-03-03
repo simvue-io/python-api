@@ -22,7 +22,7 @@ import contextlib
 import pathlib
 import time
 import typing
-from simvue.api.objects.alert.fetch import Alert
+from simvue.api.objects.alert.user import UserAlert
 
 if typing.TYPE_CHECKING:
     import simvue
@@ -114,6 +114,7 @@ class Executor:
         self._alert_ids: dict[str, str] = {}
         self.command_str: dict[str, str] = {}
         self._processes: dict[str, subprocess.Popen] = {}
+        self._all_processes: list[psutil.Process] = []
 
     def std_out(self, process_id: str) -> str | None:
         if not os.path.exists(out_file := f"{self._runner.name}_{process_id}.out"):
@@ -271,19 +272,48 @@ class Executor:
         if not self._processes:
             return []
 
-        _all_processes: list[psutil.Process] = []
+        _current_processes: list[psutil.Process] = []
 
         for process in self._processes.values():
             with contextlib.suppress(psutil.NoSuchProcess):
-                _all_processes.append(psutil.Process(process.pid))
+                _current_processes.append(psutil.Process(process.pid))
 
         with contextlib.suppress(psutil.NoSuchProcess, psutil.ZombieProcess):
-            for process in _all_processes:
+            for process in _current_processes:
                 for child in process.children(recursive=True):
-                    if child not in _all_processes:
-                        _all_processes.append(child)
+                    if child not in _current_processes:
+                        _current_processes.append(child)
 
-        return list(set(_all_processes))
+        _current_pids = set([_process.pid for _process in _current_processes])
+        _previous_pids = set([_process.pid for _process in self._all_processes])
+
+        # Find processes which used to exist, which are no longer running
+        _expired_process_pids = _previous_pids - _current_pids
+
+        # Remove these processes from list of all processes
+        self._all_processes = [
+            _process
+            for _process in self._all_processes
+            if _process.pid not in _expired_process_pids
+        ]
+
+        # Find new processes
+        _new_process_pids = _current_pids - _previous_pids
+        _new_processes = [
+            _process
+            for _process in _current_processes
+            if _process.pid in _new_process_pids
+        ]
+
+        # Get CPU usage stats for each of those new processes, so that next time it's measured by the heartbeat the value is accurate
+        if _new_processes:
+            [_process.cpu_percent() for _process in _new_processes]
+            time.sleep(0.1)
+
+        # Add these to the list of all processes
+        self._all_processes += _new_processes
+
+        return self._all_processes
 
     @property
     def success(self) -> int:
@@ -346,7 +376,7 @@ class Executor:
             # We don't want to override the user's setting for the alert status
             # This is so that if a process incorrectly reports its return code,
             # the user can manually set the correct status depending on logs etc.
-            _alert = Alert(identifier=self._alert_ids[proc_id])
+            _alert = UserAlert(identifier=self._alert_ids[proc_id])
             _is_set = _alert.get_status(run_id=self._runner._id)
 
             if process.returncode != 0:
