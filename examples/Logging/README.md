@@ -14,6 +14,10 @@ Install the required dependencies:
 ```
 pip install simvue
 ```
+Create a `simvue.toml` file by going to the web UI, clicking 'Create New Run', and copying the details given into the file, eg using:
+```
+nano simvue.toml
+```
 Run the code:
 ```
 python3 logging-to-simvue.py
