@@ -43,7 +43,7 @@ from .metrics import get_gpu_metrics, get_process_cpu, get_process_memory
 from .models import FOLDER_REGEX, NAME_REGEX, MetricKeyString
 from .system import get_system
 from .metadata import git_info, environment
-from .eco import SimvueEmissionsTracker
+from .eco import SimvueEmissionsTracker, OfflineSimvueEmissionsTracker
 from .utilities import (
     skip_if_failed,
     validate_timestamp,
@@ -208,11 +208,28 @@ class Run:
             )
             else self._user_config.metrics.emission_metrics_interval
         )
-        self._emissions_tracker: SimvueEmissionsTracker | None = (
-            SimvueEmissionsTracker("simvue", self, self._emission_metrics_interval)
-            if self._user_config.metrics.enable_emission_metrics
-            else None
-        )
+        if mode == "offline":
+            if (
+                self._user_config.metrics.enable_emission_metrics
+                and not self._user_config.offline.country_iso_code
+            ):
+                raise ValueError(
+                    "Country ISO code must be provided if tracking emissions metrics in offline mode."
+                )
+
+            self._emissions_tracker: OfflineSimvueEmissionsTracker | None = (
+                OfflineSimvueEmissionsTracker(
+                    "simvue", self, self._emission_metrics_interval
+                )
+                if self._user_config.metrics.enable_emission_metrics
+                else None
+            )
+        else:
+            self._emissions_tracker: SimvueEmissionsTracker | None = (
+                SimvueEmissionsTracker("simvue", self, self._emission_metrics_interval)
+                if self._user_config.metrics.enable_emission_metrics
+                else None
+            )
 
     def __enter__(self) -> Self:
         return self
@@ -1028,9 +1045,22 @@ class Run:
                 self._emission_metrics_interval = emission_metrics_interval
 
             if enable_emission_metrics:
-                self._emissions_tracker = SimvueEmissionsTracker(
-                    "simvue", self, self._emission_metrics_interval
-                )
+                if self._user_config.run.mode == "offline":
+                    if not self._user_config.offline.country_iso_code:
+                        self._error(
+                            "Country ISO code must be provided if tracking emissions metrics in offline mode."
+                        )
+                    self._emissions_tracker: OfflineSimvueEmissionsTracker = (
+                        OfflineSimvueEmissionsTracker(
+                            "simvue", self, self._emission_metrics_interval
+                        )
+                    )
+                else:
+                    self._emissions_tracker: SimvueEmissionsTracker = (
+                        SimvueEmissionsTracker(
+                            "simvue", self, self._emission_metrics_interval
+                        )
+                    )
 
                 # If the main Run API object is initialised the run is active
                 # hence the tracker should start too
