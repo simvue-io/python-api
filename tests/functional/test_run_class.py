@@ -55,8 +55,21 @@ def test_run_with_emissions() -> None:
         run_created.config(enable_emission_metrics=True, emission_metrics_interval=1)
         time.sleep(5)
         _run = RunObject(identifier=run_created.id)
-        assert list(_run.metrics)
-
+        _metric_names = [item[0] for item in _run.metrics]    
+        client = sv_cl.Client() 
+        for _metric in ["emissions", "energy_consumed"]:
+            _total_metric_name = f'codecarbon.total.{_metric}'
+            _delta_metric_name = f'codecarbon.delta.{_metric}'
+            assert _total_metric_name in _metric_names
+            assert _delta_metric_name in _metric_names
+            _metric_values = client.get_metric_values(metric_names=[_total_metric_name, _delta_metric_name], xaxis="time", output_format="dataframe", run_ids=[run_created.id])
+        
+        # Check that total = previous total + latest delta
+        _total_values = _metric_values[_total_metric_name].tolist()
+        _delta_values = _metric_values[_delta_metric_name].tolist()
+        assert len(_total_values) > 1
+        for i in range(1, len(_total_values)):
+            assert _total_values[i] == _total_values[i-1] + _delta_values[i] 
 
 @pytest.mark.run
 @pytest.mark.parametrize("timestamp", (datetime.datetime.now().strftime("%Y-%m-%dT%H:%M:%S.%f"), None), ids=("timestamp", "no_timestamp"))
