@@ -1,5 +1,15 @@
 # Change log
 
+## [v2.0.0-alpha3](https://github.com/simvue-io/client/releases/tag/v2.0.0a3) - 2025-03-04
+* Updated codecarbon to work with new API
+* Codecarbon now works with offline mode
+* Codecarbon metadata dict is now nested
+* Add PID to sender lock file so it can recover from crashes
+* Add accept Gzip encoding
+* Fixed list of processes to add / remove from existing list of objects
+* Add step to resource metrics
+* Fix bug where process user alerts should not be overridden if manually set by the user
+
 ## [v2.0.0-alpha2](https://github.com/simvue-io/client/releases/tag/v2.0.0a2) - 2025-02-27
 * Removed 'no config file' and 'unstaged changes' warnings from Offline mode as they do not apply
 * Made `staging_check` not apply in Offline mode
