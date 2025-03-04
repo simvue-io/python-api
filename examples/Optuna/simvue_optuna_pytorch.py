@@ -29,7 +29,7 @@ FOLDER_NAME = randomname.get_name()
 @click.option("--batch-size", type=int, default=BATCHSIZE, show_default=True)
 @click.option("--train-examples", type=int, default=BATCHSIZE * 30, show_default=True)
 @click.option("--valid-examples", type=int, default=BATCHSIZE * 10, show_default=True)
-@click.option("--trials", type=int, default=100, show_default=True)
+@click.option("--trials", type=int, default=5, show_default=True)
 @click.option("--timeout", type=int, default=600, show_default=True)
 @click.option("--ci", is_flag=True, default=False)
 def run_optuna_example(
@@ -135,6 +135,7 @@ def run_optuna_example(
 
         with Run() as run:
             run.init(
+                name=f"simvue_optuna_example_trial_{trial.number}",
                 folder="/optuna/tests/%s" % FOLDER_NAME,
                 metadata=config,
                 tags=["pytorch", "simvue_client_examples"],
