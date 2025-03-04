@@ -137,7 +137,7 @@ def test(model, device, test_loader, epoch, run):
 @click.option(
     "--epochs",
     type=int,
-    default=14,
+    default=5,
     help="number of epochs to train",
     show_default=True,
 )
@@ -241,6 +241,7 @@ def simvue_pytorch_example(
 
     with Run() as run:
         run.init(
+            name="PyTorch_Simvue_Example",
             tags=["PyTorch", "simvue_client_examples"],
             folder="/simvue_client_demos",
             retention_period="1 hour" if ci else None,
