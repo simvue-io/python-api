@@ -43,7 +43,7 @@ from .metrics import get_gpu_metrics, get_process_cpu, get_process_memory
 from .models import FOLDER_REGEX, NAME_REGEX, MetricKeyString
 from .system import get_system
 from .metadata import git_info, environment
-from .eco import SimvueEmissionsTracker, OfflineSimvueEmissionsTracker
+from .eco import CO2Monitor
 from .utilities import (
     skip_if_failed,
     validate_timestamp,
@@ -167,7 +167,7 @@ class Run:
         self._data: dict[str, typing.Any] = {}
         self._step: int = 0
         self._active: bool = False
-        self._user_config = SimvueConfiguration.fetch(
+        self._user_config: SimvueConfiguration = SimvueConfiguration.fetch(
             server_url=server_url, server_token=server_token, mode=mode
         )
 
@@ -210,26 +210,26 @@ class Run:
             else self._user_config.metrics.emission_metrics_interval
         )
         if mode == "offline":
-            if (
-                self._user_config.metrics.enable_emission_metrics
-                and not self._user_config.offline.country_iso_code
-            ):
-                raise ValueError(
-                    "Country ISO code must be provided if tracking emissions metrics in offline mode."
+            if not (_co2_intensity := self._user_config.eco.co2_intensity):
+                self._error(
+                    "Cannot record emission metrics, "
+                    "a CO2 intensity value is required in offline mode."
                 )
-
-            self._emissions_tracker: OfflineSimvueEmissionsTracker | None = (
-                OfflineSimvueEmissionsTracker(
-                    "simvue", self, self._emission_metrics_interval
-                )
-                if self._user_config.metrics.enable_emission_metrics
-                else None
+            # Create an emissions monitor with no API calls
+            self._emissions_monitor = CO2Monitor(
+                intensity_refresh_rate=None,
+                co2_intensity=_co2_intensity,
+                local_data_directory=self._user_config.eco.local_data_directory,
+                co2_signal_api_token=None,
+                cpu_idle_power=self._user_config.eco.cpu_idle_power,
             )
         else:
-            self._emissions_tracker: SimvueEmissionsTracker | None = (
-                SimvueEmissionsTracker("simvue", self, self._emission_metrics_interval)
-                if self._user_config.metrics.enable_emission_metrics
-                else None
+            self._emissions_monitor = CO2Monitor(
+                intensity_refresh_rate=self._user_config.eco.intensity_refresh_rate,
+                local_data_directory=self._user_config.eco.local_data_directory,
+                co2_signal_api_token=self._user_config.eco.co2_signal_api_token,
+                cpu_idle_power=self._user_config.eco.cpu_idle_power,
+                co2_intensity=self._user_config.eco.co2_intensity,
             )
 
     def __enter__(self) -> Self:
@@ -243,10 +243,6 @@ class Run:
     ) -> None:
         _exception_thrown: str | None = exc_type.__name__ if exc_type else None
         _is_running: bool = self._status == "running"
-        _is_running_online: bool = self._id is not None and _is_running
-        _is_running_offline: bool = (
-            self._user_config.run.mode == "offline" and _is_running
-        )
         _is_terminated: bool = (
             _exception_thrown is not None and _exception_thrown == "KeyboardInterrupt"
         )
@@ -369,6 +365,8 @@ class Run:
 
             last_heartbeat = time.time()
             last_res_metric_call = time.time()
+            co2_step = 0
+            last_co2_metric_call = time.time()
 
             if self._resources_metrics_interval:
                 self._add_metrics_to_dispatch(
@@ -393,6 +391,18 @@ class Run:
                         )
                         last_res_metric_call = res_time
                         res_step += 1
+                    if (
+                        self._emission_metrics_interval and self._emissions_monitor
+                        and (co2_time := time.time()) - last_co2_metric_call
+                        > self._emission_metrics_interval
+                    ):
+                        self._emissions_monitor.estimate_co2_emissions()
+                        self._add_metrics_to_dispatch(
+                            {"sustainability.emissions.total": self._emissions_monitor.total_co2_emission},
+                            join_on_fail=False, step=co2_step
+                        )
+                        last_co2_metric_call = co2_time
+                        co2_step += 1
 
                 if time.time() - last_heartbeat < self._heartbeat_interval:
                     continue
@@ -449,7 +459,6 @@ class Run:
         def _dispatch_callback(
             buffer: list[typing.Any],
             category: typing.Literal["events", "metrics"],
-            run_obj: RunObject = self._sv_obj,
         ) -> None:
             if category == "events":
                 _events = Events.new(
@@ -468,13 +477,8 @@ class Run:
 
         return _dispatch_callback
 
-    def _start(self, reconnect: bool = False) -> bool:
+    def _start(self ) -> bool:
         """Start a run
-
-        Parameters
-        ----------
-        reconnect : bool, optional
-            whether this is a reconnect to an existing run, by default False
 
         Returns
         -------
@@ -509,6 +513,13 @@ class Run:
         self._child_processes = (
             self._get_child_processes() if self._parent_process else None
         )
+
+        if self._emissions_monitor:
+            self._emissions_monitor.attach_process(self._parent_process)
+            (
+                self._emissions_monitor.attach_process(process)
+                for process in self._child_processes or []
+            )
 
         self._shutdown_event = threading.Event()
         self._heartbeat_termination_trigger = threading.Event()
@@ -761,10 +772,6 @@ class Run:
                 bold=self._term_color,
                 fg="green" if self._term_color else None,
             )
-
-        if self._emissions_tracker and self._status == "running":
-            self._emissions_tracker.post_init()
-            self._emissions_tracker.start()
 
         return True
 
@@ -1066,28 +1073,30 @@ class Run:
 
             if enable_emission_metrics:
                 if self._user_config.run.mode == "offline":
-                    if not self._user_config.offline.country_iso_code:
+                    if not (_co2_intensity := self._user_config.eco.co2_intensity):
                         self._error(
-                            "Country ISO code must be provided if tracking emissions metrics in offline mode."
+                            "Cannot record emission metrics, "
+                            "a CO2 intensity value is required in offline mode."
                         )
-                    self._emissions_tracker: OfflineSimvueEmissionsTracker = (
-                        OfflineSimvueEmissionsTracker(
-                            "simvue", self, self._emission_metrics_interval
-                        )
+                    # Create an emissions monitor with no API calls
+                    self._emissions_monitor = CO2Monitor(
+                        intensity_refresh_rate=None,
+                        co2_intensity=_co2_intensity,
+                        local_data_directory=self._user_config.eco.local_data_directory,
+                        co2_signal_api_token=None,
+                        cpu_idle_power=self._user_config.eco.cpu_idle_power,
                     )
                 else:
-                    self._emissions_tracker: SimvueEmissionsTracker = (
-                        SimvueEmissionsTracker(
-                            "simvue", self, self._emission_metrics_interval
-                        )
+                    self._emissions_monitor = CO2Monitor(
+                        intensity_refresh_rate=self._user_config.eco.intensity_refresh_rate,
+                        local_data_directory=self._user_config.eco.local_data_directory,
+                        co2_signal_api_token=self._user_config.eco.co2_signal_api_token,
+                        cpu_idle_power=self._user_config.eco.cpu_idle_power,
+                        co2_intensity=self._user_config.eco.co2_intensity,
                     )
 
-                # If the main Run API object is initialised the run is active
-                # hence the tracker should start too
-                if self._sv_obj:
-                    self._emissions_tracker.start()
-            elif enable_emission_metrics is False and self._emissions_tracker:
-                self._error("Cannot disable emissions tracker once it has been started")
+            elif enable_emission_metrics is False and self._emissions_monitor:
+                self._error("Cannot disable emissions monitor once it has been started")
 
             if resources_metrics_interval:
                 self._resources_metrics_interval = resources_metrics_interval
@@ -1561,10 +1570,6 @@ class Run:
 
     def _tidy_run(self) -> None:
         self._executor.wait_for_completion()
-
-        if self._emissions_tracker:
-            with contextlib.suppress(Exception):
-                self._emissions_tracker.stop()
 
         if self._heartbeat_thread and self._heartbeat_termination_trigger:
             self._heartbeat_termination_trigger.set()

@@ -48,8 +48,6 @@ class ServerSpecifications(pydantic.BaseModel):
 
 class OfflineSpecifications(pydantic.BaseModel):
     cache: pathlib.Path | None = None
-    country_iso_code: str | None = None
-
 
 class MetricsSpecifications(pydantic.BaseModel):
     resources_metrics_interval: pydantic.PositiveInt | None = -1
