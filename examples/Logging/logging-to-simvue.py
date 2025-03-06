@@ -22,3 +22,6 @@ def simvue_logger_demo(ci: bool) -> None:
         logger.addHandler(sth)
 
         logger.info("This is a Simvue logging test")
+
+if __name__ == "__main__":
+    simvue_logger_demo()

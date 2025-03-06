@@ -2,6 +2,11 @@
 
 [SU2](https://su2code.github.io/) is open-source multi-physics and simulation design software. This Simvue example is taken from one of the tutorials: https://su2code.github.io/tutorials/Inviscid_ONERAM6/.
 
+
+To run this example, move into this directory:
+```
+cd examples/SU2
+```
 Setup a Python virtual environment:
 ```
 python3 -m venv venv
@@ -10,6 +15,10 @@ source ./venv/bin/activate
 Install Simvue:
 ```
 pip install simvue
+```
+Create a `simvue.toml` file by going to the web UI, clicking 'Create New Run', and copying the details given into:
+```
+nano simvue.toml
 ```
 Download and install the appropriate version of SU2, e.g. on Linux:
 ```

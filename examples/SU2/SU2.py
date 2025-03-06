@@ -1,15 +1,91 @@
 import os
-import multiprocessing
 import click
-import multiparser
 import requests
+
+from typing import Any
 
 import multiparser.parsing.tail as mp_tail_parse
 import multiparser.parsing.file as mp_file_parse
 
-from typing import Any
+from simvue_integrations.connectors.generic import WrappedRun
 
-import simvue
+# # Create a custom class which inherits from WrappedRun:
+class SU2Run(WrappedRun):
+    # Store these output files
+    output_files: list[str] = ["flow.vtk", "surface_flow.vtk", "restart_flow.dat"]
+
+    # Collect these metadata attributes from the config file
+    metadata_attrs: list[str] = [
+        "SOLVER",
+        "MATH_PROBLEM",
+        "MACH_NUMBER",
+        "AOA",
+        "SIDESLIP_ANGLE",
+        "FREESTREAM_PRESSURE",
+        "FREESTREAM_TEMPERATURE",
+    ]
+    
+    @mp_file_parse.file_parser
+    def metadata_parser(self, input_file: str, **_) -> tuple[dict[str, Any], dict[str, Any]]:
+        metadata = {"SU2": {}}
+        with open(input_file) as in_csv:
+            file_content = in_csv.read()
+
+        for line in file_content.splitlines():
+            for attr in self.metadata_attrs:
+                if line.startswith(attr):
+                    metadata["SU2"][attr.lower()] = line.split("%s= " % attr)[1].strip()
+        return {}, metadata
+    
+    def _pre_simulation(self):
+        super()._pre_simulation()
+        
+        environment: dict[str, str] = os.environ.copy()
+        environment["PATH"] = (
+            f"{os.path.abspath(self.su2_binary_directory)}:{os.environ['PATH']}"
+        )
+        environment["PYTHONPATH"] = (
+            f"{os.path.abspath(self.su2_binary_directory)}{f':{pypath}' if (pypath := os.environ.get('PYTHONPATH')) else ''}"
+        )
+        
+        self.add_process(
+            identifier="SU2_simulation",
+            executable="SU2_CFD",
+            script=self.config_filename,
+            env=environment,
+            completion_trigger=self._trigger,
+        )
+        
+    def _during_simulation(self):
+        self.file_monitor.track(
+            path_glob_exprs=self.config_filename,
+            parser_func=self.metadata_parser,
+            callback=lambda meta, *_: self.update_metadata(meta),
+            static=True,
+        )
+        self.file_monitor.tail(
+            path_glob_exprs=["history.csv"],
+            parser_func=mp_tail_parse.record_csv,
+            callback=lambda metrics, *_: self.log_metrics(
+                {
+                    key.replace("[", "_").replace("]", ""): value
+                    for key, value in metrics.items()
+                }
+            
+            ))
+        
+    def _post_simulation(self):        
+        for file in self.output_files:
+            if os.path.exists(file):
+                self.save_file(file, "output")
+                
+        super()._post_simulation()
+        
+        
+    def launch(self, su2_binary_directory: str, config_filename: str):
+        self.su2_binary_directory = su2_binary_directory
+        self.config_filename = config_filename
+        super().launch()
 
 
 @click.command
@@ -20,9 +96,6 @@ import simvue
 def run_su2_example(
     su2_binary_directory: str, config: str | None, mesh: str | None, ci: bool
 ) -> None:
-    # Name of history file to collect metrics from
-    HISTORY: str = "history.csv"
-
     config_url = (
         config
         or "https://raw.githubusercontent.com/su2code/Tutorials/master/compressible_flow/Inviscid_ONERAM6/inv_ONERAM6.cfg"
@@ -50,47 +123,17 @@ def run_su2_example(
         with open(file_name, "wb") as out_f:
             out_f.write(req_response.content)
 
-    # Store these output files
-    OUTPUT_FILES: list[str] = ["flow.vtk", "surface_flow.vtk", "restart_flow.dat"]
-
-    for file_name in OUTPUT_FILES + [HISTORY]:
-        if os.path.exists(file_name):
-            os.remove(file_name)
-
-    # Collect these metadata attributes from the config file
-    METADATA_ATTRS: list[str] = [
-        "SOLVER",
-        "MATH_PROBLEM",
-        "MACH_NUMBER",
-        "AOA",
-        "SIDESLIP_ANGLE",
-        "FREESTREAM_PRESSURE",
-        "FREESTREAM_TEMPERATURE",
-    ]
-
-    @mp_file_parse.file_parser
-    def metadata_parser(file_name: str, **_) -> tuple[dict[str, Any], dict[str, Any]]:
-        metadata = {}
-        with open(file_name) as in_csv:
-            file_content = in_csv.read()
-
-        for line in file_content.splitlines():
-            for attr in METADATA_ATTRS:
-                if line.startswith(attr):
-                    metadata[attr] = line.split("%s= " % attr)[1].strip()
-        return {}, metadata
-
-    termination_trigger = multiprocessing.Event()
-
-    environment: dict[str, str] = os.environ.copy()
-    environment["PATH"] = (
-        f"{os.path.abspath(su2_binary_directory)}:{os.environ['PATH']}"
-    )
-    environment["PYTHONPATH"] = (
-        f"{os.path.abspath(su2_binary_directory)}{f':{pypath}' if (pypath := os.environ.get('PYTHONPATH')) else ''}"
-    )
-
-    with simvue.Run() as run:
+    # Use your custom class as a context manager in the same way you'd use a Simvue Run
+    with SU2Run() as run:
+        
+        # Delete any previous results files
+        for file_name in run.output_files + ["history.csv"]:
+            if os.path.exists(file_name):
+                os.remove(file_name)
+            
+        # Since WrappedRun inherits from Simvue Run, you have access to all normal methods
+        
+        # Start by initialising the run    
         run.init(
             "SU2_simvue_demo",
             folder="/simvue_client_demos",
@@ -104,45 +147,9 @@ def run_su2_example(
             retention_period="1 hour" if ci else None,
             visibility="tenant" if ci else None,
         )
-        run.add_process(
-            identifier="SU2_simulation",
-            executable="SU2_CFD",
-            script=config_filename,
-            env=environment,
-            completion_callback=lambda *_, **__: termination_trigger.set(),
-        )
-        with multiparser.FileMonitor(
-            # Metrics cannot have square brackets in their names so we remove
-            # these before passing them to log_metrics
-            per_thread_callback=lambda metrics, *_: run.log_metrics(
-                {
-                    key.replace("[", "_").replace("]", ""): value
-                    for key, value in metrics.items()
-                }
-            ),
-            exception_callback=run.log_event,
-            terminate_all_on_fail=True,
-            plain_logging=True,
-            flatten_data=True,
-            termination_trigger=termination_trigger,
-        ) as monitor:
-            monitor.track(
-                path_glob_exprs=[config_filename],
-                parser_func=metadata_parser,
-                callback=lambda meta, *_: run.update_metadata(meta),
-                static=True,
-            )
-            monitor.tail(
-                path_glob_exprs=[HISTORY],
-                parser_func=mp_tail_parse.record_csv,
-            )
-            monitor.track(
-                path_glob_exprs=OUTPUT_FILES,
-                callback=lambda *_, meta: run.save_file(meta["file_name"], "output"),
-                parser_func=lambda *_, **__: ({}, {}),
-            )
-            monitor.run()
-
+        
+        # Then run your custom 'launch' method, which will run each of the internal methods you created
+        run.launch(su2_binary_directory, config_filename)
 
 if __name__ == "__main__":
     run_su2_example()
