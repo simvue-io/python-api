@@ -72,18 +72,12 @@ references:
       family-names: Connell
     - given-names: Amine
       family-names: Saboni
-    - given-names: Inimaz
-      family-names:
-    - given-names: supatomic
-      family-names:
     - given-names: Mathilde
       family-names: Léval
     - given-names: Luis
       family-names: Blanche
     - given-names: Alexis
       family-names: Cruveiller
-    - given-names: ouminasara
-      family-names:
     - given-names: Franklin
       family-names: Zhao
     - given-names: Aditya
@@ -110,7 +104,5 @@ references:
       family-names: Bauer
     - given-names: Lucas Otávio N.
       family-names: de Araújo
-    - given-names: JPW
-      family-names:
     - given-names: Minerva
       family-names: Books
