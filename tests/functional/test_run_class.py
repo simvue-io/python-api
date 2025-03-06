@@ -58,8 +58,8 @@ def test_run_with_emissions() -> None:
         _metric_names = [item[0] for item in _run.metrics]    
         client = sv_cl.Client() 
         for _metric in ["emissions", "energy_consumed"]:
-            _total_metric_name = f'codecarbon.total.{_metric}'
-            _delta_metric_name = f'codecarbon.delta.{_metric}'
+            _total_metric_name = f'sustainability.{_metric}.total'
+            _delta_metric_name = f'sustainability.{_metric}.delta'
             assert _total_metric_name in _metric_names
             assert _delta_metric_name in _metric_names
             _metric_values = client.get_metric_values(metric_names=[_total_metric_name, _delta_metric_name], xaxis="time", output_format="dataframe", run_ids=[run_created.id])

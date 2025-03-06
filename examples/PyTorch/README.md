@@ -1,9 +1,10 @@
-# Logging
-You can use Simvue as a logging handler, so that you can easily upload logging messages to the Events log of a Simvue run.
+# PyTorch
+
+This is an example of using Simvue to track and monitor the training of a Machine Learning model using PyTorch.
 
 To run this example, move into this directory:
 ```
-cd examples/Logging
+cd examples/PyTorch
 ```
 Setup a virtual environment:
 ```
@@ -12,7 +13,7 @@ source ./venv/bin/activate
 ```
 Install the required dependencies:
 ```
-pip install simvue
+pip install -r requirements.txt
 ```
 Create a `simvue.toml` file by going to the web UI, clicking 'Create New Run', and copying the details given into the file, eg using:
 ```
@@ -20,5 +21,5 @@ nano simvue.toml
 ```
 Run the code:
 ```
-python3 logging-to-simvue.py
+python3 main.py
 ```
