@@ -391,9 +391,10 @@ class Run(SimvueObject):
 
     def on_reconnect(self, id_mapping: dict[str, str]):
         online_alert_ids: list[str] = []
-        for id in self._staging.get("alerts", []):
+        for _id in self._staging.get("alerts", []):
             try:
-                online_alert_ids.append(id_mapping[id])
+                _online_id = id_mapping[_id] if _id.startswith("offline") else _id
+                online_alert_ids.append(_online_id)
             except KeyError:
                 raise KeyError(
                     "Could not find alert ID in offline to online ID mapping."
@@ -404,5 +405,5 @@ class Run(SimvueObject):
         # Otherwise, only add alerts which have not yet been added
         else:
             self._staging["alerts"] = [
-                id for id in online_alert_ids if id not in list(self.alerts)
+                _id for _id in online_alert_ids if _id not in list(self.alerts)
             ]
