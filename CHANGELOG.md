@@ -1,13 +1,11 @@
 # Change log
 
-## [v2.0.0-rc1](https://github.com/simvue-io/client/releases/tag/v2.0.0rc1) - 2025-03-06
+## [v2.0.0](https://github.com/simvue-io/client/releases/tag/v2.0.0) - 2025-03-07
 * Add new example notebooks
 * Update and refactor examples to work with v2.0
 * Fix bug in offline artifacts using wrong file path
 * Change names of sustainability metrics
 * Fix `Self` being used in typing Generators so that Simvue works with Python 3.10 in Conda
-
-## [v2.0.0-alpha3](https://github.com/simvue-io/client/releases/tag/v2.0.0a3) - 2025-03-04
 * Updated codecarbon to work with new API
 * Codecarbon now works with offline mode
 * Codecarbon metadata dict is now nested
@@ -16,8 +14,6 @@
 * Fixed list of processes to add / remove from existing list of objects
 * Add step to resource metrics
 * Fix bug where process user alerts should not be overridden if manually set by the user
-
-## [v2.0.0-alpha2](https://github.com/simvue-io/client/releases/tag/v2.0.0a2) - 2025-02-27
 * Removed 'no config file' and 'unstaged changes' warnings from Offline mode as they do not apply
 * Made `staging_check` not apply in Offline mode
 * Added heartbeat functionality to Offline mode
@@ -29,8 +25,6 @@
 * Added `name` option in `log_alert` and added tests
 * Fixed client `get_alerts` and improved tests
 * Removed all server config checks in Offline mode
-
-## [v2.0.0-alpha1](https://github.com/simvue-io/client/releases/tag/v2.0.0a1) - 2025-02-19
 * Fixed `add_alerts` so that it now works with both IDs and names
 * Improved alert and folder deduplication methods to rely on 409 responses from server upon creation
 * Added `attach_to_run` option to create alerts methods so that alerts can be created without a run attached
@@ -47,9 +41,6 @@
 * Fixed bug where errors would be thrown if a traceback was logged as an event when a run was already terminated
 * Fixed hierarchical artifact retrieval to maintain directory structure
 * Loosened Numpy requirement to >2.0.0
-
-## [v2.0.0-alpha0](https://github.com/simvue-io/client/releases/tag/v2.0.0a0) - 2025-02-10
-
 * Add support for defining Simvue run defaults using `tool.simvue` in a project `pyproject.toml` file.
 * Drop support for INI based configuration files.
 * Retrieve all metric values if `max_points` is unspecified or set to `None`.
@@ -59,6 +50,7 @@
 * Separates `create_alert` into specific methods `create_event_alert` etc.
 * Adds additional functionality and support for offline mode.
 * Support for Simvue servers `>=3`.
+
 ## [v1.1.4](https://github.com/simvue-io/client/releases/tag/v1.1.4) - 2024-12-11
 
 * Remove incorrect identifier reference for latest Simvue servers during reconnection.
