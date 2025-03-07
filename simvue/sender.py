@@ -110,9 +110,11 @@ def upload_cached_file(
     ):
         # Get alerts and folder created by this run - their IDs can be deleted
         for id in _data.get("alerts", []):
-            cache_dir.joinpath("server_ids", f"{id}.txt").unlink()
+            cache_dir.joinpath("server_ids", f"{id}.txt").unlink(missing_ok=True)
         if _folder_id := _data.get("folder_id"):
-            cache_dir.joinpath("server_ids", f"{_folder_id}.txt").unlink()
+            cache_dir.joinpath("server_ids", f"{_folder_id}.txt").unlink(
+                missing_ok=True
+            )
 
         cache_dir.joinpath("server_ids", f"{_current_id}.txt").unlink()
         cache_dir.joinpath(f"{obj_type}", f"{_current_id}.closed").unlink()
