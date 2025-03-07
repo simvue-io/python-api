@@ -7,6 +7,7 @@ import typing
 import glob
 import pathlib
 import time
+import pytest_mock
 import tempfile
 import simvue.client as svc
 from simvue.exception import ObjectNotFoundError
@@ -383,19 +384,17 @@ def test_alert_deletion() -> None:
 
 
 @pytest.mark.client
-def test_abort_run() -> None:
+def test_abort_run(create_plain_run: tuple[sv_run.Run, dict], mocker: pytest_mock.MockerFixture) -> None:
+    def alt_exit():
+        raise SystemExit
+    mocker.patch("os._exit", lambda *_, **__: alt_exit())
+    run, run_data = create_plain_run
     _uuid = f"{uuid.uuid4()}".split("-")[0]
-    _folder = sv_api_obj.Folder.new(path=f"/simvue_unit_testing/{_uuid}")
-    _run = sv_api_obj.Run.new(folder=f"/simvue_unit_testing/{_uuid}")
-    _run.status = "running"
-    _folder.commit()
-    _run.commit()
+    run.update_tags([f"delete_me_{_uuid}"])
     time.sleep(1)
     _client = svc.Client()
-    _client.abort_run(_run.id, reason="Test abort")
+    _client.abort_run(run.id, reason="Test abort")
     time.sleep(1)
-    assert _run.abort_trigger
-    _run.delete()
-    _folder.delete(recursive=True, delete_runs=True, runs_only=False)
+    assert run._status == "terminated"
 
 
