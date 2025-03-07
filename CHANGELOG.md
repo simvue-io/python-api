@@ -1,5 +1,12 @@
 # Change log
 
+## [v2.0.0-rc1](https://github.com/simvue-io/client/releases/tag/v2.0.0rc1) - 2025-03-06
+* Add new example notebooks
+* Update and refactor examples to work with v2.0
+* Fix bug in offline artifacts using wrong file path
+* Change names of sustainability metrics
+* Fix `Self` being used in typing Generators so that Simvue works with Python 3.10 in Conda
+
 ## [v2.0.0-alpha3](https://github.com/simvue-io/client/releases/tag/v2.0.0a3) - 2025-03-04
 * Updated codecarbon to work with new API
 * Codecarbon now works with offline mode

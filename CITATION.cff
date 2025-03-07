@@ -42,9 +42,9 @@ keywords:
   - alerting
   - simulation
 license: Apache-2.0
-commit: 64ff8a5344232d44fc7da5b6ff601d3023497977
-version: 2.0.0a3
-date-released: '2025-03-04'
+commit: effbd2e88fa12a181bf33721eae599d4245e1484
+version: 2.0.0rc1
+date-released: '2025-03-06'
 references:
 - title: mlco2/codecarbon
   version: v2.8.2
@@ -72,18 +72,12 @@ references:
       family-names: Connell
     - given-names: Amine
       family-names: Saboni
-    - given-names: Inimaz
-      family-names:
-    - given-names: supatomic
-      family-names:
     - given-names: Mathilde
       family-names: Léval
     - given-names: Luis
       family-names: Blanche
     - given-names: Alexis
       family-names: Cruveiller
-    - given-names: ouminasara
-      family-names:
     - given-names: Franklin
       family-names: Zhao
     - given-names: Aditya
@@ -110,7 +104,5 @@ references:
       family-names: Bauer
     - given-names: Lucas Otávio N.
       family-names: de Araújo
-    - given-names: JPW
-      family-names:
     - given-names: Minerva
       family-names: Books

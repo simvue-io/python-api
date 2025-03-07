@@ -37,6 +37,9 @@ try:
 except ImportError:
     from typing_extensions import Self
 
+# Need to use this inside of Generator typing to fix bug present in Python 3.10 - see issue #745
+T = typing.TypeVar("T", bound="SimvueObject")
+
 
 def staging_check(member_func: typing.Callable) -> typing.Callable:
     """Decorator for checking if requested attribute has uncommitted changes"""
@@ -318,7 +321,7 @@ class SimvueObject(abc.ABC):
         count: pydantic.PositiveInt | None = None,
         offset: pydantic.NonNegativeInt | None = None,
         **kwargs,
-    ) -> typing.Generator[tuple[str, Self | None], None, None]:
+    ) -> typing.Generator[tuple[str, T | None], None, None]:
         _class_instance = cls(_read_only=True, _local=True)
         if (_data := cls._get_all_objects(count, offset, **kwargs).get("data")) is None:
             raise RuntimeError(

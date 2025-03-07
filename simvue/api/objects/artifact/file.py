@@ -87,7 +87,7 @@ class FileArtifact(ArtifactBase):
         if offline:
             return _artifact
 
-        with open(file_path, "rb") as out_f:
+        with open(_file_orig_path, "rb") as out_f:
             _artifact._upload(file=out_f)
 
         return _artifact

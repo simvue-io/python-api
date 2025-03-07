@@ -35,11 +35,11 @@ class CodeCarbonOutput(cc_BaseOutput):
             try:
                 self._simvue_run.update_metadata(
                     {
-                        "codecarbon": {
+                        "sustainability": {
                             "country": total.country_name,
                             "country_iso_code": total.country_iso_code,
                             "region": total.region,
-                            "version": total.codecarbon_version,
+                            "codecarbon_version": total.codecarbon_version,
                         }
                     }
                 )
@@ -57,10 +57,10 @@ class CodeCarbonOutput(cc_BaseOutput):
         try:
             self._simvue_run.log_metrics(
                 metrics={
-                    "codecarbon.total.emissions": total.emissions,
-                    "codecarbon.total.energy_consumed": total.energy_consumed,
-                    "codecarbon.delta.emissions": delta.emissions,
-                    "codecarbon.delta.energy_consumed": delta.energy_consumed,
+                    "sustainability.emissions.total": total.emissions,
+                    "sustainability.energy_consumed.total": total.energy_consumed,
+                    "sustainability.emissions.delta": delta.emissions,
+                    "sustainability.energy_consumed.delta": delta.energy_consumed,
                 },
                 step=self._metrics_step,
                 timestamp=simvue_timestamp(_cc_timestamp),
