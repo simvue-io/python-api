@@ -211,7 +211,7 @@ class CO2Monitor(pydantic.BaseModel):
             process.cpu_percentage = process.process.cpu_percent(
                 interval=self.cpu_interval
             )
-            _previous_energy: float = process.e
+            _previous_energy: float = process.total_energy
             process.power_usage = min(
                 self.cpu_idle_power,
                 (process.cpu_percentage / 100.0) * self.thermal_design_power_per_core,
