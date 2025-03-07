@@ -365,14 +365,29 @@ class Run:
 
             last_heartbeat = time.time()
             last_res_metric_call = time.time()
-            co2_step = 0
+            co2_step: int = 0
+            res_step: int = 0
             last_co2_metric_call = time.time()
 
             if self._resources_metrics_interval:
                 self._add_metrics_to_dispatch(
                     self._get_sysinfo(interval=1), join_on_fail=False, step=0
                 )
-                res_step = 1
+                res_step += 1
+
+            if self._emission_metrics_interval:
+                self._emissions_monitor.estimate_co2_emissions()
+                self._add_metrics_to_dispatch(
+                    {
+                        "sustainability.emissions.total": self._emissions_monitor.total_co2_emission,
+                        "sustainability.emissions.delta": self._emissions_monitor.total_co2_delta,
+                        "sustainability.energy_consumed.total": self._emissions_monitor.total_energy,
+                        "sustainability.energy_consumed.delta": self._emissions_monitor.total_energy_delta,
+                    },
+                    join_on_fail=False,
+                    step=0,
+                )
+                co2_step += 1
 
             while not heartbeat_trigger.is_set():
                 time.sleep(0.1)
@@ -392,14 +407,21 @@ class Run:
                         last_res_metric_call = res_time
                         res_step += 1
                     if (
-                        self._emission_metrics_interval and self._emissions_monitor
+                        self._emission_metrics_interval
+                        and self._emissions_monitor
                         and (co2_time := time.time()) - last_co2_metric_call
                         > self._emission_metrics_interval
                     ):
                         self._emissions_monitor.estimate_co2_emissions()
                         self._add_metrics_to_dispatch(
-                            {"sustainability.emissions.total": self._emissions_monitor.total_co2_emission},
-                            join_on_fail=False, step=co2_step
+                            {
+                                "sustainability.emissions.total": self._emissions_monitor.total_co2_emission,
+                                "sustainability.emissions.delta": self._emissions_monitor.total_co2_delta,
+                                "sustainability.energy_consumed.total": self._emissions_monitor.total_energy,
+                                "sustainability.energy_consumed.delta": self._emissions_monitor.total_energy_delta,
+                            },
+                            join_on_fail=False,
+                            step=co2_step,
                         )
                         last_co2_metric_call = co2_time
                         co2_step += 1
@@ -477,7 +499,7 @@ class Run:
 
         return _dispatch_callback
 
-    def _start(self ) -> bool:
+    def _start(self) -> bool:
         """Start a run
 
         Returns
@@ -564,10 +586,6 @@ class Run:
         RuntimeError
             exception throw
         """
-        if self._emissions_tracker:
-            with contextlib.suppress(Exception):
-                self._emissions_tracker.stop()
-
         # Stop heartbeat
         if self._heartbeat_termination_trigger and self._heartbeat_thread:
             self._heartbeat_termination_trigger.set()

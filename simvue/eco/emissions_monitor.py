@@ -33,7 +33,10 @@ class ProcessData:
     process: psutil.Process
     cpu_percentage: float = 0.0
     power_usage: float = 0.0
+    total_energy: float = 0.0
+    energy_delta: float = 0.0
     co2_emission: float = 0.0
+    co2_delta: float = 0.0
 
 
 class CO2Monitor(pydantic.BaseModel):
@@ -85,7 +88,7 @@ class CO2Monitor(pydantic.BaseModel):
 
     def __init__(self, *args, **kwargs) -> None:
         """Initialise a CO2 Monitor.
-        
+
         Parameters
         ----------
         thermal_design_power_per_core: float | None
@@ -106,7 +109,7 @@ class CO2Monitor(pydantic.BaseModel):
         co2_signal_api_token: str
             RECOMMENDED. The API token for CO2 signal, default is None.
         """
-        _logger = logging.getLogger("ecoclient.monitor")
+        _logger = logging.getLogger(self.__class__.__name__)
         if not isinstance(kwargs.get("thermal_design_power_per_core"), float):
             kwargs["thermal_design_power_per_core"] = 80.0
             _logger.warning(
@@ -115,17 +118,19 @@ class CO2Monitor(pydantic.BaseModel):
         super().__init__(*args, **kwargs)
 
         if self.intensity_refresh_rate and isinstance(self.intensity_refresh_rate, str):
-            self.intensity_refresh_rate = int(humanfriendly.parse_timespan(
-                self.intensity_refresh_rate
-            ))
+            self.intensity_refresh_rate = int(
+                humanfriendly.parse_timespan(self.intensity_refresh_rate)
+            )
 
         if self.intensity_refresh_rate and self.intensity_refresh_rate <= 2 * 60:
             raise ValueError(
                 "Invalid intensity refresh rate, CO2 signal API restricted to 30 calls per hour."
             )
-        
+
         if self.co2_intensity:
-            _logger.warning(f"⚠️ Disabling online data retrieval, using {self.co2_intensity} for CO2 intensity.")
+            _logger.warning(
+                f"⚠️ Disabling online data retrieval, using {self.co2_intensity} for CO2 intensity."
+            )
 
         self._data_file_path: pathlib.Path | None = None
 
@@ -136,8 +141,7 @@ class CO2Monitor(pydantic.BaseModel):
         self._measure_time = datetime.datetime.now()
         self._logger = _logger
         self._client: APIClient = APIClient(
-            co2_api_token=self.co2_signal_api_token,
-            timeout=10
+            co2_api_token=self.co2_signal_api_token, timeout=10
         )
         self._processes: dict[str, ProcessData] = {}
 
@@ -174,15 +178,15 @@ class CO2Monitor(pydantic.BaseModel):
         """Estimate the CO2 emissions"""
         self._logger.info("📐 Measuring CPU usage and power.")
 
-        if not self._local_data:
+        if self._local_data is None:
             raise RuntimeError("Expected local data to be initialised.")
-        
+
         if not self._data_file_path:
             raise RuntimeError("Expected local data file to be defined.")
 
         if (
-            not self.co2_intensity and
-            not self._local_data.setdefault(self._client.country_code, {})
+            not self.co2_intensity
+            and not self._local_data.setdefault(self._client.country_code, {})
             or self.outdated
         ):
             self._logger.info("🌍 CO2 emission outdated, calling API.")
@@ -207,19 +211,24 @@ class CO2Monitor(pydantic.BaseModel):
             process.cpu_percentage = process.process.cpu_percent(
                 interval=self.cpu_interval
             )
+            _previous_energy: float = process.e
             process.power_usage = min(
                 self.cpu_idle_power,
                 (process.cpu_percentage / 100.0) * self.thermal_design_power_per_core,
             )
+            process.total_energy += process.power_usage * self.cpu_interval
+            process.energy_delta = process.total_energy - _previous_energy
 
             # Measured value is in g/kWh, convert to kg/kWs
-            _carbon_intensity_kgpws: float = (
-                _current_co2_intensity / (60 * 60 * 1e3)
-            )
+            _carbon_intensity_kgpws: float = _current_co2_intensity / (60 * 60 * 1e3)
 
-            process.co2_emission = (
+            _previous_emission: float = process.co2_emission
+
+            process.co2_delta = (
                 process.power_usage * _carbon_intensity_kgpws * self.cpu_interval
             )
+
+            process.co2_emission += process.co2_delta
 
             self._logger.debug(
                 f"📝 For process '{label}', recorded: CPU={process.cpu_percentage}%, "
@@ -281,9 +290,7 @@ class CO2Monitor(pydantic.BaseModel):
 
     @property
     def last_process(self) -> str | None:
-        if not self._processes:
-            return None
-        return list(self._processes.keys())[-1]
+        return list(self._processes.keys())[-1] if self._processes else None
 
     @property
     def process_data(self) -> dict[str, ProcessData]:
@@ -295,12 +302,24 @@ class CO2Monitor(pydantic.BaseModel):
 
     @property
     def total_cpu_percentage(self) -> float:
-        return sum([process.cpu_percentage for process in self._processes.values()])
+        return sum(process.cpu_percentage for process in self._processes.values())
 
     @property
     def total_power_usage(self) -> float:
-        return sum([process.power_usage for process in self._processes.values()])
+        return sum(process.power_usage for process in self._processes.values())
 
     @property
     def total_co2_emission(self) -> float:
-        return sum([process.co2_emission for process in self._processes.values()])
+        return sum(process.co2_emission for process in self._processes.values())
+
+    @property
+    def total_co2_delta(self) -> float:
+        return sum(process.co2_delta for process in self._processes.values())
+
+    @property
+    def total_energy_delta(self) -> float:
+        return sum(process.energy_delta for process in self._processes.values())
+
+    @property
+    def total_energy(self) -> float:
+        return sum(process.energy for process in self._processes.values())

@@ -19,7 +19,6 @@ import geocoder
 import geocoder.location
 import typing
 
-from simvue.utilities import check_extra
 
 class CO2SignalData(pydantic.BaseModel):
     datetime: datetime.datetime
@@ -75,7 +74,7 @@ class APIClient(pydantic.BaseModel):
 
     def __init__(self, *args, **kwargs) -> None:
         """Initialise the CO2 Signal API client.
-        
+
         Parameters
         ----------
         co2_api_endpoint : str
@@ -86,7 +85,7 @@ class APIClient(pydantic.BaseModel):
             timeout for API
         """
         super().__init__(*args, **kwargs)
-        self._logger = logging.getLogger("ecoclient.api")
+        self._logger = logging.getLogger(self.__class__.__name__)
 
         if not self.co2_api_token:
             self._logger.warning(
