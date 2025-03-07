@@ -55,24 +55,34 @@ def test_run_with_emissions() -> None:
         run_created.config(enable_emission_metrics=True, emission_metrics_interval=1)
         time.sleep(5)
         _run = RunObject(identifier=run_created.id)
-        _metric_names = [item[0] for item in _run.metrics]    
-        client = sv_cl.Client() 
+        _metric_names = [item[0] for item in _run.metrics]
+        client = sv_cl.Client()
         for _metric in ["emissions", "energy_consumed"]:
-            _total_metric_name = f'sustainability.{_metric}.total'
-            _delta_metric_name = f'sustainability.{_metric}.delta'
+            _total_metric_name = f"sustainability.{_metric}.total"
+            _delta_metric_name = f"sustainability.{_metric}.delta"
             assert _total_metric_name in _metric_names
             assert _delta_metric_name in _metric_names
-            _metric_values = client.get_metric_values(metric_names=[_total_metric_name, _delta_metric_name], xaxis="time", output_format="dataframe", run_ids=[run_created.id])
-        
+            _metric_values = client.get_metric_values(
+                metric_names=[_total_metric_name, _delta_metric_name],
+                xaxis="time",
+                output_format="dataframe",
+                run_ids=[run_created.id],
+            )
+
         # Check that total = previous total + latest delta
         _total_values = _metric_values[_total_metric_name].tolist()
         _delta_values = _metric_values[_delta_metric_name].tolist()
         assert len(_total_values) > 1
         for i in range(1, len(_total_values)):
-            assert _total_values[i] == _total_values[i-1] + _delta_values[i] 
+            assert _total_values[i] == _total_values[i - 1] + _delta_values[i]
+
 
 @pytest.mark.run
-@pytest.mark.parametrize("timestamp", (datetime.datetime.now().strftime("%Y-%m-%dT%H:%M:%S.%f"), None), ids=("timestamp", "no_timestamp"))
+@pytest.mark.parametrize(
+    "timestamp",
+    (datetime.datetime.now().strftime("%Y-%m-%dT%H:%M:%S.%f"), None),
+    ids=("timestamp", "no_timestamp"),
+)
 @pytest.mark.parametrize("overload_buffer", (True, False), ids=("overload", "normal"))
 @pytest.mark.parametrize(
     "visibility", ("bad_option", "tenant", "public", ["ciuser01"], None)
@@ -141,7 +151,7 @@ def test_log_metrics(
     )
 
     with contextlib.suppress(RuntimeError):
-       client.delete_run(run._id)
+        client.delete_run(run._id)
 
     assert _data
 
@@ -151,8 +161,8 @@ def test_log_metrics(
         _steps += [i[0] for i in entry.keys()]
     _steps = set(_steps)
 
-    assert (
-        len(_steps) == (run._dispatcher._max_buffer_size * 3 if overload_buffer else 1)
+    assert len(_steps) == (
+        run._dispatcher._max_buffer_size * 3 if overload_buffer else 1
     )
     # There are two debug log messages per metric dispatch - 'Executing callback on buffer' and 'Posting staged data'
     # Should have done one dispatch if not overloaded, and 3 dispatches if overloaded
@@ -184,9 +194,7 @@ def test_log_metrics_offline(create_plain_run_offline: tuple[sv_run.Run, dict]) 
     for entry in _data.values():
         _steps += [i[0] for i in entry.keys()]
     _steps = set(_steps)
-    assert (
-        len(_steps) == 1
-    )
+    assert len(_steps) == 1
 
 
 @pytest.mark.run
@@ -230,7 +238,6 @@ def test_offline_tags(create_plain_run_offline: tuple[sv_run.Run, dict]) -> None
     run_tags = [tag for tag in tags if tag[1].name == run_data["tags"][-1]]
     assert len(run_tags) == 1
     client.delete_tag(run_tags[0][0])
-
 
 
 @pytest.mark.run
@@ -288,7 +295,7 @@ def test_update_metadata_offline(
     sv_send.sender(os.environ["SIMVUE_OFFLINE_DIRECTORY"], 2, 10)
     run.close()
     time.sleep(1.0)
-    
+
     client = sv_cl.Client()
     run_info = client.get_run(client.get_run_id_from_name(run_name))
 
@@ -514,9 +521,9 @@ def test_set_folder_details(request: pytest.FixtureRequest) -> None:
         (False, True, None, False, False, "output"),
         (False, False, "test_file", False, False, "code"),
         (False, False, None, True, False, "input"),
-        (False, False, None, False, True, "code")
+        (False, False, None, False, True, "code"),
     ],
-    ids=[f"scenario_{i}" for i in range(1, 6)]
+    ids=[f"scenario_{i}" for i in range(1, 6)],
 )
 def test_save_file_online(
     create_plain_run: typing.Tuple[sv_run.Run, dict],
@@ -568,7 +575,9 @@ def test_save_file_online(
             out_loc = pathlib.Path(tempd)
             stored_name = pathlib.Path(base_name)
         out_file = out_loc.joinpath(name or out_name.name)
-        client.get_artifact_as_file(run_id=simvue_run.id, name=f"{name or stored_name}", output_dir=tempd)
+        client.get_artifact_as_file(
+            run_id=simvue_run.id, name=f"{name or stored_name}", output_dir=tempd
+        )
         assert out_loc.joinpath(name or out_name.name).exists()
 
 
@@ -581,9 +590,9 @@ def test_save_file_online(
         (True, None, False, False, "output"),
         (False, "test_file", False, False, "code"),
         (False, None, True, False, "input"),
-        (False, None, False, True, "code")
+        (False, None, False, True, "code"),
     ],
-    ids=[f"scenario_{i}" for i in range(1, 6)]
+    ids=[f"scenario_{i}" for i in range(1, 6)],
 )
 def test_save_file_offline(
     create_plain_run_offline: typing.Tuple[sv_run.Run, dict],
@@ -631,7 +640,11 @@ def test_save_file_offline(
             out_loc = pathlib.Path(tempd)
             stored_name = pathlib.Path(base_name)
         out_file = out_loc.joinpath(name or out_name.name)
-        client.get_artifact_as_file(run_id=client.get_run_id_from_name(run_name), name=f"{name or stored_name}", output_dir=tempd)
+        client.get_artifact_as_file(
+            run_id=client.get_run_id_from_name(run_name),
+            name=f"{name or stored_name}",
+            output_dir=tempd,
+        )
         assert out_loc.joinpath(name or out_name.name).exists()
 
 
@@ -694,11 +707,15 @@ def test_update_tags_offline(
 ) -> None:
     simvue_run, _ = create_plain_run_offline
     run_name = simvue_run._name
-    
-    simvue_run.set_tags(["simvue_client_unit_tests",])
+
+    simvue_run.set_tags(
+        [
+            "simvue_client_unit_tests",
+        ]
+    )
 
     simvue_run.update_tags(["additional"])
-    
+
     sv_send.sender(os.environ["SIMVUE_OFFLINE_DIRECTORY"], 2, 10)
     simvue_run.close()
     time.sleep(1.0)
@@ -709,7 +726,8 @@ def test_update_tags_offline(
     time.sleep(1)
     run_data = client.get_run(simvue_run._id)
     assert sorted(run_data.tags) == sorted(["simvue_client_unit_tests", "additional"])
-    
+
+
 @pytest.mark.run
 @pytest.mark.parametrize("object_type", ("DataFrame", "ndarray"))
 def test_save_object(
@@ -731,6 +749,7 @@ def test_save_object(
         save_obj = array([1, 2, 3, 4])
     simvue_run.save_object(save_obj, "input", f"test_object_{object_type}")
 
+
 @pytest.mark.run
 def test_add_alerts() -> None:
     _uuid = f"{uuid.uuid4()}".split("-")[0]
@@ -741,22 +760,22 @@ def test_add_alerts() -> None:
         folder="/simvue_unit_tests",
         retention_period="1 min",
         tags=["test_add_alerts"],
-        visibility="tenant"
+        visibility="tenant",
     )
-    
+
     _expected_alerts = []
-    
+
     # Create alerts, have them attach to run automatically
     _id = run.create_event_alert(
         name=f"event_alert_{_uuid}",
-        pattern = "test",
+        pattern="test",
     )
     _expected_alerts.append(_id)
     time.sleep(1)
     # Retrieve run, check if alert has been added
     _online_run = RunObject(identifier=run._id)
     assert _id in _online_run.alerts
-    
+
     # Create another alert and attach to run
     _id = run.create_metric_range_alert(
         name=f"metric_range_alert_{_uuid}",
@@ -770,54 +789,58 @@ def test_add_alerts() -> None:
     # Retrieve run, check both alerts have been added
     _online_run.refresh()
     assert sorted(_online_run.alerts) == sorted(_expected_alerts)
-    
+
     # Create another alert, do not attach to run
     _id = run.create_metric_threshold_alert(
         name=f"metric_threshold_alert_{_uuid}",
         metric="test",
         threshold=10,
         rule="is above",
-        attach_to_run=False
+        attach_to_run=False,
     )
     time.sleep(1)
     # Retrieve run, check alert has NOT been added
     _online_run.refresh()
     assert sorted(_online_run.alerts) == sorted(_expected_alerts)
-    
+
     # Try adding all three alerts using add_alerts
     _expected_alerts.append(_id)
-    run.add_alerts(names=[f"event_alert_{_uuid}", f"metric_range_alert_{_uuid}", f"metric_threshold_alert_{_uuid}"])
+    run.add_alerts(
+        names=[
+            f"event_alert_{_uuid}",
+            f"metric_range_alert_{_uuid}",
+            f"metric_threshold_alert_{_uuid}",
+        ]
+    )
     time.sleep(1)
-    
+
     # Check that there is no duplication
     _online_run.refresh()
     assert sorted(_online_run.alerts) == sorted(_expected_alerts)
-    
+
     # Create another run without adding to run
-    _id = run.create_user_alert(
-        name=f"user_alert_{_uuid}",
-        attach_to_run=False
-    )
+    _id = run.create_user_alert(name=f"user_alert_{_uuid}", attach_to_run=False)
     time.sleep(1)
-    
+
     # Check alert is not added
     _online_run.refresh()
     assert sorted(_online_run.alerts) == sorted(_expected_alerts)
-    
+
     # Try adding alerts with IDs, check there is no duplication
     _expected_alerts.append(_id)
     run.add_alerts(ids=_expected_alerts)
     time.sleep(1)
-    
+
     _online_run.refresh()
     assert sorted(_online_run.alerts) == sorted(_expected_alerts)
-    
+
     run.close()
-    
+
     client = sv_cl.Client()
     client.delete_run(run._id)
     for _id in _expected_alerts:
         client.delete_alert(_id)
+
 
 @pytest.mark.run
 def test_log_alert() -> None:
@@ -829,7 +852,7 @@ def test_log_alert() -> None:
         folder="/simvue_unit_tests",
         retention_period="1 min",
         tags=["test_add_alerts"],
-        visibility="tenant"
+        visibility="tenant",
     )
     _run_id = run._id
     # Create a user alert
@@ -840,26 +863,26 @@ def test_log_alert() -> None:
     # Set alert state to critical by name
     run.log_alert(name=f"user_alert_{_uuid}", state="critical")
     time.sleep(1)
-    
+
     client = sv_cl.Client()
     _alert = client.get_alerts(run_id=_run_id, critical_only=False, names_only=False)[0]
     assert _alert.get_status(_run_id) == "critical"
-    
+
     # Set alert state to OK by ID
     run.log_alert(identifier=_id, state="ok")
     time.sleep(2)
 
     _alert.refresh()
     assert _alert.get_status(_run_id) == "ok"
-    
+
     # Check invalid name throws sensible error
     with pytest.raises(RuntimeError) as e:
-        run.log_alert(name="fake_name_1234321", state='critical')
+        run.log_alert(name="fake_name_1234321", state="critical")
     assert "Alert with name 'fake_name_1234321' could not be found." in str(e.value)
 
     # Check you cannot specify both ID and name
     with pytest.raises(RuntimeError) as e:
-        run.log_alert(identifier="myid", name="myname", state='critical')
+        run.log_alert(identifier="myid", name="myname", state="critical")
     assert "Please specify alert to update either by ID or by name." in str(e.value)
 
 
@@ -879,7 +902,7 @@ def test_abort_on_alert_process(mocker: pytest_mock.MockerFixture) -> None:
         folder="/simvue_unit_tests",
         retention_period="1 min",
         tags=["test_abort_on_alert_process"],
-        visibility="tenant"
+        visibility="tenant",
     )
 
     mocker.patch("os._exit", testing_exit)
@@ -887,7 +910,11 @@ def test_abort_on_alert_process(mocker: pytest_mock.MockerFixture) -> None:
     run.config(resources_metrics_interval=1)
     run._heartbeat_interval = 1
     run._testing = True
-    run.add_process(identifier="forever_long", executable="bash", c="&".join(["sleep 10"] * N_PROCESSES))
+    run.add_process(
+        identifier="forever_long",
+        executable="bash",
+        c="&".join(["sleep 10"] * N_PROCESSES),
+    )
     process_id = list(run._executor._processes.values())[0].pid
     process = psutil.Process(process_id)
     assert len(child_processes := process.children(recursive=True)) == 3
@@ -905,11 +932,15 @@ def test_abort_on_alert_process(mocker: pytest_mock.MockerFixture) -> None:
 
 
 @pytest.mark.run
-def test_abort_on_alert_python(create_plain_run: typing.Tuple[sv_run.Run, dict], mocker: pytest_mock.MockerFixture) -> None:
+def test_abort_on_alert_python(
+    create_plain_run: typing.Tuple[sv_run.Run, dict], mocker: pytest_mock.MockerFixture
+) -> None:
     abort_set = threading.Event()
+
     def testing_exit(status: int) -> None:
         abort_set.set()
         raise SystemExit(status)
+
     mocker.patch("os._exit", testing_exit)
     run, _ = create_plain_run
     run.config(resources_metrics_interval=1)
@@ -930,10 +961,10 @@ def test_abort_on_alert_python(create_plain_run: typing.Tuple[sv_run.Run, dict],
 
 
 @pytest.mark.run
-def test_abort_on_alert_raise(create_plain_run: typing.Tuple[sv_run.Run, dict], mocker: pytest_mock.MockerFixture) -> None:
-    def testing_exit(status: int) -> None:
-        raise SystemExit(status)
-    mocker.patch("os._exit", testing_exit)
+def test_abort_on_alert_raise(
+    create_plain_run: typing.Tuple[sv_run.Run, dict]
+) -> None:
+
     run, _ = create_plain_run
     run.config(resources_metrics_interval=1)
     run._heartbeat_interval = 1
@@ -962,8 +993,7 @@ def test_kill_all_processes(create_plain_run: typing.Tuple[sv_run.Run, dict]) ->
     run.add_process(identifier="forever_long_1", executable="bash", c="sleep 10000")
     run.add_process(identifier="forever_long_2", executable="bash", c="sleep 10000")
     processes = [
-        psutil.Process(process.pid)
-        for process in run._executor._processes.values()
+        psutil.Process(process.pid) for process in run._executor._processes.values()
     ]
     time.sleep(2)
     run.kill_all_processes()
@@ -980,10 +1010,11 @@ def test_run_created_with_no_timeout() -> None:
             name="test_run_created_with_no_timeout",
             folder="/simvue_unit_testing",
             retention_period="2 minutes",
-            timeout=None
+            timeout=None,
         )
     client = simvue.Client()
     assert client.get_run(run._id)
+
 
 @pytest.mark.parametrize("mode", ("online", "offline"), ids=("online", "offline"))
 @pytest.mark.run
@@ -991,35 +1022,33 @@ def test_reconnect(mode, monkeypatch: pytest.MonkeyPatch) -> None:
     if mode == "offline":
         temp_d = tempfile.TemporaryDirectory()
         monkeypatch.setenv("SIMVUE_OFFLINE_DIRECTORY", temp_d)
-        
+
     with simvue.Run(mode=mode) as run:
         run.init(
             name="test_reconnect",
             folder="/simvue_unit_testing",
             retention_period="2 minutes",
             timeout=None,
-            running=False
+            running=False,
         )
         run_id = run.id
     if mode == "offline":
         _id_mapping = sv_send.sender(os.environ["SIMVUE_OFFLINE_DIRECTORY"], 2, 10)
         run_id = _id_mapping.get(run_id)
-        
+
     client = simvue.Client()
     _created_run = client.get_run(run_id)
     assert _created_run.status == "created"
     time.sleep(1)
-    
+
     with simvue.Run() as run:
         run.reconnect(run_id)
         run.log_metrics({"test_metric": 1})
         run.log_event("Testing!")
-        
+
     if mode == "offline":
         _id_mapping = sv_send.sender(os.environ["SIMVUE_OFFLINE_DIRECTORY"], 2, 10)
-        
+
     _reconnected_run = client.get_run(run_id)
     assert dict(_reconnected_run.metrics)["test_metric"]["last"] == 1
     assert client.get_events(run_id)[0]["message"] == "Testing!"
-        
-    
