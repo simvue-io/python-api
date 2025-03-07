@@ -1360,6 +1360,7 @@ class Run:
                 allow_pickling=allow_pickle,
                 storage=self._storage_id,
                 metadata=metadata,
+                offline=self._user_config.run.mode == "offline",
             )
             _artifact.attach_to_run(self.id, category)
         except (ValueError, RuntimeError) as e:

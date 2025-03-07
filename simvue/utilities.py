@@ -92,6 +92,13 @@ def parse_validation_response(
 
     out: list[list[str]] = []
 
+    if isinstance(issues, str):
+        return tabulate.tabulate(
+            ["Unknown", "N/A", issues],
+            headers=["Type", "Location", "Message"],
+            tablefmt="fancy_grid",
+        )
+
     for issue in issues:
         obj_type: str = issue["type"]
         location: list[str] = issue["loc"]
