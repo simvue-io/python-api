@@ -384,10 +384,7 @@ def test_alert_deletion() -> None:
 
 
 @pytest.mark.client
-def test_abort_run(create_plain_run: tuple[sv_run.Run, dict], mocker: pytest_mock.MockerFixture) -> None:
-    def alt_exit():
-        raise SystemExit
-    mocker.patch("os._exit", lambda *_, **__: alt_exit())
+def test_abort_run(create_plain_run: tuple[sv_run.Run, dict]) -> None:
     run, run_data = create_plain_run
     _uuid = f"{uuid.uuid4()}".split("-")[0]
     run.update_tags([f"delete_me_{_uuid}"])
