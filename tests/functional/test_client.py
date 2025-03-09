@@ -34,16 +34,16 @@ def test_get_events(create_test_run: tuple[sv_run.Run, dict]) -> None:
     "critical_only", (True, False), ids=("critical_only", "all_states")
 )
 def test_get_alerts(create_plain_run: tuple[sv_run.Run, dict], from_run: bool, names_only: bool, critical_only: bool) -> None:
-    run, run_data = create_plain_run
+    run, _ = create_plain_run
     run_id = run.id
     unique_id = f"{uuid.uuid4()}".split("-")[0]
     _id_1 = run.create_user_alert(
         name=f"user_alert_1_{unique_id}", 
     )
-    _id_2 = run.create_user_alert(
+    run.create_user_alert(
         name=f"user_alert_2_{unique_id}", 
     )
-    _id_3 = run.create_user_alert(
+    run.create_user_alert(
         name=f"user_alert_3_{unique_id}",
         attach_to_run=False
     )
