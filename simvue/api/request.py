@@ -27,7 +27,7 @@ RETRY_MULTIPLIER = 1
 RETRY_MIN = 4
 RETRY_MAX = 10
 RETRY_STOP = 5
-MAX_ENTRIES_PER_PAGE: int = 100
+MAX_ENTRIES_PER_PAGE: int = 5
 RETRY_STATUS_CODES = (
     http.HTTPStatus.BAD_REQUEST,
     http.HTTPStatus.SERVICE_UNAVAILABLE,
@@ -312,4 +312,4 @@ def get_paginated(
         json=json,
     )).json().get("data"):
         yield _response
-        _offset += 1
+        _offset += MAX_ENTRIES_PER_PAGE
