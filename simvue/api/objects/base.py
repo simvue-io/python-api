@@ -367,12 +367,14 @@ class SimvueObject(abc.ABC):
         if _label.endswith("s"):
             _label = _label[:-1]
 
-        for response in get_paginated(_url, headers=_class_instance._headers, offset=offset, **kwargs):
+        for response in get_paginated(
+            _url, headers=_class_instance._headers, offset=offset, **kwargs
+        ):
             yield get_json_from_response(
                 response=response,
                 expected_status=[http.HTTPStatus.OK],
                 scenario=f"Retrieval of {_label}s",
-            ) # type: ignore
+            )  # type: ignore
 
     def read_only(self, is_read_only: bool) -> None:
         self._read_only = is_read_only
