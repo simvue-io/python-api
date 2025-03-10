@@ -311,8 +311,6 @@ class SimvueObject(abc.ABC):
         _class_instance = cls(_read_only=True, _local=True)
         _count: int = 0
         for response in cls._get_all_objects(offset):
-            if count and _count > count:
-                return
             if (_data := response.get("data")) is None:
                 raise RuntimeError(
                     f"Expected key 'data' for retrieval of {_class_instance.__class__.__name__.lower()}s"
@@ -320,6 +318,8 @@ class SimvueObject(abc.ABC):
             for entry in _data:
                 yield entry["id"]
                 _count += 1
+                if count and _count > count:
+                    return
 
     @classmethod
     @pydantic.validate_call

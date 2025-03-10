@@ -320,3 +320,5 @@ def get_paginated(
     ):
         yield _response
         _offset += MAX_ENTRIES_PER_PAGE
+
+    yield _response
