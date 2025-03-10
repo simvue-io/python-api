@@ -310,10 +310,10 @@ class SimvueObject(abc.ABC):
         """Retrieve a list of all object identifiers"""
         _class_instance = cls(_read_only=True, _local=True)
         _count: int = 0
-        for _data in cls._get_all_objects(offset):
+        for response in cls._get_all_objects(offset):
             if count and _count > count:
                 return
-            if _data.get("data") is None:
+            if (_data := response.get("data")) is None:
                 raise RuntimeError(
                     f"Expected key 'data' for retrieval of {_class_instance.__class__.__name__.lower()}s"
                 )

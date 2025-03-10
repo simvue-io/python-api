@@ -333,7 +333,10 @@ class Client:
         """
         _ids = Folder.ids(filters=json.dumps([f"path == {path}"]))
 
-        return _ids[0] if _ids else None
+        try:
+            return next(_ids)
+        except StopIteration:
+            return None
 
     @prettify_pydantic
     @pydantic.validate_call
