@@ -443,6 +443,13 @@ class SimvueObject(abc.ABC):
         )
 
     def read_only(self, is_read_only: bool) -> None:
+        """Set whether this object is in read only state.
+
+        Parameters
+        ----------
+        is_read_only : bool
+            whether object is read only.
+        """
         self._read_only = is_read_only
 
         # If using writable mode, clear the staging dictionary as
@@ -649,6 +656,10 @@ class SimvueObject(abc.ABC):
         return self._get() | self._staging
 
     def on_reconnect(self, id_mapping: dict[str, str]) -> None:
+        """Executed when a run switches from offline to online mode.
+
+        In this case no action is taken.
+        """
         pass
 
     @property

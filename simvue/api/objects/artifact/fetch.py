@@ -15,6 +15,16 @@ __all__ = ["Artifact"]
 class Artifact:
     """Generic Simvue artifact retrieval class"""
 
+    def __init__(self, identifier: str | None = None, *args, **kwargs) -> None:
+        """Initialise an instance of generic artifact retriever.
+
+        Parameters
+        ----------
+        identifier : str
+            identifier of artifact object to retrieve
+        """
+        super().__init__(identifier=identifier, *args, **kwargs)
+
     def __new__(cls, identifier: str | None = None, **kwargs):
         """Retrieve an object representing an Artifact by id"""
         _artifact_pre = ArtifactBase(identifier=identifier, **kwargs)
@@ -86,6 +96,20 @@ class Artifact:
     def from_name(
         cls, run_id: str, name: str, **kwargs
     ) -> typing.Union[FileArtifact | ObjectArtifact, None]:
+        """Retrieve an artifact by name.
+
+        Parameters
+        ----------
+        run_id : str
+            the identifier of the run to retrieve from.
+        name : str
+            the name of the artifact to retrieve.
+
+        Returns
+        -------
+        FileArtifact | ObjectArtifact | None
+            the artifact if found
+        """
         _temp = ArtifactBase(**kwargs)
         _url = URL(_temp._user_config.server.url) / f"runs/{run_id}/artifacts"
         _response = sv_get(url=f"{_url}", params={"name": name}, headers=_temp._headers)

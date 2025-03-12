@@ -139,11 +139,27 @@ class Metrics(SimvueObject):
         return super()._post(is_json=False, **kwargs)
 
     def delete(self, **kwargs) -> dict[str, typing.Any]:
+        """Metrics cannot be deleted"""
         raise NotImplementedError("Cannot delete metric set")
 
     def on_reconnect(self, id_mapping: dict[str, str]):
+        """Action performed when mode switched from offline to online.
+
+        Parameters
+        ----------
+        id_mapping : dict[str, str]
+            mapping from offline to online identifier.
+
+        """
         if online_run_id := id_mapping.get(self._staging["run"]):
             self._staging["run"] = online_run_id
 
     def to_dict(self) -> dict[str, typing.Any]:
+        """Convert metrics object to dictionary.
+
+        Returns
+        -------
+        dict[str, Any]
+            dictionary representation of metrics object.
+        """
         return self._staging
