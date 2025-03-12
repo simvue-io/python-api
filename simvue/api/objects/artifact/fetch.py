@@ -36,8 +36,11 @@ class Artifact:
         ----------
         run_id : str
             The ID of the run to retriece artifacts from
-        category : typing.Literal["input", "output", "code"] | None, optional
-            The category of artifacts to return, by default all artifacts are returned
+        category : Literal['input', 'output', 'code'] | None
+            category of artifacts to return, if None, do not filter
+                * input - this file is an input file.
+                * output - this file is created by the run.
+                * code - this file represents an executed script
 
         Returns
         -------

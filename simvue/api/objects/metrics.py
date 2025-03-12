@@ -22,12 +22,15 @@ __all__ = ["Metrics"]
 
 
 class Metrics(SimvueObject):
+    """Class for retrieving metrics stored on the server."""
+
     def __init__(
         self,
         _read_only: bool = True,
         _local: bool = False,
         **kwargs,
     ) -> None:
+        """Initialise a Metrics object instance."""
         self._label = "metric"
         super().__init__(_read_only=_read_only, _local=_local, **kwargs)
         self._run_id = self._staging.get("run")
@@ -35,9 +38,24 @@ class Metrics(SimvueObject):
     @classmethod
     @pydantic.validate_call
     def new(
-        cls, *, run: str, offline: bool = False, metrics: list[MetricSet], **kwargs
+        cls, *, run: str, metrics: list[MetricSet], offline: bool = False, **kwargs
     ):
-        """Create a new Metrics entry on the Simvue server"""
+        """Create a new Metrics entry on the Simvue server.
+
+        Parameters
+        ----------
+        run: str
+            identifier for the run to attach metrics to.
+        metrics: list[MetricSet]
+            set of metrics to attach to run.
+        offline: bool, optional
+            whether to create in offline mode, default is False.
+
+        Returns
+        -------
+        Metrics
+            metrics object
+        """
         return Metrics(
             run=run,
             metrics=[metric.model_dump() for metric in metrics],
@@ -57,6 +75,29 @@ class Metrics(SimvueObject):
         offset: pydantic.PositiveInt | None = None,
         **kwargs,
     ) -> typing.Generator[MetricSet, None, None]:
+        """Retrieve metrics from the server for a given set of runs.
+
+        Parameters
+        ----------
+        metrics: list[str]
+            name of metrics to retrieve.
+        xaxis : Literal["step", "time", "timestamp"]
+            the x-axis type
+                * step - enumeration.
+                * time - time in seconds.
+                * timestamp - time stamp.
+        runs : list[str]
+            list of runs to return metrics for.
+        count : int | None, optional
+            limit result count.
+        offset : int | None, optional
+            index offset for count.
+
+        Yields
+        ------
+        MetricSet
+            metric set object containing metrics for run.
+        """
         _class_instance = cls(_read_only=True, _local=True)
         _data = cls._get_all_objects(
             count,
@@ -97,9 +138,7 @@ class Metrics(SimvueObject):
     def _post(self, **kwargs) -> dict[str, typing.Any]:
         return super()._post(is_json=False, **kwargs)
 
-    def delete(
-        self, _linked_objects: list[str] | None = None, **kwargs
-    ) -> dict[str, typing.Any]:
+    def delete(self, **kwargs) -> dict[str, typing.Any]:
         raise NotImplementedError("Cannot delete metric set")
 
     def on_reconnect(self, id_mapping: dict[str, str]):
