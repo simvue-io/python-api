@@ -51,7 +51,7 @@ def test_check_run_initialised_decorator() -> None:
 @pytest.mark.codecarbon
 def test_run_with_emissions() -> None:
     with sv_run.Run() as run_created:
-        run_created.init(retention_period="1 min")
+        run_created.init(folder="/simvue_client_unit_tests", retention_period="1 min", tags=["test_run_with_emissions"])
         run_created.config(enable_emission_metrics=True, emission_metrics_interval=1)
         time.sleep(5)
         _run = RunObject(identifier=run_created.id)
@@ -1052,3 +1052,4 @@ def test_reconnect(mode, monkeypatch: pytest.MonkeyPatch) -> None:
     _reconnected_run = client.get_run(run_id)
     assert dict(_reconnected_run.metrics)["test_metric"]["last"] == 1
     assert client.get_events(run_id)[0]["message"] == "Testing!"
+

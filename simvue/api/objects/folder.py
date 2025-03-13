@@ -10,8 +10,8 @@ a new folder given relevant arguments.
 import pathlib
 import typing
 import datetime
+import json
 
-from codecarbon.output_methods.emissions_data import json
 import pydantic
 
 from simvue.exception import ObjectNotFoundError
