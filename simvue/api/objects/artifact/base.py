@@ -68,7 +68,7 @@ class ArtifactBase(SimvueObject):
         Parameters
         ----------
         run_id : str
-            identifier of tun to associated this artifact with.
+            identifier of run to associate this artifact with.
         category : Literal['input', 'output', 'code']
             category of this artifact with respect to the run.
         """
