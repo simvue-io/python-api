@@ -128,6 +128,14 @@ class Visibility:
         self._update_visibility("tenant", tenant)
 
 
+class Sort(pydantic.BaseModel):
+    column: str
+    descending: bool = True
+
+    def to_params(self) -> dict[str, str]:
+        return {"id": self.column, "desc": self.descending}
+
+
 class SimvueObject(abc.ABC):
     def __init__(
         self,
@@ -323,7 +331,13 @@ class SimvueObject(abc.ABC):
         **kwargs,
     ) -> typing.Generator[tuple[str, T | None], None, None]:
         _class_instance = cls(_read_only=True, _local=True)
-        if (_data := cls._get_all_objects(count, offset, **kwargs).get("data")) is None:
+        if (
+            _data := cls._get_all_objects(
+                count=count,
+                offset=offset,
+                **kwargs,
+            ).get("data")
+        ) is None:
             raise RuntimeError(
                 f"Expected key 'data' for retrieval of {_class_instance.__class__.__name__.lower()}s"
             )
@@ -350,14 +364,19 @@ class SimvueObject(abc.ABC):
 
     @classmethod
     def _get_all_objects(
-        cls, count: int | None, offset: int | None, **kwargs
+        cls,
+        count: int | None,
+        offset: int | None,
+        **kwargs,
     ) -> dict[str, typing.Any]:
         _class_instance = cls(_read_only=True)
         _url = f"{_class_instance._base_url}"
+        _params: dict[str, int | str] = {"start": offset, "count": count}
+
         _response = sv_get(
             _url,
             headers=_class_instance._headers,
-            params={"start": offset, "count": count} | kwargs,
+            params=_params | kwargs,
         )
 
         _label = _class_instance.__class__.__name__.lower()
