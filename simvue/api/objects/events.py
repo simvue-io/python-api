@@ -108,9 +108,7 @@ class Events(SimvueObject):
         )
         return _json_response.get("data")
 
-    def delete(
-        self, _linked_objects: list[str] | None = None, **kwargs
-    ) -> dict[str, typing.Any]:
+    def delete(self, **kwargs) -> dict[str, typing.Any]:
         raise NotImplementedError("Cannot delete event set")
 
     def on_reconnect(self, id_mapping: dict[str, str]):

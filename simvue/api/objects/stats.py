@@ -20,6 +20,7 @@ class Stats(SimvueObject):
     """Class for accessing Server statistics."""
 
     def __init__(self) -> None:
+        """Initialise a statistics query object."""
         self.runs = RunStatistics(self)
         self._label = "stat"
         super().__init__()
@@ -30,11 +31,76 @@ class Stats(SimvueObject):
 
     @classmethod
     def new(cls, **kwargs) -> None:
-        """Creation of multiple stats objects is not logical here"""
+        """Creation of multiple stats objects is not logical here.
+
+        Raises
+        ------
+        AttributeError
+        """
         raise AttributeError("Creation of statistics objects is not supported")
 
+    @classmethod
+    def delete(cls, **kwargs) -> None:
+        """Deletion of stats object is not logical here.
+
+        Raises
+        ------
+        AttributeError
+        """
+        raise AttributeError("Deletion of statistics is not supported")
+
+    def read_only(self) -> None:
+        """Statistics can only be read-only.
+
+        Raises
+        ------
+        NotImplementedError
+        """
+        raise NotImplementedError("Statistics are not modifiable.")
+
+    def id(self) -> None:
+        """No unique indentifier for statistics retrieval.
+
+        Returns
+        -------
+        None
+        """
+        return None
+
+    def on_reconnect(self, **_) -> None:
+        """No offline to online reconnect functionality for statistics."""
+        pass
+
+    @classmethod
+    def get(cls, **kwargs) -> None:
+        """Retrieval of multiple stats object is not logical here.
+
+        Raises
+        ------
+        AttributeError
+        """
+        raise AttributeError(
+            "Retrieval of multiple of statistics objects is not supported"
+        )
+
+    @classmethod
+    def ids(cls, **kwargs) -> None:
+        """Retrieval of identifiers is not logical here.
+
+        Raises
+        ------
+        AttributeError
+        """
+        raise AttributeError("Retrieval of ids for statistics objects is not supported")
+
     def whoami(self) -> dict[str, str]:
-        """Return the current user"""
+        """Return the current user information.
+
+        Returns
+        -------
+        dict[str, str]
+            server response for 'whomai' query.
+        """
         _url: URL = URL(self._user_config.server.url) / "whoami"
         _response = sv_get(url=f"{_url}", headers=self._headers)
         return get_json_from_response(
@@ -56,8 +122,18 @@ class Stats(SimvueObject):
         return {}
 
     def to_dict(self) -> dict[str, typing.Any]:
-        """Returns dictionary form of statistics"""
+        """Dictionary form of statistics.
+
+        Returns
+        -------
+        doct[str, Any]
+            statistics data as dictionary
+        """
         return {"runs": self._get_run_stats()}
+
+    def commit(self) -> None:
+        """Does nothing, no data sendable to server."""
+        pass
 
 
 class RunStatistics:

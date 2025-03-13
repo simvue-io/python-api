@@ -64,7 +64,7 @@ class S3Storage(StorageBase):
             the secret access key, stored as a secret string
         bucket : str
             the bucket associated with this storage system
-        tenant_usable : bool
+        is_tenant_useable : bool
             whether this system is usable by the current tenant
         is_enabled : bool
             whether to enable this system
@@ -119,7 +119,13 @@ class Config:
     @property
     @staging_check
     def endpoint_url(self) -> str:
-        """Retrieve the endpoint URL for this storage"""
+        """Set/retrieve the endpoint URL for this storage.
+
+        Returns
+        -------
+        str
+            the endpoint for this storage object
+        """
         try:
             return self._sv_obj.get_config()["endpoint_url"]
         except KeyError as e:
@@ -131,7 +137,6 @@ class Config:
     @write_only
     @pydantic.validate_call
     def endpoint_url(self, endpoint_url: pydantic.HttpUrl) -> None:
-        """Modify the endpoint URL for this storage"""
         _config = self._sv_obj.get_config() | {"endpoint_url": endpoint_url.__str__()}
         self._sv_obj._staging["config"] = _config
 

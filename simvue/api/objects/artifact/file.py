@@ -14,6 +14,20 @@ except ImportError:
 
 
 class FileArtifact(ArtifactBase):
+    """File based artifact modification and creation class."""
+
+    def __init__(
+        self, identifier: str | None = None, _read_only: bool = True, **kwargs
+    ) -> None:
+        """Initialise a new file artifact connection.
+
+        Parameters
+        ----------
+        identifier : str, optional
+            the identifier of this object on the server.
+        """
+        super().__init__(identifier=identifier, _read_only=_read_only, **kwargs)
+
     @classmethod
     def new(
         cls,
@@ -36,8 +50,6 @@ class FileArtifact(ArtifactBase):
             the name for this artifact
         storage : str | None
             the identifier for the storage location for this object
-        category : "code" | "input" | "output"
-            the category of this artifact
         file_path : pathlib.Path | str
             path to the file this artifact represents
         mime_type : str | None

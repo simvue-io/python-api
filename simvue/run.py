@@ -102,7 +102,7 @@ def check_run_initialised(
 
 
 class Run:
-    """Track simulation details based on token and URL
+    """Track simulation details based on token and URL.
 
     The Run class provides a way of monitoring simulation runs by logging metrics
     and creating alerts based on such metrics. The recommended usage is as a
@@ -126,9 +126,9 @@ class Run:
         ----------
         mode : Literal['online', 'offline', 'disabled'], optional
             mode of running
-                online - objects sent directly to Simvue server
-                offline - everything is written to disk for later dispatch
-                disabled - disable monitoring completely
+                * online - objects sent directly to Simvue server
+                * offline - everything is written to disk for later dispatch
+                * disabled - disable monitoring completely
         abort_callback : Callable | None, optional
             callback executed when the run is aborted
         server_token : str, optional
@@ -137,6 +137,14 @@ class Run:
             overwrite value for server URL, default is None
         debug : bool, optional
             run in debug mode, default is False
+
+        Examples
+        --------
+
+        ```python
+        with simvue.Run() as run:
+            ...
+        ```
         """
         self._uuid: str = f"{uuid.uuid4()}"
         self._name: str | None = None
@@ -622,8 +630,11 @@ class Run:
         folder : str, optional
             folder within which to store the run, by default "/"
         notification: typing.Literal["none", "all", "error", "lost"], optional
-            whether to notify the user by email upon completion of the run if
-            the run is in the specified state, by default "none"
+            email notification settings
+                * none - do not notify (default).
+                * all - notify for all updates.
+                * error - notify on errors.
+                * lost - notify if run lost.
         running : bool, optional
             whether to set the status as running or created, the latter implying
             the run will be commenced at a later time. Default is True.
@@ -1029,9 +1040,9 @@ class Run:
             identifier of storage to use, by default None
         abort_on_alert : Literal['ignore', run', 'terminate'], optional
             whether to abort when an alert is triggered.
-            If 'run' then the current run is aborted.
-            If 'terminate' then the script itself is terminated.
-            If 'ignore' then alerts will not affect this run
+                * run - current run is aborted.
+                * terminate - script itself is terminated.
+                * ignore - alerts do not affect this run.
 
         Returns
         -------
@@ -1335,6 +1346,9 @@ class Run:
             object to serialize and send to the server
         category : Literal['input', 'output', 'code']
             category of file with respect to this run
+                * input - this file is an input file.
+                * output - this file is created by the run.
+                * code - this file represents an executed script
         name : str, optional
             name to associate with this object, by default None
         allow_pickle : bool, optional
@@ -1391,6 +1405,9 @@ class Run:
             path to the file to upload
         category : Literal['input', 'output', 'code']
             category of file with respect to this run
+                * input - this file is an input file.
+                * output - this file is created by the run.
+                * code - this file represents an executed script
         file_type : str, optional
             the MIME file type else this is deduced, by default None
         preserve_path : bool, optional
@@ -1453,8 +1470,11 @@ class Run:
         ----------
         directory : pydantic.DirectoryPath
             the directory to save to the run
-        category : Literal[['output', 'input', 'code']
-            the category to assign to the saved objects within this directory
+        category : Literal['input', 'output', 'code']
+            category of file with respect to this run
+                * input - this file is an input file.
+                * output - this file is created by the run.
+                * code - this file represents an executed script
         file_type : str, optional
             manually specify the MIME type for items in the directory, by default None
         preserve_path : bool, optional
@@ -1500,7 +1520,10 @@ class Run:
         items : list[pydantic.FilePath | pydantic.DirectoryPath]
             list of file paths and directories to save
         category : Literal['input', 'output', 'code']
-            the category to assign to the saved objects
+            category of file with respect to this run
+                * input - this file is an input file.
+                * output - this file is created by the run.
+                * code - this file represents an executed script
         file_type : str, optional
             manually specify the MIME type for all items, by default None
         preserve_path : bool, optional
@@ -1540,6 +1563,9 @@ class Run:
         ----------
         status : Literal['completed', 'failed', 'terminated']
             status to set the run to
+                * completed - run finished with zero exit status.
+                * failed - run failed to complete.
+                * terminated - run was aborted.
 
         Returns
         -------
@@ -1767,7 +1793,8 @@ class Run:
         range_high : float, optional
             the upper bound value
         rule : Literal['is inside range', 'is outside range']
-            rule defining range alert conditions
+            * is inside range - metric value falls within value range.
+            * is outside range - metric value falls outside of value range.
         description : str, optional
             description for this alert, default None
         window : PositiveInt, optional
@@ -1775,9 +1802,15 @@ class Run:
         frequency : PositiveInt, optional
             frequency at which to check alert condition in seconds, by default 1
         aggregation : Literal['average', 'sum', 'at least one', 'all'], optional
-            method to use when aggregating metrics within time window, default 'average'.
+            method to use when aggregating metrics within time window
+                * average - average across all values in window (default).
+                * sum - take the sum of all values within window.
+                * at least one - returns if at least one value in window satisfy condition.
+                * all - returns if all values in window satisfy condition.
         notification : Literal['email', 'none'], optional
-            whether to notify on trigger, by default "none"
+            whether to notify on trigger
+                * email - send email to user on notify.
+                * none - send no notifications (default).
         trigger_abort : bool, optional
             whether this alert can trigger a run abort, default False
         attach_to_run : bool, optional
@@ -1839,8 +1872,10 @@ class Run:
             metric to monitor
         threshold : float
             the threshold value
-        rule : Literal['is inside range', 'is outside range']
-            rule defining range alert conditions
+        rule : Literal['is above', 'is below']
+            rule defining threshold alert conditions
+                * is above - value is above threshold.
+                * is below - value is below threshold.
         description : str, optional
             description for this alert, default None
         window : PositiveInt, optional
@@ -1848,9 +1883,15 @@ class Run:
         frequency : PositiveInt, optional
             frequency at which to check alert condition in seconds, by default 1
         aggregation : Literal['average', 'sum', 'at least one', 'all'], optional
-            method to use when aggregating metrics within time window, default 'average'.
+            method to use when aggregating metrics within time window
+                * average - average across all values in window (default).
+                * sum - take the sum of all values within window.
+                * at least one - returns if at least one value in window satisfy condition.
+                * all - returns if all values in window satisfy condition.
         notification : Literal['email', 'none'], optional
-            whether to notify on trigger, by default "none"
+            whether to notify on trigger
+                * email - send email to user on notify.
+                * none - send no notifications (default).
         trigger_abort : bool, optional
             whether this alert can trigger a run abort, default False
         attach_to_run : bool, optional
@@ -1907,7 +1948,9 @@ class Run:
         frequency : PositiveInt, optional
             frequency at which to check alert condition in seconds, by default None
         notification : Literal['email', 'none'], optional
-            whether to notify on trigger, by default "none"
+            whether to notify on trigger
+                * email - send email to user on notify.
+                * none - send no notifications (default).
         trigger_abort : bool, optional
             whether this alert can trigger a run abort
         attach_to_run : bool, optional
@@ -1955,7 +1998,9 @@ class Run:
         description : str, optional
             description for this alert, default None
         notification : Literal['email', 'none'], optional
-            whether to notify on trigger, by default "none"
+            whether to notify on trigger
+                * email - send email to user on notify.
+                * none - send no notifications (default).
         trigger_abort : bool, optional
             whether this alert can trigger a run abort, default False
         attach_to_run : bool, optional
@@ -1997,7 +2042,9 @@ class Run:
         name : str | None
             Name of the alert to update, by default None
         state : Literal['ok', 'critical']
-            state to set alert to, by default 'critical'
+            state to set alert to
+                * ok - alert is set to ok state.
+                * critical - alert is set to critical state (default).
 
         Returns
         -------
