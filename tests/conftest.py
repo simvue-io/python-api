@@ -71,6 +71,9 @@ def create_test_run(request) -> typing.Generator[typing.Tuple[sv_run.Run, dict],
 
 @pytest.fixture
 def create_test_run_offline(mocker: pytest_mock.MockerFixture, request, monkeypatch: pytest.MonkeyPatch) -> typing.Generator[typing.Tuple[sv_run.Run, dict], None, None]:
+    def testing_exit(status: int) -> None:
+        raise SystemExit(status)
+    mocker.patch("os._exit", testing_exit)
     with tempfile.TemporaryDirectory() as temp_d:
         monkeypatch.setenv("SIMVUE_OFFLINE_DIRECTORY", temp_d)
         with sv_run.Run("offline") as run:
@@ -79,7 +82,10 @@ def create_test_run_offline(mocker: pytest_mock.MockerFixture, request, monkeypa
 
 
 @pytest.fixture
-def create_plain_run(request) -> typing.Generator[typing.Tuple[sv_run.Run, dict], None, None]:
+def create_plain_run(request, mocker: pytest_mock.MockFixture) -> typing.Generator[typing.Tuple[sv_run.Run, dict], None, None]:
+    def testing_exit(status: int) -> None:
+        raise SystemExit(status)
+    mocker.patch("os._exit", testing_exit)
     with sv_run.Run() as run:
         yield run, setup_test_run(run, False, request)
     clear_out_files()
@@ -102,7 +108,10 @@ def create_plain_run_offline(mocker: pytest_mock.MockerFixture, request, monkeyp
 
 
 @pytest.fixture
-def create_run_object() -> sv_api_obj.Run:
+def create_run_object(mocker: pytest_mock.MockFixture) -> sv_api_obj.Run:
+    def testing_exit(status: int) -> None:
+        raise SystemExit(status)
+    mocker.patch("os._exit", testing_exit)
     _fix_use_id: str = str(uuid.uuid4()).split('-', 1)[0]
     _folder = sv_api_obj.Folder.new(path=f"/simvue_unit_testing/{_fix_use_id}")
     _folder.commit()
@@ -114,22 +123,24 @@ def create_run_object() -> sv_api_obj.Run:
 
 def setup_test_run(run: sv_run.Run, create_objects: bool, request: pytest.FixtureRequest, created_only: bool=False):
     fix_use_id: str = str(uuid.uuid4()).split('-', 1)[0]
+    _test_name: str = request.node.name.replace("[", "_").replace("]", "")
     TEST_DATA = {
         "event_contains": "sent event",
         "metadata": {
             "test_engine": "pytest",
-            "test_identifier": fix_use_id
+            "test_identifier": f"{_test_name}_{fix_use_id}"
         },
         "folder": f"/simvue_unit_testing/{fix_use_id}",
-        "tags": ["simvue_client_unit_tests", request.node.name.replace("[", "_").replace("]", "")]
+        "tags": ["simvue_client_unit_tests", _test_name]
     }
 
     if os.environ.get("CI"):
         TEST_DATA["tags"].append("ci")
 
     run.config(suppress_errors=False)
+    run._heartbeat_interval = 1
     run.init(
-        name=f"test_run_{TEST_DATA['metadata']['test_identifier']}_{uuid.uuid4()}",
+        name=TEST_DATA['metadata']['test_identifier'],
         tags=TEST_DATA["tags"],
         folder=TEST_DATA["folder"],
         visibility="tenant" if os.environ.get("CI") else None,

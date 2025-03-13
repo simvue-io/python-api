@@ -479,6 +479,9 @@ class SimvueObject(abc.ABC):
         if self._offline:
             return {"id": self._identifier}
 
+        if not self._identifier:
+            raise RuntimeError(f"Object of type '{self._label}' has no identifier.")
+
         if not self.url:
             raise RuntimeError(f"Identifier for instance of {self._label} Unknown")
         _response = sv_delete(url=f"{self.url}", headers=self._headers, params=kwargs)
