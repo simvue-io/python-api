@@ -16,8 +16,24 @@ import pydantic
 
 from simvue.exception import ObjectNotFoundError
 
-from .base import SimvueObject, staging_check, write_only
+from .base import SimvueObject, staging_check, write_only, Sort
 from simvue.models import FOLDER_REGEX, DATETIME_FORMAT
+
+# Need to use this inside of Generator typing to fix bug present in Python 3.10 - see issue #745
+T = typing.TypeVar("T", bound="Folder")
+
+
+class FolderSort(Sort):
+    @pydantic.field_validator("column")
+    @classmethod
+    def check_column(cls, column: str) -> str:
+        if (
+            column
+            and column not in ("created", "modified", "path")
+            and not column.startswith("metadata.")
+        ):
+            raise ValueError(f"Invalid sort column for folders '{column}")
+        return column
 
 
 class Folder(SimvueObject):
@@ -59,6 +75,17 @@ class Folder(SimvueObject):
     ):
         """Create a new Folder on the Simvue server with the given path"""
         return Folder(path=path, _read_only=False, _offline=offline, **kwargs)
+
+    @classmethod
+    @pydantic.validate_call
+    def get(
+        cls,
+        count: pydantic.PositiveInt | None = None,
+        offset: pydantic.NonNegativeInt | None = None,
+        sorting: list[FolderSort] | None = None,
+        **kwargs,
+    ) -> typing.Generator[tuple[str, T | None], None, None]:
+        return super().get(count=count, offset=offset, sorting=sorting)
 
     @property
     @staging_check

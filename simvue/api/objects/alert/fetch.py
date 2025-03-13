@@ -8,10 +8,12 @@ with an identifier, use a generic alert object.
 
 import typing
 import http
+import json
 
 import pydantic
 
 from simvue.api.objects.alert.user import UserAlert
+from simvue.api.objects.base import Sort
 from simvue.api.request import get_json_from_response
 from simvue.api.request import get as sv_get
 from .events import EventsAlert
@@ -19,6 +21,15 @@ from .metrics import MetricsThresholdAlert, MetricsRangeAlert
 from .base import AlertBase
 
 AlertType = EventsAlert | UserAlert | MetricsThresholdAlert | MetricsRangeAlert
+
+
+class AlertSort(Sort):
+    @pydantic.field_validator("column")
+    @classmethod
+    def check_column(cls, column: str) -> str:
+        if column and column not in ("name", "created"):
+            raise ValueError(f"Invalid sort column for alerts '{column}'")
+        return column
 
 
 class Alert:
@@ -50,11 +61,13 @@ class Alert:
         raise RuntimeError(f"Unknown source type '{_alert_pre.source}'")
 
     @classmethod
+    @pydantic.validate_call
     def get(
         cls,
         offline: bool = False,
         count: int | None = None,
         offset: int | None = None,
+        sorting: list[AlertSort] | None = None,
         **kwargs,
     ) -> typing.Generator[tuple[str, AlertType], None, None]:
         """Fetch all alerts from the server for the current user.
@@ -65,6 +78,8 @@ class Alert:
             limit the number of results, default of None returns all.
         offset : int, optional
             start index for returned results, default of None starts at 0.
+        sorting : list[dict] | None, optional
+            list of sorting definitions in the form {'column': str, 'descending': bool}
 
         Yields
         ------
@@ -80,11 +95,15 @@ class Alert:
 
         _class_instance = AlertBase(_local=True, _read_only=True)
         _url = f"{_class_instance._base_url}"
+        _params: dict[str, int | str] = {"start": offset, "count": count}
+
+        if sorting:
+            _params["sorting"] = json.dumps([sort.to_params() for sort in sorting])
 
         _response = sv_get(
             _url,
             headers=_class_instance._headers,
-            params={"start": offset, "count": count} | kwargs,
+            params=_params | kwargs,
         )
 
         _label: str = _class_instance.__class__.__name__.lower()
