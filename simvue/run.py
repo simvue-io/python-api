@@ -201,6 +201,7 @@ class Run:
         self._heartbeat_thread: threading.Thread | None = None
 
         self._heartbeat_interval: int = HEARTBEAT_INTERVAL
+        self._emissions_monitor: CO2Monitor | None = None
         self._emission_metrics_interval: int | None = (
             HEARTBEAT_INTERVAL
             if (
@@ -209,28 +210,6 @@ class Run:
             )
             else self._user_config.metrics.emission_metrics_interval
         )
-        if mode == "offline":
-            if not (_co2_intensity := self._user_config.eco.co2_intensity):
-                self._error(
-                    "Cannot record emission metrics, "
-                    "a CO2 intensity value is required in offline mode."
-                )
-            # Create an emissions monitor with no API calls
-            self._emissions_monitor = CO2Monitor(
-                intensity_refresh_rate=None,
-                co2_intensity=_co2_intensity,
-                local_data_directory=self._user_config.eco.local_data_directory,
-                co2_signal_api_token=None,
-                cpu_idle_power=self._user_config.eco.cpu_idle_power,
-            )
-        else:
-            self._emissions_monitor = CO2Monitor(
-                intensity_refresh_rate=self._user_config.eco.intensity_refresh_rate,
-                local_data_directory=self._user_config.eco.local_data_directory,
-                co2_signal_api_token=self._user_config.eco.co2_signal_api_token,
-                cpu_idle_power=self._user_config.eco.cpu_idle_power,
-                co2_intensity=self._user_config.eco.co2_intensity,
-            )
 
     def __enter__(self) -> Self:
         return self
