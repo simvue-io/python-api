@@ -7,6 +7,7 @@ Pydantic models for elements of the Simvue configuration file
 """
 
 import logging
+import re
 import time
 import pydantic
 import typing
@@ -48,6 +49,16 @@ class ServerSpecifications(pydantic.BaseModel):
 
 class OfflineSpecifications(pydantic.BaseModel):
     cache: pathlib.Path | None = None
+
+    @pydantic.field_validator("cache")
+    @classmethod
+    def check_valid_cache_path(cls, cache: pathlib.Path) -> pathlib.Path:
+        if not re.fullmatch(
+            r"^(\/|([a-zA-Z]:\\))?([\w\s.-]+[\\/])*[\w\s.-]*$", f"{cache}"
+        ):
+            raise AssertionError(f"Value '{cache}' is not a valid cache path.")
+        return cache
+
 
 class MetricsSpecifications(pydantic.BaseModel):
     resources_metrics_interval: pydantic.PositiveInt | None = -1
