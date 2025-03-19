@@ -413,30 +413,12 @@ class Run:
                 # Check if the user has aborted the run
                 with self._configuration_lock:
                     if self._sv_obj and self._sv_obj.abort_trigger:
-                        self._alert_raised_trigger.set()
-                        logger.debug("Received abort request from server")
-
-                        if abort_callback is not None:
-                            abort_callback(self)  # type: ignore
-
-                        if self._abort_on_alert != "ignore":
-                            self.kill_all_processes()
-                            if self._dispatcher and self._shutdown_event:
-                                self._shutdown_event.set()
-                                self._dispatcher.purge()
-                                self._dispatcher.join()
-                            if self._active:
-                                self.set_status("terminated")
-                            click.secho(
-                                "[simvue] Run was aborted.",
-                                fg="red" if self._term_color else None,
-                                bold=self._term_color,
-                            )
-                        if self._abort_on_alert == "terminate":
-                            os._exit(1)
+                        self._terminate_run(abort_callback=abort_callback)
 
                 if self._sv_obj:
                     self._sv_obj.send_heartbeat()
+
+                time.sleep(self.loop_frequency)
 
         return _heartbeat
 
@@ -957,6 +939,22 @@ class Run:
         """Return the unique id of the run"""
         return self._id
 
+    @property
+    def loop_frequency(self) -> int:
+        """Returns the current frequency of monitoring.
+
+        This value is the maximum frequency of heartbeat,
+        emissions metric and resource metric measuring.
+        """
+        # There is no point the loop interval being greater
+        # than any of the metric push or heartbeat intervals
+        # where None use heartbeat value as default
+        return min(
+            self._heartbeat_interval,
+            self._resources_metrics_interval or self._heartbeat_interval,
+            self._emission_metrics_interval or self._heartbeat_interval,
+        )
+
     @skip_if_failed("_aborted", "_suppress_errors", False)
     @pydantic.validate_call
     def reconnect(self, run_id: str) -> bool:
@@ -998,7 +996,6 @@ class Run:
             _process.cpu_percent()
             for _process in self._child_processes + [self._parent_process]
         ]
-        time.sleep(0.1)
 
     @skip_if_failed("_aborted", "_suppress_errors", False)
     @pydantic.validate_call

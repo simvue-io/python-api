@@ -117,7 +117,7 @@ class APIClient(pydantic.BaseModel):
         self._logger.debug(f"🍃 Retrieving carbon intensity data for: {_params}")
         _response = requests.get(f"{self.co2_api_endpoint}", params=_params)
 
-        if not _response.status_code == http.HTTPStatus.OK:
+        if _response.status_code != http.HTTPStatus.OK:
             raise RuntimeError(
                 "Failed to retrieve current CO2 signal data for"
                 f" country '{self._two_letter_country_code}': {_response.text}"

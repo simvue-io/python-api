@@ -1019,9 +1019,11 @@ def test_run_created_with_no_timeout() -> None:
 @pytest.mark.parametrize("mode", ("online", "offline"), ids=("online", "offline"))
 @pytest.mark.run
 def test_reconnect(mode, monkeypatch: pytest.MonkeyPatch) -> None:
+    temp_d: tempfile.TemporaryDirectory | None = None
+
     if mode == "offline":
         temp_d = tempfile.TemporaryDirectory()
-        monkeypatch.setenv("SIMVUE_OFFLINE_DIRECTORY", temp_d)
+        monkeypatch.setenv("SIMVUE_OFFLINE_DIRECTORY", temp_d.name)
 
     with simvue.Run(mode=mode) as run:
         run.init(
@@ -1052,4 +1054,7 @@ def test_reconnect(mode, monkeypatch: pytest.MonkeyPatch) -> None:
     _reconnected_run = client.get_run(run_id)
     assert dict(_reconnected_run.metrics)["test_metric"]["last"] == 1
     assert client.get_events(run_id)[0]["message"] == "Testing!"
+
+    if temp_d:
+        temp_d.cleanup()
 

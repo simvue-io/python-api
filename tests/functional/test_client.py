@@ -384,14 +384,13 @@ def test_alert_deletion() -> None:
 
 
 @pytest.mark.client
-def test_abort_run(create_plain_run: tuple[sv_run.Run, dict]) -> None:
+def test_abort_run(speedy_heartbeat, create_plain_run: tuple[sv_run.Run, dict]) -> None:
     run, run_data = create_plain_run
     _uuid = f"{uuid.uuid4()}".split("-")[0]
     run.update_tags([f"delete_me_{_uuid}"])
-    time.sleep(1)
     _client = svc.Client()
     _client.abort_run(run.id, reason="Test abort")
-    time.sleep(1)
+    time.sleep(0.5)
     assert run._status == "terminated"
 
 
