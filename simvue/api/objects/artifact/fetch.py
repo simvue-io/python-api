@@ -1,15 +1,29 @@
+import http
+import typing
+import pydantic
+import json
+
 from simvue.api.objects.artifact.base import ArtifactBase
+from simvue.api.objects.base import Sort
 from .file import FileArtifact
 from simvue.api.objects.artifact.object import ObjectArtifact
 from simvue.api.request import get_json_from_response, get as sv_get
 from simvue.api.url import URL
 from simvue.exception import ObjectNotFoundError
 
-import http
-import typing
-import pydantic
 
 __all__ = ["Artifact"]
+
+
+class ArtifactSort(Sort):
+    @pydantic.field_validator("column")
+    @classmethod
+    def check_column(cls, column: str) -> str:
+        if column and (
+            column not in ("name", "created") and not column.startswith("metadata.")
+        ):
+            raise ValueError(f"Invalid sort column for artifacts '{column}'")
+        return column
 
 
 class Artifact:
@@ -119,6 +133,7 @@ class Artifact:
         cls,
         count: int | None = None,
         offset: int | None = None,
+        sorting: list[ArtifactSort] | None = None,
         **kwargs,
     ) -> typing.Generator[tuple[str, FileArtifact | ObjectArtifact], None, None]:
         """Returns artifacts associated with the current user.
@@ -129,6 +144,8 @@ class Artifact:
             limit the number of results, default of None returns all.
         offset : int, optional
             start index for returned results, default of None starts at 0.
+        sorting : list[dict] | None, optional
+            list of sorting definitions in the form {'column': str, 'descending': bool}
 
         Yields
         ------
@@ -139,10 +156,15 @@ class Artifact:
 
         _class_instance = ArtifactBase(_local=True, _read_only=True)
         _url = f"{_class_instance._base_url}"
+        _params = {"start": offset, "count": count}
+
+        if sorting:
+            _params["sorting"] = json.dumps([sort.to_params() for sort in sorting])
+
         _response = sv_get(
             _url,
             headers=_class_instance._headers,
-            params={"start": offset, "count": count} | kwargs,
+            params=_params | kwargs,
         )
         _label: str = _class_instance.__class__.__name__.lower()
         _label = _label.replace("base", "")
