@@ -10,6 +10,7 @@ import contextlib
 import logging
 import psutil
 
+
 from .pynvml import (
     nvmlDeviceGetComputeRunningProcesses,
     nvmlDeviceGetCount,
@@ -20,6 +21,8 @@ from .pynvml import (
     nvmlInit,
     nvmlShutdown,
 )
+
+RESOURCES_METRIC_PREFIX: str = "resources"
 
 logger = logging.getLogger(__name__)
 
@@ -65,11 +68,11 @@ def is_gpu_used(handle, processes: list[psutil.Process]) -> bool:
     return len(list(set(gpu_pids) & set(pids))) > 0
 
 
-def get_gpu_metrics(processes: list[psutil.Process]) -> dict[str, float]:
+def get_gpu_metrics(processes: list[psutil.Process]) -> list[tuple[float, float]]:
     """
     Get GPU metrics
     """
-    gpu_metrics: dict[str, float] = {}
+    gpu_metrics: list[tuple[float, float]] = []
 
     with contextlib.suppress(Exception):
         nvmlInit()
@@ -80,11 +83,38 @@ def get_gpu_metrics(processes: list[psutil.Process]) -> dict[str, float]:
                 utilisation_percent = nvmlDeviceGetUtilizationRates(handle).gpu
                 memory = nvmlDeviceGetMemoryInfo(handle)
                 memory_percent = 100 * memory.free / memory.total
-                gpu_metrics[f"resources/gpu.utilisation.percent.{i}"] = (
-                    utilisation_percent
-                )
-                gpu_metrics[f"resources/gpu.memory.percent.{i}"] = memory_percent
+                gpu_metrics.append((utilisation_percent, memory_percent))
 
         nvmlShutdown()
 
     return gpu_metrics
+
+
+class SystemResourceMeasurement:
+    def __init__(
+        self,
+        processes: list[psutil.Process],
+        interval: float | None,
+        cpu_only: bool = False,
+    ) -> None:
+        self.cpu_percent: float | None = get_process_cpu(processes, interval=interval)
+        self.cpu_memory: float | None = get_process_memory(processes)
+        self.gpus: list[dict[str, float]] = (
+            None if cpu_only else get_gpu_metrics(processes)
+        )
+
+    def to_dict(self) -> dict[str, float]:
+        _metrics: dict[str, float] = {
+            f"{RESOURCES_METRIC_PREFIX}/cpu.usage.percentage": self.cpu_percent,
+            f"{RESOURCES_METRIC_PREFIX}/cpu.usage.memory": self.cpu_memory,
+        }
+
+        for i, gpu in enumerate(self.gpus):
+            _metrics[f"{RESOURCES_METRIC_PREFIX}/gpu.utilisation.percent.{i}"] = gpu[
+                "utilisation"
+            ]
+            _metrics[f"{RESOURCES_METRIC_PREFIX}/gpu.utilisation.memory.{i}"] = gpu[
+                "memory"
+            ]
+
+        return _metrics

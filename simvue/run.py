@@ -39,7 +39,7 @@ from .config.user import SimvueConfiguration
 
 from .factory.dispatch import Dispatcher
 from .executor import Executor
-from .metrics import get_gpu_metrics, get_process_cpu, get_process_memory
+from .metrics import SystemResourceMeasurement
 from .models import FOLDER_REGEX, NAME_REGEX, MetricKeyString
 from .system import get_system
 from .metadata import git_info, environment
@@ -293,38 +293,105 @@ class Run:
 
         return list(set(process_list))
 
-    def _get_sysinfo(self, interval: float | None = None) -> dict[str, typing.Any]:
-        """Retrieve system administration
+    def _terminate_run(
+        self,
+        abort_callback: typing.Callable[[Self], None] | None,
+        force_exit: bool = True,
+    ) -> None:
+        """Close the current simvue Run and its subprocesses.
+
+        Closes the run and all subprocesses with the default to being also.
+        To abort the actual Python execution as well.
 
         Parameters
         ----------
-        interval : float | None
-            The interval to use for collection of CPU metrics, by default None (non blocking)
-
-        Returns
-        -------
-        dict[str, typing.Any]
-            retrieved system specifications
+        abort_callback: Callable, optional
+            the callback to execute on the termination else None
+        force_exit: bool, optional
+            whether to close Python itself, the default is True
         """
-        processes = self.processes
-        cpu = get_process_cpu(processes, interval=interval)
-        memory = get_process_memory(processes)
-        gpu = get_gpu_metrics(processes)
-        data: dict[str, typing.Any] = {}
+        self._alert_raised_trigger.set()
+        logger.debug("Received abort request from server")
 
-        if memory is not None and cpu is not None:
-            data = {
-                f"{RESOURCES_METRIC_PREFIX}/cpu.usage.percent": cpu,
-                f"{RESOURCES_METRIC_PREFIX}/memory.usage": memory,
-            }
-            if gpu:
-                for item in gpu:
-                    data[item] = gpu[item]
-        return data
+        if abort_callback is not None:
+            abort_callback(self)  # type: ignore
+
+        if self._abort_on_alert != "ignore":
+            self.kill_all_processes()
+            if self._dispatcher and self._shutdown_event:
+                self._shutdown_event.set()
+                self._dispatcher.purge()
+                self._dispatcher.join()
+            if self._active:
+                self.set_status("terminated")
+            click.secho(
+                "[simvue] Run was aborted.",
+                fg="red" if self._term_color else None,
+                bold=self._term_color,
+            )
+        if self._abort_on_alert == "terminate":
+            os._exit(1) if force_exit else sys.exit(1)
+
+    def _get_internal_metrics(
+        self,
+        resource_metrics_step: int | None,
+        emission_metrics_step: int | None,
+    ) -> None:
+        """Refresh resource and emissions metrics.
+
+        Checks if the refresh interval has been satisfied for emissions
+        and resource metrics, if so adds latest values to dispatch.
+
+        Parameters
+        ----------
+        res_metric_prev_time: float
+            the previous time at which resource metrics were recorded.
+        ems_metric_prev_time: float
+            the previous time at which emissions metrics were recorded.
+        res_metric_step: int
+            the value count for resource metrics for this run.
+        ems_metric_step: int
+            the value count for emissions metrics for this run.
+
+        Return
+        ------
+        tuple[float, float]
+            new resource metric measure time
+            new emissions metric measure time
+        """
+        _current_system_measure = SystemResourceMeasurement(
+            self.processes, interval=None, cpu_only=not resource_metrics_step
+        )
+
+        if resource_metrics_step is not None:
+            # Set join on fail to false as if an error is thrown
+            # join would be called on this thread and a thread cannot
+            # join itself!
+            self._add_metrics_to_dispatch(
+                _current_system_measure.to_dict(),
+                join_on_fail=False,
+                step=resource_metrics_step,
+            )
+
+        if emission_metrics_step is not None:
+            self._emissions_monitor.estimate_co2_emissions(
+                cpu_percent=_current_system_measure.cpu_percent
+            )
+            self._add_metrics_to_dispatch(
+                {
+                    "sustainability.emissions.total": self._emissions_monitor.total_co2_emission,
+                    "sustainability.emissions.delta": self._emissions_monitor.total_co2_delta,
+                    "sustainability.energy_consumed.total": self._emissions_monitor.total_energy,
+                    "sustainability.energy_consumed.delta": self._emissions_monitor.total_energy_delta,
+                },
+                join_on_fail=False,
+                step=emission_metrics_step,
+            )
 
     def _create_heartbeat_callback(
         self,
     ) -> typing.Callable[[threading.Event], None]:
+        """Defines the callback executed at the heartbeat interval for the Run."""
         if (
             self._user_config.run.mode == "online"
             and (not self._user_config.server.url or not self._id)
@@ -332,80 +399,60 @@ class Run:
             raise RuntimeError("Could not commence heartbeat, run not initialised")
 
         def _heartbeat(
-            heartbeat_trigger: typing.Optional[
-                threading.Event
-            ] = self._heartbeat_termination_trigger,
-            abort_callback: typing.Optional[
-                typing.Callable[[Self], None]
-            ] = self._abort_callback,
+            heartbeat_trigger: threading.Event
+            | None = self._heartbeat_termination_trigger,
+            abort_callback: typing.Callable[[Self], None] | None = self._abort_callback,
         ) -> None:
             if not heartbeat_trigger:
                 raise RuntimeError("Expected initialisation of heartbeat")
 
-            last_heartbeat = time.time()
-            last_res_metric_call = time.time()
+            last_heartbeat: float = 0
+            last_res_metric_call: float = 0
+            last_co2_metric_call: float = 0
+
             co2_step: int = 0
             res_step: int = 0
-            last_co2_metric_call = time.time()
-
-            if self._resources_metrics_interval:
-                self._add_metrics_to_dispatch(
-                    self._get_sysinfo(interval=1), join_on_fail=False, step=0
-                )
-                res_step += 1
-
-            if self._emission_metrics_interval:
-                self._emissions_monitor.estimate_co2_emissions()
-                self._add_metrics_to_dispatch(
-                    {
-                        "sustainability.emissions.total": self._emissions_monitor.total_co2_emission,
-                        "sustainability.emissions.delta": self._emissions_monitor.total_co2_delta,
-                        "sustainability.energy_consumed.total": self._emissions_monitor.total_energy,
-                        "sustainability.energy_consumed.delta": self._emissions_monitor.total_energy_delta,
-                    },
-                    join_on_fail=False,
-                    step=0,
-                )
-                co2_step += 1
 
             while not heartbeat_trigger.is_set():
-                time.sleep(0.1)
-
                 with self._configuration_lock:
-                    if (
-                        self._resources_metrics_interval
-                        and (res_time := time.time()) - last_res_metric_call
+                    _current_time: float = time.time()
+                    _update_resource_metrics: bool = (
+                        self._resources_metrics_interval is not None
+                        and _current_time - last_res_metric_call
                         > self._resources_metrics_interval
-                    ):
-                        # Set join on fail to false as if an error is thrown
-                        # join would be called on this thread and a thread cannot
-                        # join itself!
-                        self._add_metrics_to_dispatch(
-                            self._get_sysinfo(), join_on_fail=False, step=res_step
-                        )
-                        last_res_metric_call = res_time
-                        res_step += 1
-                    if (
-                        self._emission_metrics_interval
+                    )
+                    _update_emissions_metrics: bool = (
+                        self._emission_metrics_interval is not None
                         and self._emissions_monitor
-                        and (co2_time := time.time()) - last_co2_metric_call
+                        and _current_time - last_co2_metric_call
                         > self._emission_metrics_interval
-                    ):
-                        self._emissions_monitor.estimate_co2_emissions()
-                        self._add_metrics_to_dispatch(
-                            {
-                                "sustainability.emissions.total": self._emissions_monitor.total_co2_emission,
-                                "sustainability.emissions.delta": self._emissions_monitor.total_co2_delta,
-                                "sustainability.energy_consumed.total": self._emissions_monitor.total_energy,
-                                "sustainability.energy_consumed.delta": self._emissions_monitor.total_energy_delta,
-                            },
-                            join_on_fail=False,
-                            step=co2_step,
-                        )
-                        last_co2_metric_call = co2_time
-                        co2_step += 1
+                    )
+
+                    self._get_internal_metrics(
+                        emission_metrics_step=co2_step
+                        if _update_emissions_metrics
+                        else None,
+                        resource_metrics_step=res_step
+                        if _update_resource_metrics
+                        else None,
+                    )
+
+                    res_step += int(_update_resource_metrics)
+                    co2_step += int(_update_emissions_metrics)
+
+                    last_res_metric_call = (
+                        _current_time
+                        if _update_resource_metrics
+                        else last_res_metric_call
+                    )
+                    last_co2_metric_call = (
+                        _current_time
+                        if _update_emissions_metrics
+                        else last_co2_metric_call
+                    )
 
                 if time.time() - last_heartbeat < self._heartbeat_interval:
+                    time.sleep(self.loop_frequency)
                     continue
 
                 last_heartbeat = time.time()

@@ -6,22 +6,15 @@ Provides an interface for estimating CO2 usage for processes on the CPU.
 """
 
 __author__ = "Kristian Zarebski"
-__version__ = "0.1.0"
-__license__ = "MIT"
 __date__ = "2025-02-27"
 
 import datetime
 import json
 import pydantic
 import dataclasses
-import threading
-import time
 import logging
-import typing
-import psutil
 import humanfriendly
 import pathlib
-import os
 
 from simvue.eco.api_client import APIClient, CO2SignalResponse
 
@@ -30,7 +23,6 @@ TIME_FORMAT: str = "%Y_%m_%d_%H_%M_%S"
 
 @dataclasses.dataclass
 class ProcessData:
-    process: psutil.Process
     cpu_percentage: float = 0.0
     power_usage: float = 0.0
     total_energy: float = 0.0
@@ -145,44 +137,22 @@ class CO2Monitor(pydantic.BaseModel):
         )
         self._processes: dict[str, ProcessData] = {}
 
-    @pydantic.validate_call(config={"arbitrary_types_allowed": True})
-    def attach_process(
-        self, process: psutil.Process | None = None, label: str | None = None
-    ) -> str:
-        """
-        Attach a process to the CO2 Monitor.
-
-        Parameters
-        ----------
-        process : psutil.Process | None
-            The process to monitor, if None measures the current running process. Default is None.
-        label : str | None
-            The label to assign to the process. Default is process_<pid>.
-
-        Returns
-        -------
-        int
-            The PID of the process.
-        """
-        if process is None:
-            process = psutil.Process(pid=os.getpid())
-
-        self._logger.info(f"📎 Attaching process with PID {process.pid}")
-
-        label = label or f"process_{process.pid}"
-        self._processes[label] = ProcessData(process=process)
-
-        return label
-
-    def estimate_co2_emissions(self) -> None:
+    def estimate_co2_emissions(
+        self, process_id: str, cpu_percent: float, cpu_interval: float
+    ) -> None:
         """Estimate the CO2 emissions"""
-        self._logger.info("📐 Measuring CPU usage and power.")
+        self._logger.debug(
+            f"📐 Estimating CO2 emissions from CPU usage of {cpu_percent}% in interval {cpu_interval}s."
+        )
 
         if self._local_data is None:
             raise RuntimeError("Expected local data to be initialised.")
 
         if not self._data_file_path:
             raise RuntimeError("Expected local data file to be defined.")
+
+        if not (_process := self._processes.get(process_id)):
+            self._processes[process_id] = (_process := ProcessData())
 
         if (
             not self.co2_intensity
@@ -207,86 +177,30 @@ class CO2Monitor(pydantic.BaseModel):
             _current_co2_intensity = self._current_co2_data.data.carbon_intensity
             _co2_units = self._current_co2_data.carbon_intensity_units
 
-        for label, process in self._processes.items():
-            process.cpu_percentage = process.process.cpu_percent(
-                interval=self.cpu_interval
-            )
-            _previous_energy: float = process.total_energy
-            process.power_usage = min(
-                self.cpu_idle_power,
-                (process.cpu_percentage / 100.0) * self.thermal_design_power_per_core,
-            )
-            process.total_energy += process.power_usage * self.cpu_interval
-            process.energy_delta = process.total_energy - _previous_energy
+        _process.cpu_percentage = cpu_percent
+        _previous_energy: float = _process.total_energy
+        _process.power_usage = min(
+            self.cpu_idle_power,
+            (_process.cpu_percentage / 100.0) * self.thermal_design_power_per_core,
+        )
+        _process.total_energy += _process.power_usage * self.cpu_interval
+        _process.energy_delta = _process.total_energy - _previous_energy
 
-            # Measured value is in g/kWh, convert to kg/kWs
-            _carbon_intensity_kgpws: float = _current_co2_intensity / (60 * 60 * 1e3)
+        # Measured value is in g/kWh, convert to kg/kWs
+        _carbon_intensity_kgpws: float = _current_co2_intensity / (60 * 60 * 1e3)
 
-            _previous_emission: float = process.co2_emission
+        _previous_emission: float = _process.co2_emission
 
-            process.co2_delta = (
-                process.power_usage * _carbon_intensity_kgpws * self.cpu_interval
-            )
+        _process.co2_delta = (
+            _process.power_usage * _carbon_intensity_kgpws * self.cpu_interval
+        )
 
-            process.co2_emission += process.co2_delta
+        _process.co2_emission += _process.co2_delta
 
-            self._logger.debug(
-                f"📝 For process '{label}', recorded: CPU={process.cpu_percentage}%, "
-                f"Power={process.power_usage}W, CO2={process.co2_emission}{_co2_units}"
-            )
-
-    @pydantic.validate_call(config={"arbitrary_types_allowed": True})
-    def run(
-        self,
-        termination_trigger: threading.Event,
-        callback: typing.Callable,
-        measure_interval: pydantic.PositiveFloat = pydantic.Field(default=10.0, gt=2.0),
-        return_all: bool = False,
-    ) -> None:
-        """Run the API client in a thread.
-
-        Parameters
-        ----------
-        termination_trigger : threading.Event
-            thread event used to terminate monitor
-        callback : typing.Callable
-            callback to execute on measured results
-        measure_interval : float, optional
-            interval of measurement, note the API is limited at a rate of 30 requests per
-            hour, therefore any interval less than 2 minutes will use the previously recorded CO2 intensity.
-            Default is 10 seconds.
-        return_all : bool, optional
-            whether to return all processes or just the current. Default is False.
-
-        Returns
-        -------
-        ProcessData | dict[str, ProcessData]
-            Either the process data for the current process or for all processes.
-        """
-        self._logger.info("🧵 Launching monitor in multi-threaded mode.")
-        self._logger.info(f"⌚ Will record at interval of {measure_interval}s.")
-
-        def _run(
-            monitor: "CO2Monitor" = self,
-            callback: typing.Callable = callback,
-            return_all: bool = return_all,
-        ) -> None:
-            if not return_all and not monitor.last_process:
-                raise ValueError("No processes attached to monitor.")
-
-            while not termination_trigger.is_set():
-                monitor.estimate_co2_emissions()
-                # Depending on user choice either
-                # return all process data or just the last
-                callback(
-                    monitor.process_data
-                    if return_all
-                    else monitor.process_data[monitor.last_process]  # type: ignore
-                )
-                time.sleep(measure_interval)
-
-        _thread = threading.Thread(target=_run)
-        _thread.start()
+        self._logger.debug(
+            f"📝 For _process '{process_id}', recorded: CPU={_process.cpu_percentage}%, "
+            f"Power={_process.power_usage}W, CO2={_process.co2_emission}{_co2_units}"
+        )
 
     @property
     def last_process(self) -> str | None:
@@ -299,10 +213,6 @@ class CO2Monitor(pydantic.BaseModel):
     @property
     def current_carbon_intensity(self) -> float:
         return self._client.get().data.carbon_intensity
-
-    @property
-    def total_cpu_percentage(self) -> float:
-        return sum(process.cpu_percentage for process in self._processes.values())
 
     @property
     def total_power_usage(self) -> float:
