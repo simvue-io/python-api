@@ -89,7 +89,8 @@ class APIClient(pydantic.BaseModel):
 
         if not self.co2_api_token:
             self._logger.warning(
-                "⚠️  No API token provided for CO2 Signal, it is recommended "
+                "⚠️  No API token provided for CO2 Signal, "
+                "use of a token is strongly recommended."
             )
 
         self._get_user_location_info()

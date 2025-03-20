@@ -375,15 +375,11 @@ class Run:
             self._emissions_monitor.estimate_co2_emissions(
                 process_id=f"{self._name}",
                 cpu_percent=_current_system_measure.cpu_percent,
-                cpu_interval=self._resources_metrics_interval,
+                measure_interval=self._resources_metrics_interval,
+                gpu_percent=_current_system_measure.gpu_percent,
             )
             self._add_metrics_to_dispatch(
-                {
-                    "sustainability.emissions.total": self._emissions_monitor.total_co2_emission,
-                    "sustainability.emissions.delta": self._emissions_monitor.total_co2_delta,
-                    "sustainability.energy_consumed.total": self._emissions_monitor.total_energy,
-                    "sustainability.energy_consumed.delta": self._emissions_monitor.total_energy_delta,
-                },
+                self._emissions_monitor.simvue_metrics(),
                 join_on_fail=False,
                 step=emission_metrics_step,
             )
@@ -1126,15 +1122,17 @@ class Run:
                         co2_intensity=_co2_intensity,
                         local_data_directory=self._user_config.eco.local_data_directory,
                         co2_signal_api_token=None,
-                        cpu_idle_power=self._user_config.eco.cpu_idle_power,
+                        thermal_design_power_per_cpu=self._user_config.eco.cpu_thermal_design_power,
+                        thermal_design_power_per_gpu=self._user_config.eco.gpu_thermal_design_power,
                     )
                 else:
                     self._emissions_monitor = CO2Monitor(
                         intensity_refresh_rate=self._user_config.eco.intensity_refresh_rate,
                         local_data_directory=self._user_config.eco.local_data_directory,
                         co2_signal_api_token=self._user_config.eco.co2_signal_api_token,
-                        cpu_idle_power=self._user_config.eco.cpu_idle_power,
                         co2_intensity=self._user_config.eco.co2_intensity,
+                        thermal_design_power_per_cpu=self._user_config.eco.cpu_thermal_design_power,
+                        thermal_design_power_per_gpu=self._user_config.eco.gpu_thermal_design_power,
                     )
 
             elif enable_emission_metrics is False and self._emissions_monitor:

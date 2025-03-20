@@ -24,6 +24,7 @@ TIME_FORMAT: str = "%Y_%m_%d_%H_%M_%S"
 @dataclasses.dataclass
 class ProcessData:
     cpu_percentage: float = 0.0
+    gpu_percentage: float | None = None
     power_usage: float = 0.0
     total_energy: float = 0.0
     energy_delta: float = 0.0
@@ -38,9 +39,8 @@ class CO2Monitor(pydantic.BaseModel):
     Provides an interface for estimating CO2 usage for processes on the CPU.
     """
 
-    thermal_design_power_per_core: pydantic.PositiveFloat | None
-    cpu_idle_power: pydantic.PositiveFloat
-    cpu_interval: float = 1.0
+    thermal_design_power_per_cpu: pydantic.PositiveFloat | None
+    thermal_design_power_per_gpu: pydantic.PositiveFloat | None
     local_data_directory: pydantic.DirectoryPath
     intensity_refresh_rate: int | None | str
     co2_intensity: float | None
@@ -58,9 +58,8 @@ class CO2Monitor(pydantic.BaseModel):
             return False
 
         _now: datetime.datetime = datetime.datetime.now()
-        _last_updated: str = self._local_data["last_updated"]
         _latest_time: datetime.datetime = datetime.datetime.strptime(
-            _last_updated, TIME_FORMAT
+            self._local_data["last_updated"], TIME_FORMAT
         )
         return (_now - _latest_time).seconds < self.intensity_refresh_rate
 
@@ -83,12 +82,10 @@ class CO2Monitor(pydantic.BaseModel):
 
         Parameters
         ----------
-        thermal_design_power_per_core: float | None
-            the TDP value for the CPU. Default of None uses naive 85W value.
-        cpu_idle_power: float
-            the idle power of the CPU, default is naive value of 10W.
-        cpu_interval: float
-            the interval within which to measure average CPU percentage, default is 1s.
+        thermal_design_power_per_cpu: float | None
+            the TDP value for each CPU, default is 80W.
+        thermal_design_power_per_gpu: float | None
+            the TDP value for each GPU, default is 130W.
         local_data_directory: pydantic.DirectoryPath
             the directory in which to store CO2 intensity data.
         intensity_refresh_rate: int | str | None
@@ -102,10 +99,17 @@ class CO2Monitor(pydantic.BaseModel):
             RECOMMENDED. The API token for CO2 signal, default is None.
         """
         _logger = logging.getLogger(self.__class__.__name__)
-        if not isinstance(kwargs.get("thermal_design_power_per_core"), float):
-            kwargs["thermal_design_power_per_core"] = 80.0
+
+        if not isinstance(kwargs.get("thermal_design_power_per_cpu"), float):
+            kwargs["thermal_design_power_per_cpu"] = 80.0
             _logger.warning(
                 "⚠️  No TDP value provided for current CPU, will use arbitrary value of 80W."
+            )
+
+        if not isinstance(kwargs.get("thermal_design_power_per_gpu"), float):
+            kwargs["thermal_design_power_per_gpu"] = 80.0
+            _logger.warning(
+                "⚠️  No TDP value provided for current GPUs, will use arbitrary value of 130W."
             )
         super().__init__(*args, **kwargs)
 
@@ -138,11 +142,15 @@ class CO2Monitor(pydantic.BaseModel):
         self._processes: dict[str, ProcessData] = {}
 
     def estimate_co2_emissions(
-        self, process_id: str, cpu_percent: float, cpu_interval: float
+        self,
+        process_id: str,
+        cpu_percent: float,
+        gpu_percent: float | None,
+        measure_interval: float,
     ) -> None:
         """Estimate the CO2 emissions"""
         self._logger.debug(
-            f"📐 Estimating CO2 emissions from CPU usage of {cpu_percent}% in interval {cpu_interval}s."
+            f"📐 Estimating CO2 emissions from CPU usage of {cpu_percent}% in interval {measure_interval}s."
         )
 
         if self._local_data is None:
@@ -177,13 +185,19 @@ class CO2Monitor(pydantic.BaseModel):
             _current_co2_intensity = self._current_co2_data.data.carbon_intensity
             _co2_units = self._current_co2_data.carbon_intensity_units
 
+        _process.gpu_percentage = gpu_percent
         _process.cpu_percentage = cpu_percent
         _previous_energy: float = _process.total_energy
-        _process.power_usage = min(
-            self.cpu_idle_power,
-            (_process.cpu_percentage / 100.0) * self.thermal_design_power_per_core,
-        )
-        _process.total_energy += _process.power_usage * self.cpu_interval
+        _process.power_usage = (
+            _process.cpu_percentage / 100.0
+        ) * self.thermal_design_power_per_cpu
+
+        if _process.gpu_percentage and self.thermal_design_power_per_gpu:
+            _process.power_usage += (
+                _process.gpu_percentage / 100.0
+            ) * self.thermal_design_power_per_gpu
+
+        _process.total_energy += _process.power_usage * measure_interval
         _process.energy_delta = _process.total_energy - _previous_energy
 
         # Measured value is in g/kWh, convert to kg/kWs
@@ -192,7 +206,7 @@ class CO2Monitor(pydantic.BaseModel):
         _previous_emission: float = _process.co2_emission
 
         _process.co2_delta = (
-            _process.power_usage * _carbon_intensity_kgpws * self.cpu_interval
+            _process.power_usage * _carbon_intensity_kgpws * measure_interval
         )
 
         _process.co2_emission += _process.co2_delta
@@ -200,6 +214,17 @@ class CO2Monitor(pydantic.BaseModel):
         self._logger.debug(
             f"📝 For _process '{process_id}', recorded: CPU={_process.cpu_percentage}%, "
             f"Power={_process.power_usage}W, CO2={_process.co2_emission}{_co2_units}"
+        )
+
+    def simvue_metrics(self) -> dict[str, float]:
+        """Retrieve metrics to send to Simvue server."""
+        return (
+            {
+                "sustainability.emissions.total": self.total_co2_emission,
+                "sustainability.emissions.delta": self.total_co2_delta,
+                "sustainability.energy_consumed.total": self.total_energy,
+                "sustainability.energy_consumed.delta": self.total_energy_delta,
+            },
         )
 
     @property
