@@ -232,4 +232,4 @@ class CO2Monitor(pydantic.BaseModel):
 
     @property
     def total_energy(self) -> float:
-        return sum(process.energy for process in self._processes.values())
+        return sum(process.total_energy for process in self._processes.values())

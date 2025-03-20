@@ -109,7 +109,7 @@ class SystemResourceMeasurement:
             f"{RESOURCES_METRIC_PREFIX}/cpu.usage.memory": self.cpu_memory,
         }
 
-        for i, gpu in enumerate(self.gpus):
+        for i, gpu in enumerate(self.gpus or []):
             _metrics[f"{RESOURCES_METRIC_PREFIX}/gpu.utilisation.percent.{i}"] = gpu[
                 "utilisation"
             ]

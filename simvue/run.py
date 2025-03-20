@@ -9,6 +9,7 @@ This forms the central API for users.
 import contextlib
 import logging
 import pathlib
+import math
 import mimetypes
 import multiprocessing.synchronize
 import threading
@@ -202,14 +203,6 @@ class Run:
 
         self._heartbeat_interval: int = HEARTBEAT_INTERVAL
         self._emissions_monitor: CO2Monitor | None = None
-        self._emission_metrics_interval: int | None = (
-            HEARTBEAT_INTERVAL
-            if (
-                (_interval := self._user_config.metrics.emission_metrics_interval)
-                and _interval < 1
-            )
-            else self._user_config.metrics.emission_metrics_interval
-        )
 
     def __enter__(self) -> Self:
         return self
@@ -336,6 +329,8 @@ class Run:
         self,
         resource_metrics_step: int | None,
         emission_metrics_step: int | None,
+        res_measure_interval: int | None = None,
+        ems_measure_interval: int | None = None,
     ) -> None:
         """Refresh resource and emissions metrics.
 
@@ -344,6 +339,7 @@ class Run:
 
         Parameters
         ----------
+        #TODO: update docs
         res_metric_prev_time: float
             the previous time at which resource metrics were recorded.
         ems_metric_prev_time: float
@@ -360,7 +356,9 @@ class Run:
             new emissions metric measure time
         """
         _current_system_measure = SystemResourceMeasurement(
-            self.processes, interval=None, cpu_only=not resource_metrics_step
+            self.processes,
+            interval=res_measure_interval,
+            cpu_only=not resource_metrics_step,
         )
 
         if resource_metrics_step is not None:
@@ -375,7 +373,9 @@ class Run:
 
         if emission_metrics_step is not None:
             self._emissions_monitor.estimate_co2_emissions(
-                cpu_percent=_current_system_measure.cpu_percent
+                process_id=f"{self._name}",
+                cpu_percent=_current_system_measure.cpu_percent,
+                cpu_interval=self._resources_metrics_interval,
             )
             self._add_metrics_to_dispatch(
                 {
@@ -413,6 +413,8 @@ class Run:
             co2_step: int = 0
             res_step: int = 0
 
+            initial_ems_metrics_interval: float = time.time() - self._start_time
+
             while not heartbeat_trigger.is_set():
                 with self._configuration_lock:
                     _current_time: float = time.time()
@@ -422,12 +424,17 @@ class Run:
                         > self._resources_metrics_interval
                     )
                     _update_emissions_metrics: bool = (
-                        self._emission_metrics_interval is not None
+                        self._resources_metrics_interval is not None
                         and self._emissions_monitor
                         and _current_time - last_co2_metric_call
-                        > self._emission_metrics_interval
+                        > self._resources_metrics_interval
                     )
 
+                    # In order to get a resource metric reading at t=0
+                    # because there is no previous CPU reading yet we cannot
+                    # use the default of None for the interval here, so we measure
+                    # at an interval of 1s. For emissions metrics the first step
+                    # is time since run start
                     self._get_internal_metrics(
                         emission_metrics_step=co2_step
                         if _update_emissions_metrics
@@ -435,10 +442,14 @@ class Run:
                         resource_metrics_step=res_step
                         if _update_resource_metrics
                         else None,
+                        res_measure_interval=1 if res_step == 0 else None,
+                        ems_measure_interval=initial_ems_metrics_interval
+                        if co2_step == 0
+                        else self._resources_metrics_interval,
                     )
 
-                    res_step += int(_update_resource_metrics)
-                    co2_step += int(_update_emissions_metrics)
+                    res_step += 1
+                    co2_step += 1
 
                     last_res_metric_call = (
                         _current_time
@@ -996,10 +1007,9 @@ class Run:
         # There is no point the loop interval being greater
         # than any of the metric push or heartbeat intervals
         # where None use heartbeat value as default
-        return min(
+        return math.gcd(
             self._heartbeat_interval,
             self._resources_metrics_interval or self._heartbeat_interval,
-            self._emission_metrics_interval or self._heartbeat_interval,
         )
 
     @skip_if_failed("_aborted", "_suppress_errors", False)
@@ -1052,7 +1062,6 @@ class Run:
         suppress_errors: bool | None = None,
         queue_blocking: bool | None = None,
         resources_metrics_interval: pydantic.PositiveInt | None = None,
-        emission_metrics_interval: pydantic.PositiveInt | None = None,
         enable_emission_metrics: bool | None = None,
         disable_resources_metrics: bool | None = None,
         storage_id: str | None = None,
@@ -1103,14 +1112,6 @@ class Run:
             if disable_resources_metrics:
                 self._pid = None
                 self._resources_metrics_interval = None
-
-            if emission_metrics_interval:
-                if not enable_emission_metrics:
-                    self._error(
-                        "Cannot set rate of emission metrics, these metrics have been disabled"
-                    )
-                    return False
-                self._emission_metrics_interval = emission_metrics_interval
 
             if enable_emission_metrics:
                 if self._user_config.run.mode == "offline":
