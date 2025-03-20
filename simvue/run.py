@@ -9,7 +9,6 @@ This forms the central API for users.
 import contextlib
 import logging
 import pathlib
-import math
 import mimetypes
 import multiprocessing.synchronize
 import threading
@@ -459,7 +458,7 @@ class Run:
                     )
 
                 if time.time() - last_heartbeat < self._heartbeat_interval:
-                    time.sleep(self.loop_frequency)
+                    time.sleep(1)
                     continue
 
                 last_heartbeat = time.time()
@@ -472,7 +471,7 @@ class Run:
                 if self._sv_obj:
                     self._sv_obj.send_heartbeat()
 
-                time.sleep(self.loop_frequency)
+                time.sleep(1)
 
         return _heartbeat
 
@@ -992,21 +991,6 @@ class Run:
     def id(self) -> str | None:
         """Return the unique id of the run"""
         return self._id
-
-    @property
-    def loop_frequency(self) -> int:
-        """Returns the current frequency of monitoring.
-
-        This value is the maximum frequency of heartbeat,
-        emissions metric and resource metric measuring.
-        """
-        # There is no point the loop interval being greater
-        # than any of the metric push or heartbeat intervals
-        # where None use heartbeat value as default
-        return math.gcd(
-            self._heartbeat_interval,
-            self._resources_metrics_interval or self._heartbeat_interval,
-        )
 
     @skip_if_failed("_aborted", "_suppress_errors", False)
     @pydantic.validate_call
