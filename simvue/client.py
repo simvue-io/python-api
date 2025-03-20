@@ -53,9 +53,7 @@ def _download_artifact_to_file(
 
 
 class Client:
-    """
-    Class for querying Simvue
-    """
+    """Class for querying a Simvue server instance."""
 
     def __init__(
         self,
@@ -201,9 +199,11 @@ class Client:
         alerts : bool, optional
             whether to include alert information in the response.
             Default False.
-        output_format : Literal['objects', 'dataframe'], optional
-            the structure of the response, either a dictionary of objects or a dataframe.
-            Default is 'objects'. Pandas must be installed for 'dataframe'.
+        output_format : Literal['dict', objects', 'dataframe'], optional
+            the structure of the response
+                * dict - dictionary of values.
+                * objects - a dictionary of objects (default).
+                * dataframe - a dataframe (Pandas must be installed).
         count_limit : int, optional
             maximum number of entries to return. Default is 100.
         start_index : int, optional
@@ -569,8 +569,11 @@ class Client:
         ----------
         run_id : str
             the unique identifier for the run
-        category : typing.Literal["input", "output", "code"] |
-            the type of files to retrieve
+        category : Literal['input', 'output', 'code']
+            category of file to retrieve, default of None returns all
+                * input - this file is an input file.
+                * output - this file is created by the run.
+                * code - this file represents an executed script
         output_dir : str | None, optional
             location to download files to, the default of None will download
             them to the current working directory
@@ -742,10 +745,15 @@ class Client:
         ----------
         metric_names : list[str]
             the names of metrics to return values for
-        xaxis : Literal['step', 'time', 'timestamp']
-            the xaxis type
-        output_format : Literal['dataframe', 'list']
-            the format of the output, either a list or a Pandas dataframe
+        xaxis : Literal["step", "time", "timestamp"]
+            the x-axis type
+                * step - enumeration.
+                * time - time in seconds.
+                * timestamp - time stamp.
+        output_format : Literal['dataframe', 'dict']
+            the format of the output
+                * dict - python dictionary of values (default).
+                * dataframe - values as dataframe (requires Pandas).
         run_ids : list[str], optional
             list of runs by id to include within metric retrieval
         run_filters : list[str]

@@ -34,7 +34,9 @@ def Dispatcher(
     Parameters
     ----------
     mode : typing.Literal['prompt', 'queued']
-        _description_
+        dispatcher mode
+            * prompt - execute callback immediately, do not queue.
+            * queue - execute callback on entries in a queue.
     callback : typing.Callable[[list[typing.Any], str, dict[str, typing.Any]], None]
         callback to be executed on each item provided
     object_types : list[str]
