@@ -18,6 +18,11 @@ from .base import SimvueObject
 from simvue.models import MetricSet
 from simvue.api.request import get as sv_get, get_json_from_response
 
+try:
+    from typing import Self
+except ImportError:
+    from typing_extensions import Self
+
 __all__ = ["Metrics"]
 
 
@@ -39,7 +44,7 @@ class Metrics(SimvueObject):
     @pydantic.validate_call
     def new(
         cls, *, run: str, metrics: list[MetricSet], offline: bool = False, **kwargs
-    ):
+    ) -> Self:
         """Create a new Metrics entry on the Simvue server.
 
         Parameters

@@ -13,6 +13,11 @@ import datetime
 from .base import SimvueObject, staging_check, write_only
 from simvue.models import DATETIME_FORMAT
 
+try:
+    from typing import Self
+except ImportError:
+    from typing_extensions import Self
+
 __all__ = ["Tag"]
 
 
@@ -21,7 +26,7 @@ class Tag(SimvueObject):
 
     @classmethod
     @pydantic.validate_call
-    def new(cls, *, name: str, offline: bool = False, **kwargs):
+    def new(cls, *, name: str, offline: bool = False, **kwargs) -> Self:
         """Create a new Tag on the Simvue server.
 
         Parameters

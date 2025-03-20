@@ -42,7 +42,7 @@ class ArtifactBase(SimvueObject):
     def __init__(
         self, identifier: str | None = None, _read_only: bool = True, **kwargs
     ) -> None:
-        """Initialise a artifact connection.
+        """Initialise an artifact connection.
 
         Parameters
         ----------
@@ -246,7 +246,7 @@ class ArtifactBase(SimvueObject):
 
         Returns
         -------
-        datetime.datetime | None
+        bool
         """
         return self._get_attribute("uploaded")
 

@@ -630,7 +630,7 @@ class Run:
         folder : str, optional
             folder within which to store the run, by default "/"
         notification: typing.Literal["none", "all", "error", "lost"], optional
-            email notification settings
+            email notification on completion settings
                 * none - do not notify (default).
                 * all - notify for all updates.
                 * error - notify on errors.
@@ -1890,7 +1890,7 @@ class Run:
                 * all - returns if all values in window satisfy condition.
         notification : Literal['email', 'none'], optional
             whether to notify on trigger
-                * email - send email to user on notify.
+                * email - send email to user on alert.
                 * none - send no notifications (default).
         trigger_abort : bool, optional
             whether this alert can trigger a run abort, default False
@@ -1949,7 +1949,7 @@ class Run:
             frequency at which to check alert condition in seconds, by default None
         notification : Literal['email', 'none'], optional
             whether to notify on trigger
-                * email - send email to user on notify.
+                * email - send email to user on alert.
                 * none - send no notifications (default).
         trigger_abort : bool, optional
             whether this alert can trigger a run abort
