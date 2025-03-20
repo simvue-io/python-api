@@ -10,9 +10,9 @@ to a JSON string
 import copy
 import json as json_module
 import typing
+import logging
 import http
 
-from codecarbon.external.logger import logging
 import requests
 from tenacity import (
     retry,
