@@ -19,6 +19,14 @@ from simvue.exception import ObjectNotFoundError
 from .base import SimvueObject, staging_check, write_only
 from simvue.models import FOLDER_REGEX, DATETIME_FORMAT
 
+try:
+    from typing import Self
+except ImportError:
+    from typing_extensions import Self
+
+
+__all__ = ["Folder"]
+
 
 class Folder(SimvueObject):
     """
@@ -56,7 +64,7 @@ class Folder(SimvueObject):
         path: typing.Annotated[str, pydantic.Field(pattern=FOLDER_REGEX)],
         offline: bool = False,
         **kwargs,
-    ):
+    ) -> Self:
         """Create a new Folder on the Simvue server with the given path"""
         return Folder(path=path, _read_only=False, _offline=offline, **kwargs)
 

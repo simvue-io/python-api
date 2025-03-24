@@ -32,8 +32,9 @@ def aggregated_metrics_to_dataframe(
     xaxis : str
         the x-axis label
     parse_to : Literal["dict", "dataframe"], optional
-        form of output, dictionary or a Pandas Dataframe. Note pandas
-        must be installed via the 'dataset' for the latter to work.
+        form of output
+            * dict - dictionary of values.
+            * dataframe - dataframe (Pandas must be installed).
 
     Returns
     -------
@@ -100,11 +101,13 @@ def parse_run_set_metrics(
     request_response_data: dict[str, dict[str, list[dict[str, float]]]]
         JSON response data
     xaxis : str
-        The x-axis label/key
+        the x-axis label/key
     run_labels : list[str]
-        The labels to assign for the runs
+        the labels to assign for the runs
     parse_to : Literal["dict", "dataframe"], optional
-        Form in which to parse data, default is dict
+        form in which to parse data
+            * dict - return a values dictionary (default).
+            * dataframe - assembled into dataframe (requires Pandas).
 
     Returns
     -------
@@ -230,6 +233,9 @@ def metric_time_series_to_dataframe(
         time series data from Simvue server for a single metric and run
     xaxis : Literal["step", "time", "timestamp"]
         the x-axis type
+            * step - enumeration.
+            * time - time in seconds.
+            * timestamp - time stamp.
     name : str | None, optional
         if provided, an alternative name for the 'values' column, by default None
 

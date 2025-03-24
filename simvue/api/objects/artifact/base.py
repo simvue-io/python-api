@@ -42,6 +42,14 @@ class ArtifactBase(SimvueObject):
     def __init__(
         self, identifier: str | None = None, _read_only: bool = True, **kwargs
     ) -> None:
+        """Initialise an artifact connection.
+
+        Parameters
+        ----------
+        identifier : str, optional
+            the identifier of this object on the server.
+        """
+
         self._label = "artifact"
         self._endpoint = f"{self._label}s"
         super().__init__(identifier=identifier, _read_only=_read_only, **kwargs)
@@ -51,10 +59,19 @@ class ArtifactBase(SimvueObject):
         self._init_data: dict[str, dict] = {}
 
     def commit(self) -> None:
+        """Not applicable, cannot commit single write artifact."""
         self._logger.info("Cannot call method 'commit' on write-once type 'Artifact'")
 
     def attach_to_run(self, run_id: str, category: Category) -> None:
-        """Attach this artifact to a given run"""
+        """Attach this artifact to a given run.
+
+        Parameters
+        ----------
+        run_id : str
+            identifier of run to associate this artifact with.
+        category : Literal['input', 'output', 'code']
+            category of this artifact with respect to the run.
+        """
         self._init_data["runs"][run_id] = category
 
         if self._offline:
@@ -80,6 +97,13 @@ class ArtifactBase(SimvueObject):
         )
 
     def on_reconnect(self, id_mapping: dict[str, str]) -> None:
+        """Operations performed when this artifact is switched from offline to online mode.
+
+        Parameters
+        ----------
+        id_mapping : dict[str, str]
+            mapping from offline identifier to new online identifier.
+        """
         _offline_staging = self._init_data["runs"].copy()
         for id, category in _offline_staging.items():
             self.attach_to_run(run_id=id_mapping[id], category=category)
@@ -134,42 +158,82 @@ class ArtifactBase(SimvueObject):
 
     @property
     def checksum(self) -> str:
-        """Retrieve the checksum for this artifact"""
+        """Retrieve the checksum for this artifact.
+
+        Returns
+        -------
+        str
+        """
         return self._get_attribute("checksum")
 
     @property
     def storage_url(self) -> URL | None:
-        """Retrieve upload URL for artifact"""
+        """Retrieve upload URL for artifact.
+
+        Returns
+        -------
+        simvue.api.url.URL | None
+        """
         return URL(_url) if (_url := self._init_data.get("url")) else None
 
     @property
     def original_path(self) -> str:
-        """Retrieve the original path of the file associated with this artifact"""
+        """Retrieve the original path of the file associated with this artifact.
+
+        Returns
+        -------
+        str
+        """
         return self._get_attribute("original_path")
 
     @property
     def storage_id(self) -> str | None:
-        """Retrieve the storage identifier for this artifact"""
+        """Retrieve the storage identifier for this artifact.
+
+        Returns
+        -------
+        str | None
+        """
         return self._get_attribute("storage_id")
 
     @property
     def mime_type(self) -> str:
-        """Retrieve the MIME type for this artifact"""
+        """Retrieve the MIME type for this artifact.
+
+        Returns
+        -------
+        str
+        """
         return self._get_attribute("mime_type")
 
     @property
     def size(self) -> int:
-        """Retrieve the size for this artifact in bytes"""
+        """Retrieve the size for this artifact in bytes.
+
+        Returns
+        -------
+        int
+        """
         return self._get_attribute("size")
 
     @property
     def name(self) -> str | None:
-        """Retrieve name for the artifact"""
+        """Retrieve name for the artifact.
+
+        Returns
+        -------
+        str | None
+        """
         return self._get_attribute("name")
 
     @property
     def created(self) -> datetime.datetime | None:
-        """Retrieve created datetime for the artifact"""
+        """Retrieve created datetime for the artifact.
+
+        Returns
+        -------
+        datetime.datetime | None
+        """
         _created: str | None = self._get_attribute("created")
         return (
             datetime.datetime.strptime(_created, DATETIME_FORMAT) if _created else None
@@ -178,7 +242,12 @@ class ArtifactBase(SimvueObject):
     @property
     @staging_check
     def uploaded(self) -> bool:
-        """Returns whether a file was uploaded for this artifact."""
+        """Returns whether a file was uploaded for this artifact.
+
+        Returns
+        -------
+        bool
+        """
         return self._get_attribute("uploaded")
 
     @uploaded.setter
@@ -190,17 +259,37 @@ class ArtifactBase(SimvueObject):
 
     @property
     def download_url(self) -> URL | None:
-        """Retrieve the URL for downloading this artifact"""
+        """Retrieve the URL for downloading this artifact
+
+        Returns
+        -------
+        simvue.api.url.URL | None
+        """
         return self._get_attribute("url")
 
     @property
     def runs(self) -> typing.Generator[str, None, None]:
-        """Retrieve all runs for which this artifact is related"""
+        """Retrieve all runs for which this artifact is related.
+
+        Yields
+        ------
+        str
+            run identifier for run associated with this artifact
+
+        Returns
+        -------
+        Generator[str, None, None]
+        """
         for _id, _ in Run.get(filters=[f"artifact.id == {self.id}"]):
             yield _id
 
     def get_category(self, run_id: str) -> Category:
-        """Retrieve the category of this artifact with respect to a given run"""
+        """Retrieve the category of this artifact with respect to a given run.
+
+        Returns
+        -------
+        Literal['input', 'output', 'code']
+        """
         _run_url = (
             URL(self._user_config.server.url)
             / f"runs/{run_id}/artifacts/{self._identifier}"
@@ -220,7 +309,17 @@ class ArtifactBase(SimvueObject):
 
     @pydantic.validate_call
     def download_content(self) -> typing.Generator[bytes, None, None]:
-        """Stream artifact content"""
+        """Stream artifact content.
+
+        Yields
+        ------
+        bytes
+            artifact content from server.
+
+        Returns
+        -------
+        Generator[bytes, None, None]
+        """
         if not self.download_url:
             raise ValueError(
                 f"Could not retrieve URL for artifact '{self._identifier}'"
