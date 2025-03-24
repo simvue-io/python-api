@@ -61,7 +61,12 @@ def staging_check(member_func: typing.Callable) -> typing.Callable:
             )
         return member_func(self)
 
+    _wrapper.__doc__ = member_func.__doc__
     _wrapper.__name__ = member_func.__name__
+    _wrapper.__annotations__ = member_func.__annotations__
+    _wrapper.__module__ = member_func.__module__
+    _wrapper.__qualname__ = member_func.__qualname__
+    _wrapper.__dict__ = member_func.__dict__
     return _wrapper
 
 
@@ -76,6 +81,11 @@ def write_only(attribute_func: typing.Callable) -> typing.Callable:
         return attribute_func(self, *args, **kwargs)
 
     _wrapper.__name__ = attribute_func.__name__
+    _wrapper.__name__ = attribute_func.__name__
+    _wrapper.__annotations__ = attribute_func.__annotations__
+    _wrapper.__module__ = attribute_func.__module__
+    _wrapper.__qualname__ = attribute_func.__qualname__
+    _wrapper.__dict__ = attribute_func.__dict__
     return _wrapper
 
 
@@ -94,37 +104,61 @@ class Visibility:
     @property
     @staging_check
     def users(self) -> list[str]:
-        """Retrieve the list of users able to see this object"""
+        """Set/retrieve the list of users able to see this object.
+
+        Parameters
+        ----------
+        users : list[str]
+
+        Returns
+        -------
+        list[str]
+        """
         return self._sv_obj._get_visibility().get("users", [])
 
     @users.setter
     @write_only
     def users(self, users: list[str]) -> None:
-        """Set the list of users able to see this object"""
         self._update_visibility("users", users)
 
     @property
     @staging_check
     def public(self) -> bool:
-        """Retrieve if this object is publically visible"""
+        """Set/retrieve if this object is publicly visible.
+
+        Parameters
+        ----------
+        public : bool
+
+        Returns
+        -------
+        bool
+        """
         return self._sv_obj._get_visibility().get("public", False)  # type: ignore
 
     @public.setter
     @write_only
     def public(self, public: bool) -> None:
-        """Set if this object is publically visible"""
         self._update_visibility("public", public)
 
     @property
     @staging_check
     def tenant(self) -> bool:
-        """Retrieve the tenant group this object is visible to"""
+        """Set/retrieve whether this object is visible to the current tenant.
+
+        Parameters
+        ----------
+        tenant : bool
+
+        Returns
+        -------
+        bool
+        """
         return self._sv_obj._get_visibility().get("tenant", False)  # type: ignore
 
     @tenant.setter
     @write_only
     def tenant(self, tenant: bool) -> None:
-        """Set the tenant group this object is visible to"""
         self._update_visibility("tenant", tenant)
 
 
@@ -306,7 +340,20 @@ class SimvueObject(abc.ABC):
     def ids(
         cls, count: int | None = None, offset: int | None = None, **kwargs
     ) -> list[str]:
-        """Retrieve a list of all object identifiers"""
+        """Retrieve a list of all object identifiers.
+
+        Parameters
+        ----------
+        count: int | None, optional
+            limit number of objects
+        offset : int | None, optional
+            set start index for objects list
+
+        Returns
+        -------
+        list[str]
+            identifiers for all objects of this type.
+        """
         _class_instance = cls(_read_only=True, _local=True)
         if (_data := cls._get_all_objects(count, offset, **kwargs).get("data")) is None:
             raise RuntimeError(
@@ -322,6 +369,24 @@ class SimvueObject(abc.ABC):
         offset: pydantic.NonNegativeInt | None = None,
         **kwargs,
     ) -> typing.Generator[tuple[str, T | None], None, None]:
+        """Retrieve items of this object type from the server.
+
+        Parameters
+        ----------
+        count: int | None, optional
+            limit number of objects
+        offset : int | None, optional
+            set start index for objects list
+
+        Yields
+        ------
+        tuple[str, SimvueObject | None]
+            object corresponding to an entry on the server.
+
+        Returns
+        -------
+        Generator[tuple[str, SimvueObject | None], None, None]
+        """
         _class_instance = cls(_read_only=True, _local=True)
         if (_data := cls._get_all_objects(count, offset, **kwargs).get("data")) is None:
             raise RuntimeError(
@@ -337,6 +402,13 @@ class SimvueObject(abc.ABC):
 
     @classmethod
     def count(cls, **kwargs) -> int:
+        """Return the total number of entries for this object type from the server.
+
+        Returns
+        -------
+        int
+            total from server database for current user.
+        """
         _class_instance = cls(_read_only=True)
         if (
             _count := cls._get_all_objects(count=None, offset=None, **kwargs).get(
@@ -371,6 +443,13 @@ class SimvueObject(abc.ABC):
         )
 
     def read_only(self, is_read_only: bool) -> None:
+        """Set whether this object is in read only state.
+
+        Parameters
+        ----------
+        is_read_only : bool
+            whether object is read only.
+        """
         self._read_only = is_read_only
 
         # If using writable mode, clear the staging dictionary as
@@ -381,6 +460,7 @@ class SimvueObject(abc.ABC):
             self._staging = self._get_local_staged()
 
     def commit(self) -> None:
+        """Send updates to the server, or if offline, store locally."""
         if self._read_only:
             raise AttributeError("Cannot commit object in 'read-only' mode")
 
@@ -409,6 +489,12 @@ class SimvueObject(abc.ABC):
 
     @property
     def id(self) -> str | None:
+        """The identifier for this object if applicable.
+
+        Returns
+        -------
+        str | None
+        """
         return self._identifier
 
     @property
@@ -417,6 +503,12 @@ class SimvueObject(abc.ABC):
 
     @property
     def url(self) -> URL | None:
+        """The URL for accessing this object on the server.
+
+        Returns
+        -------
+        simvue.api.url.URL | None
+        """
         return None if self._identifier is None else self._base_url / self._identifier
 
     def _post(self, is_json: bool = True, **kwargs) -> dict[str, typing.Any]:
@@ -470,9 +562,15 @@ class SimvueObject(abc.ABC):
             scenario=f"Creation of {self._label} '{self._identifier}",
         )
 
-    def delete(
-        self, _linked_objects: list[str] | None = None, **kwargs
-    ) -> dict[str, typing.Any]:
+    def delete(self, **kwargs) -> dict[str, typing.Any]:
+        """Delete the server entry for this object.
+
+        Returns
+        -------
+        dict[str, Any]
+            response from server on deletion.
+        """
+
         if self._get_local_staged():
             self._local_staging_file.unlink(missing_ok=True)
 
@@ -528,6 +626,7 @@ class SimvueObject(abc.ABC):
         return _json_response
 
     def refresh(self) -> None:
+        """Refresh staging from local data if in read-only mode."""
         if self._read_only:
             self._staging = self._get()
 
@@ -547,12 +646,29 @@ class SimvueObject(abc.ABC):
             json.dump(_local_data, out_f, indent=2)
 
     def to_dict(self) -> dict[str, typing.Any]:
+        """Convert object to serializable dictionary.
+
+        Returns
+        -------
+        dict[str, Any]
+            dictionary representation of this object
+        """
         return self._get() | self._staging
 
     def on_reconnect(self, id_mapping: dict[str, str]) -> None:
+        """Executed when a run switches from offline to online mode.
+
+        In this case no action is taken.
+        """
         pass
 
     @property
     def staged(self) -> dict[str, typing.Any] | None:
-        """Return currently staged changes to this object"""
+        """Return currently staged changes to this object.
+
+        Returns
+        -------
+        dict[str, Any] | None
+            the locally staged data if available.
+        """
         return self._staging or None
