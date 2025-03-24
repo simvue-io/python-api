@@ -19,6 +19,8 @@ import geocoder
 import geocoder.location
 import typing
 
+CO2_SIGNAL_API_ENDPOINT: str = "https://api.co2signal.com/v1/latest"
+
 
 class CO2SignalData(pydantic.BaseModel):
     datetime: datetime.datetime
@@ -66,9 +68,7 @@ class APIClient(pydantic.BaseModel):
     Provides an interface to the Electricity Maps API.
     """
 
-    co2_api_endpoint: pydantic.HttpUrl = pydantic.HttpUrl(
-        "https://api.co2signal.com/v1/latest"
-    )
+    co2_api_endpoint: pydantic.HttpUrl = pydantic.HttpUrl(CO2_SIGNAL_API_ENDPOINT)
     co2_api_token: pydantic.SecretStr | None = None
     timeout: pydantic.PositiveInt = 10
 

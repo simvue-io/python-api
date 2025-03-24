@@ -35,7 +35,7 @@ class EcoConfig(pydantic.BaseModel):
     local_data_directory: pydantic.DirectoryPath | None = pydantic.Field(
         None, validate_default=True
     )
-    intensity_refresh_rate: pydantic.PositiveInt | str | None = pydantic.Field(
+    intensity_refresh_interval: pydantic.PositiveInt | str | None = pydantic.Field(
         default="1 day", gt=2 * 60
     )
     co2_intensity: float | None = None

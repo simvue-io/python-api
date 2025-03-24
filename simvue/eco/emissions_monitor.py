@@ -19,6 +19,7 @@ import pathlib
 from simvue.eco.api_client import APIClient, CO2SignalResponse
 
 TIME_FORMAT: str = "%Y_%m_%d_%H_%M_%S"
+CO2_SIGNAL_API_INTERVAL_LIMIT: int = 2 * 60
 
 
 @dataclasses.dataclass
@@ -42,7 +43,7 @@ class CO2Monitor(pydantic.BaseModel):
     thermal_design_power_per_cpu: pydantic.PositiveFloat | None
     thermal_design_power_per_gpu: pydantic.PositiveFloat | None
     local_data_directory: pydantic.DirectoryPath
-    intensity_refresh_rate: int | None | str
+    intensity_refresh_interval: int | None | str
     co2_intensity: float | None
     co2_signal_api_token: str | None
 
@@ -54,14 +55,14 @@ class CO2Monitor(pydantic.BaseModel):
     @property
     def outdated(self) -> bool:
         """Checks if the current data is out of date."""
-        if not self.intensity_refresh_rate:
+        if not self.intensity_refresh_interval:
             return False
 
         _now: datetime.datetime = datetime.datetime.now()
         _latest_time: datetime.datetime = datetime.datetime.strptime(
             self._local_data["last_updated"], TIME_FORMAT
         )
-        return (_now - _latest_time).seconds < self.intensity_refresh_rate
+        return (_now - _latest_time).seconds > self.intensity_refresh_interval
 
     def _load_local_data(self) -> dict[str, str | dict[str, str | float]] | None:
         """Loads locally stored CO2 intensity data"""
@@ -88,8 +89,8 @@ class CO2Monitor(pydantic.BaseModel):
             the TDP value for each GPU, default is 130W.
         local_data_directory: pydantic.DirectoryPath
             the directory in which to store CO2 intensity data.
-        intensity_refresh_rate: int | str | None
-            the rate in seconds at which to call the CO2 signal API. The default is once per day,
+        intensity_refresh_interval: int | str | None
+            the interval in seconds at which to call the CO2 signal API. The default is once per day,
             note the API is restricted to 30 requests per hour for a given user. Also accepts a
             time period as a string, e.g. '1 week'
         co2_intensity: float | None
@@ -113,12 +114,17 @@ class CO2Monitor(pydantic.BaseModel):
             )
         super().__init__(*args, **kwargs)
 
-        if self.intensity_refresh_rate and isinstance(self.intensity_refresh_rate, str):
-            self.intensity_refresh_rate = int(
-                humanfriendly.parse_timespan(self.intensity_refresh_rate)
+        if self.intensity_refresh_interval and isinstance(
+            self.intensity_refresh_interval, str
+        ):
+            self.intensity_refresh_interval = int(
+                humanfriendly.parse_timespan(self.intensity_refresh_interval)
             )
 
-        if self.intensity_refresh_rate and self.intensity_refresh_rate <= 2 * 60:
+        if (
+            self.intensity_refresh_interval
+            and self.intensity_refresh_interval <= CO2_SIGNAL_API_INTERVAL_LIMIT
+        ):
             raise ValueError(
                 "Invalid intensity refresh rate, CO2 signal API restricted to 30 calls per hour."
             )
@@ -150,7 +156,9 @@ class CO2Monitor(pydantic.BaseModel):
     ) -> None:
         """Estimate the CO2 emissions"""
         self._logger.debug(
-            f"📐 Estimating CO2 emissions from CPU usage of {cpu_percent}% in interval {measure_interval}s."
+            f"📐 Estimating CO2 emissions from CPU usage of {cpu_percent}% "
+            f"{('and GPU usage of ' + (str(gpu_percent)) + '%') if gpu_percent else ''} "
+            f"in interval {measure_interval}s."
         )
 
         if self._local_data is None:
@@ -165,8 +173,7 @@ class CO2Monitor(pydantic.BaseModel):
         if (
             not self.co2_intensity
             and not self._local_data.setdefault(self._client.country_code, {})
-            or self.outdated
-        ):
+        ) or self.outdated:
             self._logger.info("🌍 CO2 emission outdated, calling API.")
             _data: CO2SignalResponse = self._client.get()
             self._local_data[self._client.country_code] = _data.model_dump(mode="json")
@@ -212,20 +219,18 @@ class CO2Monitor(pydantic.BaseModel):
         _process.co2_emission += _process.co2_delta
 
         self._logger.debug(
-            f"📝 For _process '{process_id}', recorded: CPU={_process.cpu_percentage}%, "
-            f"Power={_process.power_usage}W, CO2={_process.co2_emission}{_co2_units}"
+            f"📝 For process '{process_id}', recorded: CPU={_process.cpu_percentage:.2f}%, "
+            f"Power={_process.power_usage:.2f}W, CO2={_process.co2_emission:.2e}{_co2_units}"
         )
 
     def simvue_metrics(self) -> dict[str, float]:
         """Retrieve metrics to send to Simvue server."""
-        return (
-            {
-                "sustainability.emissions.total": self.total_co2_emission,
-                "sustainability.emissions.delta": self.total_co2_delta,
-                "sustainability.energy_consumed.total": self.total_energy,
-                "sustainability.energy_consumed.delta": self.total_energy_delta,
-            },
-        )
+        return {
+            "sustainability.emissions.total": self.total_co2_emission,
+            "sustainability.emissions.delta": self.total_co2_delta,
+            "sustainability.energy_consumed.total": self.total_energy,
+            "sustainability.energy_consumed.delta": self.total_energy_delta,
+        }
 
     @property
     def last_process(self) -> str | None:

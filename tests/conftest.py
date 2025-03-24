@@ -2,6 +2,7 @@ import contextlib
 from _pytest import monkeypatch
 from numpy import fix
 import pytest
+import datetime
 import pytest_mock
 import typing
 import uuid
@@ -11,12 +12,16 @@ import os
 import json
 import pathlib
 import logging
-from simvue.api.objects.artifact import Artifact
-from simvue.exception import ObjectNotFoundError
+import requests
+
+import simvue.eco.api_client as sv_eco
 import simvue.run as sv_run
 import simvue.api.objects as sv_api_obj
 import simvue.config.user as sv_cfg
 import simvue.utilities
+
+from simvue.api.objects.artifact import Artifact
+from simvue.exception import ObjectNotFoundError
 
 MAX_BUFFER_SIZE: int = 10
 
@@ -41,6 +46,40 @@ def clear_out_files() -> None:
 
     for file_obj in out_files:
         file_obj.unlink()
+
+
+@pytest.fixture
+def mock_co2_signal(monkeypatch: monkeypatch.MonkeyPatch) -> dict[str, dict | str]:
+    _mock_data = {
+        "data": {
+            "datetime": datetime.datetime.now().isoformat(),
+            "carbonIntensity": 0.04,
+            "fossilFuelPercentage": 39,
+        },
+        "_disclaimer": "test disclaimer",
+        "countryCode": "GB",
+        "status": "unknown",
+        "units": {"carbonIntensity": "eqCO2kg/kwh"}
+    }
+    class MockCo2SignalAPIResponse:
+        def json(*_, **__) -> dict:
+            return _mock_data
+
+        @property
+        def status_code(self) -> int:
+            return 200
+
+    _req_get = requests.get
+
+    def _mock_get(*args, **kwargs) -> requests.Response:
+        if sv_eco.CO2_SIGNAL_API_ENDPOINT in args or kwargs.get("url") == sv_eco.CO2_SIGNAL_API_ENDPOINT:
+            return MockCo2SignalAPIResponse()
+        else:
+            return _req_get(*args, **kwargs)
+
+    monkeypatch.setattr(requests, "get", _mock_get)
+
+    return _mock_data
 
 
 @pytest.fixture
@@ -78,7 +117,7 @@ def create_test_run(request, prevent_script_exit) -> typing.Generator[typing.Tup
     for alert_id in _test_run_data.get("alert_ids", []):
         with contextlib.suppress(ObjectNotFoundError):
             sv_api_obj.Alert(identifier=alert_id).delete()
-    clear_out_files()
+clear_out_files()
 
 
 @pytest.fixture

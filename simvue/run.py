@@ -338,15 +338,16 @@ class Run:
 
         Parameters
         ----------
-        #TODO: update docs
-        res_metric_prev_time: float
-            the previous time at which resource metrics were recorded.
-        ems_metric_prev_time: float
-            the previous time at which emissions metrics were recorded.
-        res_metric_step: int
-            the value count for resource metrics for this run.
-        ems_metric_step: int
-            the value count for emissions metrics for this run.
+        resource_metrics_step: int | None
+            the current step for this resource metric record,
+            None if skipping resource metrics.
+        emission_metrics_step: int | None
+            the current step for this emission metrics record,
+            None if skipping emission metrics.
+        res_measure_interval: int | None, optional
+            the interval for resource metric gathering, default is None
+        ems_measure_interval: int | None, optional
+            the interval for emission metric gathering, default is None
 
         Return
         ------
@@ -417,12 +418,14 @@ class Run:
                         self._resources_metrics_interval is not None
                         and _current_time - last_res_metric_call
                         > self._resources_metrics_interval
+                        and self._status == "running"
                     )
                     _update_emissions_metrics: bool = (
                         self._resources_metrics_interval is not None
                         and self._emissions_monitor
                         and _current_time - last_co2_metric_call
                         > self._resources_metrics_interval
+                        and self._status == "running"
                     )
 
                     # In order to get a resource metric reading at t=0
@@ -1102,7 +1105,7 @@ class Run:
                         )
                     # Create an emissions monitor with no API calls
                     self._emissions_monitor = CO2Monitor(
-                        intensity_refresh_rate=None,
+                        intensity_refresh_interval=None,
                         co2_intensity=_co2_intensity,
                         local_data_directory=self._user_config.eco.local_data_directory,
                         co2_signal_api_token=None,
@@ -1111,7 +1114,7 @@ class Run:
                     )
                 else:
                     self._emissions_monitor = CO2Monitor(
-                        intensity_refresh_rate=self._user_config.eco.intensity_refresh_rate,
+                        intensity_refresh_interval=self._user_config.eco.intensity_refresh_interval,
                         local_data_directory=self._user_config.eco.local_data_directory,
                         co2_signal_api_token=self._user_config.eco.co2_signal_api_token,
                         co2_intensity=self._user_config.eco.co2_intensity,

@@ -48,8 +48,8 @@ def test_check_run_initialised_decorator() -> None:
 
 
 @pytest.mark.run
-@pytest.mark.codecarbon
-def test_run_with_emissions() -> None:
+@pytest.mark.eco
+def test_run_with_emissions(mock_co2_signal) -> None:
     with sv_run.Run() as run_created:
         run_created.init(
             name="test_run_with_emissions",

@@ -390,7 +390,14 @@ def test_abort_run(speedy_heartbeat, create_plain_run: tuple[sv_run.Run, dict]) 
     run.update_tags([f"delete_me_{_uuid}"])
     _client = svc.Client()
     _client.abort_run(run.id, reason="Test abort")
-    time.sleep(0.5)
-    assert run._status == "terminated"
+    time.sleep(2)
+
+    # On some machines it might take a little longer so
+    # try twice before accepting the abort failed
+    try:
+        assert run._status == "terminated"
+    except AssertionError:
+        time.sleep(2)
+        assert run._status == "terminated"
 
 
