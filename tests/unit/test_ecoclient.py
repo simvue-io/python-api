@@ -64,19 +64,19 @@ def test_co2_monitor_properties(mock_co2_signal) -> None:
             thermal_design_power_per_cpu=80,
             thermal_design_power_per_gpu=130,
             local_data_directory=tempd,
-            intensity_refresh_interval=1 if refresh else 2,
+            intensity_refresh_interval=None,
             co2_intensity=None,
             co2_signal_api_token=None
         )   
         _measure_params = {
-            "process_id": "test_outdated_data_check",
+            "process_id": "test_co2_monitor_properties",
             "cpu_percent": 20,
             "gpu_percent": 40,
             "measure_interval": 1
         }
         _ems_monitor.estimate_co2_emissions(**_measure_params)
         assert _ems_monitor.current_carbon_intensity
-        assert _ems_monitor.process_data["test_outdated_data_check"]
+        assert _ems_monitor.process_data["test_co2_monitor_properties"]
         assert _ems_monitor.total_power_usage
         assert _ems_monitor.total_co2_emission
         assert _ems_monitor.total_co2_delta
