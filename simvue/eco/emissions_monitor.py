@@ -147,6 +147,28 @@ class CO2Monitor(pydantic.BaseModel):
         )
         self._processes: dict[str, ProcessData] = {}
 
+    def check_refresh(self) -> bool:
+        """Check to see if an intensity value refresh is required.
+
+        Returns
+        -------
+        bool
+            whether a refresh of the CO2 intensity was requested
+            from the CO2 Signal API.
+        """
+        if (
+            not self.co2_intensity
+            and not self._local_data.setdefault(self._client.country_code, {})
+        ) or self.outdated:
+            self._logger.info("🌍 CO2 emission outdated, calling API.")
+            _data: CO2SignalResponse = self._client.get()
+            self._local_data[self._client.country_code] = _data.model_dump(mode="json")
+            self._local_data["last_updated"] = self.now()
+            with self._data_file_path.open("w") as out_f:
+                json.dump(self._local_data, out_f, indent=2)
+            return True
+        return False
+
     def estimate_co2_emissions(
         self,
         process_id: str,
@@ -157,8 +179,9 @@ class CO2Monitor(pydantic.BaseModel):
         """Estimate the CO2 emissions"""
         self._logger.debug(
             f"📐 Estimating CO2 emissions from CPU usage of {cpu_percent}% "
-            f"{('and GPU usage of ' + (str(gpu_percent)) + '%') if gpu_percent else ''} "
-            f"in interval {measure_interval}s."
+            f"and GPU usage of {gpu_percent}%"
+            if gpu_percent
+            else f"in interval {measure_interval}s."
         )
 
         if self._local_data is None:
@@ -170,17 +193,7 @@ class CO2Monitor(pydantic.BaseModel):
         if not (_process := self._processes.get(process_id)):
             self._processes[process_id] = (_process := ProcessData())
 
-        if (
-            not self.co2_intensity
-            and not self._local_data.setdefault(self._client.country_code, {})
-        ) or self.outdated:
-            self._logger.info("🌍 CO2 emission outdated, calling API.")
-            _data: CO2SignalResponse = self._client.get()
-            self._local_data[self._client.country_code] = _data.model_dump(mode="json")
-            self._local_data["last_updated"] = self.now()
-
-            with self._data_file_path.open("w") as out_f:
-                json.dump(self._local_data, out_f, indent=2)
+        self.check_refresh()
 
         if self.co2_intensity:
             _current_co2_intensity = self.co2_intensity
