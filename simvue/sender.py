@@ -10,7 +10,6 @@ import pydantic
 import logging
 from concurrent.futures import ThreadPoolExecutor
 import threading
-import time
 import requests
 import psutil
 from simvue.config.user import SimvueConfiguration
@@ -181,37 +180,6 @@ def sender(
     cache_dir.joinpath("server_ids").mkdir(parents=True, exist_ok=True)
     _lock_path = cache_dir.joinpath("sender.lock")
 
-    # If CO2 emissions are requested create a dummy monitor which just
-    # refreshes the CO2 intensity value if required. No emission metrics
-    # will be taken by the sender itself, values are assumed to be recorded
-    # by any offline runs being sent.
-
-    _co2_monitor = CO2Monitor(
-        thermal_design_power_per_gpu=None,
-        thermal_design_power_per_cpu=None,
-        local_data_directory=cache_dir,
-        intensity_refresh_interval=_user_config.eco.intensity_refresh_interval,
-        co2_intensity=co2_intensity_refresh or _user_config.eco.co2_intensity,
-        co2_signal_api_token=_user_config.eco.co2_signal_api_token,
-    )
-    _co2_monitor_trigger = threading.Event()
-
-    def _monitor_refresh_task(
-        co2_monitor: CO2Monitor,
-        trigger: threading.Event,
-    ) -> None:
-        while not trigger.is_set():
-            co2_monitor.check_refresh()
-            time.sleep(1)
-
-    _co2_monitor_thread: threading.Thread | None = None
-
-    if _co2_monitor.intensity_refresh_interval:
-        _co2_monitor_thread = threading.Thread(
-            target=_monitor_refresh_task, args=(_co2_monitor, _co2_monitor_trigger)
-        )
-        _co2_monitor_thread.start()
-
     # Check that no other sender is already currently running...
     if _lock_path.exists() and psutil.pid_exists(int(_lock_path.read_text())):
         raise RuntimeError("A sender is already running for this cache!")
@@ -277,8 +245,23 @@ def sender(
                 _heartbeat_files,
             )
 
-    # If a CO2 monitor is running stop it
-    _co2_monitor_trigger.set()
+    # If CO2 emissions are requested create a dummy monitor which just
+    # refreshes the CO2 intensity value if required. No emission metrics
+    # will be taken by the sender itself, values are assumed to be recorded
+    # by any offline runs being sent.
+
+    if (
+        _refresh_interval := co2_intensity_refresh
+        or _user_config.eco.intensity_refresh_interval
+    ):
+        CO2Monitor(
+            thermal_design_power_per_gpu=None,
+            thermal_design_power_per_cpu=None,
+            local_data_directory=cache_dir,
+            intensity_refresh_interval=_refresh_interval,
+            co2_intensity=co2_intensity_refresh or _user_config.eco.co2_intensity,
+            co2_signal_api_token=_user_config.eco.co2_signal_api_token,
+        ).check_refresh()
 
     # Remove lock file to allow another sender to start in the future
     _lock_path.unlink()
