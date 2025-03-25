@@ -12,13 +12,14 @@ import typing
 import pydantic
 import datetime
 import time
+import json
 
 try:
     from typing import Self
 except ImportError:
     from typing_extensions import Self
 
-from .base import SimvueObject, staging_check, Visibility, write_only
+from .base import SimvueObject, Sort, staging_check, Visibility, write_only
 from simvue.api.request import (
     get as sv_get,
     put as sv_put,
@@ -31,7 +32,26 @@ Status = typing.Literal[
     "lost", "failed", "completed", "terminated", "running", "created"
 ]
 
+# Need to use this inside of Generator typing to fix bug present in Python 3.10 - see issue #745
+T = typing.TypeVar("T", bound="Run")
+
 __all__ = ["Run"]
+
+
+class RunSort(Sort):
+    @pydantic.field_validator("column")
+    @classmethod
+    def check_column(cls, column: str) -> str:
+        if (
+            column
+            and column != "name"
+            and not column.startswith("metrics")
+            and not column.startswith("metadata.")
+            and column not in ("created", "started", "endtime", "modified")
+        ):
+            raise ValueError(f"Invalid sort column for runs '{column}'")
+
+        return column
 
 
 class Run(SimvueObject):
@@ -291,6 +311,39 @@ class Run(SimvueObject):
             return self._get_attribute("alerts")
 
         return [alert["id"] for alert in self.get_alert_details()]
+
+    @classmethod
+    @pydantic.validate_call
+    def get(
+        cls,
+        count: pydantic.PositiveInt | None = None,
+        offset: pydantic.NonNegativeInt | None = None,
+        sorting: list[RunSort] | None = None,
+        **kwargs,
+    ) -> typing.Generator[tuple[str, T | None], None, None]:
+        """Get runs from the server.
+
+        Parameters
+        ----------
+        count : int, optional
+            limit the number of objects returned, default no limit.
+        offset : int, optional
+            start index for results, default is 0.
+        sorting : list[dict] | None, optional
+            list of sorting definitions in the form {'column': str, 'descending': bool}
+
+        Yields
+        ------
+        tuple[str, Run]
+            id of run
+            Run object representing object on server
+        """
+        _params: dict[str, str] = kwargs
+
+        if sorting:
+            _params["sorting"] = json.dumps([i.to_params() for i in sorting])
+
+        return super().get(count=count, offset=offset, **_params)
 
     @alerts.setter
     @write_only

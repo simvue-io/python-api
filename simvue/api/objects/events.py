@@ -49,6 +49,7 @@ class Events(SimvueObject):
         **kwargs,
     ) -> typing.Generator[EventSet, None, None]:
         _class_instance = cls(_read_only=True, _local=True)
+
         if (
             _data := cls._get_all_objects(count, offset, run=run_id, **kwargs).get(
                 "data"
