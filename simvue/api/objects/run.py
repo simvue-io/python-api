@@ -338,7 +338,7 @@ class Run(SimvueObject):
             id of run
             Run object representing object on server
         """
-        _params: dict[str, str] = {}
+        _params: dict[str, str] = kwargs
 
         if sorting:
             _params["sorting"] = json.dumps([i.to_params() for i in sorting])

@@ -94,7 +94,12 @@ class Folder(SimvueObject):
         sorting: list[FolderSort] | None = None,
         **kwargs,
     ) -> typing.Generator[tuple[str, T | None], None, None]:
-        return super().get(count=count, offset=offset, sorting=sorting)
+        _params: dict[str, str] = kwargs
+
+        if sorting:
+            _params["sorting"] = json.dumps([i.to_params() for i in sorting])
+
+        return super().get(count=count, offset=offset, **_params)
 
     @property
     @staging_check

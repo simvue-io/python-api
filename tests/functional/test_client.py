@@ -33,7 +33,12 @@ def test_get_events(create_test_run: tuple[sv_run.Run, dict]) -> None:
 @pytest.mark.parametrize(
     "critical_only", (True, False), ids=("critical_only", "all_states")
 )
-def test_get_alerts(create_plain_run: tuple[sv_run.Run, dict], from_run: bool, names_only: bool, critical_only: bool) -> None:
+def test_get_alerts(
+    create_plain_run: tuple[sv_run.Run, dict],
+    from_run: bool,
+    names_only: bool,
+    critical_only: bool,
+) -> None:
     run, run_data = create_plain_run
     run_id = run.id
     unique_id = f"{uuid.uuid4()}".split("-")[0]
@@ -52,13 +57,19 @@ def test_get_alerts(create_plain_run: tuple[sv_run.Run, dict], from_run: bool, n
     run.close()
     
     client = svc.Client()
-    
+
     if critical_only and not from_run:
         with pytest.raises(RuntimeError) as e:
-            _alerts = client.get_alerts(run_id=run_id if from_run else None, critical_only=critical_only, names_only=names_only)
+            _alerts = client.get_alerts(critical_only=critical_only, names_only=names_only)
         assert "critical_only is ambiguous when returning alerts with no run ID specified." in str(e.value)
     else:
-        _alerts = client.get_alerts(run_id=run_id if from_run else None, critical_only=critical_only, names_only=names_only)
+        sorting = None if run_id else [("name", True), ("created", True)]
+        _alerts = client.get_alerts(
+            run_id=run_id if from_run else None,
+            critical_only=critical_only,
+            names_only=names_only,
+            sort_by_columns=sorting
+        )
     
         if names_only:
             assert all(isinstance(item, str) for item in _alerts)
@@ -145,9 +156,16 @@ def test_plot_metrics(create_test_run: tuple[sv_run.Run, dict]) -> None:
 
 @pytest.mark.dependency
 @pytest.mark.client
-def test_get_artifacts_entries(create_test_run: tuple[sv_run.Run, dict]) -> None:
+@pytest.mark.parametrize(
+    "sorting", ([("metadata.test_identifier", True)], [("name", True), ("created", True)], None),
+    ids=("sorted-metadata", "sorted-name-created", None)
+)
+def test_get_artifacts_entries(create_test_run: tuple[sv_run.Run, dict], sorting: list[tuple[str, bool]] | None) -> None:
+    # TODO: Reinstate this test once server bug fixed
+    if any("metadata" in a[0] for a in sorting or []):
+        pytest.skip(reason="Server bug fix required for metadata sorting.")
     client = svc.Client()
-    assert dict(client.list_artifacts(create_test_run[1]["run_id"]))
+    assert dict(client.list_artifacts(create_test_run[1]["run_id"], sort_by_columns=sorting))
     assert client.get_artifact(create_test_run[1]["run_id"], name="test_attributes")
 
 
@@ -229,9 +247,16 @@ def test_get_run(create_test_run: tuple[sv_run.Run, dict]) -> None:
 
 @pytest.mark.dependency
 @pytest.mark.client
-def test_get_folder(create_test_run: tuple[sv_run.Run, dict]) -> None:
+@pytest.mark.parametrize(
+    "sorting", (None, [("metadata.test_identifier", True), ("path", True)], [("modified", False)]),
+    ids=("no-sort", "sort-path-metadata", "sort-modified")
+)
+def test_get_folders(create_test_run: tuple[sv_run.Run, dict], sorting: list[tuple[str, bool]] | None) -> None:
+    #TODO: Once server is fixed reinstate this test
+    if "modified" in (a[0] for a in sorting or []):
+        pytest.skip(reason="Server bug when sorting by 'modified'")
     client = svc.Client()
-    assert (folders := client.get_folders())
+    assert (folders := client.get_folders(sort_by_columns=sorting))
     _id, _folder = next(folders)
     assert _folder.path
     assert client.get_folder(_folder.path)
