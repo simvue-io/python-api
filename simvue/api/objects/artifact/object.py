@@ -15,9 +15,18 @@ except ImportError:
 
 
 class ObjectArtifact(ArtifactBase):
+    """Object based artifact modification and creation class."""
+
     def __init__(
         self, identifier: str | None = None, _read_only: bool = True, **kwargs
     ) -> None:
+        """Initialise a new object artifact connection.
+
+        Parameters
+        ----------
+        identifier : str, optional
+            the identifier of this object on the server.
+        """
         kwargs.pop("original_path", None)
         super().__init__(identifier, _read_only, original_path="", **kwargs)
 

@@ -19,6 +19,11 @@ from .base import SimvueObject
 from simvue.models import DATETIME_FORMAT, EventSet
 from simvue.api.request import get as sv_get, get_json_from_response
 
+try:
+    from typing import Self
+except ImportError:
+    from typing_extensions import Self
+
 __all__ = ["Events"]
 
 
@@ -60,7 +65,9 @@ class Events(SimvueObject):
 
     @classmethod
     @pydantic.validate_call
-    def new(cls, *, run: str, offline: bool = False, events: list[EventSet], **kwargs):
+    def new(
+        cls, *, run: str, offline: bool = False, events: list[EventSet], **kwargs
+    ) -> Self:
         """Create a new Events entry on the Simvue server"""
         return Events(
             run=run,
@@ -110,9 +117,14 @@ class Events(SimvueObject):
         )
         return _json_response.get("data")
 
-    def delete(
-        self, _linked_objects: list[str] | None = None, **kwargs
-    ) -> dict[str, typing.Any]:
+    def delete(self, **kwargs) -> dict[str, typing.Any]:
+        """Event set deletion not implemented.
+
+        Raises
+        ------
+        NotImplementedError
+            as event set deletion not supported
+        """
         raise NotImplementedError("Cannot delete event set")
 
     def on_reconnect(self, id_mapping: dict[str, str]):

@@ -53,9 +53,7 @@ def _download_artifact_to_file(
 
 
 class Client:
-    """
-    Class for querying Simvue
-    """
+    """Class for querying a Simvue server instance."""
 
     def __init__(
         self,
@@ -184,6 +182,7 @@ class Client:
         count_limit: pydantic.PositiveInt | None = 100,
         start_index: pydantic.NonNegativeInt = 0,
         show_shared: bool = False,
+        sort_by_columns: list[tuple[str, bool]] | None = None,
     ) -> DataFrame | typing.Generator[tuple[str, Run], None, None] | None:
         """Retrieve all runs matching filters.
 
@@ -201,21 +200,32 @@ class Client:
         alerts : bool, optional
             whether to include alert information in the response.
             Default False.
-        output_format : Literal['objects', 'dataframe'], optional
-            the structure of the response, either a dictionary of objects or a dataframe.
-            Default is 'objects'. Pandas must be installed for 'dataframe'.
+        output_format : Literal['dict', objects', 'dataframe'], optional
+            the structure of the response
+                * dict - dictionary of values.
+                * objects - a dictionary of objects (default).
+                * dataframe - a dataframe (Pandas must be installed).
         count_limit : int, optional
             maximum number of entries to return. Default is 100.
         start_index : int, optional
             the index from which to count entries. Default is 0.
         show_shared : bool, optional
             whether to include runs shared with the current user. Default is False.
+        sort_by_columns : list[tuple[str, bool]], optional
+            sort by columns in the order given,
+            list of tuples in the form (column_name: str, sort_descending: bool),
+            default is None.
 
         Returns
         -------
         pandas.DataFrame | Generator[tuple[str, Run], None, None]
             either the JSON response from the runs request or the results in the
             form of a Pandas DataFrame
+
+        Yields
+        ------
+        tuple[str, Run]
+            identifier and Run object
 
         Raises
         ------
@@ -236,6 +246,9 @@ class Client:
             return_alerts=alerts,
             return_system=system,
             return_metadata=metadata,
+            sorting=[dict(zip(("column", "descending"), a)) for a in sort_by_columns]
+            if sort_by_columns
+            else None,
         )
 
         if output_format == "objects":
@@ -429,13 +442,19 @@ class Client:
 
     @prettify_pydantic
     @pydantic.validate_call
-    def list_artifacts(self, run_id: str) -> typing.Generator[Artifact, None, None]:
+    def list_artifacts(
+        self, run_id: str, sort_by_columns: list[tuple[str, bool]] | None = None
+    ) -> typing.Generator[Artifact, None, None]:
         """Retrieve artifacts for a given run
 
         Parameters
         ----------
         run_id : str
             unique identifier for the run
+        sort_by_columns : list[tuple[str, bool]], optional
+            sort by columns in the order given,
+            list of tuples in the form (column_name: str, sort_descending: bool),
+            default is None.
 
         Yields
         ------
@@ -447,7 +466,12 @@ class Client:
         RuntimeError
             if retrieval of artifacts failed when communicating with the server
         """
-        return Artifact.get(runs=json.dumps([run_id]))  # type: ignore
+        return Artifact.get(
+            runs=json.dumps([run_id]),
+            sorting=[dict(zip(("column", "descending"), a)) for a in sort_by_columns]
+            if sort_by_columns
+            else None,
+        )  # type: ignore
 
     def _retrieve_artifacts_from_server(
         self, run_id: str, name: str, count: int | None = None
@@ -572,9 +596,12 @@ class Client:
         ----------
         run_id : str
             the unique identifier for the run
-        category : typing.Literal["input", "output", "code"] |
-            the type of files to retrieve
-        output_dir : str | None, optional
+        category : Literal['input', 'output', 'code']
+            category of file to retrieve, default of None returns all
+                * input - this file is an input file.
+                * output - this file is created by the run.
+                * code - this file represents an executed script
+        output_dir : str | None, optTODOional
             location to download files to, the default of None will download
             them to the current working directory
 
@@ -641,6 +668,7 @@ class Client:
         filters: list[str] | None = None,
         count: pydantic.PositiveInt = 100,
         start_index: pydantic.NonNegativeInt = 0,
+        sort_by_columns: list[tuple[str, bool]] | None = None,
     ) -> typing.Generator[tuple[str, Folder], None, None]:
         """Retrieve folders from the server
 
@@ -652,6 +680,10 @@ class Client:
             maximum number of entries to return. Default is 100.
         start_index : int, optional
             the index from which to count entries. Default is 0.
+        sort_by_columns : list[tuple[str, bool]], optional
+            sort by columns in the order given,
+            list of tuples in the form (column_name: str, sort_descending: bool),
+            default is None.
 
         Returns
         -------
@@ -664,7 +696,12 @@ class Client:
             if there was a failure retrieving data from the server
         """
         return Folder.get(
-            filters=json.dumps(filters or []), count=count, offset=start_index
+            filters=json.dumps(filters or []),
+            count=count,
+            offset=start_index,
+            sorting=[dict(zip(("column", "descending"), a)) for a in sort_by_columns]
+            if sort_by_columns
+            else None,
         )  # type: ignore
 
     @prettify_pydantic
@@ -745,10 +782,15 @@ class Client:
         ----------
         metric_names : list[str]
             the names of metrics to return values for
-        xaxis : Literal['step', 'time', 'timestamp']
-            the xaxis type
-        output_format : Literal['dataframe', 'list']
-            the format of the output, either a list or a Pandas dataframe
+        xaxis : Literal["step", "time", "timestamp"]
+            the x-axis type
+                * step - enumeration.
+                * time - time in seconds.
+                * timestamp - time stamp.
+        output_format : Literal['dataframe', 'dict']
+            the format of the output
+                * dict - python dictionary of values (default).
+                * dataframe - values as dataframe (requires Pandas).
         run_ids : list[str], optional
             list of runs by id to include within metric retrieval
         run_filters : list[str]
@@ -968,6 +1010,7 @@ class Client:
         names_only: bool = True,
         start_index: pydantic.NonNegativeInt | None = None,
         count_limit: pydantic.PositiveInt | None = None,
+        sort_by_columns: list[tuple[str, bool]] | None = None,
     ) -> list[AlertBase] | list[str | None]:
         """Retrieve alerts for a given run
 
@@ -983,6 +1026,10 @@ class Client:
             slice results returning only those above this index, by default None
         count_limit : typing.int, optional
             limit number of returned results, by default None
+        sort_by_columns : list[tuple[str, bool]], optional
+            sort by columns in the order given,
+            list of tuples in the form (column_name: str, sort_descending: bool),
+            default is None.
 
         Returns
         -------
@@ -999,7 +1046,22 @@ class Client:
                 raise RuntimeError(
                     "critical_only is ambiguous when returning alerts with no run ID specified."
                 )
-            return [alert.name if names_only else alert for _, alert in Alert.get()]  # type: ignore
+            return [
+                alert.name if names_only else alert
+                for _, alert in Alert.get(
+                    sorting=[
+                        dict(zip(("column", "descending"), a)) for a in sort_by_columns
+                    ]
+                    if sort_by_columns
+                    else None,
+                )
+            ]  # type: ignore
+
+        if sort_by_columns:
+            logger.warning(
+                "Run identifier specified for alert retrieval,"
+                " argument 'sort_by_columns' will be ignored"
+            )
 
         _alerts = [
             Alert(identifier=alert.get("id"), **alert)
@@ -1019,6 +1081,7 @@ class Client:
         *,
         start_index: pydantic.NonNegativeInt | None = None,
         count_limit: pydantic.PositiveInt | None = None,
+        sort_by_columns: list[tuple[str, bool]] | None = None,
     ) -> typing.Generator[Tag, None, None]:
         """Retrieve tags
 
@@ -1028,18 +1091,29 @@ class Client:
             slice results returning only those above this index, by default None
         count_limit : typing.int, optional
             limit number of returned results, by default None
+        sort_by_columns : list[tuple[str, bool]], optional
+            sort by columns in the order given,
+            list of tuples in the form (column_name: str, sort_descending: bool),
+            default is None.
 
         Returns
         -------
-        list[Tag]
-            a list of all tags for this run
+        yields
+            tag identifier
+            tag object
 
         Raises
         ------
         RuntimeError
             if there was a failure retrieving data from the server
         """
-        return Tag.get(count=count_limit, offset=start_index)
+        return Tag.get(
+            count=count_limit,
+            offset=start_index,
+            sorting=[dict(zip(("column", "descending"), a)) for a in sort_by_columns]
+            if sort_by_columns
+            else None,
+        )
 
     @prettify_pydantic
     @pydantic.validate_call

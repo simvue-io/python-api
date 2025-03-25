@@ -1,19 +1,43 @@
+import http
+import typing
+import pydantic
+import json
+
 from simvue.api.objects.artifact.base import ArtifactBase
+from simvue.api.objects.base import Sort
 from .file import FileArtifact
 from simvue.api.objects.artifact.object import ObjectArtifact
 from simvue.api.request import get_json_from_response, get as sv_get
 from simvue.api.url import URL
 from simvue.exception import ObjectNotFoundError
 
-import http
-import typing
-import pydantic
 
 __all__ = ["Artifact"]
 
 
+class ArtifactSort(Sort):
+    @pydantic.field_validator("column")
+    @classmethod
+    def check_column(cls, column: str) -> str:
+        if column and (
+            column not in ("name", "created") and not column.startswith("metadata.")
+        ):
+            raise ValueError(f"Invalid sort column for artifacts '{column}'")
+        return column
+
+
 class Artifact:
     """Generic Simvue artifact retrieval class"""
+
+    def __init__(self, identifier: str | None = None, *args, **kwargs) -> None:
+        """Initialise an instance of generic artifact retriever.
+
+        Parameters
+        ----------
+        identifier : str
+            identifier of artifact object to retrieve
+        """
+        super().__init__(identifier=identifier, *args, **kwargs)
 
     def __new__(cls, identifier: str | None = None, **kwargs):
         """Retrieve an object representing an Artifact by id"""
@@ -36,8 +60,11 @@ class Artifact:
         ----------
         run_id : str
             The ID of the run to retriece artifacts from
-        category : typing.Literal["input", "output", "code"] | None, optional
-            The category of artifacts to return, by default all artifacts are returned
+        category : Literal['input', 'output', 'code'] | None
+            category of artifacts to return, if None, do not filter
+                * input - this file is an input file.
+                * output - this file is created by the run.
+                * code - this file represents an executed script
 
         Returns
         -------
@@ -83,6 +110,20 @@ class Artifact:
     def from_name(
         cls, run_id: str, name: str, **kwargs
     ) -> typing.Union[FileArtifact | ObjectArtifact, None]:
+        """Retrieve an artifact by name.
+
+        Parameters
+        ----------
+        run_id : str
+            the identifier of the run to retrieve from.
+        name : str
+            the name of the artifact to retrieve.
+
+        Returns
+        -------
+        FileArtifact | ObjectArtifact | None
+            the artifact if found
+        """
         _temp = ArtifactBase(**kwargs)
         _url = URL(_temp._user_config.server.url) / f"runs/{run_id}/artifacts"
         _response = sv_get(url=f"{_url}", params={"name": name}, headers=_temp._headers)
@@ -119,6 +160,7 @@ class Artifact:
         cls,
         count: int | None = None,
         offset: int | None = None,
+        sorting: list[ArtifactSort] | None = None,
         **kwargs,
     ) -> typing.Generator[tuple[str, FileArtifact | ObjectArtifact], None, None]:
         """Returns artifacts associated with the current user.
@@ -129,6 +171,8 @@ class Artifact:
             limit the number of results, default of None returns all.
         offset : int, optional
             start index for returned results, default of None starts at 0.
+        sorting : list[dict] | None, optional
+            list of sorting definitions in the form {'column': str, 'descending': bool}
 
         Yields
         ------
@@ -139,10 +183,15 @@ class Artifact:
 
         _class_instance = ArtifactBase(_local=True, _read_only=True)
         _url = f"{_class_instance._base_url}"
+        _params = {"start": offset, "count": count}
+
+        if sorting:
+            _params["sorting"] = json.dumps([sort.to_params() for sort in sorting])
+
         _response = sv_get(
             _url,
             headers=_class_instance._headers,
-            params={"start": offset, "count": count} | kwargs,
+            params=_params | kwargs,
         )
         _label: str = _class_instance.__class__.__name__.lower()
         _label = _label.replace("base", "")

@@ -42,11 +42,11 @@ class FileStorage(StorageBase):
             name to allocated to this storage system
         disable_check : bool
             whether to disable checks for this system
-        tenant_usable : bool
+        is_tenant_useable : bool
             whether this system is usable by the current tenant
         is_enabled : bool
             whether to enable this system
-        default : bool
+        is_default : bool
             if this storage system should become the new default
         offline : bool, optional
             if this instance should be created in offline mode, default False

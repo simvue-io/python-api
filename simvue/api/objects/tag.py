@@ -9,11 +9,27 @@ a new tag given relevant arguments.
 
 import pydantic.color
 import typing
+import json
 import datetime
-from .base import SimvueObject, staging_check, write_only
+
+from simvue.api.objects.base import SimvueObject, Sort, staging_check, write_only
 from simvue.models import DATETIME_FORMAT
 
+try:
+    from typing import Self
+except ImportError:
+    from typing_extensions import Self
+
 __all__ = ["Tag"]
+
+
+class TagSort(Sort):
+    @pydantic.field_validator("column")
+    @classmethod
+    def check_column(cls, column: str) -> str:
+        if column and column not in ("created", "name"):
+            raise ValueError(f"Invalid sort column for tags '{column}")
+        return column
 
 
 class Tag(SimvueObject):
@@ -21,7 +37,7 @@ class Tag(SimvueObject):
 
     @classmethod
     @pydantic.validate_call
-    def new(cls, *, name: str, offline: bool = False, **kwargs):
+    def new(cls, *, name: str, offline: bool = False, **kwargs) -> Self:
         """Create a new Tag on the Simvue server.
 
         Parameters
@@ -87,8 +103,14 @@ class Tag(SimvueObject):
         )
 
     @classmethod
+    @pydantic.validate_call
     def get(
-        cls, *, count: int | None = None, offset: int | None = None, **kwargs
+        cls,
+        *,
+        count: int | None = None,
+        offset: int | None = None,
+        sorting: list[TagSort] | None = None,
+        **kwargs,
     ) -> typing.Generator[tuple[str, "SimvueObject"], None, None]:
         """Get tags from the server.
 
@@ -98,6 +120,8 @@ class Tag(SimvueObject):
             limit the number of objects returned, default no limit.
         offset : int, optional
             start index for results, default is 0.
+        sorting : list[dict] | None, optional
+            list of sorting definitions in the form {'column': str, 'descending': bool}
 
         Yields
         ------
@@ -108,4 +132,14 @@ class Tag(SimvueObject):
         # There are currently no tag filters
         kwargs.pop("filters", None)
 
-        return super().get(count=count, offset=offset, **kwargs)
+        _params: dict[str, str] = {}
+
+        if sorting:
+            _params["sorting"] = json.dumps([i.to_params() for i in sorting])
+
+        return super().get(
+            count=count,
+            offset=offset,
+            **_params,
+            **kwargs,
+        )
