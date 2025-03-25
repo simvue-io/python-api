@@ -168,6 +168,9 @@ class SimvueConfiguration(pydantic.BaseModel):
             override the token used for this session
         mode : 'online' | 'offline' | 'disabled'
             set the run mode for this session
+                * online - send metrics and data to a server.
+                * offline - run in offline mode.
+                * disabled - run in disabled mode.
 
         Return
         ------
