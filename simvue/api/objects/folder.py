@@ -20,6 +20,15 @@ from .base import SimvueObject, staging_check, write_only, Sort
 from simvue.models import FOLDER_REGEX, DATETIME_FORMAT
 
 # Need to use this inside of Generator typing to fix bug present in Python 3.10 - see issue #745
+try:
+    from typing import Self
+except ImportError:
+    from typing_extensions import Self
+
+
+__all__ = ["Folder"]
+
+
 T = typing.TypeVar("T", bound="Folder")
 
 
@@ -72,7 +81,7 @@ class Folder(SimvueObject):
         path: typing.Annotated[str, pydantic.Field(pattern=FOLDER_REGEX)],
         offline: bool = False,
         **kwargs,
-    ):
+    ) -> Self:
         """Create a new Folder on the Simvue server with the given path"""
         return Folder(path=path, _read_only=False, _offline=offline, **kwargs)
 

@@ -21,6 +21,16 @@ from .base import StorageBase
 class Storage:
     """Generic Simvue storage retrieval class"""
 
+    def __init__(self, identifier: str | None = None, *args, **kwargs) -> None:
+        """Initialise an instance of generic storage retriever.
+
+        Parameters
+        ----------
+        identifier : str
+            identifier of storage object to retrieve
+        """
+        super().__init__(identifier=identifier, *args, **kwargs)
+
     def __new__(cls, identifier: str | None = None, **kwargs):
         """Retrieve an object representing an storage either locally or on the server by id"""
         _storage_pre = StorageBase(identifier=identifier, **kwargs)
