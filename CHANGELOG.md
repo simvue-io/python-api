@@ -1,4 +1,6 @@
 # Change log
+## Unreleased
+* Removed CodeCarbon dependence in favour of a slimmer solution using the CO2 Signal API.
 ## [v2.0.1](https://github.com/simvue-io/client/releases/tag/v2.0.1) - 2025-03-24
 * Improvements to docstrings on methods, classes and functions.
 ## [v2.0.0](https://github.com/simvue-io/client/releases/tag/v2.0.0) - 2025-03-07
