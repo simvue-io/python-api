@@ -96,7 +96,6 @@ def post(
     else:
         data_sent = data
 
-    logging.debug(f"POST: {url}\n\tdata={data_sent}")
     response = requests.post(
         url,
         headers=headers,

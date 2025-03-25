@@ -37,6 +37,8 @@ class CountingLogHandler(logging.Handler):
 
         for i, capture in enumerate(self.captures):
             if capture in record.msg:
+                if "resource" in record.msg:
+                    print(f"[{i}={self.counts[i]}]: {record.msg}")
                 self.counts[i] += 1
 
 
@@ -148,7 +150,7 @@ def create_pending_run(request, prevent_script_exit) -> typing.Generator[typing.
 
 
 @pytest.fixture
-def create_plain_run_offline(request,prevent_script_exit) -> typing.Generator[typing.Tuple[sv_run.Run, dict], None, None]:
+def create_plain_run_offline(request,prevent_script_exit,monkeypatch) -> typing.Generator[typing.Tuple[sv_run.Run, dict], None, None]:
     with tempfile.TemporaryDirectory() as temp_d:
         monkeypatch.setenv("SIMVUE_OFFLINE_DIRECTORY", temp_d)
         with sv_run.Run("offline") as run:

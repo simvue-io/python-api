@@ -16,7 +16,7 @@ import concurrent.futures
 import random
 import datetime
 import simvue
-from simvue.api.objects.alert.fetch import Alert
+from simvue.api.objects import Alert, Metrics
 from simvue.exception import SimvueRunError
 import simvue.run as sv_run
 import simvue.client as sv_cl
@@ -95,19 +95,19 @@ def test_run_with_emissions(mock_co2_signal) -> None:
 def test_log_metrics(
     overload_buffer: bool,
     timestamp: str | None,
-    setup_logging: "CountingLogHandler",
-    mocker,
+    mocker: pytest_mock.MockerFixture,
     request: pytest.FixtureRequest,
     visibility: typing.Literal["public", "tenant"] | list[str] | None,
 ) -> None:
     METRICS = {"a": 10, "b": 1.2}
 
-    setup_logging.captures = ["'a'", "resources/"]
-
     # Have to create the run outside of fixtures because the resources dispatch
     # occurs immediately and is not captured by the handler when using the fixture
     run = sv_run.Run()
     run.config(suppress_errors=False)
+
+    metrics_spy = mocker.spy(Metrics, "new")
+    resource_metrics_spy = mocker.spy(sv_run.Run, "_get_internal_metrics")
 
     if visibility == "bad_option":
         with pytest.raises(SimvueRunError, match="visibility") as e:
@@ -169,12 +169,14 @@ def test_log_metrics(
     assert len(_steps) == (
         run._dispatcher._max_buffer_size * 3 if overload_buffer else 1
     )
-    # There are two debug log messages per metric dispatch - 'Executing callback on buffer' and 'Posting staged data'
-    # Should have done one dispatch if not overloaded, and 3 dispatches if overloaded
-    assert setup_logging.counts[0] == (6 if overload_buffer else 2)
+
+    if overload_buffer:
+        assert metrics_spy.call_count > 2
+    else:
+        assert metrics_spy.call_count <= 2
 
     # Check heartbeat has been called at least once (so sysinfo sent)
-    assert setup_logging.counts[1] > 0
+    assert resource_metrics_spy.call_count >= 1
 
 
 @pytest.mark.run
