@@ -182,6 +182,7 @@ class Client:
         count_limit: pydantic.PositiveInt | None = 100,
         start_index: pydantic.NonNegativeInt = 0,
         show_shared: bool = False,
+        sort_by_columns: list[tuple[str, bool]] | None = None,
     ) -> DataFrame | typing.Generator[tuple[str, Run], None, None] | None:
         """Retrieve all runs matching filters.
 
@@ -210,6 +211,10 @@ class Client:
             the index from which to count entries. Default is 0.
         show_shared : bool, optional
             whether to include runs shared with the current user. Default is False.
+        sort_by_columns : list[tuple[str, bool]], optional
+            sort by columns in the order given,
+            list of tuples in the form (column_name: str, sort_descending: bool),
+            default is None.
 
         Returns
         -------
@@ -236,6 +241,9 @@ class Client:
             return_alerts=alerts,
             return_system=system,
             return_metadata=metadata,
+            sorting=[dict(zip(("column", "descending"), a)) for a in sort_by_columns]
+            if sort_by_columns
+            else None,
         )
 
         if output_format == "objects":

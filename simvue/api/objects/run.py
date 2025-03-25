@@ -47,8 +47,9 @@ class RunSort(Sort):
             and column != "name"
             and not column.startswith("metrics")
             and not column.startswith("metadata.")
+            and column not in ("created", "started", "endtime", "modified")
         ):
-            raise ValueError(f"Invalid sort column for runs '{column}")
+            raise ValueError(f"Invalid sort column for runs '{column}'")
 
         return column
 

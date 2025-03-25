@@ -200,11 +200,19 @@ def test_get_artifacts_as_files(
 
 @pytest.mark.dependency
 @pytest.mark.client
-@pytest.mark.parametrize("output_format", ("dict", "dataframe", "objects"))
-def test_get_runs(create_test_run: tuple[sv_run.Run, dict], output_format: str) -> None:
+@pytest.mark.parametrize(
+    "output_format,sorting",
+    [
+        ("dict", None),
+        ("dataframe", [("created", True), ("started", True)]),
+        ("objects", [("metadata.test_identifier", True)]),
+    ],
+    ids=("dict-unsorted", "dataframe-datesorted", "objects-metasorted")
+)
+def test_get_runs(create_test_run: tuple[sv_run.Run, dict], output_format: str, sorting: list[tuple[str, bool]] | None) -> None:
     client = svc.Client()
 
-    _result = client.get_runs(filters=None, output_format=output_format, count_limit=10)
+    _result = client.get_runs(filters=None, output_format=output_format, count_limit=10, sort_by_columns=sorting)
 
     if output_format == "dataframe":
         assert not _result.empty
