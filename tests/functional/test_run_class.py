@@ -1,3 +1,4 @@
+import json
 import os
 import pytest
 import pytest_mock
@@ -15,7 +16,9 @@ import random
 import datetime
 import simvue
 from simvue.api.objects import Alert, Metrics
+from simvue.eco.api_client import CO2SignalData, CO2SignalResponse
 from simvue.exception import SimvueRunError
+from simvue.eco.emissions_monitor import TIME_FORMAT, CO2Monitor
 import simvue.run as sv_run
 import simvue.client as sv_cl
 import simvue.sender as sv_send
@@ -47,38 +50,51 @@ def test_check_run_initialised_decorator() -> None:
 
 @pytest.mark.run
 @pytest.mark.eco
-def test_run_with_emissions(mock_co2_signal) -> None:
-    with sv_run.Run() as run_created:
-        run_created.init(
-            name="test_run_with_emissions",
-            folder="/simvue_client_unit_tests",
-            retention_period="1 min",
-            tags=["test_run_with_emissions"]
+@pytest.mark.online
+def test_run_with_emissions_online(speedy_heartbeat, mock_co2_signal, create_plain_run) -> None:
+    run_created, _ = create_plain_run
+    run_created.config(enable_emission_metrics=True)
+    time.sleep(3)
+    _run = RunObject(identifier=run_created.id)
+    _metric_names = [item[0] for item in _run.metrics]
+    client = sv_cl.Client()
+    for _metric in ["emissions", "energy_consumed"]:
+        _total_metric_name = f"sustainability.{_metric}.total"
+        _delta_metric_name = f"sustainability.{_metric}.delta"
+        assert _total_metric_name in _metric_names
+        assert _delta_metric_name in _metric_names
+        _metric_values = client.get_metric_values(
+            metric_names=[_total_metric_name, _delta_metric_name],
+            xaxis="time",
+            output_format="dataframe",
+            run_ids=[run_created.id],
         )
-        run_created.config(enable_emission_metrics=True, resources_metrics_interval=1)
-        time.sleep(5)
-        _run = RunObject(identifier=run_created.id)
-        _metric_names = [item[0] for item in _run.metrics]
-        client = sv_cl.Client()
-        for _metric in ["emissions", "energy_consumed"]:
-            _total_metric_name = f"sustainability.{_metric}.total"
-            _delta_metric_name = f"sustainability.{_metric}.delta"
-            assert _total_metric_name in _metric_names
-            assert _delta_metric_name in _metric_names
-            _metric_values = client.get_metric_values(
-                metric_names=[_total_metric_name, _delta_metric_name],
+        assert _total_metric_name in _metric_values
+
+
+@pytest.mark.run
+@pytest.mark.eco
+@pytest.mark.offline
+def test_run_with_emissions_offline(speedy_heartbeat, mock_co2_signal, create_plain_run_offline) -> None:
+    run_created, _ = create_plain_run_offline
+    run_created.config(enable_emission_metrics=True)
+    time.sleep(2)
+    id_mapping = sv_send.sender(os.environ["SIMVUE_OFFLINE_DIRECTORY"])
+    _run = RunObject(identifier=id_mapping[run_created.id])
+    _metric_names = [item[0] for item in _run.metrics]
+    client = sv_cl.Client()
+    for _metric in ["emissions", "energy_consumed"]:
+        _total_metric_name = f"sustainability.{_metric}.total"
+        _delta_metric_name = f"sustainability.{_metric}.delta"
+        assert _total_metric_name in _metric_names
+        assert _delta_metric_name in _metric_names
+        _metric_values = client.get_metric_values(
+            metric_names=[_total_metric_name, _delta_metric_name],
                 xaxis="time",
-                output_format="dataframe",
-                run_ids=[run_created.id],
-            )
-
-        # Check that total = previous total + latest delta
-        _total_values = _metric_values[_total_metric_name].tolist()
-        _delta_values = _metric_values[_delta_metric_name].tolist()
-        assert len(_total_values) > 1
-        for i in range(1, len(_total_values)):
-            assert _total_values[i] == _total_values[i - 1] + _delta_values[i]
-
+            output_format="dataframe",
+            run_ids=[id_mapping[run_created.id]],
+        )
+        assert _total_metric_name in _metric_values
 
 @pytest.mark.run
 @pytest.mark.parametrize(

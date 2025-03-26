@@ -1109,15 +1109,10 @@ class Run:
 
             if enable_emission_metrics:
                 if self._user_config.run.mode == "offline":
-                    if not (_co2_intensity := self._user_config.eco.co2_intensity):
-                        self._error(
-                            "Cannot record emission metrics, "
-                            "a CO2 intensity value is required in offline mode."
-                        )
                     # Create an emissions monitor with no API calls
                     self._emissions_monitor = CO2Monitor(
                         intensity_refresh_interval=None,
-                        co2_intensity=_co2_intensity,
+                        co2_intensity=self._user_config.eco.co2_intensity,
                         local_data_directory=self._user_config.eco.local_data_directory,
                         co2_signal_api_token=None,
                         thermal_design_power_per_cpu=self._user_config.eco.cpu_thermal_design_power,
