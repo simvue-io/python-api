@@ -628,7 +628,9 @@ class Client:
     @prettify_pydantic
     @pydantic.validate_call
     def get_folder(
-        self, folder_path: typing.Annotated[str, pydantic.Field(pattern=FOLDER_REGEX)]
+        self,
+        folder_path: typing.Annotated[str, pydantic.Field(pattern=FOLDER_REGEX)],
+        read_only: bool = True,
     ) -> Folder | None:
         """Retrieve a folder by identifier
 
@@ -637,6 +639,10 @@ class Client:
         folder_path : str
             the path of the folder to retrieve on the server.
             Paths are prefixed with `/`
+        read_only : bool, optional
+            whether the returned object should be editable or not,
+            default is True, the object is a cached copy of data
+            from the server.
 
         Returns
         -------
@@ -654,6 +660,8 @@ class Client:
 
         try:
             _, _folder = next(_folders)
+            if not read_only:
+                _folder.read_only(read_only)
             return _folder
         except StopIteration:
             return None
