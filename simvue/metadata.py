@@ -9,6 +9,8 @@ Contains functions for extracting additional metadata about the current project
 import contextlib
 import typing
 import json
+import os
+import fnmatch
 import toml
 import logging
 import pathlib
@@ -179,7 +181,22 @@ def _node_js_env(repository: pathlib.Path) -> dict[str, typing.Any]:
     return js_meta
 
 
-def environment(repository: pathlib.Path = pathlib.Path.cwd()) -> dict[str, typing.Any]:
+def _environment_variables(glob_exprs: list[str]) -> dict[str, str]:
+    """Retrieve values for environment variables."""
+    _env_vars: list[str] = list(os.environ.keys())
+    _metadata: dict[str, str] = {}
+
+    for pattern in glob_exprs:
+        for key in fnmatch.filter(_env_vars, pattern):
+            _metadata[key] = os.environ[key]
+
+    return _metadata
+
+
+def environment(
+    repository: pathlib.Path = pathlib.Path.cwd(),
+    env_var_glob_exprs: set[str] | None = None,
+) -> dict[str, typing.Any]:
     """Retrieve environment metadata"""
     _environment_meta = {}
     if _python_meta := _python_env(repository):
@@ -190,4 +207,6 @@ def environment(repository: pathlib.Path = pathlib.Path.cwd()) -> dict[str, typi
         _environment_meta["julia"] = _julia_meta
     if _js_meta := _node_js_env(repository):
         _environment_meta["javascript"] = _js_meta
+    if env_var_glob_exprs:
+        _environment_meta["shell"] = _environment_variables(env_var_glob_exprs)
     return _environment_meta
