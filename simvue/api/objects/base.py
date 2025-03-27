@@ -23,6 +23,7 @@ from simvue.exception import ObjectNotFoundError
 from simvue.version import __version__
 from simvue.api.request import (
     get as sv_get,
+    get_paginated,
     post as sv_post,
     put as sv_put,
     delete as sv_delete,
@@ -347,7 +348,7 @@ class SimvueObject(abc.ABC):
     @classmethod
     def ids(
         cls, count: int | None = None, offset: int | None = None, **kwargs
-    ) -> list[str]:
+    ) -> typing.Generator[str, None, None]:
         """Retrieve a list of all object identifiers.
 
         Parameters
@@ -357,17 +358,23 @@ class SimvueObject(abc.ABC):
         offset : int | None, optional
             set start index for objects list
 
-        Returns
+        Yields
         -------
-        list[str]
+        str
             identifiers for all objects of this type.
         """
         _class_instance = cls(_read_only=True, _local=True)
-        if (_data := cls._get_all_objects(count, offset, **kwargs).get("data")) is None:
-            raise RuntimeError(
-                f"Expected key 'data' for retrieval of {_class_instance.__class__.__name__.lower()}s"
-            )
-        return [_entry["id"] for _entry in _data]
+        _count: int = 0
+        for response in cls._get_all_objects(offset):
+            if (_data := response.get("data")) is None:
+                raise RuntimeError(
+                    f"Expected key 'data' for retrieval of {_class_instance.__class__.__name__.lower()}s"
+                )
+            for entry in _data:
+                yield entry["id"]
+                _count += 1
+                if count and _count > count:
+                    return
 
     @classmethod
     @pydantic.validate_call
@@ -396,23 +403,19 @@ class SimvueObject(abc.ABC):
         Generator[tuple[str, SimvueObject | None], None, None]
         """
         _class_instance = cls(_read_only=True, _local=True)
-        if (
-            _data := cls._get_all_objects(
-                count=count,
-                offset=offset,
-                **kwargs,
-            ).get("data")
-        ) is None:
-            raise RuntimeError(
-                f"Expected key 'data' for retrieval of {_class_instance.__class__.__name__.lower()}s"
-            )
-
-        for _entry in _data:
-            if not (_id := _entry.pop("id", None)):
+        _count: int = 0
+        for _response in cls._get_all_objects(offset, **kwargs):
+            if count and _count > count:
+                return
+            if (_data := _response.get("data")) is None:
                 raise RuntimeError(
-                    f"Expected key 'id' for {_class_instance.__class__.__name__.lower()}"
+                    f"Expected key 'data' for retrieval of {_class_instance.__class__.__name__.lower()}s"
                 )
-            yield _id, cls(_read_only=True, identifier=_id, _local=True, **_entry)
+
+            for entry in _data:
+                _id = entry["id"]
+                yield _id, cls(_read_only=True, identifier=_id, _local=True, **entry)
+                _count += 1
 
     @classmethod
     def count(cls, **kwargs) -> int:
@@ -424,42 +427,34 @@ class SimvueObject(abc.ABC):
             total from server database for current user.
         """
         _class_instance = cls(_read_only=True)
-        if (
-            _count := cls._get_all_objects(count=None, offset=None, **kwargs).get(
-                "count"
-            )
-        ) is None:
-            raise RuntimeError(
-                f"Expected key 'count' for retrieval of {_class_instance.__class__.__name__.lower()}s"
-            )
-        return _count
+        _count_total: int = 0
+        for _data in cls._get_all_objects(**kwargs):
+            if not (_count := _data.get("count")):
+                raise RuntimeError(
+                    f"Expected key 'count' for retrieval of {_class_instance.__class__.__name__.lower()}s"
+                )
+            _count_total += _count
+        return _count_total
 
     @classmethod
     def _get_all_objects(
-        cls,
-        count: int | None,
-        offset: int | None,
-        **kwargs,
-    ) -> dict[str, typing.Any]:
+        cls, offset: int | None, **kwargs
+    ) -> typing.Generator[dict, None, None]:
         _class_instance = cls(_read_only=True)
         _url = f"{_class_instance._base_url}"
-        _params: dict[str, int | str] = {"start": offset, "count": count}
-
-        _response = sv_get(
-            _url,
-            headers=_class_instance._headers,
-            params=_params | kwargs,
-        )
 
         _label = _class_instance.__class__.__name__.lower()
         if _label.endswith("s"):
             _label = _label[:-1]
 
-        return get_json_from_response(
-            response=_response,
-            expected_status=[http.HTTPStatus.OK],
-            scenario=f"Retrieval of {_label}s",
-        )
+        for response in get_paginated(
+            _url, headers=_class_instance._headers, offset=offset, **kwargs
+        ):
+            yield get_json_from_response(
+                response=response,
+                expected_status=[http.HTTPStatus.OK],
+                scenario=f"Retrieval of {_label}s",
+            )  # type: ignore
 
     def read_only(self, is_read_only: bool) -> None:
         """Set whether this object is in read only state.

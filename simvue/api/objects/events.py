@@ -49,18 +49,19 @@ class Events(SimvueObject):
         **kwargs,
     ) -> typing.Generator[EventSet, None, None]:
         _class_instance = cls(_read_only=True, _local=True)
+        _count: int = 0
 
-        if (
-            _data := cls._get_all_objects(count, offset, run=run_id, **kwargs).get(
-                "data"
-            )
-        ) is None:
-            raise RuntimeError(
-                f"Expected key 'data' for retrieval of {_class_instance.__class__.__name__.lower()}s"
-            )
+        for response in cls._get_all_objects(offset, run=run_id, **kwargs):
+            if (_data := response.get("data")) is None:
+                raise RuntimeError(
+                    f"Expected key 'data' for retrieval of {_class_instance.__class__.__name__.lower()}s"
+                )
 
-        for _entry in _data:
-            yield EventSet(**_entry)
+            for _entry in _data:
+                yield EventSet(**_entry)
+                _count += 1
+                if _count > count:
+                    return
 
     @classmethod
     @pydantic.validate_call

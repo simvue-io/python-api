@@ -45,10 +45,10 @@ def test_get_alerts(
     _id_1 = run.create_user_alert(
         name=f"user_alert_1_{unique_id}", 
     )
-    _id_2 = run.create_user_alert(
+    run.create_user_alert(
         name=f"user_alert_2_{unique_id}", 
     )
-    _id_3 = run.create_user_alert(
+    run.create_user_alert(
         name=f"user_alert_3_{unique_id}",
         attach_to_run=False
     )
