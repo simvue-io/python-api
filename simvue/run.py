@@ -561,13 +561,6 @@ class Run:
             self._get_child_processes() if self._parent_process else None
         )
 
-        if self._emissions_monitor:
-            self._emissions_monitor.attach_process(self._parent_process)
-            (
-                self._emissions_monitor.attach_process(process)
-                for process in self._child_processes or []
-            )
-
         self._shutdown_event = threading.Event()
         self._heartbeat_termination_trigger = threading.Event()
         self._alert_raised_trigger = threading.Event()
