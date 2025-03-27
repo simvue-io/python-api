@@ -108,7 +108,7 @@ class CO2Monitor(pydantic.BaseModel):
             )
 
         if not isinstance(kwargs.get("thermal_design_power_per_gpu"), float):
-            kwargs["thermal_design_power_per_gpu"] = 80.0
+            kwargs["thermal_design_power_per_gpu"] = 130.0
             _logger.warning(
                 "⚠️  No TDP value provided for current GPUs, will use arbitrary value of 130W."
             )

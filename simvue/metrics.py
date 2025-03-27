@@ -177,8 +177,8 @@ class SystemResourceMeasurement:
 
     @property
     def gpu_percent(self) -> float:
-        return sum(m[0] for m in self.gpus) / (len(self.gpus) or 1)
+        return sum(m[0] for m in self.gpus or []) / (len(self.gpus or []) or 1)
 
     @property
     def gpu_memory(self) -> float:
-        return sum(m[1] for m in self.gpus) / (len(self.gpus) or 1)
+        return sum(m[1] for m in self.gpus or []) / (len(self.gpus or []) or 1)
