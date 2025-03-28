@@ -1,7 +1,9 @@
 # Change log
-## Unreleased
+## [v2.1.0](https://github.com/simvue-io/client/releases/tag/v2.1.0) - 2025-03-28
 * Removed CodeCarbon dependence in favour of a slimmer solution using the CO2 Signal API.
 * Added sorting to server queries, users can now specify to sort by columns during data retrieval from the database.
+* Added pagination of results from server to reduce await time in responses.
+* Added equivalent of folder details modification function to `Client` class.
 ## [v2.0.1](https://github.com/simvue-io/client/releases/tag/v2.0.1) - 2025-03-24
 * Improvements to docstrings on methods, classes and functions.
 ## [v2.0.0](https://github.com/simvue-io/client/releases/tag/v2.0.0) - 2025-03-07
