@@ -15,6 +15,7 @@ import dataclasses
 import logging
 import humanfriendly
 import pathlib
+import os.path
 
 from simvue.eco.api_client import APIClient, CO2SignalResponse
 
@@ -46,6 +47,7 @@ class CO2Monitor(pydantic.BaseModel):
     intensity_refresh_interval: int | None | str
     co2_intensity: float | None
     co2_signal_api_token: str | None
+    offline: bool = False
 
     def now(self) -> str:
         """Return data file timestamp for the current time"""
@@ -97,7 +99,9 @@ class CO2Monitor(pydantic.BaseModel):
             disable using RestAPIs to retrieve CO2 intensity and instead use this value.
             Default is None, use remote data. Value is in kgCO2/kWh
         co2_signal_api_token: str
-            RECOMMENDED. The API token for CO2 signal, default is None.
+            The API token for CO2 signal, default is None.
+        offline: bool, optional
+            Run without any server interaction
         """
         _logger = logging.getLogger(self.__class__.__name__)
 
@@ -113,6 +117,7 @@ class CO2Monitor(pydantic.BaseModel):
                 "⚠️  No TDP value provided for current GPUs, will use arbitrary value of 130W."
             )
         super().__init__(*args, **kwargs)
+        self._last_local_write = datetime.datetime.now()
 
         if self.intensity_refresh_interval and isinstance(
             self.intensity_refresh_interval, str
@@ -144,7 +149,7 @@ class CO2Monitor(pydantic.BaseModel):
         self._logger = _logger
         self._client: APIClient | None = (
             None
-            if self.co2_intensity
+            if self.co2_intensity or self.offline
             else APIClient(co2_api_token=self.co2_signal_api_token, timeout=10)
         )
         self._processes: dict[str, ProcessData] = {}
@@ -158,10 +163,25 @@ class CO2Monitor(pydantic.BaseModel):
             whether a refresh of the CO2 intensity was requested
             from the CO2 Signal API.
         """
+        # Need to check if the local cache has been modified
+        # even if running offline
         if (
-            not self._local_data.setdefault(self._client.country_code, {})
-            or self.outdated
+            self._data_file_path.exists()
+            and (
+                _check_write := datetime.datetime.fromtimestamp(
+                    os.path.getmtime(f"{self._data_file_path}")
+                )
+            )
+            > self._last_local_write
         ):
+            self._last_local_write = _check_write
+            with self._data_file_path.open("r") as in_f:
+                self._local_data = json.load(in_f)
+
+        if (
+            self._client
+            and not self._local_data.setdefault(self._client.country_code, {})
+        ) or self.outdated:
             self._logger.info("🌍 CO2 emission outdated, calling API.")
             _data: CO2SignalResponse = self._client.get()
             self._local_data[self._client.country_code] = _data.model_dump(mode="json")
@@ -200,8 +220,23 @@ class CO2Monitor(pydantic.BaseModel):
             _co2_units = "kgCO2/kWh"
         else:
             self.check_refresh()
+            if self._client:
+                _country_code = self._client.country_code
+            else:
+                # If no local data yet then return
+                if not (_country_codes := list(self._local_data.keys())):
+                    self._logger.warning(
+                        "No CO2 emission data recorded as no CO2 intensity value "
+                        "has been provided and there is no local intensity data available."
+                    )
+                    return
+
+                _country_code = _country_codes[0]
+                self._logger.debug(
+                    f"🗂️ Using data for region '{_country_code}' from local cache for offline estimation."
+                )
             self._current_co2_data = CO2SignalResponse(
-                **self._local_data[self._client.country_code]
+                **self._local_data[_country_code]
             )
             _current_co2_intensity = self._current_co2_data.data.carbon_intensity
             _co2_units = self._current_co2_data.carbon_intensity_units

@@ -1110,6 +1110,7 @@ class Run:
                         co2_signal_api_token=None,
                         thermal_design_power_per_cpu=self._user_config.eco.cpu_thermal_design_power,
                         thermal_design_power_per_gpu=self._user_config.eco.gpu_thermal_design_power,
+                        offline=True,
                     )
                 else:
                     self._emissions_monitor = CO2Monitor(
