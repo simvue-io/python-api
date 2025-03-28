@@ -145,7 +145,7 @@ class CO2Monitor(pydantic.BaseModel):
 
         if self.co2_intensity:
             _logger.warning(
-                f"⚠️ Disabling online data retrieval, using {self.co2_intensity} for CO2 intensity."
+                f"⚠️ Disabling online data retrieval, using {self.co2_intensity} eqCO2g/kwh for CO2 intensity."
             )
 
         self._data_file_path: pathlib.Path | None = None
