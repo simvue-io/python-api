@@ -39,7 +39,9 @@ class CO2SignalResponse(pydantic.BaseModel):
     def from_json_response(cls, json_response: dict) -> "CO2SignalResponse":
         _data: dict[str, typing.Any] = json_response["data"]
         _co2_signal_data = CO2SignalData(
-            datetime=datetime.datetime.fromisoformat(_data["datetime"]),
+            datetime=datetime.datetime.fromisoformat(
+                _data["datetime"].replace("Z", "+00:00")
+            ),
             carbon_intensity=_data["carbonIntensity"],
             fossil_fuel_percentage=_data["fossilFuelPercentage"],
         )
