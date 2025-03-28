@@ -187,10 +187,13 @@ class CO2Monitor(pydantic.BaseModel):
             with self._data_file_path.open("r") as in_f:
                 self._local_data = json.load(in_f)
 
+        if not self._client or not self._local_data:
+            return False
+
         if (
-            self._client
-            and not self._local_data.setdefault(self._client.country_code, {})
-        ) or self.outdated:
+            not self._local_data.setdefault(self._client.country_code, {})
+            or self.outdated
+        ):
             self._logger.info("🌍 CO2 emission outdated, calling API.")
             _data: CO2SignalResponse = self._client.get()
             self._local_data[self._client.country_code] = _data.model_dump(mode="json")
