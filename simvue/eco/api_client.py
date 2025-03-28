@@ -121,9 +121,13 @@ class APIClient(pydantic.BaseModel):
         _response = requests.get(f"{self.co2_api_endpoint}", params=_params)
 
         if _response.status_code != http.HTTPStatus.OK:
+            try:
+                _error = _response.json()["error"]
+            except (AttributeError, KeyError):
+                _error = _response.text
             raise RuntimeError(
-                "Failed to retrieve current CO2 signal data for"
-                f" country '{self._two_letter_country_code}': {_response.text}"
+                f"[{_response.status_code}] Failed to retrieve current CO2 signal data for"
+                f" country '{self._two_letter_country_code}': {_error}"
             )
 
         return CO2SignalResponse.from_json_response(_response.json())
