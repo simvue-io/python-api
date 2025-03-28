@@ -45,7 +45,6 @@ dependencies = [
   "gitpython (>=3.1.44,<4.0.0)",
   "humanfriendly (>=10.0,<11.0)",
   "randomname (>=0.2.1,<0.3.0)",
-  "codecarbon (>=2.8.3,<3.0.0)",
   "numpy (>=2.0.0,<3.0.0)",
   "flatdict (>=4.0.1,<5.0.0)",
   "semver (>=3.0.4,<4.0.0)",
@@ -54,6 +53,7 @@ dependencies = [
   "tenacity (>=9.0.0,<10.0.0)",
   "typing-extensions (>=4.12.2,<5.0.0) ; python_version < \"3.11\"",
   "deepmerge (>=2.0,<3.0)",
+  "geocoder (>=1.38.1,<2.0.0)",
 ]
 
 [project.urls]
@@ -78,6 +78,7 @@ pytest-xdist = "^3.6.1"
 jinja2 = "^3.1.6"
 types-requests = "^2.32.0.20241016"
 interrogate = "^1.7.0"
+pytest-timeout = "^2.3.1"
 
 [build-system]
 requires = ["poetry-core"]
@@ -94,7 +95,7 @@ testpaths = [
     "tests"
 ]
 markers = [
-    "codecarbon: tests for emission metrics",
+    "eco: tests for emission metrics",
     "client: tests of Simvue client",
     "converters: tests for Simvue object converters",
     "dispatch: test data dispatcher",

@@ -161,9 +161,6 @@ def test_plot_metrics(create_test_run: tuple[sv_run.Run, dict]) -> None:
     ids=("sorted-metadata", "sorted-name-created", None)
 )
 def test_get_artifacts_entries(create_test_run: tuple[sv_run.Run, dict], sorting: list[tuple[str, bool]] | None) -> None:
-    # TODO: Reinstate this test once server bug fixed
-    if any("metadata" in a[0] for a in sorting or []):
-        pytest.skip(reason="Server bug fix required for metadata sorting.")
     client = svc.Client()
     assert dict(client.list_artifacts(create_test_run[1]["run_id"], sort_by_columns=sorting))
     assert client.get_artifact(create_test_run[1]["run_id"], name="test_attributes")
@@ -252,9 +249,6 @@ def test_get_run(create_test_run: tuple[sv_run.Run, dict]) -> None:
     ids=("no-sort", "sort-path-metadata", "sort-modified")
 )
 def test_get_folders(create_test_run: tuple[sv_run.Run, dict], sorting: list[tuple[str, bool]] | None) -> None:
-    #TODO: Once server is fixed reinstate this test
-    if "modified" in (a[0] for a in sorting or []):
-        pytest.skip(reason="Server bug when sorting by 'modified'")
     client = svc.Client()
     assert (folders := client.get_folders(sort_by_columns=sorting))
     _id, _folder = next(folders)
@@ -417,14 +411,20 @@ def test_alert_deletion() -> None:
 
 
 @pytest.mark.client
-def test_abort_run(create_plain_run: tuple[sv_run.Run, dict]) -> None:
+def test_abort_run(speedy_heartbeat, create_plain_run: tuple[sv_run.Run, dict]) -> None:
     run, run_data = create_plain_run
     _uuid = f"{uuid.uuid4()}".split("-")[0]
     run.update_tags([f"delete_me_{_uuid}"])
-    time.sleep(1)
     _client = svc.Client()
     _client.abort_run(run.id, reason="Test abort")
-    time.sleep(1)
-    assert run._status == "terminated"
+    time.sleep(2)
+
+    # On some machines it might take a little longer so
+    # try twice before accepting the abort failed
+    try:
+        assert run._status == "terminated"
+    except AssertionError:
+        time.sleep(2)
+        assert run._status == "terminated"
 
 

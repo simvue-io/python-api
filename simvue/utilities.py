@@ -144,6 +144,11 @@ def check_extra(extra_name: str) -> typing.Callable:
                 raise RuntimeError(
                     f"Plotting features require the '{extra_name}' extension to Simvue"
                 )
+            elif extra_name == "eco":
+                if not importlib.util.find_spec("geocoder"):
+                    raise RuntimeError(
+                        f"Eco features require the '{extra_name}' extenstion to Simvue"
+                    )
             elif extra_name == "torch":
                 if not importlib.util.find_spec("torch"):
                     raise RuntimeError(
