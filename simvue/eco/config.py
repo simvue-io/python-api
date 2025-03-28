@@ -31,6 +31,7 @@ class EcoConfig(pydantic.BaseModel):
 
     co2_signal_api_token: pydantic.SecretStr | None = None
     cpu_thermal_design_power: pydantic.PositiveInt | None = None
+    cpu_n_cores: pydantic.PositiveInt | None = None
     gpu_thermal_design_power: pydantic.PositiveInt | None = None
     local_data_directory: pydantic.DirectoryPath | None = pydantic.Field(
         None, validate_default=True

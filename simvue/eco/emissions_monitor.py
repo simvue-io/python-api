@@ -42,6 +42,7 @@ class CO2Monitor(pydantic.BaseModel):
     """
 
     thermal_design_power_per_cpu: pydantic.PositiveFloat | None
+    n_cores_per_cpu: pydantic.PositiveInt | None
     thermal_design_power_per_gpu: pydantic.PositiveFloat | None
     local_data_directory: pydantic.DirectoryPath
     intensity_refresh_interval: int | None | str
@@ -87,6 +88,8 @@ class CO2Monitor(pydantic.BaseModel):
         ----------
         thermal_design_power_per_cpu: float | None
             the TDP value for each CPU, default is 80W.
+        n_cores_per_cpu: int | None
+            the number of cores in each CPU, default is 4.
         thermal_design_power_per_gpu: float | None
             the TDP value for each GPU, default is 130W.
         local_data_directory: pydantic.DirectoryPath
@@ -109,6 +112,12 @@ class CO2Monitor(pydantic.BaseModel):
             kwargs["thermal_design_power_per_cpu"] = 80.0
             _logger.warning(
                 "⚠️  No TDP value provided for current CPU, will use arbitrary value of 80W."
+            )
+
+        if not isinstance(kwargs.get("n_cores_per_cpu"), float):
+            kwargs["n_cores_per_cpu"] = 4
+            _logger.warning(
+                "⚠️  No core count provided for current CPU, will use arbitrary value of 4."
             )
 
         if not isinstance(kwargs.get("thermal_design_power_per_gpu"), float):
@@ -244,9 +253,9 @@ class CO2Monitor(pydantic.BaseModel):
         _process.gpu_percentage = gpu_percent
         _process.cpu_percentage = cpu_percent
         _previous_energy: float = _process.total_energy
-        _process.power_usage = (
-            _process.cpu_percentage / 100.0
-        ) * self.thermal_design_power_per_cpu
+        _process.power_usage = (_process.cpu_percentage / 100.0) * (
+            self.thermal_design_power_per_cpu / self.n_cores_per_cpu
+        )
 
         if _process.gpu_percentage and self.thermal_design_power_per_gpu:
             _process.power_usage += (
