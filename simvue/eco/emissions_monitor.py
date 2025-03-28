@@ -142,8 +142,10 @@ class CO2Monitor(pydantic.BaseModel):
         )
         self._measure_time = datetime.datetime.now()
         self._logger = _logger
-        self._client: APIClient = APIClient(
-            co2_api_token=self.co2_signal_api_token, timeout=10
+        self._client: APIClient | None = (
+            None
+            if self.co2_intensity
+            else APIClient(co2_api_token=self.co2_signal_api_token, timeout=10)
         )
         self._processes: dict[str, ProcessData] = {}
 
@@ -156,7 +158,7 @@ class CO2Monitor(pydantic.BaseModel):
             whether a refresh of the CO2 intensity was requested
             from the CO2 Signal API.
         """
-        if not self.co2_intensity and (
+        if (
             not self._local_data.setdefault(self._client.country_code, {})
             or self.outdated
         ):
@@ -193,12 +195,11 @@ class CO2Monitor(pydantic.BaseModel):
         if not (_process := self._processes.get(process_id)):
             self._processes[process_id] = (_process := ProcessData())
 
-        self.check_refresh()
-
         if self.co2_intensity:
             _current_co2_intensity = self.co2_intensity
             _co2_units = "kgCO2/kWh"
         else:
+            self.check_refresh()
             self._current_co2_data = CO2SignalResponse(
                 **self._local_data[self._client.country_code]
             )
@@ -255,7 +256,7 @@ class CO2Monitor(pydantic.BaseModel):
 
     @property
     def current_carbon_intensity(self) -> float:
-        return self._client.get().data.carbon_intensity
+        return self.co2_intensity or self._client.get().data.carbon_intensity
 
     @property
     def total_power_usage(self) -> float:
