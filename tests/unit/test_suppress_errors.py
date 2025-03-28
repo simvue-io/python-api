@@ -12,7 +12,7 @@ def test_suppress_errors_false() -> None:
     with pytest.raises(RuntimeError) as e:
         run.config(
             suppress_errors=False,
-            disable_resources_metrics=123,
+            disable_system_metrics=123,
         )
     assert "Input should be a valid boolean, unable to interpret input" in f"{e.value}"
         
@@ -25,7 +25,7 @@ def test_suppress_errors_true(caplog) -> None:
 
     run.config(suppress_errors=True)
     run.config(
-        disable_resources_metrics=123,
+        disable_system_metrics=123,
     )
     
     caplog.set_level(logging.ERROR)
@@ -41,7 +41,7 @@ def test_suppress_errors_default(caplog) -> None:
 
     run.config(suppress_errors=True)
     run.config(
-        disable_resources_metrics=123,
+        disable_system_metrics=123,
     )
     
     caplog.set_level(logging.ERROR)

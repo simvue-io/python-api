@@ -39,11 +39,11 @@ from .config.user import SimvueConfiguration
 
 from .factory.dispatch import Dispatcher
 from .executor import Executor
-from .metrics import get_gpu_metrics, get_process_cpu, get_process_memory
+from .metrics import SystemResourceMeasurement
 from .models import FOLDER_REGEX, NAME_REGEX, MetricKeyString
 from .system import get_system
 from .metadata import git_info, environment
-from .eco import SimvueEmissionsTracker, OfflineSimvueEmissionsTracker
+from .eco import CO2Monitor
 from .utilities import (
     skip_if_failed,
     validate_timestamp,
@@ -102,7 +102,7 @@ def check_run_initialised(
 
 
 class Run:
-    """Track simulation details based on token and URL
+    """Track simulation details based on token and URL.
 
     The Run class provides a way of monitoring simulation runs by logging metrics
     and creating alerts based on such metrics. The recommended usage is as a
@@ -126,9 +126,9 @@ class Run:
         ----------
         mode : Literal['online', 'offline', 'disabled'], optional
             mode of running
-                online - objects sent directly to Simvue server
-                offline - everything is written to disk for later dispatch
-                disabled - disable monitoring completely
+                * online - objects sent directly to Simvue server
+                * offline - everything is written to disk for later dispatch
+                * disabled - disable monitoring completely
         abort_callback : Callable | None, optional
             callback executed when the run is aborted
         server_token : str, optional
@@ -137,6 +137,14 @@ class Run:
             overwrite value for server URL, default is None
         debug : bool, optional
             run in debug mode, default is False
+
+        Examples
+        --------
+
+        ```python
+        with simvue.Run() as run:
+            ...
+        ```
         """
         self._uuid: str = f"{uuid.uuid4()}"
         self._name: str | None = None
@@ -167,7 +175,7 @@ class Run:
         self._data: dict[str, typing.Any] = {}
         self._step: int = 0
         self._active: bool = False
-        self._user_config = SimvueConfiguration.fetch(
+        self._user_config: SimvueConfiguration = SimvueConfiguration.fetch(
             server_url=server_url, server_token=server_token, mode=mode
         )
 
@@ -179,10 +187,10 @@ class Run:
         )
 
         self._aborted: bool = False
-        self._resources_metrics_interval: int | None = (
+        self._system_metrics_interval: int | None = (
             HEARTBEAT_INTERVAL
-            if self._user_config.metrics.resources_metrics_interval < 1
-            else self._user_config.metrics.resources_metrics_interval
+            if self._user_config.metrics.system_metrics_interval < 1
+            else self._user_config.metrics.system_metrics_interval
         )
         self._headers: dict[str, str] = (
             {
@@ -201,36 +209,7 @@ class Run:
         self._heartbeat_thread: threading.Thread | None = None
 
         self._heartbeat_interval: int = HEARTBEAT_INTERVAL
-        self._emission_metrics_interval: int | None = (
-            HEARTBEAT_INTERVAL
-            if (
-                (_interval := self._user_config.metrics.emission_metrics_interval)
-                and _interval < 1
-            )
-            else self._user_config.metrics.emission_metrics_interval
-        )
-        if mode == "offline":
-            if (
-                self._user_config.metrics.enable_emission_metrics
-                and not self._user_config.offline.country_iso_code
-            ):
-                raise ValueError(
-                    "Country ISO code must be provided if tracking emissions metrics in offline mode."
-                )
-
-            self._emissions_tracker: OfflineSimvueEmissionsTracker | None = (
-                OfflineSimvueEmissionsTracker(
-                    "simvue", self, self._emission_metrics_interval
-                )
-                if self._user_config.metrics.enable_emission_metrics
-                else None
-            )
-        else:
-            self._emissions_tracker: SimvueEmissionsTracker | None = (
-                SimvueEmissionsTracker("simvue", self, self._emission_metrics_interval)
-                if self._user_config.metrics.enable_emission_metrics
-                else None
-            )
+        self._emissions_monitor: CO2Monitor | None = None
 
     def __enter__(self) -> Self:
         return self
@@ -243,10 +222,6 @@ class Run:
     ) -> None:
         _exception_thrown: str | None = exc_type.__name__ if exc_type else None
         _is_running: bool = self._status == "running"
-        _is_running_online: bool = self._id is not None and _is_running
-        _is_running_offline: bool = (
-            self._user_config.run.mode == "offline" and _is_running
-        )
         _is_terminated: bool = (
             _exception_thrown is not None and _exception_thrown == "KeyboardInterrupt"
         )
@@ -318,38 +293,114 @@ class Run:
 
         return list(set(process_list))
 
-    def _get_sysinfo(self, interval: float | None = None) -> dict[str, typing.Any]:
-        """Retrieve system administration
+    def _terminate_run(
+        self,
+        abort_callback: typing.Callable[[Self], None] | None,
+        force_exit: bool = True,
+    ) -> None:
+        """Close the current simvue Run and its subprocesses.
+
+        Closes the run and all subprocesses with the default to being also.
+        To abort the actual Python execution as well.
 
         Parameters
         ----------
-        interval : float | None
-            The interval to use for collection of CPU metrics, by default None (non blocking)
-
-        Returns
-        -------
-        dict[str, typing.Any]
-            retrieved system specifications
+        abort_callback: Callable, optional
+            the callback to execute on the termination else None
+        force_exit: bool, optional
+            whether to close Python itself, the default is True
         """
-        processes = self.processes
-        cpu = get_process_cpu(processes, interval=interval)
-        memory = get_process_memory(processes)
-        gpu = get_gpu_metrics(processes)
-        data: dict[str, typing.Any] = {}
+        self._alert_raised_trigger.set()
+        logger.debug("Received abort request from server")
 
-        if memory is not None and cpu is not None:
-            data = {
-                f"{RESOURCES_METRIC_PREFIX}/cpu.usage.percent": cpu,
-                f"{RESOURCES_METRIC_PREFIX}/memory.usage": memory,
-            }
-            if gpu:
-                for item in gpu:
-                    data[item] = gpu[item]
-        return data
+        if abort_callback is not None:
+            abort_callback(self)  # type: ignore
+
+        if self._abort_on_alert != "ignore":
+            self.kill_all_processes()
+            if self._dispatcher and self._shutdown_event:
+                self._shutdown_event.set()
+                self._dispatcher.purge()
+                self._dispatcher.join()
+            if self._active:
+                self.set_status("terminated")
+            click.secho(
+                "[simvue] Run was aborted.",
+                fg="red" if self._term_color else None,
+                bold=self._term_color,
+            )
+        if self._abort_on_alert == "terminate":
+            os._exit(1) if force_exit else sys.exit(1)
+
+    def _get_internal_metrics(
+        self,
+        system_metrics_step: int | None,
+        emission_metrics_step: int | None,
+        res_measure_interval: int | None = None,
+        ems_measure_interval: int | None = None,
+    ) -> None:
+        """Refresh resource and emissions metrics.
+
+        Checks if the refresh interval has been satisfied for emissions
+        and resource metrics, if so adds latest values to dispatch.
+
+        Parameters
+        ----------
+        system_metrics_step: int | None
+            the current step for this resource metric record,
+            None if skipping resource metrics.
+        emission_metrics_step: int | None
+            the current step for this emission metrics record,
+            None if skipping emission metrics.
+        res_measure_interval: int | None, optional
+            the interval for resource metric gathering, default is None
+        ems_measure_interval: int | None, optional
+            the interval for emission metric gathering, default is None
+
+        Return
+        ------
+        tuple[float, float]
+            new resource metric measure time
+            new emissions metric measure time
+        """
+        _current_system_measure = SystemResourceMeasurement(
+            self.processes,
+            interval=res_measure_interval,
+            cpu_only=not system_metrics_step,
+        )
+
+        if system_metrics_step is not None:
+            # Set join on fail to false as if an error is thrown
+            # join would be called on this thread and a thread cannot
+            # join itself!
+            self._add_metrics_to_dispatch(
+                _current_system_measure.to_dict(),
+                join_on_fail=False,
+                step=system_metrics_step,
+            )
+
+        if (
+            self._emissions_monitor
+            and emission_metrics_step is not None
+            and ems_measure_interval is not None
+            and _current_system_measure.cpu_percent is not None
+        ):
+            self._emissions_monitor.estimate_co2_emissions(
+                process_id=f"{self._name}",
+                cpu_percent=_current_system_measure.cpu_percent,
+                measure_interval=ems_measure_interval,
+                gpu_percent=_current_system_measure.gpu_percent,
+            )
+            self._add_metrics_to_dispatch(
+                self._emissions_monitor.simvue_metrics(),
+                join_on_fail=False,
+                step=emission_metrics_step,
+            )
 
     def _create_heartbeat_callback(
         self,
     ) -> typing.Callable[[threading.Event], None]:
+        """Defines the callback executed at the heartbeat interval for the Run."""
         if (
             self._user_config.run.mode == "online"
             and (not self._user_config.server.url or not self._id)
@@ -357,44 +408,73 @@ class Run:
             raise RuntimeError("Could not commence heartbeat, run not initialised")
 
         def _heartbeat(
-            heartbeat_trigger: typing.Optional[
-                threading.Event
-            ] = self._heartbeat_termination_trigger,
-            abort_callback: typing.Optional[
-                typing.Callable[[Self], None]
-            ] = self._abort_callback,
+            heartbeat_trigger: threading.Event
+            | None = self._heartbeat_termination_trigger,
+            abort_callback: typing.Callable[[Self], None] | None = self._abort_callback,
         ) -> None:
             if not heartbeat_trigger:
                 raise RuntimeError("Expected initialisation of heartbeat")
 
-            last_heartbeat = time.time()
-            last_res_metric_call = time.time()
+            last_heartbeat: float = 0
+            last_res_metric_call: float = 0
+            last_co2_metric_call: float = 0
 
-            if self._resources_metrics_interval:
-                self._add_metrics_to_dispatch(
-                    self._get_sysinfo(interval=1), join_on_fail=False, step=0
-                )
-                res_step = 1
+            co2_step: int = 0
+            res_step: int = 0
+
+            initial_ems_metrics_interval: float = time.time() - self._start_time
 
             while not heartbeat_trigger.is_set():
-                time.sleep(0.1)
-
                 with self._configuration_lock:
-                    if (
-                        self._resources_metrics_interval
-                        and (res_time := time.time()) - last_res_metric_call
-                        > self._resources_metrics_interval
-                    ):
-                        # Set join on fail to false as if an error is thrown
-                        # join would be called on this thread and a thread cannot
-                        # join itself!
-                        self._add_metrics_to_dispatch(
-                            self._get_sysinfo(), join_on_fail=False, step=res_step
-                        )
-                        last_res_metric_call = res_time
-                        res_step += 1
+                    _current_time: float = time.time()
+                    _update_system_metrics: bool = (
+                        self._system_metrics_interval is not None
+                        and _current_time - last_res_metric_call
+                        > self._system_metrics_interval
+                        and self._status == "running"
+                    )
+                    _update_emissions_metrics: bool = (
+                        self._system_metrics_interval is not None
+                        and self._emissions_monitor
+                        and _current_time - last_co2_metric_call
+                        > self._system_metrics_interval
+                        and self._status == "running"
+                    )
+
+                    # In order to get a resource metric reading at t=0
+                    # because there is no previous CPU reading yet we cannot
+                    # use the default of None for the interval here, so we measure
+                    # at an interval of 1s. For emissions metrics the first step
+                    # is time since run start
+                    self._get_internal_metrics(
+                        emission_metrics_step=co2_step
+                        if _update_emissions_metrics
+                        else None,
+                        system_metrics_step=res_step
+                        if _update_system_metrics
+                        else None,
+                        res_measure_interval=1 if res_step == 0 else None,
+                        ems_measure_interval=initial_ems_metrics_interval
+                        if co2_step == 0
+                        else self._system_metrics_interval,
+                    )
+
+                    res_step += 1
+                    co2_step += 1
+
+                    last_res_metric_call = (
+                        _current_time
+                        if _update_system_metrics
+                        else last_res_metric_call
+                    )
+                    last_co2_metric_call = (
+                        _current_time
+                        if _update_emissions_metrics
+                        else last_co2_metric_call
+                    )
 
                 if time.time() - last_heartbeat < self._heartbeat_interval:
+                    time.sleep(1)
                     continue
 
                 last_heartbeat = time.time()
@@ -402,30 +482,12 @@ class Run:
                 # Check if the user has aborted the run
                 with self._configuration_lock:
                     if self._sv_obj and self._sv_obj.abort_trigger:
-                        self._alert_raised_trigger.set()
-                        logger.debug("Received abort request from server")
-
-                        if abort_callback is not None:
-                            abort_callback(self)  # type: ignore
-
-                        if self._abort_on_alert != "ignore":
-                            self.kill_all_processes()
-                            if self._dispatcher and self._shutdown_event:
-                                self._shutdown_event.set()
-                                self._dispatcher.purge()
-                                self._dispatcher.join()
-                            if self._active:
-                                self.set_status("terminated")
-                            click.secho(
-                                "[simvue] Run was aborted.",
-                                fg="red" if self._term_color else None,
-                                bold=self._term_color,
-                            )
-                        if self._abort_on_alert == "terminate":
-                            os._exit(1)
+                        self._terminate_run(abort_callback=abort_callback)
 
                 if self._sv_obj:
                     self._sv_obj.send_heartbeat()
+
+                time.sleep(1)
 
         return _heartbeat
 
@@ -449,7 +511,6 @@ class Run:
         def _dispatch_callback(
             buffer: list[typing.Any],
             category: typing.Literal["events", "metrics"],
-            run_obj: RunObject = self._sv_obj,
         ) -> None:
             if category == "events":
                 _events = Events.new(
@@ -468,13 +529,8 @@ class Run:
 
         return _dispatch_callback
 
-    def _start(self, reconnect: bool = False) -> bool:
+    def _start(self) -> bool:
         """Start a run
-
-        Parameters
-        ----------
-        reconnect : bool, optional
-            whether this is a reconnect to an existing run, by default False
 
         Returns
         -------
@@ -553,10 +609,6 @@ class Run:
         RuntimeError
             exception throw
         """
-        if self._emissions_tracker:
-            with contextlib.suppress(Exception):
-                self._emissions_tracker.stop()
-
         # Stop heartbeat
         if self._heartbeat_termination_trigger and self._heartbeat_thread:
             self._heartbeat_termination_trigger.set()
@@ -622,8 +674,11 @@ class Run:
         folder : str, optional
             folder within which to store the run, by default "/"
         notification: typing.Literal["none", "all", "error", "lost"], optional
-            whether to notify the user by email upon completion of the run if
-            the run is in the specified state, by default "none"
+            email notification on completion settings
+                * none - do not notify (default).
+                * all - notify for all updates.
+                * error - notify on errors.
+                * lost - notify if run lost.
         running : bool, optional
             whether to set the status as running or created, the latter implying
             the run will be commenced at a later time. Default is True.
@@ -761,10 +816,6 @@ class Run:
                 bold=self._term_color,
                 fg="green" if self._term_color else None,
             )
-
-        if self._emissions_tracker and self._status == "running":
-            self._emissions_tracker.post_init()
-            self._emissions_tracker.start()
 
         return True
 
@@ -972,7 +1023,7 @@ class Run:
 
         self._id = run_id
         self._sv_obj = RunObject(identifier=self._id, _read_only=False)
-        self._start(reconnect=True)
+        self._start()
 
         return True
 
@@ -994,7 +1045,6 @@ class Run:
             _process.cpu_percent()
             for _process in self._child_processes + [self._parent_process]
         ]
-        time.sleep(0.1)
 
     @skip_if_failed("_aborted", "_suppress_errors", False)
     @pydantic.validate_call
@@ -1003,10 +1053,9 @@ class Run:
         *,
         suppress_errors: bool | None = None,
         queue_blocking: bool | None = None,
-        resources_metrics_interval: pydantic.PositiveInt | None = None,
-        emission_metrics_interval: pydantic.PositiveInt | None = None,
+        system_metrics_interval: pydantic.PositiveInt | None = None,
         enable_emission_metrics: bool | None = None,
-        disable_resources_metrics: bool | None = None,
+        disable_system_metrics: bool | None = None,
         storage_id: str | None = None,
         abort_on_alert: typing.Literal["run", "all", "ignore"] | bool | None = None,
     ) -> bool:
@@ -1019,19 +1068,19 @@ class Run:
             dormant state if an error occurs
         queue_blocking : bool, optional
             block thread queues during metric/event recording
-        resources_metrics_interval : int, optional
+        system_metrics_interval : int, optional
             frequency at which to collect resource metrics
         enable_emission_metrics : bool, optional
             enable monitoring of emission metrics
-        disable_resources_metrics : bool, optional
+        disable_system_metrics : bool, optional
             disable monitoring of resource metrics
         storage_id : str, optional
             identifier of storage to use, by default None
         abort_on_alert : Literal['ignore', run', 'terminate'], optional
             whether to abort when an alert is triggered.
-            If 'run' then the current run is aborted.
-            If 'terminate' then the script itself is terminated.
-            If 'ignore' then alerts will not affect this run
+                * run - current run is aborted.
+                * terminate - script itself is terminated.
+                * ignore - alerts do not affect this run.
 
         Returns
         -------
@@ -1046,51 +1095,43 @@ class Run:
             if queue_blocking is not None:
                 self._queue_blocking = queue_blocking
 
-            if resources_metrics_interval and disable_resources_metrics:
+            if system_metrics_interval and disable_system_metrics:
                 self._error(
                     "Setting of resource metric interval and disabling resource metrics is ambiguous"
                 )
                 return False
 
-            if disable_resources_metrics:
+            if disable_system_metrics:
                 self._pid = None
-                self._resources_metrics_interval = None
-
-            if emission_metrics_interval:
-                if not enable_emission_metrics:
-                    self._error(
-                        "Cannot set rate of emission metrics, these metrics have been disabled"
-                    )
-                    return False
-                self._emission_metrics_interval = emission_metrics_interval
+                self._system_metrics_interval = None
 
             if enable_emission_metrics:
                 if self._user_config.run.mode == "offline":
-                    if not self._user_config.offline.country_iso_code:
-                        self._error(
-                            "Country ISO code must be provided if tracking emissions metrics in offline mode."
-                        )
-                    self._emissions_tracker: OfflineSimvueEmissionsTracker = (
-                        OfflineSimvueEmissionsTracker(
-                            "simvue", self, self._emission_metrics_interval
-                        )
+                    # Create an emissions monitor with no API calls
+                    self._emissions_monitor = CO2Monitor(
+                        intensity_refresh_interval=None,
+                        co2_intensity=self._user_config.eco.co2_intensity,
+                        local_data_directory=self._user_config.eco.local_data_directory,
+                        co2_signal_api_token=None,
+                        thermal_design_power_per_cpu=self._user_config.eco.cpu_thermal_design_power,
+                        thermal_design_power_per_gpu=self._user_config.eco.gpu_thermal_design_power,
+                        offline=True,
                     )
                 else:
-                    self._emissions_tracker: SimvueEmissionsTracker = (
-                        SimvueEmissionsTracker(
-                            "simvue", self, self._emission_metrics_interval
-                        )
+                    self._emissions_monitor = CO2Monitor(
+                        intensity_refresh_interval=self._user_config.eco.intensity_refresh_interval,
+                        local_data_directory=self._user_config.eco.local_data_directory,
+                        co2_signal_api_token=self._user_config.eco.co2_signal_api_token,
+                        co2_intensity=self._user_config.eco.co2_intensity,
+                        thermal_design_power_per_cpu=self._user_config.eco.cpu_thermal_design_power,
+                        thermal_design_power_per_gpu=self._user_config.eco.gpu_thermal_design_power,
                     )
 
-                # If the main Run API object is initialised the run is active
-                # hence the tracker should start too
-                if self._sv_obj:
-                    self._emissions_tracker.start()
-            elif enable_emission_metrics is False and self._emissions_tracker:
-                self._error("Cannot disable emissions tracker once it has been started")
+            elif enable_emission_metrics is False and self._emissions_monitor:
+                self._error("Cannot disable emissions monitor once it has been started")
 
-            if resources_metrics_interval:
-                self._resources_metrics_interval = resources_metrics_interval
+            if system_metrics_interval:
+                self._system_metrics_interval = system_metrics_interval
 
             if abort_on_alert is not None:
                 if isinstance(abort_on_alert, bool):
@@ -1335,6 +1376,9 @@ class Run:
             object to serialize and send to the server
         category : Literal['input', 'output', 'code']
             category of file with respect to this run
+                * input - this file is an input file.
+                * output - this file is created by the run.
+                * code - this file represents an executed script
         name : str, optional
             name to associate with this object, by default None
         allow_pickle : bool, optional
@@ -1391,6 +1435,9 @@ class Run:
             path to the file to upload
         category : Literal['input', 'output', 'code']
             category of file with respect to this run
+                * input - this file is an input file.
+                * output - this file is created by the run.
+                * code - this file represents an executed script
         file_type : str, optional
             the MIME file type else this is deduced, by default None
         preserve_path : bool, optional
@@ -1453,8 +1500,11 @@ class Run:
         ----------
         directory : pydantic.DirectoryPath
             the directory to save to the run
-        category : Literal[['output', 'input', 'code']
-            the category to assign to the saved objects within this directory
+        category : Literal['input', 'output', 'code']
+            category of file with respect to this run
+                * input - this file is an input file.
+                * output - this file is created by the run.
+                * code - this file represents an executed script
         file_type : str, optional
             manually specify the MIME type for items in the directory, by default None
         preserve_path : bool, optional
@@ -1500,7 +1550,10 @@ class Run:
         items : list[pydantic.FilePath | pydantic.DirectoryPath]
             list of file paths and directories to save
         category : Literal['input', 'output', 'code']
-            the category to assign to the saved objects
+            category of file with respect to this run
+                * input - this file is an input file.
+                * output - this file is created by the run.
+                * code - this file represents an executed script
         file_type : str, optional
             manually specify the MIME type for all items, by default None
         preserve_path : bool, optional
@@ -1540,6 +1593,9 @@ class Run:
         ----------
         status : Literal['completed', 'failed', 'terminated']
             status to set the run to
+                * completed - run finished with zero exit status.
+                * failed - run failed to complete.
+                * terminated - run was aborted.
 
         Returns
         -------
@@ -1562,10 +1618,6 @@ class Run:
 
     def _tidy_run(self) -> None:
         self._executor.wait_for_completion()
-
-        if self._emissions_tracker:
-            with contextlib.suppress(Exception):
-                self._emissions_tracker.stop()
 
         if self._heartbeat_thread and self._heartbeat_termination_trigger:
             self._heartbeat_termination_trigger.set()
@@ -1767,7 +1819,8 @@ class Run:
         range_high : float, optional
             the upper bound value
         rule : Literal['is inside range', 'is outside range']
-            rule defining range alert conditions
+            * is inside range - metric value falls within value range.
+            * is outside range - metric value falls outside of value range.
         description : str, optional
             description for this alert, default None
         window : PositiveInt, optional
@@ -1775,9 +1828,15 @@ class Run:
         frequency : PositiveInt, optional
             frequency at which to check alert condition in seconds, by default 1
         aggregation : Literal['average', 'sum', 'at least one', 'all'], optional
-            method to use when aggregating metrics within time window, default 'average'.
+            method to use when aggregating metrics within time window
+                * average - average across all values in window (default).
+                * sum - take the sum of all values within window.
+                * at least one - returns if at least one value in window satisfy condition.
+                * all - returns if all values in window satisfy condition.
         notification : Literal['email', 'none'], optional
-            whether to notify on trigger, by default "none"
+            whether to notify on trigger
+                * email - send email to user on notify.
+                * none - send no notifications (default).
         trigger_abort : bool, optional
             whether this alert can trigger a run abort, default False
         attach_to_run : bool, optional
@@ -1839,8 +1898,10 @@ class Run:
             metric to monitor
         threshold : float
             the threshold value
-        rule : Literal['is inside range', 'is outside range']
-            rule defining range alert conditions
+        rule : Literal['is above', 'is below']
+            rule defining threshold alert conditions
+                * is above - value is above threshold.
+                * is below - value is below threshold.
         description : str, optional
             description for this alert, default None
         window : PositiveInt, optional
@@ -1848,9 +1909,15 @@ class Run:
         frequency : PositiveInt, optional
             frequency at which to check alert condition in seconds, by default 1
         aggregation : Literal['average', 'sum', 'at least one', 'all'], optional
-            method to use when aggregating metrics within time window, default 'average'.
+            method to use when aggregating metrics within time window
+                * average - average across all values in window (default).
+                * sum - take the sum of all values within window.
+                * at least one - returns if at least one value in window satisfy condition.
+                * all - returns if all values in window satisfy condition.
         notification : Literal['email', 'none'], optional
-            whether to notify on trigger, by default "none"
+            whether to notify on trigger
+                * email - send email to user on alert.
+                * none - send no notifications (default).
         trigger_abort : bool, optional
             whether this alert can trigger a run abort, default False
         attach_to_run : bool, optional
@@ -1907,7 +1974,9 @@ class Run:
         frequency : PositiveInt, optional
             frequency at which to check alert condition in seconds, by default None
         notification : Literal['email', 'none'], optional
-            whether to notify on trigger, by default "none"
+            whether to notify on trigger
+                * email - send email to user on alert.
+                * none - send no notifications (default).
         trigger_abort : bool, optional
             whether this alert can trigger a run abort
         attach_to_run : bool, optional
@@ -1955,7 +2024,9 @@ class Run:
         description : str, optional
             description for this alert, default None
         notification : Literal['email', 'none'], optional
-            whether to notify on trigger, by default "none"
+            whether to notify on trigger
+                * email - send email to user on notify.
+                * none - send no notifications (default).
         trigger_abort : bool, optional
             whether this alert can trigger a run abort, default False
         attach_to_run : bool, optional
@@ -1997,7 +2068,9 @@ class Run:
         name : str | None
             Name of the alert to update, by default None
         state : Literal['ok', 'critical']
-            state to set alert to, by default 'critical'
+            state to set alert to
+                * ok - alert is set to ok state.
+                * critical - alert is set to critical state (default).
 
         Returns
         -------

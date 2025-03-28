@@ -10,9 +10,9 @@ to a JSON string
 import copy
 import json as json_module
 import typing
+import logging
 import http
 
-from codecarbon.external.logger import logging
 import requests
 from tenacity import (
     retry,
@@ -27,6 +27,7 @@ RETRY_MULTIPLIER = 1
 RETRY_MIN = 4
 RETRY_MAX = 10
 RETRY_STOP = 5
+MAX_ENTRIES_PER_PAGE: int = 100
 RETRY_STATUS_CODES = (
     http.HTTPStatus.BAD_REQUEST,
     http.HTTPStatus.SERVICE_UNAVAILABLE,
@@ -96,7 +97,6 @@ def post(
     else:
         data_sent = data
 
-    logging.debug(f"POST: {url}\n\tdata={data_sent}")
     response = requests.post(
         url,
         headers=headers,
@@ -273,3 +273,51 @@ def get_json_from_response(
         error_str += f": {txt_response}"
 
     raise RuntimeError(error_str)
+
+
+def get_paginated(
+    url: str,
+    headers: dict[str, str] | None = None,
+    timeout: int = DEFAULT_API_TIMEOUT,
+    json: dict[str, typing.Any] | None = None,
+    offset: int | None = None,
+    **params,
+) -> typing.Generator[requests.Response, None, None]:
+    """Paginate results of a server query.
+
+    Parameters
+    ----------
+    url : str
+        URL to put to
+    headers : dict[str, str]
+        headers for the post request
+    timeout : int, optional
+        timeout of request, by default DEFAULT_API_TIMEOUT
+    json : dict[str, Any] | None, optional
+        any json to send in request
+
+    Yield
+    -----
+    requests.Response
+        server response
+    """
+    _offset: int = offset or 0
+
+    while (
+        (
+            _response := get(
+                url=url,
+                headers=headers,
+                params=(params or {})
+                | {"count": MAX_ENTRIES_PER_PAGE, "start": _offset},
+                timeout=timeout,
+                json=json,
+            )
+        )
+        .json()
+        .get("data")
+    ):
+        yield _response
+        _offset += MAX_ENTRIES_PER_PAGE
+
+    yield _response

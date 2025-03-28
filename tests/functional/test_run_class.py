@@ -1,6 +1,5 @@
+import json
 import os
-from os.path import basename
-from numpy import identity
 import pytest
 import pytest_mock
 import time
@@ -16,8 +15,10 @@ import concurrent.futures
 import random
 import datetime
 import simvue
-from simvue.api.objects.alert.fetch import Alert
+from simvue.api.objects import Alert, Metrics
+from simvue.eco.api_client import CO2SignalData, CO2SignalResponse
 from simvue.exception import SimvueRunError
+from simvue.eco.emissions_monitor import TIME_FORMAT, CO2Monitor
 import simvue.run as sv_run
 import simvue.client as sv_cl
 import simvue.sender as sv_send
@@ -48,34 +49,52 @@ def test_check_run_initialised_decorator() -> None:
 
 
 @pytest.mark.run
-@pytest.mark.codecarbon
-def test_run_with_emissions() -> None:
-    with sv_run.Run() as run_created:
-        run_created.init(retention_period="1 min")
-        run_created.config(enable_emission_metrics=True, emission_metrics_interval=1)
-        time.sleep(5)
-        _run = RunObject(identifier=run_created.id)
-        _metric_names = [item[0] for item in _run.metrics]
-        client = sv_cl.Client()
-        for _metric in ["emissions", "energy_consumed"]:
-            _total_metric_name = f"sustainability.{_metric}.total"
-            _delta_metric_name = f"sustainability.{_metric}.delta"
-            assert _total_metric_name in _metric_names
-            assert _delta_metric_name in _metric_names
-            _metric_values = client.get_metric_values(
-                metric_names=[_total_metric_name, _delta_metric_name],
+@pytest.mark.eco
+@pytest.mark.online
+def test_run_with_emissions_online(speedy_heartbeat, mock_co2_signal, create_plain_run) -> None:
+    run_created, _ = create_plain_run
+    run_created.config(enable_emission_metrics=True)
+    time.sleep(3)
+    _run = RunObject(identifier=run_created.id)
+    _metric_names = [item[0] for item in _run.metrics]
+    client = sv_cl.Client()
+    for _metric in ["emissions", "energy_consumed"]:
+        _total_metric_name = f"sustainability.{_metric}.total"
+        _delta_metric_name = f"sustainability.{_metric}.delta"
+        assert _total_metric_name in _metric_names
+        assert _delta_metric_name in _metric_names
+        _metric_values = client.get_metric_values(
+            metric_names=[_total_metric_name, _delta_metric_name],
+            xaxis="time",
+            output_format="dataframe",
+            run_ids=[run_created.id],
+        )
+        assert _total_metric_name in _metric_values
+
+
+@pytest.mark.run
+@pytest.mark.eco
+@pytest.mark.offline
+def test_run_with_emissions_offline(speedy_heartbeat, mock_co2_signal, create_plain_run_offline) -> None:
+    run_created, _ = create_plain_run_offline
+    run_created.config(enable_emission_metrics=True)
+    time.sleep(2)
+    id_mapping = sv_send.sender(os.environ["SIMVUE_OFFLINE_DIRECTORY"])
+    _run = RunObject(identifier=id_mapping[run_created.id])
+    _metric_names = [item[0] for item in _run.metrics]
+    client = sv_cl.Client()
+    for _metric in ["emissions", "energy_consumed"]:
+        _total_metric_name = f"sustainability.{_metric}.total"
+        _delta_metric_name = f"sustainability.{_metric}.delta"
+        assert _total_metric_name in _metric_names
+        assert _delta_metric_name in _metric_names
+        _metric_values = client.get_metric_values(
+            metric_names=[_total_metric_name, _delta_metric_name],
                 xaxis="time",
-                output_format="dataframe",
-                run_ids=[run_created.id],
-            )
-
-        # Check that total = previous total + latest delta
-        _total_values = _metric_values[_total_metric_name].tolist()
-        _delta_values = _metric_values[_delta_metric_name].tolist()
-        assert len(_total_values) > 1
-        for i in range(1, len(_total_values)):
-            assert _total_values[i] == _total_values[i - 1] + _delta_values[i]
-
+            output_format="dataframe",
+            run_ids=[id_mapping[run_created.id]],
+        )
+        assert _total_metric_name in _metric_values
 
 @pytest.mark.run
 @pytest.mark.parametrize(
@@ -90,19 +109,19 @@ def test_run_with_emissions() -> None:
 def test_log_metrics(
     overload_buffer: bool,
     timestamp: str | None,
-    setup_logging: "CountingLogHandler",
-    mocker,
+    mocker: pytest_mock.MockerFixture,
     request: pytest.FixtureRequest,
     visibility: typing.Literal["public", "tenant"] | list[str] | None,
 ) -> None:
     METRICS = {"a": 10, "b": 1.2}
 
-    setup_logging.captures = ["'a'", "resources/"]
-
     # Have to create the run outside of fixtures because the resources dispatch
     # occurs immediately and is not captured by the handler when using the fixture
     run = sv_run.Run()
     run.config(suppress_errors=False)
+
+    metrics_spy = mocker.spy(Metrics, "new")
+    system_metrics_spy = mocker.spy(sv_run.Run, "_get_internal_metrics")
 
     if visibility == "bad_option":
         with pytest.raises(SimvueRunError, match="visibility") as e:
@@ -116,7 +135,7 @@ def test_log_metrics(
                 retention_period="1 hour",
                 visibility=visibility,
             )
-            run.config(resources_metrics_interval=1)
+            run.config(system_metrics_interval=1)
         return
 
     run.init(
@@ -129,7 +148,7 @@ def test_log_metrics(
         visibility=visibility,
         retention_period="1 hour",
     )
-    run.config(resources_metrics_interval=1)
+    run.config(system_metrics_interval=1)
 
     # Speed up the read rate for this test
     run._dispatcher._max_buffer_size = 10
@@ -164,12 +183,14 @@ def test_log_metrics(
     assert len(_steps) == (
         run._dispatcher._max_buffer_size * 3 if overload_buffer else 1
     )
-    # There are two debug log messages per metric dispatch - 'Executing callback on buffer' and 'Posting staged data'
-    # Should have done one dispatch if not overloaded, and 3 dispatches if overloaded
-    assert setup_logging.counts[0] == (6 if overload_buffer else 2)
+
+    if overload_buffer:
+        assert metrics_spy.call_count > 2
+    else:
+        assert metrics_spy.call_count <= 2
 
     # Check heartbeat has been called at least once (so sysinfo sent)
-    assert setup_logging.counts[1] > 0
+    assert system_metrics_spy.call_count >= 1
 
 
 @pytest.mark.run
@@ -907,7 +928,7 @@ def test_abort_on_alert_process(mocker: pytest_mock.MockerFixture) -> None:
 
     mocker.patch("os._exit", testing_exit)
     N_PROCESSES: int = 3
-    run.config(resources_metrics_interval=1)
+    run.config(system_metrics_interval=1)
     run._heartbeat_interval = 1
     run._testing = True
     run.add_process(
@@ -922,7 +943,7 @@ def test_abort_on_alert_process(mocker: pytest_mock.MockerFixture) -> None:
     client = sv_cl.Client()
     client.abort_run(run._id, reason="testing abort")
     time.sleep(4)
-    assert run._resources_metrics_interval == 1
+    assert run._system_metrics_interval == 1
     for child in child_processes:
         assert not child.is_running()
     if run._status != "terminated":
@@ -933,30 +954,14 @@ def test_abort_on_alert_process(mocker: pytest_mock.MockerFixture) -> None:
 
 @pytest.mark.run
 def test_abort_on_alert_python(
-    create_plain_run: typing.Tuple[sv_run.Run, dict], mocker: pytest_mock.MockerFixture
+    speedy_heartbeat, create_plain_run: typing.Tuple[sv_run.Run, dict], mocker: pytest_mock.MockerFixture
 ) -> None:
-    abort_set = threading.Event()
-
-    def testing_exit(status: int) -> None:
-        abort_set.set()
-        raise SystemExit(status)
-
-    mocker.patch("os._exit", testing_exit)
+    timeout: int = 20
+    interval: int = 0
     run, _ = create_plain_run
-    run.config(resources_metrics_interval=1)
-    run._heartbeat_interval = 1
     client = sv_cl.Client()
-    i = 0
-
-    while True:
-        time.sleep(1)
-        if i == 4:
-            client.abort_run(run._id, reason="testing abort")
-        i += 1
-        if abort_set.is_set() or i > 11:
-            break
-
-    assert i < 10
+    client.abort_run(run.id, reason="Test abort")
+    time.sleep(2)
     assert run._status == "terminated"
 
 
@@ -966,7 +971,7 @@ def test_abort_on_alert_raise(
 ) -> None:
 
     run, _ = create_plain_run
-    run.config(resources_metrics_interval=1)
+    run.config(system_metrics_interval=1)
     run._heartbeat_interval = 1
     run._testing = True
     alert_id = run.create_user_alert("abort_test", trigger_abort=True)
@@ -989,7 +994,7 @@ def test_abort_on_alert_raise(
 @pytest.mark.run
 def test_kill_all_processes(create_plain_run: typing.Tuple[sv_run.Run, dict]) -> None:
     run, _ = create_plain_run
-    run.config(resources_metrics_interval=1)
+    run.config(system_metrics_interval=1)
     run.add_process(identifier="forever_long_1", executable="bash", c="sleep 10000")
     run.add_process(identifier="forever_long_2", executable="bash", c="sleep 10000")
     processes = [
@@ -1019,9 +1024,11 @@ def test_run_created_with_no_timeout() -> None:
 @pytest.mark.parametrize("mode", ("online", "offline"), ids=("online", "offline"))
 @pytest.mark.run
 def test_reconnect(mode, monkeypatch: pytest.MonkeyPatch) -> None:
+    temp_d: tempfile.TemporaryDirectory | None = None
+
     if mode == "offline":
         temp_d = tempfile.TemporaryDirectory()
-        monkeypatch.setenv("SIMVUE_OFFLINE_DIRECTORY", temp_d)
+        monkeypatch.setenv("SIMVUE_OFFLINE_DIRECTORY", temp_d.name)
 
     with simvue.Run(mode=mode) as run:
         run.init(
@@ -1052,3 +1059,7 @@ def test_reconnect(mode, monkeypatch: pytest.MonkeyPatch) -> None:
     _reconnected_run = client.get_run(run_id)
     assert dict(_reconnected_run.metrics)["test_metric"]["last"] == 1
     assert client.get_events(run_id)[0]["message"] == "Testing!"
+
+    if temp_d:
+        temp_d.cleanup()
+

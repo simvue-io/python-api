@@ -8,11 +8,12 @@ Contains general definitions for Simvue Alert objects.
 
 import http
 import pydantic
+import datetime
 import typing
 from simvue.api.objects.base import SimvueObject, staging_check, write_only
 from simvue.api.request import get as sv_get, get_json_from_response
 from simvue.api.url import URL
-from simvue.models import NAME_REGEX
+from simvue.models import NAME_REGEX, DATETIME_FORMAT
 
 
 class AlertBase(SimvueObject):
@@ -124,6 +125,20 @@ class AlertBase(SimvueObject):
     def abort(self) -> bool:
         """Retrieve if alert can abort simulations"""
         return self._get_attribute("abort")
+
+    @property
+    @staging_check
+    def delay(self) -> int:
+        """Retrieve delay value for this alert"""
+        return self._get_attribute("delay")
+
+    @property
+    def created(self) -> datetime.datetime | None:
+        """Retrieve created datetime for the alert"""
+        _created: str | None = self._get_attribute("created")
+        return (
+            datetime.datetime.strptime(_created, DATETIME_FORMAT) if _created else None
+        )
 
     @abort.setter
     @write_only

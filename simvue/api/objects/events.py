@@ -19,6 +19,11 @@ from .base import SimvueObject
 from simvue.models import DATETIME_FORMAT, EventSet
 from simvue.api.request import get as sv_get, get_json_from_response
 
+try:
+    from typing import Self
+except ImportError:
+    from typing_extensions import Self
+
 __all__ = ["Events"]
 
 
@@ -44,21 +49,25 @@ class Events(SimvueObject):
         **kwargs,
     ) -> typing.Generator[EventSet, None, None]:
         _class_instance = cls(_read_only=True, _local=True)
-        if (
-            _data := cls._get_all_objects(count, offset, run=run_id, **kwargs).get(
-                "data"
-            )
-        ) is None:
-            raise RuntimeError(
-                f"Expected key 'data' for retrieval of {_class_instance.__class__.__name__.lower()}s"
-            )
+        _count: int = 0
 
-        for _entry in _data:
-            yield EventSet(**_entry)
+        for response in cls._get_all_objects(offset, run=run_id, **kwargs):
+            if (_data := response.get("data")) is None:
+                raise RuntimeError(
+                    f"Expected key 'data' for retrieval of {_class_instance.__class__.__name__.lower()}s"
+                )
+
+            for _entry in _data:
+                yield EventSet(**_entry)
+                _count += 1
+                if _count > count:
+                    return
 
     @classmethod
     @pydantic.validate_call
-    def new(cls, *, run: str, offline: bool = False, events: list[EventSet], **kwargs):
+    def new(
+        cls, *, run: str, offline: bool = False, events: list[EventSet], **kwargs
+    ) -> Self:
         """Create a new Events entry on the Simvue server"""
         return Events(
             run=run,
@@ -108,9 +117,14 @@ class Events(SimvueObject):
         )
         return _json_response.get("data")
 
-    def delete(
-        self, _linked_objects: list[str] | None = None, **kwargs
-    ) -> dict[str, typing.Any]:
+    def delete(self, **kwargs) -> dict[str, typing.Any]:
+        """Event set deletion not implemented.
+
+        Raises
+        ------
+        NotImplementedError
+            as event set deletion not supported
+        """
         raise NotImplementedError("Cannot delete event set")
 
     def on_reconnect(self, id_mapping: dict[str, str]):
