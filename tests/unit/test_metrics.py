@@ -40,11 +40,13 @@ def test_metrics_creation_online() -> None:
     )
     assert _metrics.to_dict()
     _metrics.commit()
-    assert _metrics.get(metrics=["x", "y", "z"], xaxis="step", runs=[_run.id])
-    assert _metrics.span(run_ids=[_run.id])
-    assert _metrics.names(run_ids=[_run.id])
+    _data = next(_metrics.get(metrics=["x", "y", "z"], runs=[_run.id], xaxis="step"))
+    assert sorted(_metrics.names(run_ids=[_run.id])) == sorted(_values.keys())
+    assert _data.get(_run.id).get('y')[0].get('value') == 2.0
+    assert _data.get(_run.id).get('y')[0].get('step') == 1
     _run.delete()
     _folder.delete(recursive=True, delete_runs=True, runs_only=False)
+
 
 @pytest.mark.api
 @pytest.mark.offline
@@ -91,7 +93,7 @@ def test_metrics_creation_offline() -> None:
     
     # Get online version of metrics
     _online_metrics = Metrics(_id_mapping.get(_metrics.id))
-    _data = _online_metrics.get(metrics=["x", "y", "z"], runs=[_id_mapping.get(_run.id)], xaxis="step")
+    _data = next(_online_metrics.get(metrics=["x", "y", "z"], runs=[_id_mapping.get(_run.id)], xaxis="step"))
     assert sorted(_online_metrics.names(run_ids=[_id_mapping.get(_run.id)])) == sorted(_values.keys())
     assert _data.get(_id_mapping.get(_run.id)).get('y')[0].get('value') == 2.0
     assert _data.get(_id_mapping.get(_run.id)).get('y')[0].get('step') == 1
