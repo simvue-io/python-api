@@ -256,7 +256,7 @@ def setup_test_run(run: sv_run.Run, create_objects: bool, request: pytest.Fixtur
     TEST_DATA["url"] = run._user_config.server.url
     TEST_DATA["headers"] = run._headers
     TEST_DATA["pid"] = run._pid
-    TEST_DATA["resources_metrics_interval"] = run._resources_metrics_interval
+    TEST_DATA["system_metrics_interval"] = run._system_metrics_interval
 
     if create_objects:
         with tempfile.TemporaryDirectory() as tempd:

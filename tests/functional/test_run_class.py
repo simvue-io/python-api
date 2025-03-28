@@ -121,7 +121,7 @@ def test_log_metrics(
     run.config(suppress_errors=False)
 
     metrics_spy = mocker.spy(Metrics, "new")
-    resource_metrics_spy = mocker.spy(sv_run.Run, "_get_internal_metrics")
+    system_metrics_spy = mocker.spy(sv_run.Run, "_get_internal_metrics")
 
     if visibility == "bad_option":
         with pytest.raises(SimvueRunError, match="visibility") as e:
@@ -135,7 +135,7 @@ def test_log_metrics(
                 retention_period="1 hour",
                 visibility=visibility,
             )
-            run.config(resources_metrics_interval=1)
+            run.config(system_metrics_interval=1)
         return
 
     run.init(
@@ -148,7 +148,7 @@ def test_log_metrics(
         visibility=visibility,
         retention_period="1 hour",
     )
-    run.config(resources_metrics_interval=1)
+    run.config(system_metrics_interval=1)
 
     # Speed up the read rate for this test
     run._dispatcher._max_buffer_size = 10
@@ -190,7 +190,7 @@ def test_log_metrics(
         assert metrics_spy.call_count <= 2
 
     # Check heartbeat has been called at least once (so sysinfo sent)
-    assert resource_metrics_spy.call_count >= 1
+    assert system_metrics_spy.call_count >= 1
 
 
 @pytest.mark.run
@@ -928,7 +928,7 @@ def test_abort_on_alert_process(mocker: pytest_mock.MockerFixture) -> None:
 
     mocker.patch("os._exit", testing_exit)
     N_PROCESSES: int = 3
-    run.config(resources_metrics_interval=1)
+    run.config(system_metrics_interval=1)
     run._heartbeat_interval = 1
     run._testing = True
     run.add_process(
@@ -943,7 +943,7 @@ def test_abort_on_alert_process(mocker: pytest_mock.MockerFixture) -> None:
     client = sv_cl.Client()
     client.abort_run(run._id, reason="testing abort")
     time.sleep(4)
-    assert run._resources_metrics_interval == 1
+    assert run._system_metrics_interval == 1
     for child in child_processes:
         assert not child.is_running()
     if run._status != "terminated":
@@ -971,7 +971,7 @@ def test_abort_on_alert_raise(
 ) -> None:
 
     run, _ = create_plain_run
-    run.config(resources_metrics_interval=1)
+    run.config(system_metrics_interval=1)
     run._heartbeat_interval = 1
     run._testing = True
     alert_id = run.create_user_alert("abort_test", trigger_abort=True)
@@ -994,7 +994,7 @@ def test_abort_on_alert_raise(
 @pytest.mark.run
 def test_kill_all_processes(create_plain_run: typing.Tuple[sv_run.Run, dict]) -> None:
     run, _ = create_plain_run
-    run.config(resources_metrics_interval=1)
+    run.config(system_metrics_interval=1)
     run.add_process(identifier="forever_long_1", executable="bash", c="sleep 10000")
     run.add_process(identifier="forever_long_2", executable="bash", c="sleep 10000")
     processes = [

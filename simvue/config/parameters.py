@@ -61,7 +61,7 @@ class OfflineSpecifications(pydantic.BaseModel):
 
 
 class MetricsSpecifications(pydantic.BaseModel):
-    resources_metrics_interval: pydantic.PositiveInt | None = -1
+    system_metrics_interval: pydantic.PositiveInt | None = -1
     enable_emission_metrics: bool = False
 
 

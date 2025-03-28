@@ -187,10 +187,10 @@ class Run:
         )
 
         self._aborted: bool = False
-        self._resources_metrics_interval: int | None = (
+        self._system_metrics_interval: int | None = (
             HEARTBEAT_INTERVAL
-            if self._user_config.metrics.resources_metrics_interval < 1
-            else self._user_config.metrics.resources_metrics_interval
+            if self._user_config.metrics.system_metrics_interval < 1
+            else self._user_config.metrics.system_metrics_interval
         )
         self._headers: dict[str, str] = (
             {
@@ -334,7 +334,7 @@ class Run:
 
     def _get_internal_metrics(
         self,
-        resource_metrics_step: int | None,
+        system_metrics_step: int | None,
         emission_metrics_step: int | None,
         res_measure_interval: int | None = None,
         ems_measure_interval: int | None = None,
@@ -346,7 +346,7 @@ class Run:
 
         Parameters
         ----------
-        resource_metrics_step: int | None
+        system_metrics_step: int | None
             the current step for this resource metric record,
             None if skipping resource metrics.
         emission_metrics_step: int | None
@@ -366,24 +366,24 @@ class Run:
         _current_system_measure = SystemResourceMeasurement(
             self.processes,
             interval=res_measure_interval,
-            cpu_only=not resource_metrics_step,
+            cpu_only=not system_metrics_step,
         )
 
-        if resource_metrics_step is not None:
+        if system_metrics_step is not None:
             # Set join on fail to false as if an error is thrown
             # join would be called on this thread and a thread cannot
             # join itself!
             self._add_metrics_to_dispatch(
                 _current_system_measure.to_dict(),
                 join_on_fail=False,
-                step=resource_metrics_step,
+                step=system_metrics_step,
             )
 
         if emission_metrics_step is not None:
             self._emissions_monitor.estimate_co2_emissions(
                 process_id=f"{self._name}",
                 cpu_percent=_current_system_measure.cpu_percent,
-                measure_interval=self._resources_metrics_interval,
+                measure_interval=self._system_metrics_interval,
                 gpu_percent=_current_system_measure.gpu_percent,
             )
             self._add_metrics_to_dispatch(
@@ -422,17 +422,17 @@ class Run:
             while not heartbeat_trigger.is_set():
                 with self._configuration_lock:
                     _current_time: float = time.time()
-                    _update_resource_metrics: bool = (
-                        self._resources_metrics_interval is not None
+                    _update_system_metrics: bool = (
+                        self._system_metrics_interval is not None
                         and _current_time - last_res_metric_call
-                        > self._resources_metrics_interval
+                        > self._system_metrics_interval
                         and self._status == "running"
                     )
                     _update_emissions_metrics: bool = (
-                        self._resources_metrics_interval is not None
+                        self._system_metrics_interval is not None
                         and self._emissions_monitor
                         and _current_time - last_co2_metric_call
-                        > self._resources_metrics_interval
+                        > self._system_metrics_interval
                         and self._status == "running"
                     )
 
@@ -445,13 +445,13 @@ class Run:
                         emission_metrics_step=co2_step
                         if _update_emissions_metrics
                         else None,
-                        resource_metrics_step=res_step
-                        if _update_resource_metrics
+                        system_metrics_step=res_step
+                        if _update_system_metrics
                         else None,
                         res_measure_interval=1 if res_step == 0 else None,
                         ems_measure_interval=initial_ems_metrics_interval
                         if co2_step == 0
-                        else self._resources_metrics_interval,
+                        else self._system_metrics_interval,
                     )
 
                     res_step += 1
@@ -459,7 +459,7 @@ class Run:
 
                     last_res_metric_call = (
                         _current_time
-                        if _update_resource_metrics
+                        if _update_system_metrics
                         else last_res_metric_call
                     )
                     last_co2_metric_call = (
@@ -1048,9 +1048,9 @@ class Run:
         *,
         suppress_errors: bool | None = None,
         queue_blocking: bool | None = None,
-        resources_metrics_interval: pydantic.PositiveInt | None = None,
+        system_metrics_interval: pydantic.PositiveInt | None = None,
         enable_emission_metrics: bool | None = None,
-        disable_resources_metrics: bool | None = None,
+        disable_system_metrics: bool | None = None,
         storage_id: str | None = None,
         abort_on_alert: typing.Literal["run", "all", "ignore"] | bool | None = None,
     ) -> bool:
@@ -1063,11 +1063,11 @@ class Run:
             dormant state if an error occurs
         queue_blocking : bool, optional
             block thread queues during metric/event recording
-        resources_metrics_interval : int, optional
+        system_metrics_interval : int, optional
             frequency at which to collect resource metrics
         enable_emission_metrics : bool, optional
             enable monitoring of emission metrics
-        disable_resources_metrics : bool, optional
+        disable_system_metrics : bool, optional
             disable monitoring of resource metrics
         storage_id : str, optional
             identifier of storage to use, by default None
@@ -1090,15 +1090,15 @@ class Run:
             if queue_blocking is not None:
                 self._queue_blocking = queue_blocking
 
-            if resources_metrics_interval and disable_resources_metrics:
+            if system_metrics_interval and disable_system_metrics:
                 self._error(
                     "Setting of resource metric interval and disabling resource metrics is ambiguous"
                 )
                 return False
 
-            if disable_resources_metrics:
+            if disable_system_metrics:
                 self._pid = None
-                self._resources_metrics_interval = None
+                self._system_metrics_interval = None
 
             if enable_emission_metrics:
                 if self._user_config.run.mode == "offline":
@@ -1124,8 +1124,8 @@ class Run:
             elif enable_emission_metrics is False and self._emissions_monitor:
                 self._error("Cannot disable emissions monitor once it has been started")
 
-            if resources_metrics_interval:
-                self._resources_metrics_interval = resources_metrics_interval
+            if system_metrics_interval:
+                self._system_metrics_interval = system_metrics_interval
 
             if abort_on_alert is not None:
                 if isinstance(abort_on_alert, bool):
