@@ -139,6 +139,7 @@ def setup_test_run(run: sv_run.Run, create_objects: bool, request: pytest.Fixtur
 
     run.config(suppress_errors=False)
     run._heartbeat_interval = 1
+
     run.init(
         name=TEST_DATA['metadata']['test_identifier'],
         tags=TEST_DATA["tags"],
