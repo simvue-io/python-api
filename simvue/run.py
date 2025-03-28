@@ -379,11 +379,16 @@ class Run:
                 step=system_metrics_step,
             )
 
-        if emission_metrics_step is not None:
+        if (
+            self._emissions_monitor
+            and emission_metrics_step is not None
+            and ems_measure_interval is not None
+            and _current_system_measure.cpu_percent is not None
+        ):
             self._emissions_monitor.estimate_co2_emissions(
                 process_id=f"{self._name}",
                 cpu_percent=_current_system_measure.cpu_percent,
-                measure_interval=self._system_metrics_interval,
+                measure_interval=ems_measure_interval,
                 gpu_percent=_current_system_measure.gpu_percent,
             )
             self._add_metrics_to_dispatch(
