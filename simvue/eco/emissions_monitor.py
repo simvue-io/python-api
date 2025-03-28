@@ -156,10 +156,10 @@ class CO2Monitor(pydantic.BaseModel):
             whether a refresh of the CO2 intensity was requested
             from the CO2 Signal API.
         """
-        if (
-            not self.co2_intensity
-            and not self._local_data.setdefault(self._client.country_code, {})
-        ) or self.outdated:
+        if not self.co2_intensity and (
+            not self._local_data.setdefault(self._client.country_code, {})
+            or self.outdated
+        ):
             self._logger.info("🌍 CO2 emission outdated, calling API.")
             _data: CO2SignalResponse = self._client.get()
             self._local_data[self._client.country_code] = _data.model_dump(mode="json")
