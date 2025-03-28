@@ -161,9 +161,6 @@ def test_plot_metrics(create_test_run: tuple[sv_run.Run, dict]) -> None:
     ids=("sorted-metadata", "sorted-name-created", None)
 )
 def test_get_artifacts_entries(create_test_run: tuple[sv_run.Run, dict], sorting: list[tuple[str, bool]] | None) -> None:
-    # TODO: Reinstate this test once server bug fixed
-    if any("metadata" in a[0] for a in sorting or []):
-        pytest.skip(reason="Server bug fix required for metadata sorting.")
     client = svc.Client()
     assert dict(client.list_artifacts(create_test_run[1]["run_id"], sort_by_columns=sorting))
     assert client.get_artifact(create_test_run[1]["run_id"], name="test_attributes")
@@ -252,9 +249,6 @@ def test_get_run(create_test_run: tuple[sv_run.Run, dict]) -> None:
     ids=("no-sort", "sort-path-metadata", "sort-modified")
 )
 def test_get_folders(create_test_run: tuple[sv_run.Run, dict], sorting: list[tuple[str, bool]] | None) -> None:
-    #TODO: Once server is fixed reinstate this test
-    if "modified" in (a[0] for a in sorting or []):
-        pytest.skip(reason="Server bug when sorting by 'modified'")
     client = svc.Client()
     assert (folders := client.get_folders(sort_by_columns=sorting))
     _id, _folder = next(folders)
