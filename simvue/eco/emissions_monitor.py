@@ -232,17 +232,17 @@ class CO2Monitor(pydantic.BaseModel):
             _co2_units = "kgCO2/kWh"
         else:
             self.check_refresh()
+            # If no local data yet then return
+            if not (_country_codes := list(self._local_data.keys())):
+                self._logger.warning(
+                    "No CO2 emission data recorded as no CO2 intensity value "
+                    "has been provided and there is no local intensity data available."
+                )
+                return
+
             if self._client:
                 _country_code = self._client.country_code
             else:
-                # If no local data yet then return
-                if not (_country_codes := list(self._local_data.keys())):
-                    self._logger.warning(
-                        "No CO2 emission data recorded as no CO2 intensity value "
-                        "has been provided and there is no local intensity data available."
-                    )
-                    return
-
                 _country_code = _country_codes[0]
                 self._logger.debug(
                     f"🗂️ Using data for region '{_country_code}' from local cache for offline estimation."
