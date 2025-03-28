@@ -55,7 +55,7 @@ def mock_co2_signal(monkeypatch: monkeypatch.MonkeyPatch) -> dict[str, dict | st
     _mock_data = {
         "data": {
             "datetime": datetime.datetime.now().isoformat(),
-            "carbonIntensity": 0.04,
+            "carbonIntensity": 40,
             "fossilFuelPercentage": 39,
         },
         "_disclaimer": "test disclaimer",
@@ -78,8 +78,15 @@ def mock_co2_signal(monkeypatch: monkeypatch.MonkeyPatch) -> dict[str, dict | st
             return MockCo2SignalAPIResponse()
         else:
             return _req_get(*args, **kwargs)
+    def _mock_location_info(self) -> None:
+        self._logger.info("📍 Determining current user location.")
+        self._latitude: float
+        self._longitude: float
+        self._latitude, self._longitude = (-1, -1)
+        self._two_letter_country_code: str = "GB"
 
     monkeypatch.setattr(requests, "get", _mock_get)
+    monkeypatch.setattr(sv_eco.APIClient, "_get_user_location_info", _mock_location_info)
 
     return _mock_data
 
