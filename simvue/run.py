@@ -425,13 +425,13 @@ class Run:
                     if _update_system_metrics:
                         self._get_internal_metrics(system_metrics_step=sys_step)
 
-                    sys_step += 1
+                        sys_step += 1
 
-                    last_sys_metric_call = (
-                        _current_time
-                        if _update_system_metrics
-                        else last_sys_metric_call
-                    )
+                        last_sys_metric_call = (
+                            _current_time
+                            if _update_system_metrics
+                            else last_sys_metric_call
+                        )
 
                 if time.time() - last_heartbeat < self._heartbeat_interval:
                     time.sleep(1)
