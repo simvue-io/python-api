@@ -53,15 +53,14 @@ def clear_out_files() -> None:
 @pytest.fixture
 def mock_co2_signal(monkeypatch: monkeypatch.MonkeyPatch) -> dict[str, dict | str]:
     _mock_data = {
-        "data": {
-            "datetime": datetime.datetime.now().isoformat(),
-            "carbonIntensity": 40,
-            "fossilFuelPercentage": 39,
-        },
-        "_disclaimer": "test disclaimer",
-        "countryCode": "GB",
-        "status": "unknown",
-        "units": {"carbonIntensity": "eqCO2kg/kwh"}
+        "zone":"GB",
+        "carbonIntensity":85,
+        "datetime":"2025-04-04T12:00:00.000Z",
+        "updatedAt":"2025-04-04T11:41:12.947Z",
+        "createdAt":"2025-04-01T12:43:58.056Z",
+        "emissionFactorType":"lifecycle",
+        "isEstimated":True,
+        "estimationMethod":"TIME_SLICER_AVERAGE"
     }
     class MockCo2SignalAPIResponse:
         def json(*_, **__) -> dict:

@@ -47,12 +47,12 @@ class CO2Monitor(pydantic.BaseModel):
     local_data_directory: pydantic.DirectoryPath
     intensity_refresh_interval: int | None | str
     co2_intensity: float | None
-    co2_signal_api_token: str | None
+    co2_signal_api_token: pydantic.SecretStr | None
     offline: bool = False
 
     def now(self) -> str:
         """Return data file timestamp for the current time"""
-        _now: datetime.datetime = datetime.datetime.now(datetime.UTC)
+        _now: datetime.datetime = datetime.datetime.now(datetime.timezone.utc)
         return _now.strftime(TIME_FORMAT)
 
     @property
@@ -187,7 +187,7 @@ class CO2Monitor(pydantic.BaseModel):
             with self._data_file_path.open("r") as in_f:
                 self._local_data = json.load(in_f)
 
-        if not self._client or not self._local_data:
+        if not self._client:
             return False
 
         if (
@@ -252,7 +252,6 @@ class CO2Monitor(pydantic.BaseModel):
             )
             _current_co2_intensity = self._current_co2_data.data.carbon_intensity
             _co2_units = self._current_co2_data.carbon_intensity_units
-
         _process.gpu_percentage = gpu_percent
         _process.cpu_percentage = cpu_percent
         _previous_energy: float = _process.total_energy
@@ -270,8 +269,6 @@ class CO2Monitor(pydantic.BaseModel):
 
         # Measured value is in g/kWh, convert to kg/kWs
         _carbon_intensity_kgpws: float = _current_co2_intensity / (60 * 60 * 1e3)
-
-        _previous_emission: float = _process.co2_emission
 
         _process.co2_delta = (
             _process.power_usage * _carbon_intensity_kgpws * measure_interval

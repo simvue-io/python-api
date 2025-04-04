@@ -139,7 +139,6 @@ class SystemResourceMeasurement:
         self,
         processes: list[psutil.Process],
         interval: float | None,
-        cpu_only: bool = False,
     ) -> None:
         """Perform a measurement of system resource consumption.
 
@@ -149,14 +148,10 @@ class SystemResourceMeasurement:
             processes to measure across.
         interval: float | None
             interval to measure, if None previous measure time used for interval.
-        cpu_only: bool, optional
-            only record CPU information, default False
         """
         self.cpu_percent: float | None = get_process_cpu(processes, interval=interval)
         self.cpu_memory: float | None = get_process_memory(processes)
-        self.gpus: list[dict[str, float]] = (
-            None if cpu_only else get_gpu_metrics(processes)
-        )
+        self.gpus: list[dict[str, float]] = get_gpu_metrics(processes)
 
     def to_dict(self) -> dict[str, float]:
         """Create metrics dictionary for sending to a Simvue server."""
