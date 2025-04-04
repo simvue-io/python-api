@@ -18,10 +18,9 @@ def test_api_client_get_loc_info(mock_co2_signal) -> None:
 def test_api_client_query(mock_co2_signal: dict[str, dict | str]) -> None:
     _client = sv_eco_api.APIClient()
     _response: sv_eco_api.CO2SignalResponse = _client.get()
-    assert _response.carbon_intensity_units == mock_co2_signal["units"]["carbonIntensity"]
-    assert _response.country_code == mock_co2_signal["countryCode"]
-    assert _response.data.carbon_intensity == mock_co2_signal["data"]["carbonIntensity"]
-    assert _response.data.fossil_fuel_percentage == mock_co2_signal["data"]["fossilFuelPercentage"]
+    assert _response.carbon_intensity_units == "gCO2e/kWh"
+    assert _response.country_code == mock_co2_signal["zone"]
+    assert _response.data.carbon_intensity == mock_co2_signal["carbonIntensity"]
 
 
 @pytest.mark.eco
@@ -41,7 +40,7 @@ def test_outdated_data_check(
             thermal_design_power_per_cpu=80,
             thermal_design_power_per_gpu=130,
             local_data_directory=tempd,
-            intensity_refresh_interval=1 if refresh else 2,
+            intensity_refresh_interval=1 if refresh else None,
             co2_intensity=None,
             co2_signal_api_token=None
         )   

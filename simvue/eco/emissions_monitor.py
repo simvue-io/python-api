@@ -52,7 +52,7 @@ class CO2Monitor(pydantic.BaseModel):
 
     def now(self) -> str:
         """Return data file timestamp for the current time"""
-        _now: datetime.datetime = datetime.datetime.now(datetime.UTC)
+        _now: datetime.datetime = datetime.datetime.now(datetime.timezone.utc)
         return _now.strftime(TIME_FORMAT)
 
     @property
@@ -187,7 +187,7 @@ class CO2Monitor(pydantic.BaseModel):
             with self._data_file_path.open("r") as in_f:
                 self._local_data = json.load(in_f)
 
-        if not self._client or not self._local_data:
+        if not self._client:
             return False
 
         if (
