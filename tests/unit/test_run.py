@@ -153,13 +153,13 @@ def test_run_modification_offline() -> None:
 
 @pytest.mark.api
 @pytest.mark.online
-def test_get_run() -> None:
+def test_get_run_count() -> None:
     _uuid: str = f"{uuid.uuid4()}".split("-")[0]
     _folder_name = f"/simvue_unit_testing/{_uuid}"
     _folder = Folder.new(path=_folder_name)
     _run_1 = Run.new(folder=_folder_name)
     _run_2 = Run.new(folder=_folder_name)
-    assert len(list(Run._get_all_objects(count=2, offset=None))) == 2
+    assert len(list(Run.get(count=2, offset=None))) == 2
 
 
 @pytest.mark.api

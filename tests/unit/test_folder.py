@@ -56,12 +56,12 @@ def test_folder_creation_offline() -> None:
 
 @pytest.mark.api
 @pytest.mark.online
-def test_get_folder() -> None:
+def test_get_folder_count() -> None:
     _uuid: str = f"{uuid.uuid4()}".split("-")[0]
     _folder_name = f"/simvue_unit_testing/{_uuid}"
     _folder_1 = Folder.new(path=f"{_folder_name}/dir_1")
     _folder_2 = Folder.new(path=f"{_folder_name}/dir_2")
-    assert len(list(Folder._get_all_objects(count=2, offset=None))) == 2
+    assert len(list(Folder.get(count=2, offset=None))) == 2
 
 
 @pytest.mark.api
