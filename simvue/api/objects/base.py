@@ -365,7 +365,7 @@ class SimvueObject(abc.ABC):
         """
         _class_instance = cls(_read_only=True, _local=True)
         _count: int = 0
-        for response in cls._get_all_objects(offset):
+        for response in cls._get_all_objects(offset, count=count):
             if (_data := response.get("data")) is None:
                 raise RuntimeError(
                     f"Expected key 'data' for retrieval of {_class_instance.__class__.__name__.lower()}s"
@@ -404,7 +404,7 @@ class SimvueObject(abc.ABC):
         """
         _class_instance = cls(_read_only=True, _local=True)
         _count: int = 0
-        for _response in cls._get_all_objects(offset, **kwargs):
+        for _response in cls._get_all_objects(offset, count=count, **kwargs):
             if count and _count > count:
                 return
             if (_data := _response.get("data")) is None:
@@ -438,7 +438,7 @@ class SimvueObject(abc.ABC):
 
     @classmethod
     def _get_all_objects(
-        cls, offset: int | None, **kwargs
+        cls, offset: int | None, count: int | None, **kwargs
     ) -> typing.Generator[dict, None, None]:
         _class_instance = cls(_read_only=True)
         _url = f"{_class_instance._base_url}"
@@ -448,7 +448,7 @@ class SimvueObject(abc.ABC):
             _label = _label[:-1]
 
         for response in get_paginated(
-            _url, headers=_class_instance._headers, offset=offset, **kwargs
+            _url, headers=_class_instance._headers, offset=offset, count=count, **kwargs
         ):
             yield get_json_from_response(
                 response=response,
