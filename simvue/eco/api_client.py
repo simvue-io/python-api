@@ -19,38 +19,33 @@ import geocoder
 import geocoder.location
 import typing
 
-CO2_SIGNAL_API_ENDPOINT: str = "https://api.co2signal.com/v1/latest"
+CO2_SIGNAL_API_ENDPOINT: str = (
+    "https://api.electricitymap.org/v3/carbon-intensity/latest"
+)
 
 
 class CO2SignalData(pydantic.BaseModel):
     datetime: datetime.datetime
     carbon_intensity: float
-    fossil_fuel_percentage: float
 
 
 class CO2SignalResponse(pydantic.BaseModel):
-    disclaimer: str
     country_code: str
-    status: str
     data: CO2SignalData
     carbon_intensity_units: str
 
     @classmethod
     def from_json_response(cls, json_response: dict) -> "CO2SignalResponse":
-        _data: dict[str, typing.Any] = json_response["data"]
         _co2_signal_data = CO2SignalData(
             datetime=datetime.datetime.fromisoformat(
-                _data["datetime"].replace("Z", "+00:00")
+                json_response["datetime"].replace("Z", "+00:00")
             ),
-            carbon_intensity=_data["carbonIntensity"],
-            fossil_fuel_percentage=_data["fossilFuelPercentage"],
+            carbon_intensity=json_response["carbonIntensity"],
         )
         return cls(
-            disclaimer=json_response["_disclaimer"],
-            country_code=json_response["countryCode"],
-            status=json_response["status"],
+            country_code=json_response["zone"],
             data=_co2_signal_data,
-            carbon_intensity_units=json_response["units"]["carbonIntensity"],
+            carbon_intensity_units="gCO2e/kWh",
         )
 
 
@@ -109,16 +104,14 @@ class APIClient(pydantic.BaseModel):
     def get(self) -> CO2SignalResponse:
         """Get the current data"""
         _params: dict[str, float | str] = {
-            "lat": self._latitude,
-            "lon": self._longitude,
-            "countryCode": self._two_letter_country_code,
+            "zone": self._two_letter_country_code,
         }
 
         if self.co2_api_token:
             _params["auth-token"] = self.co2_api_token.get_secret_value()
 
         self._logger.debug(f"🍃 Retrieving carbon intensity data for: {_params}")
-        _response = requests.get(f"{self.co2_api_endpoint}", params=_params)
+        _response = requests.get(f"{self.co2_api_endpoint}", headers=_params)
 
         if _response.status_code != http.HTTPStatus.OK:
             try:
