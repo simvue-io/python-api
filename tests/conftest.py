@@ -129,7 +129,7 @@ clear_out_files()
 
 
 @pytest.fixture
-def create_test_run_offline(request, monkeypatch: pytest.MonkeyPatch, prevent_script_exit) -> typing.Generator[typing.Tuple[sv_run.Run, dict], None, None]:
+def create_test_run_offline(mock_co2_signal, request, monkeypatch: pytest.MonkeyPatch, prevent_script_exit) -> typing.Generator[typing.Tuple[sv_run.Run, dict], None, None]:
     def testing_exit(status: int) -> None:
         raise SystemExit(status)
     with tempfile.TemporaryDirectory() as temp_d:
@@ -156,7 +156,7 @@ def create_pending_run(request, prevent_script_exit) -> typing.Generator[typing.
 
 
 @pytest.fixture
-def create_plain_run_offline(request,prevent_script_exit,monkeypatch) -> typing.Generator[typing.Tuple[sv_run.Run, dict], None, None]:
+def create_plain_run_offline(mock_co2_signal, request,prevent_script_exit,monkeypatch) -> typing.Generator[typing.Tuple[sv_run.Run, dict], None, None]:
     with tempfile.TemporaryDirectory() as temp_d:
         monkeypatch.setenv("SIMVUE_OFFLINE_DIRECTORY", temp_d)
         with sv_run.Run("offline") as run:

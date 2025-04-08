@@ -302,24 +302,43 @@ def get_paginated(
     requests.Response
         server response
     """
-    _offset: int = offset or 0
+    _iterations: int | None = None
+    _remainder: int | None = None
+    _count: int = MAX_ENTRIES_PER_PAGE
+    _offset: int = 0
 
-    while (
-        (
-            _response := get(
-                url=url,
-                headers=headers,
-                params=(params or {})
-                | {"count": count or MAX_ENTRIES_PER_PAGE, "start": _offset},
-                timeout=timeout,
-                json=json,
-            )
+    # If a count limit has been provided need to deduce
+    # the number of requests this would be equivalent to
+    # and what count to use for the final request
+    if count:
+        _iterations = count // MAX_ENTRIES_PER_PAGE
+        _remainder = count % MAX_ENTRIES_PER_PAGE
+        _count = min(count, MAX_ENTRIES_PER_PAGE)
+
+    # Request counter for the case where there is a count limit
+    _request_count: int = 0
+
+    # Keep making requests shifting the offset until either
+    # the result is empty, or the count limit is reached
+    # remembering to use the remainder for the final request
+    # if a limit is being used
+    while (_iterations and _request_count < _iterations) or not _iterations:
+        _response = get(
+            url=url,
+            headers=headers,
+            params=(params or {}) | {"count": _count, "start": _offset},
+            timeout=timeout,
+            json=json,
         )
-        .json()
-        .get("data")
-    ):
+
+        # Abort if the data returned is empty
+        if not _response.json().get("data"):
+            return
+
         yield _response
+
+        _request_count += 1
         _offset += MAX_ENTRIES_PER_PAGE
 
-        if count and _offset > count:
-            break
+        if _remainder and _iterations and _request_count == _iterations - 1:
+            _count = _remainder

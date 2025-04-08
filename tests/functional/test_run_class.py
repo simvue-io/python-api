@@ -1023,7 +1023,7 @@ def test_run_created_with_no_timeout() -> None:
 
 @pytest.mark.parametrize("mode", ("online", "offline"), ids=("online", "offline"))
 @pytest.mark.run
-def test_reconnect(mode, monkeypatch: pytest.MonkeyPatch) -> None:
+def test_reconnect(mock_co2_signal, mode, monkeypatch: pytest.MonkeyPatch) -> None:
     temp_d: tempfile.TemporaryDirectory | None = None
 
     if mode == "offline":
