@@ -229,7 +229,6 @@ class CO2Monitor(pydantic.BaseModel):
 
         if self.co2_intensity:
             _current_co2_intensity = self.co2_intensity
-            _co2_units = "kgCO2/kWh"
         else:
             self.check_refresh()
             # If no local data yet then return
@@ -251,10 +250,8 @@ class CO2Monitor(pydantic.BaseModel):
                 **self._local_data[_country_code]
             )
             _current_co2_intensity = self._current_co2_data.data.carbon_intensity
-            _co2_units = self._current_co2_data.carbon_intensity_units
         _process.gpu_percentage = gpu_percent
         _process.cpu_percentage = cpu_percent
-        _previous_energy: float = _process.total_energy
         _process.power_usage = (_process.cpu_percentage / 100.0) * (
             self.thermal_design_power_per_cpu / self.n_cores_per_cpu
         )
@@ -263,22 +260,21 @@ class CO2Monitor(pydantic.BaseModel):
             _process.power_usage += (
                 _process.gpu_percentage / 100.0
             ) * self.thermal_design_power_per_gpu
+        # Convert W to kW
+        _process.power_usage /= 1000
+        # Measure energy in kWh
+        _process.energy_delta = _process.power_usage * measure_interval / 3600
+        _process.total_energy += _process.energy_delta
 
-        _process.total_energy += _process.power_usage * measure_interval
-        _process.energy_delta = _process.total_energy - _previous_energy
+        # Measured value is in g/kWh, convert to kg/kWh
+        _carbon_intensity: float = _current_co2_intensity / 1000
 
-        # Measured value is in g/kWh, convert to kg/kWs
-        _carbon_intensity_kgpws: float = _current_co2_intensity / (60 * 60 * 1e3)
-
-        _process.co2_delta = (
-            _process.power_usage * _carbon_intensity_kgpws * measure_interval
-        )
-
+        _process.co2_delta = _process.energy_delta * _carbon_intensity
         _process.co2_emission += _process.co2_delta
 
         self._logger.debug(
-            f"📝 For process '{process_id}', recorded: CPU={_process.cpu_percentage:.2f}%, "
-            f"Power={_process.power_usage:.2f}W, CO2={_process.co2_emission:.2e}{_co2_units}"
+            f"📝 For process '{process_id}', in interval {measure_interval}, recorded: CPU={_process.cpu_percentage:.2f}%, "
+            f"Power={_process.power_usage:.2f}kW, Energy = {_process.energy_delta}kWh, CO2={_process.co2_delta:.2e}kg"
         )
 
     def simvue_metrics(self) -> dict[str, float]:
