@@ -835,7 +835,8 @@ class Client:
 
         _args = {"filters": json.dumps(run_filters)} if run_filters else {}
 
-        _run_data = dict(Run.get(**_args))
+        if not run_ids:
+            _run_data = dict(Run.get(**_args))
 
         if not (
             _run_metrics := self._get_run_metrics_from_server(
@@ -853,7 +854,8 @@ class Client:
             )
         if use_run_names:
             _run_metrics = {
-                _run_data[key].name: _run_metrics[key] for key in _run_metrics.keys()
+                Run(identifier=key).name: _run_metrics[key]
+                for key in _run_metrics.keys()
             }
         return parse_run_set_metrics(
             _run_metrics,

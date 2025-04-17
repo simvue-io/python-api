@@ -108,6 +108,15 @@ class CO2Monitor(pydantic.BaseModel):
         """
         _logger = logging.getLogger(self.__class__.__name__)
 
+        if not (
+            kwargs.get("co2_intensity")
+            or kwargs.get("co2_signal_api_token")
+            or kwargs.get("offline")
+        ):
+            raise ValueError(
+                "ElectricityMaps API token or hardcoeded CO2 intensity value is required for emissions tracking."
+            )
+
         if not isinstance(kwargs.get("thermal_design_power_per_cpu"), float):
             kwargs["thermal_design_power_per_cpu"] = 80.0
             _logger.warning(

@@ -303,7 +303,6 @@ def get_paginated(
         server response
     """
     _offset: int = offset or 0
-
     while (
         _response := get(
             url=url,
@@ -317,5 +316,7 @@ def get_paginated(
         yield _response
         _offset += MAX_ENTRIES_PER_PAGE
 
-        if count and _offset > count:
+        if (count and _offset > count) or (
+            _response.json().get("count", 0) < (count or MAX_ENTRIES_PER_PAGE)
+        ):
             break

@@ -79,6 +79,7 @@ def test_run_with_emissions_offline(speedy_heartbeat, mock_co2_signal, create_pl
     run_created, _ = create_plain_run_offline
     run_created.config(enable_emission_metrics=True)
     time.sleep(2)
+    # Run should continue, but fail to log metrics until sender runs and creates file
     id_mapping = sv_send.sender(os.environ["SIMVUE_OFFLINE_DIRECTORY"])
     _run = RunObject(identifier=id_mapping[run_created.id])
     _metric_names = [item[0] for item in _run.metrics]
