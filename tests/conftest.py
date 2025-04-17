@@ -48,8 +48,16 @@ def clear_out_files() -> None:
 
     for file_obj in out_files:
         file_obj.unlink()
-
-
+        
+@pytest.fixture(autouse=True)
+def offline_cache_setup(monkeypatch: monkeypatch.MonkeyPatch):
+    # Will be executed before the test
+    cache_dir = tempfile.TemporaryDirectory()
+    monkeypatch.setenv("SIMVUE_OFFLINE_DIRECTORY", cache_dir.name)
+    yield cache_dir
+    # Will be executed after the test
+    cache_dir.cleanup()
+    
 @pytest.fixture
 def mock_co2_signal(monkeypatch: monkeypatch.MonkeyPatch) -> dict[str, dict | str]:
     _mock_data = {

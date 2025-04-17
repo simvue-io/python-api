@@ -38,7 +38,7 @@ def test_object_artifact_creation_online() -> None:
 
 @pytest.mark.api
 @pytest.mark.offline
-def test_object_artifact_creation_offline(offline_test: pathlib.Path) -> None:
+def test_object_artifact_creation_offline(offline_test: pathlib.Path, offline_cache_setup) -> None:
     _uuid: str = f"{uuid.uuid4()}".split("-")[0]
     _folder_name = f"/simvue_unit_testing/{_uuid}"
     _folder = Folder.new(path=_folder_name, offline=True)
