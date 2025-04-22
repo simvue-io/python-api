@@ -8,7 +8,7 @@ import simvue.eco.emissions_monitor as sv_eco_ems
 
 @pytest.mark.eco
 def test_api_client_get_loc_info(mock_co2_signal) -> None:
-    _client = sv_eco_api.APIClient()
+    _client = sv_eco_api.APIClient(co2_api_token="test_token")
     assert _client.latitude
     assert _client.longitude
     assert _client.country_code
@@ -16,7 +16,7 @@ def test_api_client_get_loc_info(mock_co2_signal) -> None:
 
 @pytest.mark.eco
 def test_api_client_query(mock_co2_signal: dict[str, dict | str]) -> None:
-    _client = sv_eco_api.APIClient()
+    _client = sv_eco_api.APIClient(co2_api_token="test_token")
     _response: sv_eco_api.CO2SignalResponse = _client.get()
     assert _response.carbon_intensity_units == "gCO2e/kWh"
     assert _response.country_code == mock_co2_signal["zone"]
@@ -42,7 +42,7 @@ def test_outdated_data_check(
             local_data_directory=tempd,
             intensity_refresh_interval=1 if refresh else None,
             co2_intensity=None,
-            co2_signal_api_token=None
+            co2_signal_api_token="test_token"
         )   
         _measure_params = {
             "process_id": "test_outdated_data_check",
@@ -65,7 +65,7 @@ def test_co2_monitor_properties(mock_co2_signal) -> None:
             local_data_directory=tempd,
             intensity_refresh_interval=None,
             co2_intensity=40,
-            co2_signal_api_token=None
+            co2_signal_api_token="test_token"
         )   
         _measure_params = {
             "process_id": "test_co2_monitor_properties",

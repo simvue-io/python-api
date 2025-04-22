@@ -316,7 +316,5 @@ def get_paginated(
         yield _response
         _offset += MAX_ENTRIES_PER_PAGE
 
-        if (count and _offset > count) or (
-            _response.json().get("count", 0) < (count or MAX_ENTRIES_PER_PAGE)
-        ):
+        if (count and _offset > count) or (_response.json().get("count", 0) < _offset):
             break

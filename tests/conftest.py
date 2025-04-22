@@ -49,14 +49,15 @@ def clear_out_files() -> None:
     for file_obj in out_files:
         file_obj.unlink()
         
-@pytest.fixture(autouse=True)
+@pytest.fixture()
 def offline_cache_setup(monkeypatch: monkeypatch.MonkeyPatch):
-    # Will be executed before the test
+    # Will be executed before test
     cache_dir = tempfile.TemporaryDirectory()
     monkeypatch.setenv("SIMVUE_OFFLINE_DIRECTORY", cache_dir.name)
     yield cache_dir
-    # Will be executed after the test
+    # Will be executed after test
     cache_dir.cleanup()
+    monkeypatch.setenv("SIMVUE_OFFLINE_DIRECTORY", None)
     
 @pytest.fixture
 def mock_co2_signal(monkeypatch: monkeypatch.MonkeyPatch) -> dict[str, dict | str]:
@@ -94,13 +95,21 @@ def mock_co2_signal(monkeypatch: monkeypatch.MonkeyPatch) -> dict[str, dict | st
 
     monkeypatch.setattr(requests, "get", _mock_get)
     monkeypatch.setattr(sv_eco.APIClient, "_get_user_location_info", _mock_location_info)
-
+    
+    _fetch = sv_cfg.SimvueConfiguration.fetch
+    @classmethod
+    def _mock_fetch(cls, *args, **kwargs) -> sv_cfg.SimvueConfiguration:
+        _conf = _fetch(*args, **kwargs)
+        _conf.eco.co2_signal_api_token = "test_token"
+        _conf.metrics.enable_emission_metrics = True
+        return _conf
+    monkeypatch.setattr(sv_cfg.SimvueConfiguration, "fetch", _mock_fetch)
     return _mock_data
 
 
 @pytest.fixture
 def speedy_heartbeat(monkeypatch: monkeypatch.MonkeyPatch) -> None:
-    monkeypatch.setattr(sv_run, "HEARTBEAT_INTERVAL", 0.1)
+    monkeypatch.setattr(sv_run, "HEARTBEAT_INTERVAL", 1)
 
 
 @pytest.fixture(autouse=True)

@@ -374,7 +374,7 @@ class Run:
         # For the first emissions metrics reading, the time interval to use
         # Is the time since the run started, otherwise just use the time between readings
         if self._emissions_monitor:
-            self._emissions_monitor.estimate_co2_emissions(
+            _estimated = self._emissions_monitor.estimate_co2_emissions(
                 process_id=f"{self._name}",
                 cpu_percent=_current_system_measure.cpu_percent,
                 measure_interval=(time.time() - self._start_time)
@@ -382,11 +382,12 @@ class Run:
                 else self._system_metrics_interval,
                 gpu_percent=_current_system_measure.gpu_percent,
             )
-            self._add_metrics_to_dispatch(
-                self._emissions_monitor.simvue_metrics(),
-                join_on_fail=False,
-                step=system_metrics_step,
-            )
+            if _estimated:
+                self._add_metrics_to_dispatch(
+                    self._emissions_monitor.simvue_metrics(),
+                    join_on_fail=False,
+                    step=system_metrics_step,
+                )
 
     def _create_heartbeat_callback(
         self,

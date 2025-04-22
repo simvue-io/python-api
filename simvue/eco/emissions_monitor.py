@@ -246,7 +246,7 @@ class CO2Monitor(pydantic.BaseModel):
                     "No CO2 emission data recorded as no CO2 intensity value "
                     "has been provided and there is no local intensity data available."
                 )
-                return
+                return False
 
             if self._client:
                 _country_code = self._client.country_code
@@ -285,6 +285,7 @@ class CO2Monitor(pydantic.BaseModel):
             f"📝 For process '{process_id}', in interval {measure_interval}, recorded: CPU={_process.cpu_percentage:.2f}%, "
             f"Power={_process.power_usage:.2f}kW, Energy = {_process.energy_delta}kWh, CO2={_process.co2_delta:.2e}kg"
         )
+        return True
 
     def simvue_metrics(self) -> dict[str, float]:
         """Retrieve metrics to send to Simvue server."""

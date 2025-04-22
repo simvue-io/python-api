@@ -245,7 +245,6 @@ def sender(
     # refreshes the CO2 intensity value if required. No emission metrics
     # will be taken by the sender itself, values are assumed to be recorded
     # by any offline runs being sent.
-
     if _user_config.metrics.enable_emission_metrics:
         CO2Monitor(
             thermal_design_power_per_gpu=None,
