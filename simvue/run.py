@@ -1084,7 +1084,7 @@ class Run:
                     self._emissions_monitor = CO2Monitor(
                         intensity_refresh_interval=None,
                         co2_intensity=self._user_config.eco.co2_intensity,
-                        local_data_directory=self._user_config.eco.local_data_directory,
+                        local_data_directory=self._user_config.offline.cache,
                         co2_signal_api_token=None,
                         thermal_design_power_per_cpu=self._user_config.eco.cpu_thermal_design_power,
                         thermal_design_power_per_gpu=self._user_config.eco.gpu_thermal_design_power,
@@ -1093,7 +1093,7 @@ class Run:
                 else:
                     self._emissions_monitor = CO2Monitor(
                         intensity_refresh_interval=self._user_config.eco.intensity_refresh_interval,
-                        local_data_directory=self._user_config.eco.local_data_directory,
+                        local_data_directory=self._user_config.offline.cache,
                         co2_signal_api_token=self._user_config.eco.co2_signal_api_token,
                         co2_intensity=self._user_config.eco.co2_intensity,
                         thermal_design_power_per_cpu=self._user_config.eco.cpu_thermal_design_power,
