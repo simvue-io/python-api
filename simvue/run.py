@@ -729,11 +729,11 @@ class Run:
         if name:
             self._sv_obj.name = name
 
-        self._sv_obj.visibility = {
-            "users": visibility if isinstance(visibility, list) else [],
-            "tenant": visibility == "tenant",
-            "public": visibility == "public",
-        }
+        self._sv_obj.visibility.tenant = visibility == "tenant"
+        self._sv_obj.visibility.public = visibility == "public"
+        self._sv_obj.visibility.users = (
+            visibility if isinstance(visibility, list) else []
+        )
         self._sv_obj.ttl = self._retention
         self._sv_obj.status = self._status
         self._sv_obj.tags = tags
