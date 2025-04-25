@@ -24,7 +24,7 @@ def test_run_creation_online() -> None:
 
 @pytest.mark.api
 @pytest.mark.offline
-def test_run_creation_offline() -> None:
+def test_run_creation_offline(offline_cache_setup) -> None:
     _uuid: str = f"{uuid.uuid4()}".split("-")[0]
     _run_name = f"simvue_offline_run_{_uuid}"
     _folder_name = f"/simvue_unit_testing/{_uuid}"
@@ -39,17 +39,17 @@ def test_run_creation_offline() -> None:
         _local_data = json.load(in_f)
     assert _local_data.get("name") == f"simvue_offline_run_{_uuid}"
     assert _local_data.get("folder") == _folder_name
-    
+
     sender(_run._local_staging_file.parents[1], 1, 10, ["folders", "runs"])
     time.sleep(1)
-    
+
     # Get online ID and retrieve run
     _online_id = _run._local_staging_file.parents[1].joinpath("server_ids", f"{_run._local_staging_file.name.split('.')[0]}.txt").read_text()
     _online_run = Run(_online_id)
-    
+
     assert _online_run.name == _run_name
     assert _online_run.folder == _folder_name
-    
+
     _run.delete()
     _run._local_staging_file.parents[1].joinpath("server_ids", f"{_run._local_staging_file.name.split('.')[0]}.txt").unlink()
     client = Client()
@@ -91,7 +91,7 @@ def test_run_modification_online() -> None:
 
 @pytest.mark.api
 @pytest.mark.offline
-def test_run_modification_offline() -> None:
+def test_run_modification_offline(offline_cache_setup) -> None:
     _uuid: str = f"{uuid.uuid4()}".split("-")[0]
     _run_name = f"simvue_offline_run_{_uuid}"
     _folder_name = f"/simvue_unit_testing/{_uuid}"
@@ -117,38 +117,49 @@ def test_run_modification_offline() -> None:
     assert _new_run.ttl == 120
     assert _new_run.description == "Simvue test run"
     assert _new_run.name == "simvue_test_run"
-    
+
     sender(_run._local_staging_file.parents[1], 1, 10, ["folders", "runs"])
     time.sleep(1)
-    
+
     # Get online ID and retrieve run
     _online_id = _run._local_staging_file.parents[1].joinpath("server_ids", f"{_run._local_staging_file.name.split('.')[0]}.txt").read_text()
     _online_run = Run(_online_id)
-    
+
     assert _online_run.ttl == 120
     assert _online_run.description == "Simvue test run"
     assert _online_run.name == "simvue_test_run"
     assert _online_run.folder == _folder_name
-    
+
     # Now add a new set of tags in offline mode and send
     _new_run.tags = ["simvue", "test", "tag"]
     _new_run.commit()
-        
+
     # Shouldn't yet be available in the online run since it hasnt been sent
     _online_run.refresh()
     assert _online_run.tags == []
-    
+
     sender(_run._local_staging_file.parents[1], 1, 10, ["folders", "runs"])
     time.sleep(1)
-        
+
     _online_run.refresh()
     assert sorted(_new_run.tags) == sorted(["simvue", "test", "tag"])
     assert sorted(_online_run.tags) == sorted(["simvue", "test", "tag"])
-    
+
     _run.delete()
     _run._local_staging_file.parents[1].joinpath("server_ids", f"{_run._local_staging_file.name.split('.')[0]}.txt").unlink()
     client = Client()
     client.delete_folder(_folder_name, recursive=True, remove_runs=True)
+
+
+@pytest.mark.api
+@pytest.mark.online
+def test_get_run_count() -> None:
+    _uuid: str = f"{uuid.uuid4()}".split("-")[0]
+    _folder_name = f"/simvue_unit_testing/{_uuid}"
+    _folder = Folder.new(path=_folder_name)
+    _run_1 = Run.new(folder=_folder_name)
+    _run_2 = Run.new(folder=_folder_name)
+    assert len(list(Run.get(count=2, offset=None))) == 2
 
 
 @pytest.mark.api

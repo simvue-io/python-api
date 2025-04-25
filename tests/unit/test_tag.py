@@ -21,7 +21,7 @@ def test_tag_creation_online() -> None:
 
 @pytest.mark.api
 @pytest.mark.offline
-def test_tag_creation_offline() -> None:
+def test_tag_creation_offline(offline_cache_setup) -> None:
     _uuid: str = f"{uuid.uuid4()}".split("-")[0]
     _tag = Tag.new(name=f"test_tag_{_uuid}", offline=True)
     _tag.commit()
@@ -68,7 +68,7 @@ def test_tag_modification_online() -> None:
 
 @pytest.mark.api
 @pytest.mark.offline
-def test_tag_modification_offline() -> None:
+def test_tag_modification_offline(offline_cache_setup) -> None:
     _uuid: str = f"{uuid.uuid4()}".split("-")[0]
     _tag = Tag.new(name=f"test_tag_{_uuid}", offline=True)
     _tag.commit()

@@ -56,35 +56,35 @@ def test_config_setup(
         if use_file:
             if use_file == "pyproject.toml":
                 _lines_ppt: str = f"""
-[tool.poetry]
-name = "simvue_testing"
-version = "0.1.0"
-description = "A dummy test project"
+                    [tool.poetry]
+                    name = "simvue_testing"
+                    version = "0.1.0"
+                    description = "A dummy test project"
 
-[tool.simvue.run]
-description = "{_description_ppt}"
-folder = "{_folder_ppt}"
-tags = {_tags_ppt}
-"""
+                    [tool.simvue.run]
+                    description = "{_description_ppt}"
+                    folder = "{_folder_ppt}"
+                    tags = {_tags_ppt}
+                    """
                 with open((_ppt_file := pathlib.Path(temp_d).joinpath("pyproject.toml")), "w") as out_f:
                     out_f.write(_lines_ppt)
             with open(_config_file := pathlib.Path(temp_d).joinpath("simvue.toml"), "w") as out_f:
                 _lines: str = f"""
-[server]
-url = "{_url}"
-token = "{_token}"
+                    [server]
+                    url = "{_url}"
+                    token = "{_token}"
 
-[offline]
-cache = "{temp_d}"
-"""
+                    [offline]
+                    cache = "{temp_d}"
+                    """
 
                 if use_file == "extended":
                     _lines += f"""
-[run]
-description = "{_description}"
-folder = "{_folder}"
-tags = {_tags}
-"""
+                        [run]
+                        description = "{_description}"
+                        folder = "{_folder}"
+                        tags = {_tags}
+                        """
                 out_f.write(_lines)
             SimvueConfiguration.config_file.cache_clear()
 
@@ -109,7 +109,7 @@ tags = {_tags}
             )
         else:
             _config = simvue.config.user.SimvueConfiguration.fetch()
-
+            
         if use_file and use_file != "pyproject.toml":
             assert _config.config_file() == _config_file
 

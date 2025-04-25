@@ -23,7 +23,7 @@ def test_create_file_storage_online() -> None:
 
 @pytest.mark.api
 @pytest.mark.offline
-def test_create_file_storage_offline() -> None:
+def test_create_file_storage_offline(offline_cache_setup) -> None:
     _uuid: str = f"{uuid.uuid4()}".split("-")[0]
     _storage = FileStorage.new(name=_uuid, disable_check=True, is_tenant_useable=False, is_default=False, offline=True, is_enabled=False)
     

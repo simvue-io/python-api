@@ -281,6 +281,7 @@ def get_paginated(
     timeout: int = DEFAULT_API_TIMEOUT,
     json: dict[str, typing.Any] | None = None,
     offset: int | None = None,
+    count: int | None = None,
     **params,
 ) -> typing.Generator[requests.Response, None, None]:
     """Paginate results of a server query.
@@ -302,22 +303,18 @@ def get_paginated(
         server response
     """
     _offset: int = offset or 0
-
     while (
-        (
-            _response := get(
-                url=url,
-                headers=headers,
-                params=(params or {})
-                | {"count": MAX_ENTRIES_PER_PAGE, "start": _offset},
-                timeout=timeout,
-                json=json,
-            )
+        _response := get(
+            url=url,
+            headers=headers,
+            params=(params or {})
+            | {"count": count or MAX_ENTRIES_PER_PAGE, "start": _offset},
+            timeout=timeout,
+            json=json,
         )
-        .json()
-        .get("data")
-    ):
+    ).json():
         yield _response
         _offset += MAX_ENTRIES_PER_PAGE
 
-    yield _response
+        if (count and _offset > count) or (_response.json().get("count", 0) < _offset):
+            break
