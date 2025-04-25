@@ -181,7 +181,7 @@ class Client:
         output_format: typing.Literal["dict", "objects", "dataframe"] = "objects",
         count_limit: pydantic.PositiveInt | None = 100,
         start_index: pydantic.NonNegativeInt = 0,
-        show_shared: bool = False,
+        show_shared: bool = True,
         sort_by_columns: list[tuple[str, bool]] | None = None,
     ) -> DataFrame | typing.Generator[tuple[str, Run], None, None] | None:
         """Retrieve all runs matching filters.
@@ -210,7 +210,7 @@ class Client:
         start_index : int, optional
             the index from which to count entries. Default is 0.
         show_shared : bool, optional
-            whether to include runs shared with the current user. Default is False.
+            whether to include runs shared with the current user. Default is True.
         sort_by_columns : list[tuple[str, bool]], optional
             sort by columns in the order given,
             list of tuples in the form (column_name: str, sort_descending: bool),
@@ -234,8 +234,9 @@ class Client:
         RuntimeError
             if there was a failure in data retrieval from the server
         """
+        filters = filters or []
         if not show_shared:
-            filters = (filters or []) + ["user == self"]
+            filters += ["user == self"]
 
         _runs = Run.get(
             count=count_limit,

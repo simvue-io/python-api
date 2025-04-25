@@ -126,7 +126,7 @@ def test_run_with_emissions_offline(speedy_heartbeat, mock_co2_signal, create_pl
 )
 @pytest.mark.parametrize("overload_buffer", (True, False), ids=("overload", "normal"))
 @pytest.mark.parametrize(
-    "visibility", ("bad_option", "tenant", "public", ["ciuser01"], None)
+    "visibility", ("bad_option", "tenant", "public", ["user01"], None)
 )
 def test_log_metrics(
     overload_buffer: bool,
@@ -239,6 +239,109 @@ def test_log_metrics_offline(create_plain_run_offline: tuple[sv_run.Run, dict]) 
     _steps = set(_steps)
     assert len(_steps) == 1
 
+@pytest.mark.run
+@pytest.mark.parametrize(
+    "visibility", ("bad_option", "tenant", "public", ["user01"], None)
+)
+def test_visibility_online(
+    request: pytest.FixtureRequest,
+    visibility: typing.Literal["public", "tenant"] | list[str] | None,
+) -> None:
+
+    run = sv_run.Run()
+    run.config(suppress_errors=False)
+
+    if visibility == "bad_option":
+        with pytest.raises(SimvueRunError, match="visibility") as e:
+            run.init(
+                name=f"test_visibility_{str(uuid.uuid4()).split('-', 1)[0]}",
+                tags=[
+                    "simvue_client_unit_tests",
+                    request.node.name.replace("[", "_").replace("]", "_"),
+                ],
+                folder="/simvue_unit_testing",
+                retention_period="1 hour",
+                visibility=visibility,
+            )
+        return
+
+    run.init(
+        name=f"test_visibility_{str(uuid.uuid4()).split('-', 1)[0]}",
+        tags=[
+            "simvue_client_unit_tests",
+            request.node.name.replace("[", "_").replace("]", "_"),
+        ],
+        folder="/simvue_unit_testing",
+        visibility=visibility,
+        retention_period="1 hour",
+    )
+    time.sleep(1)
+    _id = run._id
+    run.close()
+    _retrieved_run = RunObject(identifier=_id)
+
+    if visibility == "tenant":
+        assert _retrieved_run.visibility.tenant
+    elif visibility == "public":
+        assert _retrieved_run.visibility.public
+    elif not visibility:
+        assert not _retrieved_run.visibility.tenant and not _retrieved_run.visibility.public
+    else:
+        assert _retrieved_run.visibility.users == visibility
+    
+@pytest.mark.run
+@pytest.mark.offline
+@pytest.mark.parametrize(
+    "visibility", ("bad_option", "tenant", "public", ["user01"], None)
+)
+def test_visibility_offline(
+    request: pytest.FixtureRequest,
+    monkeypatch,
+    visibility: typing.Literal["public", "tenant"] | list[str] | None,
+) -> None:
+    with tempfile.TemporaryDirectory() as tempd:
+        os.environ["SIMVUE_OFFLINE_DIRECTORY"] = tempd
+        run = sv_run.Run(mode="offline")
+        run.config(suppress_errors=False)
+
+        if visibility == "bad_option":
+            with pytest.raises(SimvueRunError, match="visibility") as e:
+                run.init(
+                    name=f"test_visibility_{str(uuid.uuid4()).split('-', 1)[0]}",
+                    tags=[
+                        "simvue_client_unit_tests",
+                        request.node.name.replace("[", "_").replace("]", "_"),
+                    ],
+                    folder="/simvue_unit_testing",
+                    retention_period="1 hour",
+                    visibility=visibility,
+                )
+            return
+
+        run.init(
+            name=f"test_visibility_{str(uuid.uuid4()).split('-', 1)[0]}",
+            tags=[
+                "simvue_client_unit_tests",
+                request.node.name.replace("[", "_").replace("]", "_"),
+            ],
+            folder="/simvue_unit_testing",
+            visibility=visibility,
+            retention_period="1 hour",
+        )
+        time.sleep(1)
+        _id = run._id
+        _id_mapping = sv_send.sender(os.environ["SIMVUE_OFFLINE_DIRECTORY"], 2, 10)
+        run.close()
+        _retrieved_run = RunObject(identifier=_id_mapping.get(_id))
+
+        if visibility == "tenant":
+            assert _retrieved_run.visibility.tenant
+        elif visibility == "public":
+            assert _retrieved_run.visibility.public
+        elif not visibility:
+            assert not _retrieved_run.visibility.tenant and not _retrieved_run.visibility.public
+        else:
+            assert _retrieved_run.visibility.users == visibility
 
 @pytest.mark.run
 def test_log_events_online(create_test_run: tuple[sv_run.Run, dict]) -> None:
