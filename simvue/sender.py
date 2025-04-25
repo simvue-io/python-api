@@ -151,7 +151,6 @@ def sender(
     max_workers: int = 5,
     threading_threshold: int = 10,
     objects_to_upload: list[str] = UPLOAD_ORDER,
-    co2_intensity_refresh: int | None | str = None,
 ) -> dict[str, str]:
     """Send data from a local cache directory to the Simvue server.
 
@@ -165,9 +164,6 @@ def sender(
         The number of cached files above which threading will be used
     objects_to_upload : list[str]
         Types of objects to upload, by default uploads all types of objects present in cache
-    co2_intensity_refresh: int | None | str
-        the refresh interval for the CO2 intensity value, if None use config value if available,
-        else do not refresh.
 
     Returns
     -------
@@ -249,17 +245,13 @@ def sender(
     # refreshes the CO2 intensity value if required. No emission metrics
     # will be taken by the sender itself, values are assumed to be recorded
     # by any offline runs being sent.
-
-    if (
-        _refresh_interval := co2_intensity_refresh
-        or _user_config.eco.intensity_refresh_interval
-    ):
+    if _user_config.metrics.enable_emission_metrics:
         CO2Monitor(
             thermal_design_power_per_gpu=None,
             thermal_design_power_per_cpu=None,
             local_data_directory=cache_dir,
-            intensity_refresh_interval=_refresh_interval,
-            co2_intensity=co2_intensity_refresh or _user_config.eco.co2_intensity,
+            intensity_refresh_interval=_user_config.eco.intensity_refresh_interval,
+            co2_intensity=_user_config.eco.co2_intensity,
             co2_signal_api_token=_user_config.eco.co2_signal_api_token,
         ).check_refresh()
 

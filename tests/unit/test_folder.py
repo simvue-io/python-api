@@ -30,7 +30,7 @@ def test_folder_creation_online() -> None:
 
 @pytest.mark.api
 @pytest.mark.offline
-def test_folder_creation_offline() -> None:
+def test_folder_creation_offline(offline_cache_setup) -> None:
     _uuid: str = f"{uuid.uuid4()}".split("-")[0]
     _path = f"/simvue_unit_testing/objects/folder/{_uuid}"
     _folder = Folder.new(path=_path, offline=True)
@@ -88,7 +88,7 @@ def test_folder_modification_online() -> None:
 
 @pytest.mark.api
 @pytest.mark.offline
-def test_folder_modification_offline() -> None:
+def test_folder_modification_offline(offline_cache_setup) -> None:
     _uuid: str = f"{uuid.uuid4()}".split("-")[0]
     _path = f"/simvue_unit_testing/objects/folder/{_uuid}"
     _description = "Test study"

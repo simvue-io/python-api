@@ -108,6 +108,15 @@ class CO2Monitor(pydantic.BaseModel):
         """
         _logger = logging.getLogger(self.__class__.__name__)
 
+        if not (
+            kwargs.get("co2_intensity")
+            or kwargs.get("co2_signal_api_token")
+            or kwargs.get("offline")
+        ):
+            raise ValueError(
+                "ElectricityMaps API token or hardcoeded CO2 intensity value is required for emissions tracking."
+            )
+
         if not isinstance(kwargs.get("thermal_design_power_per_cpu"), float):
             kwargs["thermal_design_power_per_cpu"] = 80.0
             _logger.warning(
@@ -229,7 +238,6 @@ class CO2Monitor(pydantic.BaseModel):
 
         if self.co2_intensity:
             _current_co2_intensity = self.co2_intensity
-            _co2_units = "kgCO2/kWh"
         else:
             self.check_refresh()
             # If no local data yet then return
@@ -238,7 +246,7 @@ class CO2Monitor(pydantic.BaseModel):
                     "No CO2 emission data recorded as no CO2 intensity value "
                     "has been provided and there is no local intensity data available."
                 )
-                return
+                return False
 
             if self._client:
                 _country_code = self._client.country_code
@@ -251,10 +259,8 @@ class CO2Monitor(pydantic.BaseModel):
                 **self._local_data[_country_code]
             )
             _current_co2_intensity = self._current_co2_data.data.carbon_intensity
-            _co2_units = self._current_co2_data.carbon_intensity_units
         _process.gpu_percentage = gpu_percent
         _process.cpu_percentage = cpu_percent
-        _previous_energy: float = _process.total_energy
         _process.power_usage = (_process.cpu_percentage / 100.0) * (
             self.thermal_design_power_per_cpu / self.n_cores_per_cpu
         )
@@ -263,23 +269,23 @@ class CO2Monitor(pydantic.BaseModel):
             _process.power_usage += (
                 _process.gpu_percentage / 100.0
             ) * self.thermal_design_power_per_gpu
+        # Convert W to kW
+        _process.power_usage /= 1000
+        # Measure energy in kWh
+        _process.energy_delta = _process.power_usage * measure_interval / 3600
+        _process.total_energy += _process.energy_delta
 
-        _process.total_energy += _process.power_usage * measure_interval
-        _process.energy_delta = _process.total_energy - _previous_energy
+        # Measured value is in g/kWh, convert to kg/kWh
+        _carbon_intensity: float = _current_co2_intensity / 1000
 
-        # Measured value is in g/kWh, convert to kg/kWs
-        _carbon_intensity_kgpws: float = _current_co2_intensity / (60 * 60 * 1e3)
-
-        _process.co2_delta = (
-            _process.power_usage * _carbon_intensity_kgpws * measure_interval
-        )
-
+        _process.co2_delta = _process.energy_delta * _carbon_intensity
         _process.co2_emission += _process.co2_delta
 
         self._logger.debug(
-            f"📝 For process '{process_id}', recorded: CPU={_process.cpu_percentage:.2f}%, "
-            f"Power={_process.power_usage:.2f}W, CO2={_process.co2_emission:.2e}{_co2_units}"
+            f"📝 For process '{process_id}', in interval {measure_interval}, recorded: CPU={_process.cpu_percentage:.2f}%, "
+            f"Power={_process.power_usage:.2f}kW, Energy = {_process.energy_delta}kWh, CO2={_process.co2_delta:.2e}kg"
         )
+        return True
 
     def simvue_metrics(self) -> dict[str, float]:
         """Retrieve metrics to send to Simvue server."""

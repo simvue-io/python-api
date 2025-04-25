@@ -181,7 +181,7 @@ class Client:
         output_format: typing.Literal["dict", "objects", "dataframe"] = "objects",
         count_limit: pydantic.PositiveInt | None = 100,
         start_index: pydantic.NonNegativeInt = 0,
-        show_shared: bool = False,
+        show_shared: bool = True,
         sort_by_columns: list[tuple[str, bool]] | None = None,
     ) -> DataFrame | typing.Generator[tuple[str, Run], None, None] | None:
         """Retrieve all runs matching filters.
@@ -210,7 +210,7 @@ class Client:
         start_index : int, optional
             the index from which to count entries. Default is 0.
         show_shared : bool, optional
-            whether to include runs shared with the current user. Default is False.
+            whether to include runs shared with the current user. Default is True.
         sort_by_columns : list[tuple[str, bool]], optional
             sort by columns in the order given,
             list of tuples in the form (column_name: str, sort_descending: bool),
@@ -234,8 +234,9 @@ class Client:
         RuntimeError
             if there was a failure in data retrieval from the server
         """
+        filters = filters or []
         if not show_shared:
-            filters = (filters or []) + ["user == self"]
+            filters += ["user == self"]
 
         _runs = Run.get(
             count=count_limit,
@@ -835,7 +836,8 @@ class Client:
 
         _args = {"filters": json.dumps(run_filters)} if run_filters else {}
 
-        _run_data = dict(Run.get(**_args))
+        if not run_ids:
+            _run_data = dict(Run.get(**_args))
 
         if not (
             _run_metrics := self._get_run_metrics_from_server(
@@ -853,7 +855,8 @@ class Client:
             )
         if use_run_names:
             _run_metrics = {
-                _run_data[key].name: _run_metrics[key] for key in _run_metrics.keys()
+                Run(identifier=key).name: _run_metrics[key]
+                for key in _run_metrics.keys()
             }
         return parse_run_set_metrics(
             _run_metrics,

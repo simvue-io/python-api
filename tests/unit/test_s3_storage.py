@@ -44,7 +44,7 @@ def test_create_s3_online() -> None:
 
 @pytest.mark.api
 @pytest.mark.offline
-def test_create_s3_offline() -> None:
+def test_create_s3_offline(offline_cache_setup) -> None:
     _uuid: str = f"{uuid.uuid4()}".split("-")[0]
     _storage = S3Storage.new(
         name=_uuid,

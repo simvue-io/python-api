@@ -200,6 +200,7 @@ class SimvueConfiguration(pydantic.BaseModel):
             _default_dir = _config_dict["offline"].get(
                 "cache", DEFAULT_OFFLINE_DIRECTORY
             )
+        pathlib.Path(_default_dir).mkdir(parents=True, exist_ok=True)
 
         _config_dict["offline"]["cache"] = _default_dir
 
