@@ -227,7 +227,7 @@ def test_get_artifacts_as_files(
 def test_get_runs(create_test_run: tuple[sv_run.Run, dict], output_format: str, sorting: list[tuple[str, bool]] | None) -> None:
     client = svc.Client()
 
-    _result = client.get_runs(filters=None, output_format=output_format, count_limit=10, sort_by_columns=sorting)
+    _result = client.get_runs(filters=[], output_format=output_format, count_limit=10, sort_by_columns=sorting)
 
     if output_format == "dataframe":
         assert not _result.empty

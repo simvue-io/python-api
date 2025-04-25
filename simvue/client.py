@@ -234,8 +234,9 @@ class Client:
         RuntimeError
             if there was a failure in data retrieval from the server
         """
+        filters = filters or []
         if not show_shared:
-            filters = (filters or []) + ["user == self"]
+            filters += ["user == self"]
 
         _runs = Run.get(
             count=count_limit,
