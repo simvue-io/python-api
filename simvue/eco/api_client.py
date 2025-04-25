@@ -77,7 +77,7 @@ class APIClient(pydantic.BaseModel):
         co2_api_endpoint : str
             endpoint for CO2 signal API
         co2_api_token: str
-            RECOMMENDED. The API token for the CO2 Signal API, default is None.
+            The API token for the ElectricityMaps API, default is None.
         timeout : int
             timeout for API
         """
@@ -85,10 +85,7 @@ class APIClient(pydantic.BaseModel):
         self._logger = logging.getLogger(self.__class__.__name__)
 
         if not self.co2_api_token:
-            self._logger.warning(
-                "⚠️  No API token provided for CO2 Signal, "
-                "use of a token is strongly recommended."
-            )
+            raise ValueError("API token is required for ElectricityMaps API.")
 
         self._get_user_location_info()
 

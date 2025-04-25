@@ -51,13 +51,13 @@ def test_file_artifact_creation_online() -> None:
 
 @pytest.mark.api
 @pytest.mark.offline
-def test_file_artifact_creation_offline(offline_test: pathlib.Path) -> None:
+def test_file_artifact_creation_offline(offline_cache_setup) -> None:
     _uuid: str = f"{uuid.uuid4()}".split("-")[0]
     _folder_name = f"/simvue_unit_testing/{_uuid}"
     _folder = Folder.new(path=_folder_name, offline=True)
     _run = Run.new(name=f"test_file_artifact_creation_offline_{_uuid}",folder=_folder_name, offline=True) 
 
-    _path = offline_test.joinpath("hello_world.txt")
+    _path = pathlib.Path(offline_cache_setup.name).joinpath("hello_world.txt")
 
     with _path.open("w") as out_f:
         out_f.write(f"Hello World! {_uuid}")
@@ -80,7 +80,7 @@ def test_file_artifact_creation_offline(offline_test: pathlib.Path) -> None:
     assert _local_data.get("name") == f"test_file_artifact_{_uuid}"
     assert _local_data.get("runs") == {_run._identifier: "input"}
     
-    _id_mapping = sender(offline_test.joinpath(".simvue"), 1, 10)
+    _id_mapping = sender(pathlib.Path(offline_cache_setup.name), 1, 10)
     time.sleep(1)
     
     _online_artifact = Artifact(_id_mapping[_artifact.id])
