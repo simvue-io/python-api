@@ -1,4 +1,11 @@
 # Change log
+## [v2.1.1](https://github.com/simvue-io/client/releases/tag/v2.1.1) - 2025-04-25
+* Changed from CO2 Signal to ElectricityMaps
+* Fixed a number of bugs in how offline mode is handled with emissions
+* Streamlined EmissionsMonitor class and handling
+* Fixed bugs in client getting results from Simvue server arising from pagination
+* Fixed bug in setting visibility in `run.init` method
+* Default setting in `Client.get_runs` is now `show_shared=True`
 ## [v2.1.0](https://github.com/simvue-io/client/releases/tag/v2.1.0) - 2025-03-28
 * Removed CodeCarbon dependence in favour of a slimmer solution using the CO2 Signal API.
 * Added sorting to server queries, users can now specify to sort by columns during data retrieval from the database.
