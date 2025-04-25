@@ -104,7 +104,7 @@ def test_run_with_emissions_offline(speedy_heartbeat, mock_co2_signal, create_pl
 )
 @pytest.mark.parametrize("overload_buffer", (True, False), ids=("overload", "normal"))
 @pytest.mark.parametrize(
-    "visibility", ("bad_option", "tenant", "public", ["ciuser01"], None)
+    "visibility", ("bad_option", "tenant", "public", ["user01"], None)
 )
 def test_log_metrics(
     overload_buffer: bool,
@@ -219,9 +219,9 @@ def test_log_metrics_offline(create_plain_run_offline: tuple[sv_run.Run, dict]) 
 
 @pytest.mark.run
 @pytest.mark.parametrize(
-    "visibility", ("bad_option", "tenant", "public", ["ciuser01"], None)
+    "visibility", ("bad_option", "tenant", "public", ["user01"], None)
 )
-def test_visibility(
+def test_visibility_online(
     request: pytest.FixtureRequest,
     visibility: typing.Literal["public", "tenant"] | list[str] | None,
 ) -> None:
@@ -270,7 +270,7 @@ def test_visibility(
 @pytest.mark.run
 @pytest.mark.offline
 @pytest.mark.parametrize(
-    "visibility", ("bad_option", "tenant", "public", ["ciuser01"], None)
+    "visibility", ("bad_option", "tenant", "public", ["user01"], None)
 )
 def test_visibility_offline(
     request: pytest.FixtureRequest,
