@@ -24,7 +24,7 @@ def test_run_creation_online() -> None:
 
 @pytest.mark.api
 @pytest.mark.offline
-def test_run_creation_offline() -> None:
+def test_run_creation_offline(offline_cache_setup) -> None:
     _uuid: str = f"{uuid.uuid4()}".split("-")[0]
     _run_name = f"simvue_offline_run_{_uuid}"
     _folder_name = f"/simvue_unit_testing/{_uuid}"
@@ -91,7 +91,7 @@ def test_run_modification_online() -> None:
 
 @pytest.mark.api
 @pytest.mark.offline
-def test_run_modification_offline() -> None:
+def test_run_modification_offline(offline_cache_setup) -> None:
     _uuid: str = f"{uuid.uuid4()}".split("-")[0]
     _run_name = f"simvue_offline_run_{_uuid}"
     _folder_name = f"/simvue_unit_testing/{_uuid}"

@@ -374,7 +374,7 @@ class Run:
         # For the first emissions metrics reading, the time interval to use
         # Is the time since the run started, otherwise just use the time between readings
         if self._emissions_monitor:
-            self._emissions_monitor.estimate_co2_emissions(
+            _estimated = self._emissions_monitor.estimate_co2_emissions(
                 process_id=f"{self._name}",
                 cpu_percent=_current_system_measure.cpu_percent,
                 measure_interval=(time.time() - self._start_time)
@@ -382,11 +382,12 @@ class Run:
                 else self._system_metrics_interval,
                 gpu_percent=_current_system_measure.gpu_percent,
             )
-            self._add_metrics_to_dispatch(
-                self._emissions_monitor.simvue_metrics(),
-                join_on_fail=False,
-                step=system_metrics_step,
-            )
+            if _estimated:
+                self._add_metrics_to_dispatch(
+                    self._emissions_monitor.simvue_metrics(),
+                    join_on_fail=False,
+                    step=system_metrics_step,
+                )
 
     def _create_heartbeat_callback(
         self,
@@ -1083,7 +1084,7 @@ class Run:
                     self._emissions_monitor = CO2Monitor(
                         intensity_refresh_interval=None,
                         co2_intensity=self._user_config.eco.co2_intensity,
-                        local_data_directory=self._user_config.eco.local_data_directory,
+                        local_data_directory=self._user_config.offline.cache,
                         co2_signal_api_token=None,
                         thermal_design_power_per_cpu=self._user_config.eco.cpu_thermal_design_power,
                         thermal_design_power_per_gpu=self._user_config.eco.gpu_thermal_design_power,
@@ -1092,7 +1093,7 @@ class Run:
                 else:
                     self._emissions_monitor = CO2Monitor(
                         intensity_refresh_interval=self._user_config.eco.intensity_refresh_interval,
-                        local_data_directory=self._user_config.eco.local_data_directory,
+                        local_data_directory=self._user_config.offline.cache,
                         co2_signal_api_token=self._user_config.eco.co2_signal_api_token,
                         co2_intensity=self._user_config.eco.co2_intensity,
                         thermal_design_power_per_cpu=self._user_config.eco.cpu_thermal_design_power,

@@ -32,7 +32,7 @@ def test_metric_threshold_alert_creation_online() -> None:
 
 @pytest.mark.api
 @pytest.mark.offline
-def test_metric_threshold_alert_creation_offline() -> None:
+def test_metric_threshold_alert_creation_offline(offline_cache_setup) -> None:
     _uuid: str = f"{uuid.uuid4()}".split("-")[0]
     _alert = MetricsThresholdAlert.new(
         name=f"metrics_threshold_alert_{_uuid}",
@@ -107,7 +107,7 @@ def test_metric_threshold_alert_modification_online() -> None:
 
 @pytest.mark.api
 @pytest.mark.offline
-def test_metric_threshold_alert_modification_offline() -> None:
+def test_metric_threshold_alert_modification_offline(offline_cache_setup) -> None:
     _uuid: str = f"{uuid.uuid4()}".split("-")[0]
     _alert = MetricsThresholdAlert.new(
         name=f"metrics_threshold_alert_{_uuid}",

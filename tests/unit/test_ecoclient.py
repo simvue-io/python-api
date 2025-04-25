@@ -2,13 +2,13 @@ import tempfile
 import pytest
 import time
 import pytest_mock
-
+import pytest
 import simvue.eco.api_client as sv_eco_api
 import simvue.eco.emissions_monitor as sv_eco_ems
 
 @pytest.mark.eco
 def test_api_client_get_loc_info(mock_co2_signal) -> None:
-    _client = sv_eco_api.APIClient()
+    _client = sv_eco_api.APIClient(co2_api_token="test_token")
     assert _client.latitude
     assert _client.longitude
     assert _client.country_code
@@ -16,7 +16,7 @@ def test_api_client_get_loc_info(mock_co2_signal) -> None:
 
 @pytest.mark.eco
 def test_api_client_query(mock_co2_signal: dict[str, dict | str]) -> None:
-    _client = sv_eco_api.APIClient()
+    _client = sv_eco_api.APIClient(co2_api_token="test_token")
     _response: sv_eco_api.CO2SignalResponse = _client.get()
     assert _response.carbon_intensity_units == "gCO2e/kWh"
     assert _response.country_code == mock_co2_signal["zone"]
@@ -42,7 +42,7 @@ def test_outdated_data_check(
             local_data_directory=tempd,
             intensity_refresh_interval=1 if refresh else None,
             co2_intensity=None,
-            co2_signal_api_token=None
+            co2_signal_api_token="test_token"
         )   
         _measure_params = {
             "process_id": "test_outdated_data_check",
@@ -65,7 +65,7 @@ def test_co2_monitor_properties(mock_co2_signal) -> None:
             local_data_directory=tempd,
             intensity_refresh_interval=None,
             co2_intensity=40,
-            co2_signal_api_token=None
+            co2_signal_api_token="test_token"
         )   
         _measure_params = {
             "process_id": "test_co2_monitor_properties",
@@ -81,17 +81,15 @@ def test_co2_monitor_properties(mock_co2_signal) -> None:
         assert _ems_monitor.process_data["test_co2_monitor_properties"]
         
         # Will use this equation
-        # Power used = (TDP_cpu * cpu_percent / num_cores) + (TDP_gpu * gpu_percent)
-        assert _ems_monitor.total_power_usage == (80 * 0.2 * 1 / 4) + (130 * 0.4 * 1)
+        # Power used = (TDP_cpu * cpu_percent / num_cores) + (TDP_gpu * gpu_percent) / 1000 (for kW)
+        assert _ems_monitor.total_power_usage == pytest.approx(((80 * 0.2 * 1 / 4) + (130 * 0.4 * 1)) / 1000)
         
-        # Energy used = power used * measure interval
-        assert _ems_monitor.total_energy == _ems_monitor.total_power_usage * 2
+        # Energy used = power used * measure interval / 3600 (for kWh)
+        assert _ems_monitor.total_energy == pytest.approx(_ems_monitor.total_power_usage * 2 / 3600)
         
         # CO2 emission = energy * CO2 intensity
-        # Need to convert CO2 intensity from g/kWh to kg/kWs
-        # So divide by 1000 (g -> kg)
-        # And divide by 60*60 (kWh -> kws)
-        assert _ems_monitor.total_co2_emission == _ems_monitor.total_energy * 40 / (60*60*1000)
+        # Need to convert CO2 intensity from g/kWh to kg/kWh, so divide by 1000
+        assert _ems_monitor.total_co2_emission == pytest.approx(_ems_monitor.total_energy * 40 / 1000)
         
         _ems_monitor.estimate_co2_emissions(**_measure_params)
         # Check delta is half of total, since we've now called this twice
