@@ -478,7 +478,6 @@ class Client:
         self, run_id: str, name: str, count: int | None = None
     ) -> typing.Generator[tuple[str, Artifact], None, None]:
         return Artifact.get(
-            runs=json.dumps([run_id]),
             filters=json.dumps([f"name == {name}"]),
             count=count,
         )  # type: ignore
