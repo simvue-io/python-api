@@ -32,7 +32,7 @@ def test_alerts_fetch(sort_column: str | None, sort_descending: bool | None) -> 
     ],
     ids=("name-desc", "created-asc", "no-sorting")
 )
-def test_artifacts_fetch(sort_column: str | None, sort_descending: bool | None) -> None:
+def test_artifacts_fetch(create_test_run, sort_column: str | None, sort_descending: bool | None) -> None:
     if sort_column:
         assert dict(Artifact.get(sorting=[{"column": sort_column, "descending": sort_descending}], count=10))
     else:
@@ -50,7 +50,7 @@ def test_artifacts_fetch(sort_column: str | None, sort_descending: bool | None) 
     ],
     ids=("name-desc", "created-asc", "no-sorting")
 )
-def test_tags_fetch(sort_column: str | None, sort_descending: bool | None) -> None:
+def test_tags_fetch(create_test_run, sort_column: str | None, sort_descending: bool | None) -> None:
     if sort_column:
         assert dict(Tag.get(sorting=[{"column": sort_column, "descending": sort_descending}], count=10))
     else:
