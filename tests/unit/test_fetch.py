@@ -14,7 +14,7 @@ from simvue.api.objects import Alert, Artifact, Tag, Run
     ],
     ids=("name-desc", "created-asc", "no-sorting")
 )
-def test_alerts_fetch(sort_column: str | None, sort_descending: bool | None) -> None:
+def test_alerts_fetch(create_test_run, sort_column: str | None, sort_descending: bool | None) -> None:
     if sort_column:
         assert dict(Alert.get(sorting=[{"column": sort_column, "descending": sort_descending}], count=10))
     else:
@@ -68,7 +68,7 @@ def test_tags_fetch(create_test_run, sort_column: str | None, sort_descending: b
     ],
     ids=("name-desc", "created-asc", "no-sorting")
 )
-def test_runs_fetch(sort_column: str | None, sort_descending: bool | None) -> None:
+def test_runs_fetch(create_test_run, sort_column: str | None, sort_descending: bool | None) -> None:
     if sort_column:
         assert dict(Run.get(sorting=[{"column": sort_column, "descending": sort_descending}], count=10))
     else:
