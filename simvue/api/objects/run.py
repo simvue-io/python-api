@@ -230,6 +230,11 @@ class Run(SimvueObject):
         self._staging["metadata"] = metadata
 
     @property
+    def user(self) -> str:
+        """Return the user associate with this run."""
+        return self._get_attribute("user")
+
+    @property
     @staging_check
     def description(self) -> str:
         """Set/retrieve the description for this run.
