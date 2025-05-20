@@ -32,7 +32,7 @@ from .utilities import check_extra, prettify_pydantic
 from .models import FOLDER_REGEX, NAME_REGEX
 from .config.user import SimvueConfiguration
 from .api.request import get_json_from_response
-from .api.objects import Run, Folder, Tag, Artifact, Alert
+from .api.objects import Run, Folder, Tag, Artifact, Alert, FileArtifact, ObjectArtifact
 
 
 CONCURRENT_DOWNLOADS = 10
@@ -42,8 +42,10 @@ logger = logging.getLogger(__file__)
 
 
 def _download_artifact_to_file(
-    artifact: Artifact, output_dir: pathlib.Path | None
+    artifact: FileArtifact | ObjectArtifact, output_dir: pathlib.Path | None
 ) -> None:
+    if not artifact.name:
+        raise RuntimeError(f"Expected artifact '{artifact.id}' to have a name")
     _output_file = (output_dir or pathlib.Path.cwd()).joinpath(artifact.name)
     # If this is a hierarchical structure being downloaded, need to create directories
     _output_file.parent.mkdir(parents=True, exist_ok=True)
@@ -475,12 +477,11 @@ class Client:
         )  # type: ignore
 
     def _retrieve_artifacts_from_server(
-        self, run_id: str, name: str, count: int | None = None
+        self, run_id: str, name: str
     ) -> typing.Generator[tuple[str, Artifact], None, None]:
-        return Artifact.get(
-            runs=json.dumps([run_id]),
-            filters=json.dumps([f"name == {name}"]),
-            count=count,
+        return Artifact.from_name(
+            run_id=run_id,
+            name=name,
         )  # type: ignore
 
     @prettify_pydantic
@@ -574,12 +575,7 @@ class Client:
             if there was a failure during retrieval of information from the
             server
         """
-        _artifacts = self._retrieve_artifacts_from_server(run_id, name, count=1)
-
-        try:
-            _id, _artifact = next(_artifacts)
-        except StopIteration as e:
-            raise ValueError(f"No artifact '{name}' found for run '{run_id}'") from e
+        _artifact = self._retrieve_artifacts_from_server(run_id, name)
 
         _download_artifact_to_file(_artifact, output_dir)
 
