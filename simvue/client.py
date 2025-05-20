@@ -478,11 +478,13 @@ class Client:
 
     def _retrieve_artifacts_from_server(
         self, run_id: str, name: str
-    ) -> typing.Generator[tuple[str, Artifact], None, None]:
+    ) -> FileArtifact | ObjectArtifact | None:
         return Artifact.from_name(
             run_id=run_id,
             name=name,
-        )  # type: ignore
+            server_url=self._user_config.server.url,
+            server_token=self._user_config.server.token,
+        )
 
     @prettify_pydantic
     @pydantic.validate_call
@@ -530,12 +532,14 @@ class Client:
         RuntimeError
             if retrieval of artifact from the server failed
         """
-        _artifact = Artifact.from_name(
-            run_id=run_id,
-            name=name,
-            server_url=self._user_config.server.url,
-            server_token=self._user_config.server.token,
-        )
+        _artifact = self._retrieve_artifacts_from_server(run_id, name)
+
+        if not _artifact:
+            raise ObjectNotFoundError(
+                obj_type="artifact",
+                name=name,
+                extra=f"for run '{run_id}'",
+            )
 
         _content = b"".join(_artifact.download_content())
 
@@ -576,6 +580,13 @@ class Client:
             server
         """
         _artifact = self._retrieve_artifacts_from_server(run_id, name)
+
+        if not _artifact:
+            raise ObjectNotFoundError(
+                obj_type="artifact",
+                name=name,
+                extra=f"for run '{run_id}'",
+            )
 
         _download_artifact_to_file(_artifact, output_dir)
 
