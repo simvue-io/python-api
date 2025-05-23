@@ -78,7 +78,7 @@ def git_info(repository: str) -> dict[str, typing.Any]:
 
 def _python_env(repository: pathlib.Path) -> dict[str, typing.Any]:
     """Retrieve a dictionary of Python dependencies if lock file is available"""
-    python_meta: dict[str, str] = {}
+    python_meta: dict[str, dict] = {}
 
     if (pyproject_file := pathlib.Path(repository).joinpath("pyproject.toml")).exists():
         content = toml.load(pyproject_file)
@@ -107,18 +107,27 @@ def _python_env(repository: pathlib.Path) -> dict[str, typing.Any]:
         with contextlib.suppress((KeyError, ImportError)):
             from pip._internal.operations.freeze import freeze
 
-            python_meta["environment"] = {
-                entry[0]: entry[-1]
-                for line in freeze(local_only=True)
-                if (entry := line.split("=="))
-            }
+            # Conda supports having file names with @ as entries
+            # in the requirements.txt file as opposed to ==
+            python_meta["environment"] = {}
+
+            for line in freeze(local_only=True):
+                if line.startswith("-e"):
+                    python_meta["environment"]["local_install"] = line.split(" ")[-1]
+                    continue
+                if "@" in line:
+                    entry = line.split("@")
+                    python_meta["environment"][entry[0].strip()] = entry[-1].strip()
+                elif "==" in line:
+                    entry = line.split("==")
+                    python_meta["environment"][entry[0].strip()] = entry[-1].strip()
 
     return python_meta
 
 
 def _rust_env(repository: pathlib.Path) -> dict[str, typing.Any]:
     """Retrieve a dictionary of Rust dependencies if lock file available"""
-    rust_meta: dict[str, str] = {}
+    rust_meta: dict[str, dict] = {}
 
     if (cargo_file := pathlib.Path(repository).joinpath("Cargo.toml")).exists():
         content = toml.load(cargo_file).get("package", {})
@@ -134,7 +143,7 @@ def _rust_env(repository: pathlib.Path) -> dict[str, typing.Any]:
     cargo_dat = toml.load(cargo_lock)
     rust_meta["environment"] = {
         dependency["name"]: dependency["version"]
-        for dependency in cargo_dat.get("package")
+        for dependency in cargo_dat.get("package", [])
     }
 
     return rust_meta
@@ -142,7 +151,7 @@ def _rust_env(repository: pathlib.Path) -> dict[str, typing.Any]:
 
 def _julia_env(repository: pathlib.Path) -> dict[str, typing.Any]:
     """Retrieve a dictionary of Julia dependencies if a project file is available"""
-    julia_meta: dict[str, str] = {}
+    julia_meta: dict[str, dict] = {}
     if (project_file := pathlib.Path(repository).joinpath("Project.toml")).exists():
         content = toml.load(project_file)
         julia_meta["project"] = {
@@ -155,7 +164,7 @@ def _julia_env(repository: pathlib.Path) -> dict[str, typing.Any]:
 
 
 def _node_js_env(repository: pathlib.Path) -> dict[str, typing.Any]:
-    js_meta: dict[str, str] = {}
+    js_meta: dict[str, dict] = {}
     if (
         project_file := pathlib.Path(repository).joinpath("package-lock.json")
     ).exists():
