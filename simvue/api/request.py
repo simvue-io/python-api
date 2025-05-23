@@ -313,8 +313,7 @@ def get_paginated(
         _response := get(
             url=url,
             headers=headers,
-            params=(params or {})
-            | {"count": _request_count, "start": _offset},
+            params=(params or {}) | {"count": _request_count, "start": _offset},
             timeout=timeout,
             json=json,
         )
