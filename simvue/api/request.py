@@ -303,12 +303,17 @@ def get_paginated(
         server response
     """
     _offset: int = offset or 0
+
+    # Restrict the number of entries retrieved to be paginated,
+    # if the count requested is below page limit use this value
+    # else if undefined or greater than the page limit use the limit
+    _request_count: int = min(count or MAX_ENTRIES_PER_PAGE, MAX_ENTRIES_PER_PAGE)
+
     while (
         _response := get(
             url=url,
             headers=headers,
-            params=(params or {})
-            | {"count": count or MAX_ENTRIES_PER_PAGE, "start": _offset},
+            params=(params or {}) | {"count": _request_count, "start": _offset},
             timeout=timeout,
             json=json,
         )
