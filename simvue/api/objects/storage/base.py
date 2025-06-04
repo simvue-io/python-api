@@ -5,13 +5,13 @@ Simvue Storage Base
 Contains general definitions for Simvue Storage objects.
 """
 
+import datetime
 import typing
 
 import pydantic
-import datetime
 
 from simvue.api.objects.base import SimvueObject, staging_check, write_only
-from simvue.models import NAME_REGEX, DATETIME_FORMAT
+from simvue.models import DATETIME_FORMAT, NAME_REGEX
 
 
 class StorageBase(SimvueObject):
@@ -35,7 +35,6 @@ class StorageBase(SimvueObject):
     @classmethod
     def new(cls, **_):
         """Create a new instance of a storage type"""
-        pass
 
     @property
     @staging_check

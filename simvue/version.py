@@ -1,5 +1,6 @@
+"""Simvue version information."""
+
 import importlib.metadata
-import os.path
 import pathlib
 
 import toml
@@ -7,10 +8,8 @@ import toml
 try:
     __version__ = importlib.metadata.version("simvue")
 except importlib.metadata.PackageNotFoundError:
-    _metadata = os.path.join(
-        pathlib.Path(os.path.dirname(__file__)).parents[1], "pyproject.toml"
-    )
-    if os.path.exists(_metadata):
+    _metadata = pathlib.Path(__file__).parents[1].joinpath("pyproject.toml")
+    if pathlib.Path(_metadata).exists():
         __version__ = toml.load(_metadata)["project"]["version"]
     else:
         __version__ = ""

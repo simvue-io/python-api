@@ -1,25 +1,24 @@
-"""
-Metadata
-========
+"""Simvue metadata retrieval.
 
 Contains functions for extracting additional metadata about the current project
 
 """
 
 import contextlib
-import typing
 import json
-import toml
 import logging
 import pathlib
+import typing
+
+import toml
 
 from simvue.utilities import simvue_timestamp
 
-logger = logging.getLogger(__file__)
+logger = logging.getLogger(__name__)
 
 
 def git_info(repository: str) -> dict[str, typing.Any]:
-    """Retrieves metadata for the target git repository
+    """Retrieve metadata for the target git repository.
 
     This is a passive function which returns an empty dictionary if any
     metadata is missing. Exceptions are raised only if the repository
@@ -77,7 +76,7 @@ def git_info(repository: str) -> dict[str, typing.Any]:
 
 
 def _python_env(repository: pathlib.Path) -> dict[str, typing.Any]:
-    """Retrieve a dictionary of Python dependencies if lock file is available"""
+    """Retrieve a dictionary of Python dependencies if lock file is available."""
     python_meta: dict[str, str] = {}
 
     if (pyproject_file := pathlib.Path(repository).joinpath("pyproject.toml")).exists():
@@ -141,16 +140,14 @@ def _rust_env(repository: pathlib.Path) -> dict[str, typing.Any]:
 
 
 def _julia_env(repository: pathlib.Path) -> dict[str, typing.Any]:
-    """Retrieve a dictionary of Julia dependencies if a project file is available"""
+    """Retrieve a dictionary of Julia dependencies if a project file is available."""
     julia_meta: dict[str, str] = {}
     if (project_file := pathlib.Path(repository).joinpath("Project.toml")).exists():
         content = toml.load(project_file)
         julia_meta["project"] = {
             key: value for key, value in content.items() if not isinstance(value, dict)
         }
-        julia_meta["environment"] = {
-            key: value for key, value in content.get("compat", {}).items()
-        }
+        julia_meta["environment"] = dict(content.get("compat", {}).items())
     return julia_meta
 
 
@@ -162,7 +159,9 @@ def _node_js_env(repository: pathlib.Path) -> dict[str, typing.Any]:
         content = json.load(project_file.open())
         if (lfv := content["lockfileVersion"]) not in (1, 2, 3):
             logger.warning(
-                f"Unsupported package-lock.json lockfileVersion {lfv}, ignoring JS project metadata"
+                "Unsupported package-lock.json lockfileVersion %s, "
+                "ignoring JS project metadata",
+                lfv,
             )
             return {}
 
@@ -179,9 +178,10 @@ def _node_js_env(repository: pathlib.Path) -> dict[str, typing.Any]:
     return js_meta
 
 
-def environment(repository: pathlib.Path = pathlib.Path.cwd()) -> dict[str, typing.Any]:
-    """Retrieve environment metadata"""
+def environment(repository: pathlib.Path | None = None) -> dict[str, typing.Any]:
+    """Retrieve environment metadata."""
     _environment_meta = {}
+    repository = repository or pathlib.Path.cwd()
     if _python_meta := _python_env(repository):
         _environment_meta["python"] = _python_meta
     if _rust_meta := _rust_env(repository):

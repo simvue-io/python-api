@@ -7,12 +7,12 @@ a list of parameters. The purpose of the class is to apply constraints to how
 often the callback can be executed, and the number of items it is called on.
 """
 
+import contextlib
 import logging
 import queue
 import threading
 import time
 import typing
-import contextlib
 
 from .base import DispatcherBaseClass
 

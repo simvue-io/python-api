@@ -7,23 +7,23 @@ a new folder given relevant arguments.
 
 """
 
-import pathlib
-import typing
 import datetime
 import json
+import pathlib
+import typing
 
 import pydantic
 
 from simvue.exception import ObjectNotFoundError
+from simvue.models import DATETIME_FORMAT, FOLDER_REGEX
 
-from .base import SimvueObject, staging_check, write_only, Sort
-from simvue.models import FOLDER_REGEX, DATETIME_FORMAT
+from .base import SimvueObject, Sort, staging_check, write_only
 
 # Need to use this inside of Generator typing to fix bug present in Python 3.10 - see issue #745
 try:
     from typing import Self
 except ImportError:
-    from typing_extensions import Self
+    from typing import Self
 
 
 __all__ = ["Folder"]
@@ -93,7 +93,7 @@ class Folder(SimvueObject):
         offset: pydantic.NonNegativeInt | None = None,
         sorting: list[FolderSort] | None = None,
         **kwargs,
-    ) -> typing.Generator[tuple[str, T | None], None, None]:
+    ) -> typing.Generator[tuple[str, T | None]]:
         _params: dict[str, str] = kwargs
 
         if sorting:

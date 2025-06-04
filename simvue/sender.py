@@ -6,15 +6,16 @@ Function to send data cached by Simvue in Offline mode to the server.
 """
 
 import json
-import pydantic
 import logging
-from concurrent.futures import ThreadPoolExecutor
 import threading
-import requests
+from concurrent.futures import ThreadPoolExecutor
+
 import psutil
-from simvue.config.user import SimvueConfiguration
+import pydantic
+import requests
 
 import simvue.api.objects
+from simvue.config.user import SimvueConfiguration
 from simvue.eco.emissions_monitor import CO2Monitor
 from simvue.version import __version__
 

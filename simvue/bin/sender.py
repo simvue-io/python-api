@@ -1,15 +1,16 @@
-"""Send runs to server"""
+"""Send runs to server."""
 
+import argparse
 import logging
 
-from simvue.sender import sender, UPLOAD_ORDER
-import argparse
+from simvue.sender import UPLOAD_ORDER, sender
 
 _logger = logging.getLogger(__name__)
 _logger.setLevel(logging.INFO)
 
 
 def run() -> None:
+    """Launch Sender CLI."""
     parser = argparse.ArgumentParser(description="My script description")
     parser.add_argument(
         "-w",
@@ -25,7 +26,8 @@ def run() -> None:
         type=int,
         required=False,
         default=10,
-        help="The number of objects of a given type above which items will be sent to the server in parallel, by default 10",
+        help="The number of objects of a given type above which items will be sent to "
+        "the server in parallel, by default 10",
     )
     parser.add_argument(
         "-o",
@@ -40,5 +42,5 @@ def run() -> None:
     try:
         _logger.info("Starting Simvue Sender")
         sender(**vars(args))
-    except Exception as err:
+    except Exception as err:  # noqa: BLE001
         _logger.critical("Exception running sender: %s", str(err))

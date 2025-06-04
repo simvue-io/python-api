@@ -1,44 +1,43 @@
-"""
-Simvue Client
-=============
+"""Simvue Client.
 
 Contains a Simvue client class for interacting with existing objects on the
 server including deletion and retrieval.
 """
 
 import contextlib
+import http
 import json
 import logging
 import pathlib
 import typing
-import http
-import pydantic
 from concurrent.futures import ThreadPoolExecutor, as_completed
-from pandas import DataFrame
 
+import pydantic
 import requests
+from pandas import DataFrame
 
 from simvue.api.objects.alert.base import AlertBase
 from simvue.exception import ObjectNotFoundError
 
+from .api.objects import Alert, Artifact, Folder, Run, Tag
+from .api.request import get_json_from_response
+from .config.user import SimvueConfiguration
 from .converters import (
     aggregated_metrics_to_dataframe,
-    to_dataframe,
     parse_run_set_metrics,
+    to_dataframe,
 )
-from .serialization import deserialize_data
-from .simvue_types import DeserializedContent
-from .utilities import check_extra, prettify_pydantic
 from .models import FOLDER_REGEX, NAME_REGEX
-from .config.user import SimvueConfiguration
-from .api.request import get_json_from_response
-from .api.objects import Run, Folder, Tag, Artifact, Alert
+from .serialization import deserialize_data
+from .utilities import check_extra, prettify_pydantic
 
+if typing.TYPE_CHECKING:
+    from .simvue_types import DeserializedContent
 
 CONCURRENT_DOWNLOADS = 10
 DOWNLOAD_CHUNK_SIZE = 8192
 
-logger = logging.getLogger(__file__)
+logger = logging.getLogger(__name__)
 
 
 def _download_artifact_to_file(
@@ -61,7 +60,7 @@ class Client:
         server_token: pydantic.SecretStr | None = None,
         server_url: str | None = None,
     ) -> None:
-        """Initialise an instance of the Simvue client
+        """Initialise an instance of the Simvue client.
 
         Parameters
         ----------
@@ -77,12 +76,15 @@ class Client:
         for label, value in zip(
             ("URL", "API token"),
             (self._user_config.server.url, self._user_config.server.url),
+            strict=False,
         ):
             if not value:
-                logger.warning(f"No {label} specified")
+                logger.warning("No %s specified", label)
 
         self._headers: dict[str, str] = {
-            "Authorization": f"Bearer {self._user_config.server.token.get_secret_value()}",
+            "Authorization": (
+                f"Bearer {self._user_config.server.token.get_secret_value()}"
+            ),
             "Accept-Encoding": "gzip",
         }
 
@@ -91,7 +93,7 @@ class Client:
     def get_run_id_from_name(
         self, name: typing.Annotated[str, pydantic.Field(pattern=NAME_REGEX)]
     ) -> str:
-        """Get Run ID from the server matching the specified name
+        """Get Run ID from the server matching the specified name.
 
         Assumes a unique name for this run. If multiple results are found this
         method will fail.
@@ -117,22 +119,20 @@ class Client:
         try:
             _id, _ = next(_runs)
         except StopIteration as e:
-            raise RuntimeError(
-                "Could not collect ID - no run found with this name."
-            ) from e
+            _exc_msg: str = "Could not collect ID - no run found with this name."
+            raise RuntimeError(_exc_msg) from e
 
         with contextlib.suppress(StopIteration):
             next(_runs)
-            raise RuntimeError(
-                "Could not collect ID - more than one run exists with this name."
-            )
+            _exc_msg = "Could not collect ID - more than one run exists with this name."
+            raise RuntimeError(_exc_msg)
 
         return _id
 
     @prettify_pydantic
     @pydantic.validate_call
     def get_run(self, run_id: str) -> Run | None:
-        """Retrieve a single run
+        """Retrieve a single run.
 
         Parameters
         ----------
@@ -154,7 +154,7 @@ class Client:
     @prettify_pydantic
     @pydantic.validate_call
     def get_run_name_from_id(self, run_id: str) -> str:
-        """Retrieve the name of a run from its identifier
+        """Retrieve the name of a run from its identifier.
 
         Parameters
         ----------
@@ -183,7 +183,7 @@ class Client:
         start_index: pydantic.NonNegativeInt = 0,
         show_shared: bool = True,
         sort_by_columns: list[tuple[str, bool]] | None = None,
-    ) -> DataFrame | typing.Generator[tuple[str, Run], None, None] | None:
+    ) -> DataFrame | typing.Generator[tuple[str, Run]] | None:
         """Retrieve all runs matching filters.
 
         Parameters
@@ -247,7 +247,10 @@ class Client:
             return_alerts=alerts,
             return_system=system,
             return_metadata=metadata,
-            sorting=[dict(zip(("column", "descending"), a)) for a in sort_by_columns]
+            sorting=[
+                dict(zip(("column", "descending"), a, strict=False))
+                for a in sort_by_columns
+            ]
             if sort_by_columns
             else None,
         )
@@ -268,12 +271,14 @@ class Client:
             f"{self._user_config.server.url}/runs",
             headers=self._headers,
             params=_params,
+            timeout=10,
         )
 
         response.raise_for_status()
 
         if output_format not in ("dict", "dataframe"):
-            raise ValueError("Invalid format specified")
+            _exc_msg = "Invalid format specified"
+            raise ValueError(_exc_msg)
 
         json_response = get_json_from_response(
             expected_status=[http.HTTPStatus.OK],
@@ -282,7 +287,8 @@ class Client:
         )
 
         if (response_data := json_response.get("data")) is None:
-            raise RuntimeError("Failed to retrieve runs data")
+            _exc_msg = "Failed to retrieve runs data"
+            raise RuntimeError(_exc_msg)
 
         if output_format == "dict":
             return response_data
@@ -292,7 +298,7 @@ class Client:
     @prettify_pydantic
     @pydantic.validate_call
     def delete_run(self, run_id: str) -> dict | None:
-        """Delete run by identifier
+        """Delete run by identifier.
 
         Parameters
         ----------
@@ -312,7 +318,7 @@ class Client:
         return Run(identifier=run_id).delete() or None
 
     def _get_folder_from_path(self, path: str) -> Folder | None:
-        """Retrieve folder for the specified path if found
+        """Retrieve folder for the specified path if found.
 
         Parameters
         ----------
@@ -328,12 +334,13 @@ class Client:
 
         try:
             _, _folder = next(_folders)
-            return _folder  # type: ignore
         except StopIteration:
             return None
+        else:
+            return _folder
 
     def _get_folder_id_from_path(self, path: str) -> str | None:
-        """Retrieve folder identifier for the specified path if found
+        """Retrieve folder identifier for the specified path if found.
 
         Parameters
         ----------
@@ -357,7 +364,7 @@ class Client:
     def delete_runs(
         self, folder_path: typing.Annotated[str, pydantic.Field(pattern=FOLDER_REGEX)]
     ) -> list | None:
-        """Delete runs in a named folder
+        """Delete runs in a named folder.
 
         Parameters
         ----------
@@ -376,7 +383,8 @@ class Client:
             if deletion fails due to server request error
         """
         if not (_folder := self._get_folder_from_path(folder_path)):
-            raise ValueError(f"Could not find a folder matching '{folder_path}'")
+            _exc_msg = f"Could not find a folder matching '{folder_path}'"
+            raise ValueError(_exc_msg)
         _delete = _folder.delete(runs_only=True, delete_runs=True, recursive=False)
         return _delete.get("runs", [])
 
@@ -385,16 +393,18 @@ class Client:
     def delete_folder(
         self,
         folder_path: typing.Annotated[str, pydantic.Field(pattern=FOLDER_REGEX)],
+        *,
         recursive: bool = False,
         remove_runs: bool = False,
         allow_missing: bool = False,
     ) -> list | None:
-        """Delete a folder by name
+        """Delete a folder by name.
 
         Parameters
         ----------
         folder_path : str
             name of the folder to delete. All paths are prefixed with `/`
+        *
         recursive : bool, optional
             if folder contains additional folders remove these, else return an
             error. Default False.
@@ -419,10 +429,11 @@ class Client:
         if not folder_id:
             if allow_missing:
                 return None
-            else:
-                raise RuntimeError(
-                    f"Deletion of folder '{folder_path}' failed, folder does not exist."
-                )
+            _exc_msg: str = (
+                f"Deletion of folder '{folder_path}' failed, folder does not exist."
+            )
+            raise RuntimeError(_exc_msg)
+
         _response = Folder(identifier=folder_id).delete(
             delete_runs=remove_runs, recursive=recursive, runs_only=False
         )
@@ -432,21 +443,21 @@ class Client:
     @prettify_pydantic
     @pydantic.validate_call
     def delete_alert(self, alert_id: str) -> None:
-        """Delete an alert from the server by ID
+        """Delete an alert from the server by ID.
 
         Parameters
         ----------
         alert_id : str
             the unique identifier for the alert
         """
-        Alert(identifier=alert_id).delete()  # type: ignore
+        Alert(identifier=alert_id).delete()
 
     @prettify_pydantic
     @pydantic.validate_call
     def list_artifacts(
         self, run_id: str, sort_by_columns: list[tuple[str, bool]] | None = None
-    ) -> typing.Generator[Artifact, None, None]:
-        """Retrieve artifacts for a given run
+    ) -> typing.Generator[Artifact]:
+        """Retrieve artifacts for a given run.
 
         Parameters
         ----------
@@ -469,24 +480,27 @@ class Client:
         """
         return Artifact.get(
             runs=json.dumps([run_id]),
-            sorting=[dict(zip(("column", "descending"), a)) for a in sort_by_columns]
+            sorting=[
+                dict(zip(("column", "descending"), a, strict=False))
+                for a in sort_by_columns
+            ]
             if sort_by_columns
             else None,
-        )  # type: ignore
+        )
 
     def _retrieve_artifacts_from_server(
         self, run_id: str, name: str, count: int | None = None
-    ) -> typing.Generator[tuple[str, Artifact], None, None]:
+    ) -> typing.Generator[tuple[str, Artifact]]:
         return Artifact.get(
             runs=json.dumps([run_id]),
             filters=json.dumps([f"name == {name}"]),
             count=count,
-        )  # type: ignore
+        )
 
     @prettify_pydantic
     @pydantic.validate_call
     def abort_run(self, run_id: str, reason: str) -> dict | list:
-        """Abort a currently active run on the server
+        """Abort a currently active run on the server.
 
         Parameters
         ----------
@@ -505,9 +519,9 @@ class Client:
     @prettify_pydantic
     @pydantic.validate_call
     def get_artifact(
-        self, run_id: str, name: str, allow_pickle: bool = False
-    ) -> typing.Any:
-        """Return the contents of a specified artifact
+        self, run_id: str, name: str, *, allow_pickle: bool = False
+    ) -> object:
+        """Return the contents of a specified artifact.
 
         Parameters
         ----------
@@ -515,6 +529,7 @@ class Client:
             the unique identifier of the run from which to retrieve the artifact
         name : str
             the name of the artifact to retrieve
+        *
         allow_pickle : bool, optional
             whether to de-pickle the retrieved data, by default False
 
@@ -554,7 +569,7 @@ class Client:
         name: str,
         output_dir: pydantic.DirectoryPath | None = None,
     ) -> None:
-        """Retrieve the specified artifact in the form of a file
+        """Retrieve the specified artifact in the form of a file.
 
         Information is saved to a file as opposed to deserialized
 
@@ -579,7 +594,8 @@ class Client:
         try:
             _id, _artifact = next(_artifacts)
         except StopIteration as e:
-            raise ValueError(f"No artifact '{name}' found for run '{run_id}'") from e
+            _exc_msg = f"No artifact '{name}' found for run '{run_id}'"
+            raise ValueError(_exc_msg) from e
 
         _download_artifact_to_file(_artifact, output_dir)
 
@@ -591,7 +607,7 @@ class Client:
         category: typing.Literal["input", "output", "code"] | None = None,
         output_dir: pydantic.DirectoryPath | None = None,
     ) -> None:
-        """Retrieve artifacts from the given run as a set of files
+        """Retrieve artifacts from the given run as a set of files.
 
         Parameters
         ----------
@@ -611,8 +627,8 @@ class Client:
         RuntimeError
             if there was a failure retrieving artifacts from the server
         """
-        _artifacts: typing.Generator[tuple[str, Artifact], None, None] = (
-            Artifact.from_run(run_id=run_id, category=category)
+        _artifacts: typing.Generator[tuple[str, Artifact]] = Artifact.from_run(
+            run_id=run_id, category=category
         )
 
         with ThreadPoolExecutor(CONCURRENT_DOWNLOADS) as executor:
@@ -620,29 +636,34 @@ class Client:
                 executor.submit(_download_artifact_to_file, artifact, output_dir)
                 for _, artifact in _artifacts
             ]
-            for future, (_, artifact) in zip(as_completed(futures), _artifacts):
+            for future, (_, artifact) in zip(
+                as_completed(futures), _artifacts, strict=False
+            ):
                 try:
                     future.result()
                 except Exception as e:
-                    raise RuntimeError(
+                    _exc_msg = (
                         f"Download of file {artifact.storage_url} "
                         f"failed with exception: {e}"
-                    ) from e
+                    )
+                    raise RuntimeError(_exc_msg) from e
 
     @prettify_pydantic
     @pydantic.validate_call
     def get_folder(
         self,
         folder_path: typing.Annotated[str, pydantic.Field(pattern=FOLDER_REGEX)],
+        *,
         read_only: bool = True,
     ) -> Folder | None:
-        """Retrieve a folder by identifier
+        """Retrieve a folder by identifier.
 
         Parameters
         ----------
         folder_path : str
             the path of the folder to retrieve on the server.
             Paths are prefixed with `/`
+        *
         read_only : bool, optional
             whether the returned object should be editable or not,
             default is True, the object is a cached copy of data
@@ -658,17 +679,18 @@ class Client:
         RuntimeError
             if there was a failure when retrieving information from the server
         """
-        _folders: typing.Generator[tuple[str, Folder], None, None] = Folder.get(
+        _folders: typing.Generator[tuple[str, Folder]] = Folder.get(
             filters=json.dumps([f"path == {folder_path}"])
-        )  # type: ignore
+        )
 
         try:
             _, _folder = next(_folders)
             if not read_only:
                 _folder.read_only(read_only)
-            return _folder
         except StopIteration:
             return None
+        else:
+            return _folder
 
     @pydantic.validate_call
     def get_folders(
@@ -678,8 +700,8 @@ class Client:
         count: pydantic.PositiveInt = 100,
         start_index: pydantic.NonNegativeInt = 0,
         sort_by_columns: list[tuple[str, bool]] | None = None,
-    ) -> typing.Generator[tuple[str, Folder], None, None]:
-        """Retrieve folders from the server
+    ) -> typing.Generator[tuple[str, Folder]]:
+        """Retrieve folders from the server.
 
         Parameters
         ----------
@@ -708,15 +730,18 @@ class Client:
             filters=json.dumps(filters or []),
             count=count,
             offset=start_index,
-            sorting=[dict(zip(("column", "descending"), a)) for a in sort_by_columns]
+            sorting=[
+                dict(zip(("column", "descending"), a, strict=False))
+                for a in sort_by_columns
+            ]
             if sort_by_columns
             else None,
-        )  # type: ignore
+        )
 
     @prettify_pydantic
     @pydantic.validate_call
-    def get_metrics_names(self, run_id: str) -> typing.Generator[str, None, None]:
-        """Return information on all metrics within a run
+    def get_metrics_names(self, run_id: str) -> typing.Generator[str]:
+        """Return information on all metrics within a run.
 
         Parameters
         ----------
@@ -735,15 +760,16 @@ class Client:
         """
         _run = Run(identifier=run_id)
 
-        for id, _ in _run.metrics:
-            yield id
+        for _id, _ in _run.metrics:
+            yield _id
 
     def _get_run_metrics_from_server(
         self,
         metric_names: list[str],
         run_ids: list[str],
         xaxis: str,
-        aggregate: bool,
+        *,
+        aggregate: bool = True,
         max_points: int | None = None,
     ) -> dict[str, typing.Any]:
         params: dict[str, str | int | None] = {
@@ -758,6 +784,7 @@ class Client:
             f"{self._user_config.server.url}/metrics",
             headers=self._headers,
             params=params,
+            timeout=10,
         )
 
         return get_json_from_response(
@@ -780,7 +807,7 @@ class Client:
         aggregate: bool = False,
         max_points: pydantic.PositiveInt | None = None,
     ) -> dict | DataFrame | None:
-        """Retrieve the values for a given metric across multiple runs
+        """Retrieve the values for a given metric across multiple runs.
 
         Uses filters to specify which runs should be retrieved.
 
@@ -820,19 +847,22 @@ class Client:
             if no runs pass filtering then return None
         """
         if not metric_names:
-            raise ValueError("No metric names were provided")
+            _exc_msg = "No metric names were provided"
+            raise ValueError(_exc_msg)
 
         if run_filters and run_ids:
-            raise AssertionError(
+            _exc_msg = (
                 "Specification of both 'run_ids' and 'run_filters' "
                 "in get_metric_values is ambiguous"
             )
+            raise AssertionError(_exc_msg)
 
         if xaxis == "timestamp" and aggregate:
-            raise AssertionError(
+            _exc_msg = (
                 "Cannot return metric values with options 'aggregate=True' and "
                 "'xaxis=timestamp'"
             )
+            raise AssertionError(_exc_msg)
 
         _args = {"filters": json.dumps(run_filters)} if run_filters else {}
 
@@ -855,8 +885,7 @@ class Client:
             )
         if use_run_names:
             _run_metrics = {
-                Run(identifier=key).name: _run_metrics[key]
-                for key in _run_metrics.keys()
+                Run(identifier=key).name: _run_metrics[key] for key in _run_metrics
             }
         return parse_run_set_metrics(
             _run_metrics,
@@ -875,8 +904,8 @@ class Client:
         xaxis: typing.Literal["step", "time"],
         *,
         max_points: int | None = None,
-    ) -> typing.Any:
-        """Plt the time series values for multiple metrics/runs
+    ) -> object:
+        """Plt the time series values for multiple metrics/runs.
 
         Parameters
         ----------
@@ -900,12 +929,14 @@ class Client:
             if invalid arguments are provided
         """
         if not isinstance(run_ids, list):
-            raise ValueError("Invalid runs specified, must be a list of run names.")
+            _exc_msg = "Invalid runs specified, must be a list of run names."
+            raise TypeError(_exc_msg)
 
         if not isinstance(metric_names, list):
-            raise ValueError("Invalid names specified, must be a list of metric names.")
+            _exc_msg = "Invalid names specified, must be a list of metric names."
+            raise TypeError(_exc_msg)
 
-        data: DataFrame = self.get_metric_values(  # type: ignore
+        data: DataFrame = self.get_metric_values(
             run_ids=run_ids,
             metric_names=metric_names,
             xaxis=xaxis,
@@ -915,9 +946,10 @@ class Client:
         )
 
         if data is None:
-            raise RuntimeError(
+            _exc_msg = (
                 f"Cannot plot metrics {metric_names}, no data found for runs {run_ids}."
             )
+            raise RuntimeError(_exc_msg)
 
         # Undo multi-indexing
         flattened_df = data.reset_index()
@@ -960,7 +992,7 @@ class Client:
         start_index: pydantic.NonNegativeInt | None = None,
         count_limit: pydantic.PositiveInt | None = None,
     ) -> list[dict[str, str]]:
-        """Return events for a specified run
+        """Return events for a specified run.
 
         Parameters
         ----------
@@ -983,7 +1015,6 @@ class Client:
         RuntimeError
             if there was a failure retrieving information from the server
         """
-
         msg_filter: str = (
             json.dumps([f"event.message contains {message_contains}"])
             if message_contains
@@ -1001,6 +1032,7 @@ class Client:
             f"{self._user_config.server.url}/events",
             headers=self._headers,
             params=params,
+            timeout=10,
         )
 
         json_response = get_json_from_response(
@@ -1023,16 +1055,18 @@ class Client:
         count_limit: pydantic.PositiveInt | None = None,
         sort_by_columns: list[tuple[str, bool]] | None = None,
     ) -> list[AlertBase] | list[str | None]:
-        """Retrieve alerts for a given run
+        """Retrieve alerts for a given run.
 
         Parameters
         ----------
         run_id : str | None
             The ID of the run to find alerts for
         critical_only : bool, optional
-            If a run is specified, whether to only return details about alerts which are currently critical, by default True
+            If a run is specified, whether to only return details about alerts
+            which are currently critical, by default True
         names_only: bool, optional
-            Whether to only return the names of the alerts (otherwise return the full details of the alerts), by default True
+            Whether to only return the names of the alerts
+            (otherwise return the full details of the alerts), by default True
         start_index : typing.int, optional
             slice results returning only those above this index, by default None
         count_limit : typing.int, optional
@@ -1054,19 +1088,24 @@ class Client:
         """
         if not run_id:
             if critical_only:
-                raise RuntimeError(
-                    "critical_only is ambiguous when returning alerts with no run ID specified."
+                _exc_msg = (
+                    "critical_only is ambiguous when returning alerts "
+                    "with no run ID specified."
                 )
+                raise RuntimeError(_exc_msg)
             return [
                 alert.name if names_only else alert
                 for _, alert in Alert.get(
                     sorting=[
-                        dict(zip(("column", "descending"), a)) for a in sort_by_columns
+                        dict(zip(("column", "descending"), a, strict=False))
+                        for a in sort_by_columns
                     ]
                     if sort_by_columns
                     else None,
+                    start_index=start_index,
+                    count=count_limit,
                 )
-            ]  # type: ignore
+            ]
 
         if sort_by_columns:
             logger.warning(
@@ -1093,8 +1132,8 @@ class Client:
         start_index: pydantic.NonNegativeInt | None = None,
         count_limit: pydantic.PositiveInt | None = None,
         sort_by_columns: list[tuple[str, bool]] | None = None,
-    ) -> typing.Generator[Tag, None, None]:
-        """Retrieve tags
+    ) -> typing.Generator[Tag]:
+        """Retrieve tags.
 
         Parameters
         ----------
@@ -1121,7 +1160,10 @@ class Client:
         return Tag.get(
             count=count_limit,
             offset=start_index,
-            sorting=[dict(zip(("column", "descending"), a)) for a in sort_by_columns]
+            sorting=[
+                dict(zip(("column", "descending"), a, strict=False))
+                for a in sort_by_columns
+            ]
             if sort_by_columns
             else None,
         )
@@ -1129,7 +1171,7 @@ class Client:
     @prettify_pydantic
     @pydantic.validate_call
     def delete_tag(self, tag_id: str) -> None:
-        """Delete a tag by its identifier
+        """Delete a tag by its identifier.
 
         Parameters
         ----------
@@ -1147,7 +1189,7 @@ class Client:
     @prettify_pydantic
     @pydantic.validate_call
     def get_tag(self, tag_id: str) -> Tag | None:
-        """Retrieve a single tag
+        """Retrieve a single tag.
 
         Parameters
         ----------

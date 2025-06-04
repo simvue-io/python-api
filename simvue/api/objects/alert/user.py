@@ -6,18 +6,21 @@ Class for connecting with a local/remote user defined alert.
 
 """
 
-import pydantic
 import typing
+
+import pydantic
 
 try:
     from typing import Self
 except ImportError:
-    from typing_extensions import Self
+    from typing import Self
 import http
 
-from simvue.api.request import get_json_from_response, put as sv_put
-from .base import AlertBase
+from simvue.api.request import get_json_from_response
+from simvue.api.request import put as sv_put
 from simvue.models import NAME_REGEX
+
+from .base import AlertBase
 
 
 class UserAlert(AlertBase):

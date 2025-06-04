@@ -8,20 +8,21 @@ a new set of metrics given relevant arguments.
 """
 
 import http
-import typing
 import json
+import typing
 
 import pydantic
 
+from simvue.api.request import get as sv_get
+from simvue.api.request import get_json_from_response
+from simvue.models import MetricSet
 
 from .base import SimvueObject
-from simvue.models import MetricSet
-from simvue.api.request import get as sv_get, get_json_from_response
 
 try:
     from typing import Self
 except ImportError:
-    from typing_extensions import Self
+    from typing import Self
 
 __all__ = ["Metrics"]
 
@@ -79,7 +80,7 @@ class Metrics(SimvueObject):
         count: pydantic.PositiveInt | None = None,
         offset: pydantic.PositiveInt | None = None,
         **kwargs,
-    ) -> typing.Generator[dict[str, dict[str, list[dict[str, float]]]], None, None]:
+    ) -> typing.Generator[dict[str, dict[str, list[dict[str, float]]]]]:
         """Retrieve metrics from the server for a given set of runs.
 
         Parameters

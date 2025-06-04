@@ -7,15 +7,17 @@ Interface to event-based Simvue alerts.
 """
 
 import typing
+
 import pydantic
 
 try:
     from typing import Self
 except ImportError:
-    from typing_extensions import Self
+    from typing import Self
 from simvue.api.objects.base import write_only
-from .base import AlertBase, staging_check
 from simvue.models import NAME_REGEX
+
+from .base import AlertBase, staging_check
 
 
 class EventsAlert(AlertBase):
@@ -74,7 +76,6 @@ class EventsAlert(AlertBase):
            a new event alert with changes staged
 
         """
-
         _alert_definition = {"pattern": pattern, "frequency": frequency}
         _alert = EventsAlert(
             name=name,

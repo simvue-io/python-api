@@ -6,19 +6,20 @@ To simplify case whereby user does not know the alert type associated
 with an identifier, use a generic alert object.
 """
 
-import typing
 import http
 import json
+import typing
 
 import pydantic
 
 from simvue.api.objects.alert.user import UserAlert
 from simvue.api.objects.base import Sort
-from simvue.api.request import get_json_from_response
 from simvue.api.request import get as sv_get
-from .events import EventsAlert
-from .metrics import MetricsThresholdAlert, MetricsRangeAlert
+from simvue.api.request import get_json_from_response
+
 from .base import AlertBase
+from .events import EventsAlert
+from .metrics import MetricsRangeAlert, MetricsThresholdAlert
 
 AlertType = EventsAlert | UserAlert | MetricsThresholdAlert | MetricsRangeAlert
 
@@ -51,11 +52,11 @@ class Alert:
             )
         if _alert_pre.source == "events":
             return EventsAlert(identifier=identifier, **kwargs)
-        elif _alert_pre.source == "metrics" and _alert_pre.get_alert().get("threshold"):
+        if _alert_pre.source == "metrics" and _alert_pre.get_alert().get("threshold"):
             return MetricsThresholdAlert(identifier=identifier, **kwargs)
-        elif _alert_pre.source == "metrics":
+        if _alert_pre.source == "metrics":
             return MetricsRangeAlert(identifier=identifier, **kwargs)
-        elif _alert_pre.source == "user":
+        if _alert_pre.source == "user":
             return UserAlert(identifier=identifier, **kwargs)
 
         raise RuntimeError(f"Unknown source type '{_alert_pre.source}'")
@@ -69,7 +70,7 @@ class Alert:
         offset: int | None = None,
         sorting: list[AlertSort] | None = None,
         **kwargs,
-    ) -> typing.Generator[tuple[str, AlertType], None, None]:
+    ) -> typing.Generator[tuple[str, AlertType]]:
         """Fetch all alerts from the server for the current user.
 
         Parameters

@@ -1,27 +1,26 @@
-"""
-Simvue Client Executor
-======================
+"""Simvue Client Executor.
 
-Adds functionality for executing commands from the command line as part of a Simvue run, the executor
-monitors the exit code of the command setting the status to failure if non-zero.
-Stdout and Stderr are sent to Simvue as artifacts.
+Adds functionality for executing commands from the command line as part of a
+Simvue run, the executor monitors the exit code of the command setting the
+status to failure if non-zero. Stdout and Stderr are sent to Simvue as artifacts.
 """
 
 __author__ = "Kristian Zarebski"
 __date__ = "2023-11-15"
 
-import logging
-import multiprocessing.synchronize
-import sys
-import multiprocessing
-import threading
-import os
-import psutil
-import subprocess
 import contextlib
+import logging
+import multiprocessing
+import multiprocessing.synchronize
 import pathlib
+import subprocess
+import sys
+import threading
 import time
 import typing
+
+import psutil
+
 from simvue.api.objects.alert.user import UserAlert
 
 if typing.TYPE_CHECKING:
@@ -31,7 +30,10 @@ logger = logging.getLogger(__name__)
 
 
 class CompletionCallback(typing.Protocol):
-    def __call__(self, *, status_code: int, std_out: str, std_err: str) -> None: ...
+    """Callback for completion of Simvue API executor."""
+
+    def __call__(self, *, status_code: int, std_out: str, std_err: str) -> None:
+        """Execute callback method of completion callback."""
 
 
 def _execute_process(
@@ -45,16 +47,18 @@ def _execute_process(
 ) -> tuple[subprocess.Popen, threading.Thread | None]:
     thread_out = None
 
-    with open(f"{runner_name}_{proc_id}.err", "w") as err:
-        with open(f"{runner_name}_{proc_id}.out", "w") as out:
-            _result = subprocess.Popen(
-                command,
-                stdout=out,
-                stderr=err,
-                universal_newlines=True,
-                env=environment,
-                cwd=cwd,
-            )
+    with (
+        pathlib.Path(f"{runner_name}_{proc_id}.err").open("w") as err,
+        pathlib.Path(f"{runner_name}_{proc_id}.out").open("w") as out,
+    ):
+        _result = subprocess.Popen(  # noqa: S603
+            command,
+            stdout=out,
+            stderr=err,
+            universal_newlines=True,
+            env=environment,
+            cwd=cwd,
+        )
 
     if completion_callback or completion_trigger:
 
@@ -86,21 +90,25 @@ def _execute_process(
 
 
 class Executor:
-    """Command Line command executor
+    """Command Line command executor.
 
-    Adds execution of command line commands as part of a Simvue run, the status of these commands is monitored
-    and if non-zero cause the Simvue run to be stated as 'failed'. The executor accepts commands either as a
-    set of positional arguments or more specifically as components, two of these 'input_file' and 'script' then
+    Adds execution of command line commands as part of a Simvue run,
+    the status of these commands is monitored
+    and if non-zero cause the Simvue run to be stated as 'failed'.
+    The executor accepts commands either as a
+    set of positional arguments or more specifically as components,
+    two of these 'input_file' and 'script' then
     being used to set the relevant metadata within the Simvue run itself.
     """
 
-    def __init__(self, simvue_runner: "simvue.Run", keep_logs: bool = True) -> None:
+    def __init__(self, simvue_runner: "simvue.Run", *, keep_logs: bool = True) -> None:
         """Initialise an instance of the Simvue executor attaching it to a Run.
 
         Parameters
         ----------
         simvue_runner : simvue.Run
             An instance of the Simvue runner used to send command execution feedback
+        *
         keep_logs : bool, optional
             whether to keep the stdout and stderr logs locally, by default False
         """
@@ -117,23 +125,29 @@ class Executor:
         self._all_processes: list[psutil.Process] = []
 
     def std_out(self, process_id: str) -> str | None:
-        if not os.path.exists(out_file := f"{self._runner.name}_{process_id}.out"):
+        """Return the stdout for the running process."""
+        if not pathlib.Path(
+            out_file := f"{self._runner.name}_{process_id}.out"
+        ).exists():
             return None
 
-        with open(out_file) as out:
+        with pathlib.Path(out_file).open() as out:
             return out.read() or None
 
     def std_err(self, process_id: str) -> str | None:
-        if not os.path.exists(err_file := f"{self._runner.name}_{process_id}.err"):
+        """Return the stderr for the running process."""
+        if not pathlib.Path(
+            err_file := f"{self._runner.name}_{process_id}.err"
+        ).exists():
             return None
 
-        with open(err_file) as err:
+        with pathlib.Path(err_file).open() as err:
             return err.read() or None
 
     def add_process(
         self,
         identifier: str,
-        *args,
+        *args: tuple[str, ...],
         executable: str | None = None,
         script: pathlib.Path | None = None,
         input_file: pathlib.Path | None = None,
@@ -141,11 +155,12 @@ class Executor:
         cwd: pathlib.Path | None = None,
         completion_callback: CompletionCallback | None = None,
         completion_trigger: multiprocessing.synchronize.Event | None = None,
-        **kwargs,
+        **kwargs: dict[str, object],
     ) -> None:
         """Add a process to be executed to the executor.
 
-        This process can take many forms, for example a be a set of positional arguments:
+        This process can take many forms, for example a be a
+        set of positional arguments:
 
         ```python
         executor.add_process("my_process", "ls", "-ltr")
@@ -155,15 +170,22 @@ class Executor:
 
         ```python
         executor.add_process("my_process", executable="bash", debug=True, c="return 1")
-        executor.add_process("my_process", executable="bash", script="my_script.sh", input="parameters.dat")
+        executor.add_process(
+            "my_process",
+            executable="bash",
+            script="my_script.sh",
+            input="parameters.dat"
+        )
         ```
 
-        or a mixture of both. In the latter case arguments which are not 'executable', 'script', 'input'
-        are taken to be options to the command, for flags `flag=True` can be used to set the option and
+        or a mixture of both. In the latter case arguments which are not
+        'executable', 'script', 'input' are taken to be options to the command,
+        for flags `flag=True` can be used to set the option and
         for options taking values `option=value`.
 
-        When the process has completed if a function has been provided for the `completion_callback` argument
-        this will be called, this callback is expected to take the following form:
+        When the process has completed if a function has been provided for the
+        `completion_callback` argument this will be called, this callback
+        is expected to take the following form:
 
         ```python
         def callback_function(status_code: int, std_out: str, std_err: str) -> None:
@@ -177,14 +199,16 @@ class Executor:
         identifier : str
             A unique identifier for this process
         executable : str | None, optional
-            the main executable for the command, if not specified this is taken to be the first
-            positional argument, by default None
+            the main executable for the command, if not specified this is taken
+            to be the first positional argument, by default None
         script : str | None, optional
-            the script to run, note this only work if the script is not an option, if this is the case
-            you should provide it as such and perform the upload manually, by default None
+            the script to run, note this only work if the script is not an option,
+            if this is the case you should provide it as such and perform the upload
+            manually, by default None
         input_file : str | None, optional
-            the input file to run, note this only work if the input file is not an option, if this is the case
-            you should provide it as such and perform the upload manually, by default None
+            the input file to run, note this only work if the input file is
+            not an option, if this is the case you should provide it as such
+            and perform the upload manually, by default None
         env : dict[str, str], optional
             environment variables for process
         cwd: pathlib.Path | None, optional
@@ -192,12 +216,14 @@ class Executor:
         completion_callback : typing.Callable | None, optional
             callback to run when process terminates
         completion_trigger : multiprocessing.Event | None, optional
-            this trigger event is set when the processes completes (not supported on Windows)
+            this trigger event is set when the processes completes
+            (not supported on Windows)
         """
         pos_args = list(args)
 
         if not self._runner.name:
-            raise RuntimeError("Cannot add process, expected Run instance to have name")
+            _exc_msg = "Cannot add process, expected Run instance to have name"
+            raise RuntimeError(_exc_msg)
 
         if sys.platform == "win32" and completion_trigger:
             logger.warning(
@@ -228,18 +254,18 @@ class Executor:
             if arg.startswith("__"):
                 continue
 
-            arg = arg.replace("_", "-")
+            _arg = arg.replace("_", "-")
 
-            if len(arg) == 1:
+            if len(_arg) == 1:
                 command += (
-                    [f"-{arg}"]
+                    [f"-{_arg}"]
                     if isinstance(value, bool) and value
-                    else [f"-{arg}", f"{value}"]
+                    else [f"-{_arg}", f"{value}"]
                 )
             elif isinstance(value, bool) and value:
-                command += [f"--{arg}"]
+                command += [f"--{_arg}"]
             else:
-                command += [f"--{arg}", f"{value}"]
+                command += [f"--{_arg}", f"{value}"]
 
         command += pos_args
 
@@ -264,11 +290,12 @@ class Executor:
         )
 
         if not self._alert_ids[identifier]:
-            raise RuntimeError(f"Expected alert identifier for process '{identifier}'")
+            _exc_msg = f"Expected alert identifier for process '{identifier}'"
+            raise RuntimeError(_exc_msg)
 
     @property
     def processes(self) -> list[psutil.Process]:
-        """Create an array containing a list of processes"""
+        """Create an array containing a list of processes."""
         if not self._processes:
             return []
 
@@ -284,8 +311,8 @@ class Executor:
                     if child not in _current_processes:
                         _current_processes.append(child)
 
-        _current_pids = set([_process.pid for _process in _current_processes])
-        _previous_pids = set([_process.pid for _process in self._all_processes])
+        _current_pids = {_process.pid for _process in _current_processes}
+        _previous_pids = {_process.pid for _process in self._all_processes}
 
         # Find processes which used to exist, which are no longer running
         _expired_process_pids = _previous_pids - _current_pids
@@ -305,7 +332,8 @@ class Executor:
             if _process.pid in _new_process_pids
         ]
 
-        # Get CPU usage stats for each of those new processes, so that next time it's measured by the heartbeat the value is accurate
+        # Get CPU usage stats for each of those new processes,
+        # so that next time it's measured by the heartbeat the value is accurate
         if _new_processes:
             [_process.cpu_percent() for _process in _new_processes]
             time.sleep(0.1)
@@ -317,12 +345,12 @@ class Executor:
 
     @property
     def success(self) -> int:
-        """Return whether all attached processes completed successfully"""
+        """Return whether all attached processes completed successfully."""
         return all(i.returncode == 0 for i in self._processes.values())
 
     @property
     def exit_status(self) -> int:
-        """Returns the first non-zero exit status if applicable"""
+        """Return the first non-zero exit status if applicable."""
         if _non_zero := [
             i.returncode for i in self._processes.values() if i.returncode != 0
         ]:
@@ -331,7 +359,7 @@ class Executor:
         return 0
 
     def get_error_summary(self) -> dict[str, str] | None:
-        """Returns the summary messages of all errors"""
+        """Return the summary messages of all errors."""
         return {
             identifier: self._get_error_status(identifier)
             for identifier, value in self._processes.items()
@@ -339,7 +367,7 @@ class Executor:
         }
 
     def get_command(self, process_id: str) -> str:
-        """Returns the command executed within the given process.
+        """Return the command executed within the given process.
 
         Parameters
         ----------
@@ -352,23 +380,27 @@ class Executor:
             command as a string
         """
         if process_id not in self._processes:
-            raise KeyError(f"Failed to retrieve '{process_id}', no such process")
+            _exc_msg = f"Failed to retrieve '{process_id}', no such process"
+            raise KeyError(_exc_msg)
         return self.command_str[process_id]
 
     def _get_error_status(self, process_id: str) -> str | None:
-        err_msg: str | None = None
+        _err_msg: str | None = None
 
         # Return last 10 lines of stdout if stderr empty
-        if not (err_msg := self.std_err(process_id)) and (
-            std_out := self.std_out(process_id)
+        if not (_err_msg := self.std_err(process_id)) and (
+            _std_out := self.std_out(process_id)
         ):
-            err_msg = "  Tail STDOUT:\n\n"
-            start_index = -10 if len(lines := std_out.split("\n")) > 10 else 0
-            err_msg += "\n".join(lines[start_index:])
-        return err_msg
+            _err_msg = "  Tail STDOUT:\n\n"
+            _line_limit: int = 10
+            _start_index = (
+                -_line_limit if len(lines := _std_out.split("\n")) > _line_limit else 0
+            )
+            _err_msg += "\n".join(lines[_start_index:])
+        return _err_msg
 
     def _update_alerts(self) -> None:
-        """Send log events for the result of each process"""
+        """Send log events for the result of each process."""
         # Wait for the dispatcher to send the latest information before
         # allowing the executor to finish (and as such the run instance to exit)
         _wait_limit: float = 1
@@ -377,34 +409,31 @@ class Executor:
             # This is so that if a process incorrectly reports its return code,
             # the user can manually set the correct status depending on logs etc.
             _alert = UserAlert(identifier=self._alert_ids[proc_id])
-            _is_set = _alert.get_status(run_id=self._runner._id)
+            _is_set = _alert.get_status(run_id=self._runner._id)  # noqa: SLF001
 
             if process.returncode != 0:
                 # If the process fails then purge the dispatcher event queue
                 # and ensure that the stderr event is sent before the run closes
-                if self._runner._dispatcher:
-                    self._runner._dispatcher.purge()
+                if self._runner._dispatcher:  # noqa: SLF001
+                    self._runner._dispatcher.purge()  # noqa: SLF001
                 if not _is_set:
                     self._runner.log_alert(
                         identifier=self._alert_ids[proc_id], state="critical"
                     )
-            else:
-                if not _is_set:
-                    self._runner.log_alert(
-                        identifier=self._alert_ids[proc_id], state="ok"
-                    )
+            elif not _is_set:
+                self._runner.log_alert(identifier=self._alert_ids[proc_id], state="ok")
 
             _current_time: float = 0
             while (
-                self._runner._dispatcher
-                and not self._runner._dispatcher.empty
+                self._runner._dispatcher  # noqa: SLF001
+                and not self._runner._dispatcher.empty  # noqa: SLF001
                 and _current_time < _wait_limit
             ):
-                time.sleep((_current_time := _current_time + 0.1))
+                time.sleep(_current_time := _current_time + 0.1)
 
     def _save_output(self) -> None:
-        """Save the output to Simvue"""
-        for proc_id in self._processes.keys():
+        """Save the output to Simvue."""
+        for proc_id in self._processes.keys:
             # Only save the file if the contents are not empty
             if self.std_err(proc_id):
                 self._runner.save_file(
@@ -416,9 +445,9 @@ class Executor:
                 )
 
     def kill_process(
-        self, process_id: int | str, kill_children_only: bool = False
+        self, process_id: int | str, *, kill_children_only: bool = False
     ) -> None:
-        """Kill a running process by ID
+        """Kill a running process by ID.
 
         If argument is a string this is a process handled by the client,
         else it is a PID of a external monitored process
@@ -428,13 +457,14 @@ class Executor:
         process_id : int | str
             either the identifier for a client created process or the PID
             of an external process
+        *
         kill_children_only : bool, optional
             if process_id is an integer, whether to kill only its children
         """
         if isinstance(process_id, str):
             if not (process := self._processes.get(process_id)):
                 logger.error(
-                    f"Failed to terminate process '{process_id}', no such identifier."
+                    "Failed to terminate process '%s', no such identifier.", process_id
                 )
                 return
             try:
@@ -448,34 +478,34 @@ class Executor:
                 return
 
         for child in parent.children(recursive=True):
-            logger.debug(f"Terminating child process {child.pid}: {child.name()}")
+            logger.debug("Terminating child process %s: %s", child.pid, child.name())
             child.kill()
 
         for child in parent.children(recursive=True):
             child.wait()
 
         if not kill_children_only and process:
-            logger.debug(f"Terminating process {process.pid}: {process.args}")
+            logger.debug("Terminating process %s: %s", process.pid, process.args)
             process.kill()
             process.wait()
 
         self._save_output()
 
     def kill_all(self) -> None:
-        """Kill all running processes"""
-        for process in self._processes.keys():
+        """Kill all running processes."""
+        for process in self._processes:
             self.kill_process(process)
 
     def _clear_cache_files(self) -> None:
-        """Clear local log files if required"""
+        """Clear local log files if required."""
         if not self._keep_logs:
-            for proc_id in self._processes.keys():
-                os.remove(f"{self._runner.name}_{proc_id}.err")
-                os.remove(f"{self._runner.name}_{proc_id}.out")
+            for proc_id in self._processes:
+                pathlib.Path.unlink(f"{self._runner.name}_{proc_id}.err")
+                pathlib.Path.unlink(f"{self._runner.name}_{proc_id}.out")
 
     def wait_for_completion(self) -> None:
-        """Wait for all processes to finish then perform tidy up and upload"""
-        for identifier, process in self._processes.items():
+        """Wait for all processes to finish then perform tidy up and upload."""
+        for process in self._processes.values():
             process.wait()
 
         self._update_alerts()

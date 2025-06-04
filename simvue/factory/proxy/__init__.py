@@ -8,8 +8,9 @@ Selects whether to use offline or online processing depending on configuration.
 import typing
 
 if typing.TYPE_CHECKING:
-    from .base import SimvueBaseClass
     from simvue.config import SimvueConfiguration
+
+    from .base import SimvueBaseClass
 
 from .offline import Offline
 from .remote import Remote
@@ -26,7 +27,6 @@ def Simvue(
         return Offline(
             name=name, uniq_id=uniq_id, suppress_errors=suppress_errors, config=config
         )
-    else:
-        return Remote(
-            name=name, uniq_id=uniq_id, config=config, suppress_errors=suppress_errors
-        )
+    return Remote(
+        name=name, uniq_id=uniq_id, config=config, suppress_errors=suppress_errors
+    )

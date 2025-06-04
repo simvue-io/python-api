@@ -1,70 +1,69 @@
-"""
-Simvue Run
-==========
+"""Simvue Run.
 
 Main class for recording metrics and information to Simvue during code execution.
 This forms the central API for users.
 """
 
 import contextlib
+import functools
 import logging
-import pathlib
 import mimetypes
-import multiprocessing.synchronize
-import threading
-import humanfriendly
-import os
 import multiprocessing
-import pydantic
+import multiprocessing.synchronize
+import os
+import pathlib
+import platform
 import re
 import sys
-import traceback as tb
+import threading
 import time
-import functools
-import platform
+import traceback as tb
+import types
 import typing
-import warnings
 import uuid
-import randomname
+
 import click
+import humanfriendly
 import psutil
+import pydantic
+import randomname
 
 from simvue.api.objects.alert.fetch import Alert
 from simvue.api.objects.folder import Folder
 from simvue.exception import SimvueRunError
 from simvue.utilities import prettify_pydantic
 
-
-from .config.user import SimvueConfiguration
-
-from .factory.dispatch import Dispatcher
-from .executor import Executor
-from .metrics import SystemResourceMeasurement
-from .models import FOLDER_REGEX, NAME_REGEX, MetricKeyString
-from .system import get_system
-from .metadata import git_info, environment
-from .eco import CO2Monitor
-from .utilities import (
-    skip_if_failed,
-    validate_timestamp,
-    simvue_timestamp,
+from .api.objects import (
+    Events,
+    EventsAlert,
+    FileArtifact,
+    Metrics,
+    MetricsRangeAlert,
+    MetricsThresholdAlert,
+    ObjectArtifact,
+    UserAlert,
 )
 from .api.objects import (
     Run as RunObject,
-    FileArtifact,
-    ObjectArtifact,
-    MetricsThresholdAlert,
-    MetricsRangeAlert,
-    UserAlert,
-    EventsAlert,
-    Events,
-    Metrics,
+)
+from .config.user import SimvueConfiguration
+from .eco import CO2Monitor
+from .executor import Executor
+from .factory.dispatch import Dispatcher
+from .metadata import environment, git_info
+from .metrics import SystemResourceMeasurement
+from .models import FOLDER_REGEX, NAME_REGEX, MetricKeyString
+from .system import get_system
+from .utilities import (
+    simvue_timestamp,
+    skip_if_failed,
+    validate_timestamp,
 )
 
 try:
     from typing import Self
 except ImportError:
-    from typing_extensions import Self  # noqa: F401
+    from typing import Self
 
 
 if typing.TYPE_CHECKING:
@@ -80,8 +79,12 @@ logger = logging.getLogger(__name__)
 def check_run_initialised(
     function: typing.Callable[..., typing.Any],
 ) -> typing.Callable[..., typing.Any]:
+    """Verify that the run has been initialised."""
+
     @functools.wraps(function)
-    def _wrapper(self: Self, *args: typing.Any, **kwargs: typing.Any) -> typing.Any:
+    def _wrapper(
+        self: Self, *args: tuple[object, ...], **kwargs: dict[str, object]
+    ) -> object:
         # Tidy pydantic errors
         _function = prettify_pydantic(function)
 
@@ -90,12 +93,15 @@ def check_run_initialised(
 
         if self._retention and time.time() - self._timer > self._retention:
             self._active = False
-            raise RuntimeError("Cannot update expired Simvue Run")
+            _exc_msg = "Cannot update expired Simvue Run"
+            raise RuntimeError(_exc_msg)
 
         if not self._sv_obj:
-            raise RuntimeError(
+            _exc_msg = (
                 f"Simvue Run must be initialised before calling '{function.__name__}'"
             )
+
+            raise RuntimeError(_exc_msg)
         return _function(self, *args, **kwargs)
 
     return _wrapper
@@ -116,9 +122,10 @@ class Run:
         abort_callback: typing.Callable[[Self], None] | None = None,
         server_token: pydantic.SecretStr | None = None,
         server_url: str | None = None,
+        *,
         debug: bool = False,
     ) -> None:
-        """Initialise a new Simvue run
+        """Initialise a new Simvue run.
 
         If `abort_callback` is provided the first argument must be this Run instance
 
@@ -135,12 +142,12 @@ class Run:
             overwrite value for server token, default is None
         server_url : str, optional
             overwrite value for server URL, default is None
+        *
         debug : bool, optional
             run in debug mode, default is False
 
         Examples
         --------
-
         ```python
         with simvue.Run() as run:
             ...
@@ -194,7 +201,9 @@ class Run:
         )
         self._headers: dict[str, str] = (
             {
-                "Authorization": f"Bearer {self._user_config.server.token.get_secret_value()}",
+                "Authorization": (
+                    f"Bearer {self._user_config.server.token.get_secret_value()}"
+                ),
                 "Accept-Encoding": "gzip",
             }
             if mode != "offline"
@@ -212,13 +221,14 @@ class Run:
         self._emissions_monitor: CO2Monitor | None = None
 
     def __enter__(self) -> Self:
+        """Context manager enter method."""
         return self
 
     def _handle_exception_throw(
         self,
-        exc_type: typing.Type[BaseException] | None,
+        exc_type: type[BaseException] | None,
         value: BaseException,
-        traceback: typing.Type[BaseException] | BaseException | None,
+        traceback: type[BaseException] | BaseException | None,
     ) -> None:
         _exception_thrown: str | None = exc_type.__name__ if exc_type else None
         _is_running: bool = self._status == "running"
@@ -254,10 +264,11 @@ class Run:
 
     def __exit__(
         self,
-        exc_type: typing.Type[BaseException] | None,
-        value: BaseException,
-        traceback: typing.Type[BaseException] | BaseException | None,
+        exc_type: type[BaseException] | None,
+        value: object,
+        traceback: types.TracebackType | None,
     ) -> None:
+        """Context manager exit method."""
         logger.debug(
             "Automatically closing run '%s' in status %s",
             self._id if self._user_config.run.mode == "online" else "unregistered",
@@ -271,18 +282,17 @@ class Run:
 
     @property
     def duration(self) -> float:
-        """Return current run duration"""
+        """Return current run duration."""
         return time.time() - self._start_time
 
     @property
     def time_stamp(self) -> str:
-        """Return current timestamp"""
+        """Return current timestamp."""
         return simvue_timestamp()
 
     @property
     def processes(self) -> list[psutil.Process]:
-        """Create an array containing a list of processes"""
-
+        """Create an array containing a list of processes."""
         process_list = self._executor.processes
 
         if not self._parent_process:
@@ -296,6 +306,7 @@ class Run:
     def _terminate_run(
         self,
         abort_callback: typing.Callable[[Self], None] | None,
+        *,
         force_exit: bool = True,
     ) -> None:
         """Close the current simvue Run and its subprocesses.
@@ -307,6 +318,7 @@ class Run:
         ----------
         abort_callback: Callable, optional
             the callback to execute on the termination else None
+        *
         force_exit: bool, optional
             whether to close Python itself, the default is True
         """
@@ -314,7 +326,7 @@ class Run:
         logger.debug("Received abort request from server")
 
         if abort_callback is not None:
-            abort_callback(self)  # type: ignore
+            abort_callback(self)
 
         if self._abort_on_alert != "ignore":
             self.kill_all_processes()
@@ -352,7 +364,6 @@ class Run:
             new resource metric measure time
             new emissions metric measure time
         """
-
         # In order to get a resource metric reading at t=0
         # because there is no previous CPU reading yet we cannot
         # use the default of None for the interval here, so we measure
@@ -372,7 +383,8 @@ class Run:
         )
 
         # For the first emissions metrics reading, the time interval to use
-        # Is the time since the run started, otherwise just use the time between readings
+        # Is the time since the run started,
+        # otherwise just use the time between readings
         if self._emissions_monitor:
             _estimated = self._emissions_monitor.estimate_co2_emissions(
                 process_id=f"{self._name}",
@@ -392,12 +404,13 @@ class Run:
     def _create_heartbeat_callback(
         self,
     ) -> typing.Callable[[threading.Event], None]:
-        """Defines the callback executed at the heartbeat interval for the Run."""
+        """Define the callback executed at the heartbeat interval for the Run."""
         if (
             self._user_config.run.mode == "online"
             and (not self._user_config.server.url or not self._id)
         ) or not self._heartbeat_termination_trigger:
-            raise RuntimeError("Could not commence heartbeat, run not initialised")
+            _exc_msg = "Could not commence heartbeat, run not initialised"
+            raise RuntimeError(_exc_msg)
 
         def _heartbeat(
             heartbeat_trigger: threading.Event
@@ -405,7 +418,8 @@ class Run:
             abort_callback: typing.Callable[[Self], None] | None = self._abort_callback,
         ) -> None:
             if not heartbeat_trigger:
-                raise RuntimeError("Expected initialisation of heartbeat")
+                _exc_msg = "Expected initialisation of heartbeat"
+                raise RuntimeError(_exc_msg)
 
             last_heartbeat: float = 0
             last_sys_metric_call: float = 0
@@ -454,19 +468,20 @@ class Run:
     def _create_dispatch_callback(
         self,
     ) -> typing.Callable:
-        """Generates the relevant callback for posting of metrics and events
+        """Generate the relevant callback for posting of metrics and events.
 
         The generated callback is assigned to the dispatcher instance and is
         executed on metrics and events objects held in a buffer.
         """
-
         if self._user_config.run.mode == "online" and not self._id:
-            raise RuntimeError("Expected identifier for run")
+            _exc_msg = "Expected identifier for run"
+            raise RuntimeError(_exc_msg)
 
         if (
             self._user_config.run.mode != "offline" and not self._user_config.server.url
         ) or not self._sv_obj:
-            raise RuntimeError("Cannot commence dispatch, run not initialised")
+            _exc_msg = "Cannot commence dispatch, run not initialised"
+            raise RuntimeError(_exc_msg)
 
         def _dispatch_callback(
             buffer: list[typing.Any],
@@ -490,7 +505,7 @@ class Run:
         return _dispatch_callback
 
     def _start(self) -> bool:
-        """Start a run
+        """Start a run.
 
         Returns
         -------
@@ -553,13 +568,14 @@ class Run:
 
         return True
 
-    def _error(self, message: str, join_threads: bool = True) -> None:
-        """Raise an exception if necessary and log error
+    def _error(self, message: str, *, join_threads: bool = True) -> None:
+        """Raise an exception if necessary and log error.
 
         Parameters
         ----------
         message : str
             message to display in exception or logger message
+        *
         join_threads : bool
             whether to join the threads on failure. This option exists to
             prevent join being called in nested thread calls to this function.
@@ -599,18 +615,17 @@ class Run:
 
         self._aborted = True
 
-    @skip_if_failed("_aborted", "_suppress_errors", False)
+    @skip_if_failed("_aborted", "_suppress_errors", on_failure_return=False)
     @pydantic.validate_call
     def init(
         self,
         name: typing.Annotated[str | None, pydantic.Field(pattern=NAME_REGEX)] = None,
         *,
-        metadata: dict[str, typing.Any] = None,
+        metadata: dict[str, typing.Any] | None = None,
         tags: list[str] | None = None,
         description: str | None = None,
-        folder: typing.Annotated[
-            str, pydantic.Field(None, pattern=FOLDER_REGEX)
-        ] = None,
+        folder: typing.Annotated[str, pydantic.Field(None, pattern=FOLDER_REGEX)]
+        | None = None,
         notification: typing.Literal["none", "all", "error", "lost"] = "none",
         running: bool = True,
         retention_period: str | None = None,
@@ -618,7 +633,7 @@ class Run:
         visibility: typing.Literal["public", "tenant"] | list[str] | None = None,
         no_color: bool = False,
     ) -> bool:
-        """Initialise a Simvue run
+        """Initialise a Simvue run.
 
         Parameters
         ----------
@@ -677,7 +692,7 @@ class Run:
         self._folder = Folder.new(
             path=folder, offline=self._user_config.run.mode == "offline"
         )
-        self._folder.commit()  # type: ignore
+        self._folder.commit()
 
         if isinstance(visibility, str) and visibility not in ("public", "tenant"):
             self._error(
@@ -699,7 +714,7 @@ class Run:
         if name and not re.match(r"^[a-zA-Z0-9\-\_\s\/\.:]+$", name):
             self._error("specified name is invalid")
             return False
-        elif not name and self._user_config.run.mode == "offline":
+        if not name and self._user_config.run.mode == "offline":
             name = randomname.get_name()
 
         self._name = name
@@ -730,6 +745,8 @@ class Run:
         if name:
             self._sv_obj.name = name
 
+        _cwd: str = f"{pathlib.Path.cwd()}"
+
         self._sv_obj.visibility.tenant = visibility == "tenant"
         self._sv_obj.visibility.public = visibility == "public"
         self._sv_obj.visibility.users = (
@@ -738,17 +755,17 @@ class Run:
         self._sv_obj.ttl = self._retention
         self._sv_obj.status = self._status
         self._sv_obj.tags = tags
-        self._sv_obj.metadata = (metadata or {}) | git_info(os.getcwd()) | environment()
+        self._sv_obj.metadata = (metadata or {}) | git_info(_cwd) | environment()
         self._sv_obj.heartbeat_timeout = timeout
         self._sv_obj.alerts = []
         self._sv_obj.created = time.time()
         self._sv_obj.notifications = notification
-        self._sv_obj._staging["folder_id"] = self._folder.id
+        self._sv_obj._staging["folder_id"] = self._folder.id  # noqa: SLF001
 
         if self._status == "running":
             self._sv_obj.system = get_system()
 
-        self._data = self._sv_obj._staging
+        self._data = self._sv_obj._staging  # noqa: SLF001
         self._sv_obj.commit()
 
         if self._user_config.run.mode == "online":
@@ -759,7 +776,7 @@ class Run:
         if not name:
             return False
 
-        elif name is not True:
+        if name is not True:
             self._name = name
 
         if self._status == "running":
@@ -771,8 +788,10 @@ class Run:
                 bold=self._term_color,
                 fg="green" if self._term_color else None,
             )
+            _url_prefix: str = self._user_config.server.url.rsplit("/api", 1)[0]
             click.secho(
-                f"[simvue] Monitor in the UI at {self._user_config.server.url.rsplit('/api', 1)[0]}/dashboard/runs/run/{self._id}",
+                f"[simvue] Monitor in the UI at {_url_prefix}/dashboard/"
+                f"runs/run/{self._id}",
                 bold=self._term_color,
                 fg="green" if self._term_color else None,
             )
@@ -784,21 +803,20 @@ class Run:
     def add_process(
         self,
         identifier: str,
-        *cmd_args,
+        *cmd_args: tuple[str, ...],
         executable: str | pathlib.Path | None = None,
         script: pydantic.FilePath | None = None,
         input_file: pydantic.FilePath | None = None,
-        completion_callback: typing.Optional[
-            typing.Callable[[int, str, str], None]
-        ] = None,
+        completion_callback: typing.Callable[[int, str, str], None] | None = None,
         completion_trigger: multiprocessing.synchronize.Event | None = None,
         env: dict[str, str] | None = None,
         cwd: pathlib.Path | None = None,
-        **cmd_kwargs,
+        **cmd_kwargs: dict[str, str | int | float],
     ) -> None:
         """Add a process to be executed to the executor.
 
-        This process can take many forms, for example a be a set of positional arguments:
+        This process can take many forms, for example a be a set
+        of positional arguments:
 
         ```python
         executor.add_process("my_process", "ls", "-ltr")
@@ -808,15 +826,22 @@ class Run:
 
         ```python
         executor.add_process("my_process", executable="bash", debug=True, c="return 1")
-        executor.add_process("my_process", executable="bash", script="my_script.sh", input="parameters.dat")
+        executor.add_process(
+            "my_process",
+            executable="bash",
+            script="my_script.sh",
+            input="parameters.dat"
+        )
         ```
 
-        or a mixture of both. In the latter case arguments which are not 'executable', 'script', 'input'
-        are taken to be options to the command, for flags `flag=True` can be used to set the option and
-        for options taking values `option=value`.
+        or a mixture of both. In the latter case arguments which are not
+        'executable', 'script', 'input' are taken to be options to the command,
+        for flags `flag=True` can be used to set the option and for options taking
+        values `option=value`.
 
-        When the process has completed if a function has been provided for the `completion_callback` argument
-        this will be called, this callback is expected to take the following form:
+        When the process has completed if a function has been provided for the
+        `completion_callback` argument this will be called, this callback is expected
+        to take the following form:
 
         ```python
         def callback_function(status_code: int, std_out: str, std_err: str) -> None:
@@ -825,24 +850,27 @@ class Run:
 
         Note `completion_callback` is not supported on Windows operating systems.
 
-        Alternatively you can use `completion_trigger` to create a multiprocessing event which will be set
-        when the process has completed.
+        Alternatively you can use `completion_trigger` to create a multiprocessing
+        event which will be set when the process has completed.
 
         Parameters
         ----------
         identifier : str
             A unique identifier for this process
         executable : str | None, optional
-            the main executable for the command, if not specified this is taken to be the first
-            positional argument, by default None
+            the main executable for the command, if not specified this is taken
+            to be the first positional argument, by default None
         *positional_arguments : Any, ..., optional
-            all other positional arguments are taken to be part of the command to execute
+            all other positional arguments are taken to be part of the
+            command to execute
         script : pydantic.FilePath | None, optional
-            the script to run, note this only work if the script is not an option, if this is the case
-            you should provide it as such and perform the upload manually, by default None
+            the script to run, note this only work if the script is not an option,
+            if this is the case you should provide it as such and perform
+            the upload manually, by default None
         input_file : pydantic.FilePath | None, optional
-            the input file to run, note this only work if the input file is not an option, if this is the case
-            you should provide it as such and perform the upload manually, by default None
+            the input file to run, note this only work if the input file
+            is not an option, if this is the case you should provide it as
+            such and perform the upload manually, by default None
         completion_callback : typing.Callable | None, optional
             callback to run when process terminates (not supported on Windows)
         completion_trigger : multiprocessing.Event | None, optional
@@ -850,19 +878,24 @@ class Run:
         env : dict[str, str], optional
             environment variables for process
         cwd: pathlib.Path | None, optional
-            working directory to execute the process within. Note that executable, input and script file paths should
-            be absolute or relative to the directory where this method is called, not relative to the new working directory.
+            working directory to execute the process within. Note that executable,
+            input and script file paths should be absolute or relative to the
+            directory where this method is called, not relative to the new
+            working directory.
         **kwargs : Any, ..., optional
             all other keyword arguments are interpreted as options to the command
         """
         if platform.system() == "Windows" and completion_trigger:
-            raise RuntimeError(
-                "Use of 'completion_trigger' on Windows based operating systems is unsupported "
-                "due to function pickling restrictions for multiprocessing"
+            _exc_msg = (
+                "Use of 'completion_trigger' on Windows based operating "
+                "systems is unsupported due to function pickling restrictions "
+                "for multiprocessing"
             )
+            raise RuntimeError(_exc_msg)
 
         if isinstance(executable, pathlib.Path) and not executable.is_file():
-            raise FileNotFoundError(f"Executable '{executable}' is not a valid file")
+            _exc_msg = f"Executable '{executable}' is not a valid file"
+            raise FileNotFoundError(_exc_msg)
 
         cmd_list: list[str] = []
         pos_args = list(cmd_args)
@@ -885,11 +918,11 @@ class Run:
                 else:
                     cmd_list += [f"-{kwarg}{(f' {_quoted_val}') if val else ''}"]
             else:
-                kwarg = kwarg.replace("_", "-")
+                _kwarg = kwarg.replace("_", "-")
                 if isinstance(val, bool) and val:
-                    cmd_list += [f"--{kwarg}"]
+                    cmd_list += [f"--{_kwarg}"]
                 else:
-                    cmd_list += [f"--{kwarg}{(f' {_quoted_val}') if val else ''}"]
+                    cmd_list += [f"--{_kwarg}{(f' {_quoted_val}') if val else ''}"]
 
         cmd_list += pos_args
         cmd_str = " ".join(cmd_list)
@@ -904,7 +937,7 @@ class Run:
             executable=executable_str,
             script=script,
             input_file=input_file,
-            completion_callback=completion_callback,  # type: ignore
+            completion_callback=completion_callback,
             completion_trigger=completion_trigger,
             env=env,
             cwd=cwd,
@@ -913,7 +946,7 @@ class Run:
 
     @pydantic.validate_call
     def kill_process(self, process_id: str) -> None:
-        """Kill a running process by ID
+        """Kill a running process by ID.
 
         Parameters
         ----------
@@ -946,28 +979,28 @@ class Run:
 
     @property
     def executor(self) -> Executor:
-        """Return the executor for this run"""
+        """Return the executor for this run."""
         return self._executor
 
     @property
     def name(self) -> str | None:
-        """Return the name of the run"""
+        """Return the name of the run."""
         return self._name
 
     @property
     def uid(self) -> str:
-        """Return the local unique identifier of the run"""
+        """Return the local unique identifier of the run."""
         return self._uuid
 
     @property
     def id(self) -> str | None:
-        """Return the unique id of the run"""
+        """Return the unique id of the run."""
         return self._id
 
-    @skip_if_failed("_aborted", "_suppress_errors", False)
+    @skip_if_failed("_aborted", "_suppress_errors", on_failure_return=False)
     @pydantic.validate_call
     def reconnect(self, run_id: str) -> bool:
-        """Reconnect to a run in the created state
+        """Reconnect to a run in the created state.
 
         Parameters
         ----------
@@ -991,7 +1024,7 @@ class Run:
     @skip_if_failed("_aborted", "_suppress_errors", None)
     @pydantic.validate_call
     def set_pid(self, pid: int) -> None:
-        """Set pid of process to be monitored
+        """Set pid of process to be monitored.
 
         Parameters
         ----------
@@ -1001,13 +1034,14 @@ class Run:
         self._pid = pid
         self._parent_process = psutil.Process(self._pid)
         self._child_processes = self._get_child_processes()
-        # Get CPU usage stats for each of those new processes, so that next time it's measured by the heartbeat the value is accurate
+        # Get CPU usage stats for each of those new processes,
+        # so that next time it's measured by the heartbeat the value is accurate
         [
             _process.cpu_percent()
-            for _process in self._child_processes + [self._parent_process]
+            for _process in [*self._child_processes, self._parent_process]
         ]
 
-    @skip_if_failed("_aborted", "_suppress_errors", False)
+    @skip_if_failed("_aborted", "_suppress_errors", on_failure_return=False)
     @pydantic.validate_call
     def config(
         self,
@@ -1020,7 +1054,7 @@ class Run:
         storage_id: str | None = None,
         abort_on_alert: typing.Literal["run", "all", "ignore"] | bool | None = None,
     ) -> bool:
-        """Optional configuration
+        """Configure run.
 
         Parameters
         ----------
@@ -1048,7 +1082,6 @@ class Run:
         bool
             if configuration was successful
         """
-
         with self._configuration_lock:
             if suppress_errors is not None:
                 self._suppress_errors = suppress_errors
@@ -1058,7 +1091,8 @@ class Run:
 
             if system_metrics_interval and disable_resources_metrics:
                 self._error(
-                    "Setting of resource metric interval and disabling resource metrics is ambiguous"
+                    "Setting of resource metric interval and disabling "
+                    "resource metrics is ambiguous"
                 )
                 return False
 
@@ -1077,7 +1111,8 @@ class Run:
             if enable_emission_metrics:
                 if not self._system_metrics_interval:
                     self._error(
-                        "Emissions metrics require resource metrics collection - make sure resource metrics are enabled!"
+                        "Emissions metrics require resource metrics collection "
+                        "- make sure resource metrics are enabled!"
                     )
                     return False
                 if self._user_config.run.mode == "offline":
@@ -1106,10 +1141,6 @@ class Run:
 
             if abort_on_alert is not None:
                 if isinstance(abort_on_alert, bool):
-                    warnings.warn(
-                        "Use of type bool for argument 'abort_on_alert' will be deprecated from v1.2, "
-                        "please use either 'run', 'all' or 'ignore'"
-                    )
                     abort_on_alert = "run" if self._abort_on_alert else "ignore"
                 self._abort_on_alert = abort_on_alert
 
@@ -1118,11 +1149,11 @@ class Run:
 
         return True
 
-    @skip_if_failed("_aborted", "_suppress_errors", False)
+    @skip_if_failed("_aborted", "_suppress_errors", on_failure_return=False)
     @check_run_initialised
     @pydantic.validate_call
     def update_metadata(self, metadata: dict[str, typing.Any]) -> bool:
-        """Update metadata for this run
+        """Update metadata for this run.
 
         Parameters
         ----------
@@ -1149,11 +1180,11 @@ class Run:
 
         return True
 
-    @skip_if_failed("_aborted", "_suppress_errors", False)
+    @skip_if_failed("_aborted", "_suppress_errors", on_failure_return=False)
     @check_run_initialised
     @pydantic.validate_call
     def set_tags(self, tags: list[str]) -> bool:
-        """Set tags for this run
+        """Set tags for this run.
 
         Parameters
         ----------
@@ -1174,11 +1205,11 @@ class Run:
 
         return True
 
-    @skip_if_failed("_aborted", "_suppress_errors", False)
+    @skip_if_failed("_aborted", "_suppress_errors", on_failure_return=False)
     @check_run_initialised
     @pydantic.validate_call
     def update_tags(self, tags: list[str]) -> bool:
-        """Add additional tags to this run without duplication
+        """Add additional tags to this run without duplication.
 
         Parameters
         ----------
@@ -1201,17 +1232,17 @@ class Run:
 
         try:
             self.set_tags(list(set(current_tags + tags)))
-        except Exception as err:
+        except Exception as err:  # noqa: BLE001
             self._error(f"Failed to update tags: {err}")
             return False
 
         return True
 
-    @skip_if_failed("_aborted", "_suppress_errors", False)
+    @skip_if_failed("_aborted", "_suppress_errors", on_failure_return=False)
     @check_run_initialised
     @pydantic.validate_call
     def log_event(self, message: str, timestamp: str | None = None) -> bool:
-        """Log event to the server
+        """Log event to the server.
 
         Parameters
         ----------
@@ -1255,6 +1286,7 @@ class Run:
         step: int | None = None,
         time: float | None = None,
         timestamp: str | None = None,
+        *,
         join_on_fail: bool = True,
     ) -> bool:
         if self._user_config.run.mode == "disabled":
@@ -1292,7 +1324,7 @@ class Run:
 
         return True
 
-    @skip_if_failed("_aborted", "_suppress_errors", False)
+    @skip_if_failed("_aborted", "_suppress_errors", on_failure_return=False)
     @check_run_initialised
     @pydantic.validate_call
     def log_metrics(
@@ -1302,7 +1334,7 @@ class Run:
         time: float | None = None,
         timestamp: str | None = None,
     ) -> bool:
-        """Log metrics to Simvue server
+        """Log metrics to Simvue server.
 
         Parameters
         ----------
@@ -1318,7 +1350,7 @@ class Run:
         Returns
         -------
         bool
-            if the metric log was succcessful
+            if the metric log was successful
         """
         add_dispatch = self._add_metrics_to_dispatch(
             metrics, step=step, time=time, timestamp=timestamp
@@ -1326,20 +1358,19 @@ class Run:
         self._step += 1
         return add_dispatch
 
-    @skip_if_failed("_aborted", "_suppress_errors", False)
+    @skip_if_failed("_aborted", "_suppress_errors", on_failure_return=False)
     @check_run_initialised
     @pydantic.validate_call
     def save_object(
         self,
-        obj: typing.Any,
+        obj: object,
         category: typing.Literal["input", "output", "code"],
-        name: typing.Optional[
-            typing.Annotated[str, pydantic.Field(pattern=NAME_REGEX)]
-        ] = None,
+        name: typing.Annotated[str, pydantic.Field(pattern=NAME_REGEX)] | None = None,
+        *,
         allow_pickle: bool = False,
-        metadata: dict[str, typing.Any] = None,
+        metadata: dict[str, object] | None = None,
     ) -> bool:
-        """Save an object to the Simvue server
+        """Save an object to the Simvue server.
 
         Parameters
         ----------
@@ -1352,8 +1383,10 @@ class Run:
                 * code - this file represents an executed script
         name : str, optional
             name to associate with this object, by default None
+        *,
         allow_pickle : bool, optional
-            whether to allow pickling if all other serialization types fail, by default False
+            whether to allow pickling if all other serialization
+            types fail, by default False
         metadata : str | None, optional
             any metadata to attach to the artifact
 
@@ -1384,7 +1417,7 @@ class Run:
 
         return True
 
-    @skip_if_failed("_aborted", "_suppress_errors", False)
+    @skip_if_failed("_aborted", "_suppress_errors", on_failure_return=False)
     @check_run_initialised
     @pydantic.validate_call
     def save_file(
@@ -1392,13 +1425,12 @@ class Run:
         file_path: pydantic.FilePath,
         category: typing.Literal["input", "output", "code"],
         file_type: str | None = None,
+        *,
         preserve_path: bool = False,
-        name: typing.Optional[
-            typing.Annotated[str, pydantic.Field(pattern=NAME_REGEX)]
-        ] = None,
-        metadata: dict[str, typing.Any] = None,
+        name: typing.Annotated[str, pydantic.Field(pattern=NAME_REGEX)] | None = None,
+        metadata: dict[str, object] | None = None,
     ) -> bool:
-        """Upload file to the server
+        """Upload file to the server.
 
         Parameters
         ----------
@@ -1411,6 +1443,7 @@ class Run:
                 * code - this file represents an executed script
         file_type : str, optional
             the MIME file type else this is deduced, by default None
+        *
         preserve_path : bool, optional
             whether to preserve the path during storage, by default False
         name : str, optional
@@ -1436,7 +1469,7 @@ class Run:
         if preserve_path and stored_file_name.startswith("./"):
             stored_file_name = stored_file_name[2:]
         elif not preserve_path:
-            stored_file_name = os.path.basename(file_path)
+            stored_file_name = f"{pathlib.Path.name(file_path)}"
 
         try:
             # Register file
@@ -1455,7 +1488,7 @@ class Run:
 
         return True
 
-    @skip_if_failed("_aborted", "_suppress_errors", False)
+    @skip_if_failed("_aborted", "_suppress_errors", on_failure_return=False)
     @check_run_initialised
     @pydantic.validate_call
     def save_directory(
@@ -1463,9 +1496,10 @@ class Run:
         directory: pydantic.DirectoryPath,
         category: typing.Literal["output", "input", "code"],
         file_type: str | None = None,
+        *,
         preserve_path: bool = False,
     ) -> bool:
-        """Upload files from a whole directory
+        """Upload files from a whole directory.
 
         Parameters
         ----------
@@ -1478,6 +1512,7 @@ class Run:
                 * code - this file represents an executed script
         file_type : str, optional
             manually specify the MIME type for items in the directory, by default None
+        *
         preserve_path : bool, optional
             preserve the full path, by default False
 
@@ -1504,7 +1539,7 @@ class Run:
 
         return True
 
-    @skip_if_failed("_aborted", "_suppress_errors", False)
+    @skip_if_failed("_aborted", "_suppress_errors", on_failure_return=False)
     @check_run_initialised
     @pydantic.validate_call
     def save_all(
@@ -1512,9 +1547,10 @@ class Run:
         items: list[pydantic.FilePath | pydantic.DirectoryPath],
         category: typing.Literal["input", "output", "code"],
         file_type: str | None = None,
+        *,
         preserve_path: bool = False,
     ) -> bool:
-        """Save a set of files and directories
+        """Save a set of files and directories.
 
         Parameters
         ----------
@@ -1527,6 +1563,7 @@ class Run:
                 * code - this file represents an executed script
         file_type : str, optional
             manually specify the MIME type for all items, by default None
+        *
         preserve_path : bool, optional
             _preserve the full path, by default False
 
@@ -1550,13 +1587,13 @@ class Run:
 
         return True
 
-    @skip_if_failed("_aborted", "_suppress_errors", False)
+    @skip_if_failed("_aborted", "_suppress_errors", on_failure_return=False)
     @check_run_initialised
     @pydantic.validate_call
     def set_status(
         self, status: typing.Literal["completed", "failed", "terminated"]
     ) -> bool:
-        """Set run status
+        """Set run status.
 
         status to assign to this run once finished
 
@@ -1630,9 +1667,9 @@ class Run:
             )
             sys.exit(_non_zero)
 
-    @skip_if_failed("_aborted", "_suppress_errors", False)
+    @skip_if_failed("_aborted", "_suppress_errors", on_failure_return=False)
     def close(self) -> bool:
-        """Close the run
+        """Close the run.
 
         Returns
         -------
@@ -1653,7 +1690,7 @@ class Run:
 
         return True
 
-    @skip_if_failed("_aborted", "_suppress_errors", False)
+    @skip_if_failed("_aborted", "_suppress_errors", on_failure_return=False)
     @check_run_initialised
     @pydantic.validate_call
     def set_folder_details(
@@ -1662,7 +1699,7 @@ class Run:
         tags: list[str] | None = None,
         description: str | None = None,
     ) -> bool:
-        """Add metadata to the specified folder
+        """Add metadata to the specified folder.
 
         Parameters
         ----------
@@ -1700,7 +1737,7 @@ class Run:
 
         return True
 
-    @skip_if_failed("_aborted", "_suppress_errors", False)
+    @skip_if_failed("_aborted", "_suppress_errors", on_failure_return=False)
     @check_run_initialised
     @pydantic.validate_call
     def add_alerts(
@@ -1708,7 +1745,7 @@ class Run:
         ids: list[str] | None = None,
         names: list[str] | None = None,
     ) -> bool:
-        """Add a set of existing alerts to this run by name or id
+        """Add a set of existing alerts to this run by name or id.
 
         Parameters
         ----------
@@ -1732,12 +1769,13 @@ class Run:
         if names and not ids:
             if self._user_config.run.mode == "offline":
                 self._error(
-                    "Cannot retrieve alerts based on names in offline mode - please use IDs instead."
+                    "Cannot retrieve alerts based on names in offline mode "
+                    "- please use IDs instead."
                 )
                 return False
             try:
                 if alerts := Alert.get(offline=self._user_config.run.mode == "offline"):
-                    ids += [id for id, alert in alerts if alert.name in names]
+                    ids += [_id for _id, alert in alerts if alert.name in names]
                 else:
                     self._error("No existing alerts")
                     return False
@@ -1775,9 +1813,10 @@ class Run:
         trigger_abort: bool = False,
         attach_to_run: bool = True,
     ) -> str | None:
-        """Creates a metric range alert with the specified name (if it doesn't exist)
-        and applies it to the current run. If alert already exists it will
-        not be duplicated.
+        """Create a metric range alert with the specified name.
+
+        Creates the alert and applies it to the current run if it does not exist.
+        If alert already exists it will not be duplicated.
 
         Parameters
         ----------
@@ -1802,7 +1841,8 @@ class Run:
             method to use when aggregating metrics within time window
                 * average - average across all values in window (default).
                 * sum - take the sum of all values within window.
-                * at least one - returns if at least one value in window satisfy condition.
+                * at least one - returns if at least one value in window
+                  satisfy condition.
                 * all - returns if all values in window satisfy condition.
         notification : Literal['email', 'none'], optional
             whether to notify on trigger
@@ -1857,9 +1897,10 @@ class Run:
         trigger_abort: bool = False,
         attach_to_run: bool = True,
     ) -> str | None:
-        """Creates a metric threshold alert with the specified name (if it doesn't exist)
-        and applies it to the current run. If alert already exists it will
-        not be duplicated.
+        """Create a metric threshold alert with the specified name.
+
+        Creates the alert if it doesn't exist and applies it to the
+        current run. If alert already exists it will not be duplicated.
 
         Parameters
         ----------
@@ -1883,7 +1924,8 @@ class Run:
             method to use when aggregating metrics within time window
                 * average - average across all values in window (default).
                 * sum - take the sum of all values within window.
-                * at least one - returns if at least one value in window satisfy condition.
+                * at least one - returns if at least one value in window
+                  satisfy condition.
                 * all - returns if all values in window satisfy condition.
         notification : Literal['email', 'none'], optional
             whether to notify on trigger
@@ -1932,9 +1974,10 @@ class Run:
         trigger_abort: bool = False,
         attach_to_run: bool = True,
     ) -> str | None:
-        """Creates an events alert with the specified name (if it doesn't exist)
-        and applies it to the current run. If alert already exists it will
-        not be duplicated.
+        """Create an events alert with the specified name.
+
+        Creates the alert if it doesn't exist and applies it to
+        the current run. If alert already exists it will not be duplicated.
 
         Parameters
         ----------
@@ -1984,9 +2027,10 @@ class Run:
         trigger_abort: bool = False,
         attach_to_run: bool = True,
     ) -> None:
-        """Creates a user alert with the specified name (if it doesn't exist)
-        and applies it to the current run. If alert already exists it will
-        not be duplicated.
+        """Create a user alert with the specified name.
+
+        Creates the user alert if it doesn't exist and applies it to the
+        current run. If alert already exists it will not be duplicated.
 
         Parameters
         ----------
@@ -2021,7 +2065,7 @@ class Run:
             self.add_alerts(ids=[_alert.id])
         return _alert.id
 
-    @skip_if_failed("_aborted", "_suppress_errors", False)
+    @skip_if_failed("_aborted", "_suppress_errors", on_failure_return=False)
     @check_run_initialised
     @pydantic.validate_call
     def log_alert(
@@ -2058,7 +2102,8 @@ class Run:
 
         if name and self._user_config.run.mode == "offline":
             self._error(
-                "Cannot retrieve alerts based on names in offline mode - please use IDs instead."
+                "Cannot retrieve alerts based on names in offline mode - "
+                "please use IDs instead."
             )
             return False
 
@@ -2066,7 +2111,7 @@ class Run:
             try:
                 if alerts := Alert.get(offline=self._user_config.run.mode == "offline"):
                     identifier = next(
-                        (id for id, alert in alerts if alert.name == name), None
+                        (_id for _id, alert in alerts if alert.name == name), None
                     )
                 else:
                     self._error("No existing alerts")
@@ -2085,7 +2130,7 @@ class Run:
                 f"of type '{_alert.__class__.__name__.lower()}'"
             )
             return False
-        _alert.read_only(False)
+        _alert.read_only(is_read_only=False)
         _alert.set_status(run_id=self._id, status=state)
         _alert.commit()
 

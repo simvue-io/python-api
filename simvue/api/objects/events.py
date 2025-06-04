@@ -7,22 +7,23 @@ a new set of events given relevant arguments.
 
 """
 
+import datetime
 import http
 import typing
-import datetime
 
 import pydantic
 
+from simvue.api.request import get as sv_get
+from simvue.api.request import get_json_from_response
 from simvue.api.url import URL
+from simvue.models import DATETIME_FORMAT, EventSet
 
 from .base import SimvueObject
-from simvue.models import DATETIME_FORMAT, EventSet
-from simvue.api.request import get as sv_get, get_json_from_response
 
 try:
     from typing import Self
 except ImportError:
-    from typing_extensions import Self
+    from typing import Self
 
 __all__ = ["Events"]
 
@@ -47,7 +48,7 @@ class Events(SimvueObject):
         count: pydantic.PositiveInt | None = None,
         offset: pydantic.PositiveInt | None = None,
         **kwargs,
-    ) -> typing.Generator[EventSet, None, None]:
+    ) -> typing.Generator[EventSet]:
         _class_instance = cls(_read_only=True, _local=True)
         _count: int = 0
 

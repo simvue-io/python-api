@@ -7,10 +7,11 @@ a new tag given relevant arguments.
 
 """
 
-import pydantic.color
-import typing
-import json
 import datetime
+import json
+import typing
+
+import pydantic.color
 
 from simvue.api.objects.base import SimvueObject, Sort, staging_check, write_only
 from simvue.models import DATETIME_FORMAT
@@ -18,7 +19,7 @@ from simvue.models import DATETIME_FORMAT
 try:
     from typing import Self
 except ImportError:
-    from typing_extensions import Self
+    from typing import Self
 
 __all__ = ["Tag"]
 
@@ -111,7 +112,7 @@ class Tag(SimvueObject):
         offset: int | None = None,
         sorting: list[TagSort] | None = None,
         **kwargs,
-    ) -> typing.Generator[tuple[str, "SimvueObject"], None, None]:
+    ) -> typing.Generator[tuple[str, "SimvueObject"]]:
         """Get tags from the server.
 
         Parameters

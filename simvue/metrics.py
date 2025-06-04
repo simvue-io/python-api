@@ -1,6 +1,4 @@
-"""
-CPU/GPU Metrics
-===============
+"""CPU/GPU Metrics.
 
 Get information relating to the usage of the CPU and GPU (where applicable)
 
@@ -8,8 +6,8 @@ Get information relating to the usage of the CPU and GPU (where applicable)
 
 import contextlib
 import logging
-import psutil
 
+import psutil
 
 from .pynvml import (
     nvmlDeviceGetComputeRunningProcesses,
@@ -51,7 +49,7 @@ def get_process_memory(processes: list[psutil.Process]) -> int:
 def get_process_cpu(
     processes: list[psutil.Process], interval: float | None = None
 ) -> float:
-    """Get the CPU usage
+    """Get the CPU usage.
 
     If first time being called, use a small interval to collect initial CPU metrics.
 
@@ -60,7 +58,8 @@ def get_process_cpu(
     processes: list[psutil.Process]
         list of processes to track for CPU usage.
     interval: float, optional
-        interval to measure across, default is None, use previous measure time difference.
+        interval to measure across, default is None, use previous
+        measure time difference.
 
     Returns
     -------
@@ -75,7 +74,7 @@ def get_process_cpu(
     return cpu_percent
 
 
-def is_gpu_used(handle, processes: list[psutil.Process]) -> bool:
+def is_gpu_used(handle: object, processes: list[psutil.Process]) -> bool:
     """Check if the GPU is being used by the list of processes.
 
     Parameters
@@ -172,8 +171,10 @@ class SystemResourceMeasurement:
 
     @property
     def gpu_percent(self) -> float:
+        """Retrieve GPU percent usage."""
         return sum(m[0] for m in self.gpus or []) / (len(self.gpus or []) or 1)
 
     @property
     def gpu_memory(self) -> float:
+        """Retrieve GPU memory usage."""
         return sum(m[1] for m in self.gpus or []) / (len(self.gpus or []) or 1)

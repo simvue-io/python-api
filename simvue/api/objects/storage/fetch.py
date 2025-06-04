@@ -6,16 +6,17 @@ To simplify case whereby user does not know the storage type associated
 with an identifier, use a generic storage object.
 """
 
-import typing
 import http
+import typing
+
 import pydantic
 
-from simvue.api.request import get_json_from_response
 from simvue.api.request import get as sv_get
+from simvue.api.request import get_json_from_response
 
-from .s3 import S3Storage
-from .file import FileStorage
 from .base import StorageBase
+from .file import FileStorage
+from .s3 import S3Storage
 
 
 class Storage:
@@ -36,7 +37,7 @@ class Storage:
         _storage_pre = StorageBase(identifier=identifier, **kwargs)
         if _storage_pre.backend == "S3":
             return S3Storage(identifier=identifier, **kwargs)
-        elif _storage_pre.backend == "File":
+        if _storage_pre.backend == "File":
             return FileStorage(identifier=identifier, **kwargs)
 
         raise RuntimeError(f"Unknown backend '{_storage_pre.backend}'")
@@ -45,7 +46,7 @@ class Storage:
     @pydantic.validate_call
     def get(
         cls, count: int | None = None, offset: int | None = None, **kwargs
-    ) -> typing.Generator[tuple[str, FileStorage | S3Storage], None, None]:
+    ) -> typing.Generator[tuple[str, FileStorage | S3Storage]]:
         """Returns storage systems accessible to the current user.
 
         Parameters
@@ -61,7 +62,6 @@ class Storage:
             identifier for a storage
             the storage itself as a class instance
         """
-
         # Currently no storage filters
         kwargs.pop("filters", None)
 

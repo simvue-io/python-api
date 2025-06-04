@@ -6,37 +6,45 @@ Contains base class for interacting with objects on the Simvue server
 """
 
 import abc
-import pathlib
-import typing
-import inspect
-import uuid
 import http
+import inspect
 import json
 import logging
+import pathlib
+import typing
+import uuid
 
 import msgpack
 import pydantic
 
-from simvue.utilities import staging_merger
-from simvue.config.user import SimvueConfiguration
-from simvue.exception import ObjectNotFoundError
-from simvue.version import __version__
+from simvue.api.request import (
+    delete as sv_delete,
+)
 from simvue.api.request import (
     get as sv_get,
-    get_paginated,
-    post as sv_post,
-    put as sv_put,
-    delete as sv_delete,
+)
+from simvue.api.request import (
     get_json_from_response,
+    get_paginated,
+)
+from simvue.api.request import (
+    post as sv_post,
+)
+from simvue.api.request import (
+    put as sv_put,
 )
 from simvue.api.url import URL
+from simvue.config.user import SimvueConfiguration
+from simvue.exception import ObjectNotFoundError
+from simvue.utilities import staging_merger
+from simvue.version import __version__
 
 logging.basicConfig(level=logging.INFO)
 
 try:
     from typing import Self
 except ImportError:
-    from typing_extensions import Self
+    from typing import Self
 
 # Need to use this inside of Generator typing to fix bug present in Python 3.10 - see issue #745
 T = typing.TypeVar("T", bound="SimvueObject")
@@ -348,7 +356,7 @@ class SimvueObject(abc.ABC):
     @classmethod
     def ids(
         cls, count: int | None = None, offset: int | None = None, **kwargs
-    ) -> typing.Generator[str, None, None]:
+    ) -> typing.Generator[str]:
         """Retrieve a list of all object identifiers.
 
         Parameters
@@ -359,7 +367,7 @@ class SimvueObject(abc.ABC):
             set start index for objects list
 
         Yields
-        -------
+        ------
         str
             identifiers for all objects of this type.
         """
@@ -383,7 +391,7 @@ class SimvueObject(abc.ABC):
         count: pydantic.PositiveInt | None = None,
         offset: pydantic.NonNegativeInt | None = None,
         **kwargs,
-    ) -> typing.Generator[tuple[str, T | None], None, None]:
+    ) -> typing.Generator[tuple[str, T | None]]:
         """Retrieve items of this object type from the server.
 
         Parameters
@@ -439,13 +447,12 @@ class SimvueObject(abc.ABC):
     @classmethod
     def _get_all_objects(
         cls, offset: int | None, count: int | None, **kwargs
-    ) -> typing.Generator[dict, None, None]:
+    ) -> typing.Generator[dict]:
         _class_instance = cls(_read_only=True)
         _url = f"{_class_instance._base_url}"
 
         _label = _class_instance.__class__.__name__.lower()
-        if _label.endswith("s"):
-            _label = _label[:-1]
+        _label = _label.removesuffix("s")
 
         for response in get_paginated(
             _url, headers=_class_instance._headers, offset=offset, count=count, **kwargs
@@ -584,7 +591,6 @@ class SimvueObject(abc.ABC):
         dict[str, Any]
             response from server on deletion.
         """
-
         if self._get_local_staged():
             self._local_staging_file.unlink(missing_ok=True)
 
@@ -674,7 +680,6 @@ class SimvueObject(abc.ABC):
 
         In this case no action is taken.
         """
-        pass
 
     @property
     def staged(self) -> dict[str, typing.Any] | None:

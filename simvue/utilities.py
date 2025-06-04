@@ -1,22 +1,29 @@
-import datetime
-import hashlib
-import logging
-import json
-import mimetypes
-import tabulate
-import pydantic
-import importlib.util
-import functools
+"""Simvue API Utility methods."""
+
 import contextlib
+import datetime
+import functools
+import hashlib
+import importlib.util
+import json
+import logging
+import mimetypes
 import os
 import pathlib
 import typing
+
 import jwt
+import pydantic
+import tabulate
 from deepmerge import Merger
 
-from datetime import timezone
-from simvue.models import DATETIME_FORMAT
+try:
+    from typing import Self
+except ImportError:
+    from typing import Self
 
+from simvue.api.objects.artifact import file
+from simvue.models import DATETIME_FORMAT
 
 CHECKSUM_BLOCK_SIZE = 4096
 EXTRAS: tuple[str, ...] = ("plot", "torch")
@@ -28,16 +35,18 @@ if typing.TYPE_CHECKING:
 
 
 def find_first_instance_of_file(
-    file_names: list[str] | str, check_user_space: bool = True
+    file_names: list[str] | str, *, check_user_space: bool = True
 ) -> pathlib.Path | None:
-    """Traverses a file hierarchy from bottom upwards to find file
+    """Traverses a file hierarchy from bottom upwards to find file.
 
     Returns the first instance of 'file_names' found when moving
     upward from the current directory.
 
     Parameters
     ----------
+    file_names: list[str] | str
         candidate names of file to locate
+    *
     check_user_space: bool, optional
         check the users home area if current working directory is not
         within it. Default is True.
@@ -69,7 +78,7 @@ def find_first_instance_of_file(
 def parse_validation_response(
     response: dict[str, list[dict[str, str]]],
 ) -> str:
-    """Parse ValidationError response from server
+    """Parse ValidationError response from server.
 
     Reformats the error information from a validation error into a human
     readable table. Checks if 'body' exists within response to determine
@@ -86,9 +95,9 @@ def parse_validation_response(
         return the validation information
     """
     if not (issues := response.get("detail")):
-        raise RuntimeError(
-            "Expected key 'detail' in server response during validation failure"
-        )
+        _exc_msg = "Expected key 'detail' in server response during validation failure"
+
+        raise RuntimeError(_exc_msg)
 
     out: list[list[str]] = []
 
@@ -130,32 +139,55 @@ def parse_validation_response(
 
 
 def check_extra(extra_name: str) -> typing.Callable:
+    """Check if extra component of API module is installed.
+
+    Decorator for methods.
+
+    Parameters
+    ----------
+    extra_name: str
+        name of extra of simvue module to check for.
+    """
+
     def decorator(
         class_func: typing.Callable | None = None,
     ) -> typing.Callable | None:
         @functools.wraps(class_func)
-        def wrapper(self, *args, **kwargs) -> typing.Any:
+        def wrapper(
+            self: Self, *args: tuple[object, ...], **kwargs: dict[str, object]
+        ) -> object:
             if extra_name == "plot" and not all(
                 [
                     importlib.util.find_spec("matplotlib"),
                     importlib.util.find_spec("plotly"),
                 ]
             ):
-                raise RuntimeError(
+                _exc_msg = (
                     f"Plotting features require the '{extra_name}' extension to Simvue"
                 )
-            elif extra_name == "eco":
+
+                raise RuntimeError(_exc_msg)
+
+            if extra_name == "eco":
                 if not importlib.util.find_spec("geocoder"):
-                    raise RuntimeError(
+                    _exc_msg = (
                         f"Eco features require the '{extra_name}' extenstion to Simvue"
                     )
+
+                    raise RuntimeError(_exc_msg)
+
             elif extra_name == "torch":
                 if not importlib.util.find_spec("torch"):
-                    raise RuntimeError(
+                    _exc_msg = (
                         "PyTorch features require the 'torch' module to be installed"
                     )
+
+                    raise RuntimeError(_exc_msg)
+
             elif extra_name not in EXTRAS:
-                raise RuntimeError(f"Unrecognised extra '{extra_name}'")
+                _exc_msg = f"Unrecognised extra '{extra_name}'"
+                raise RuntimeError(_exc_msg)
+
             return class_func(self, *args, **kwargs) if class_func else None
 
         return wrapper
@@ -164,19 +196,21 @@ def check_extra(extra_name: str) -> typing.Callable:
 
 
 def parse_pydantic_error(error: pydantic.ValidationError) -> str:
+    """Parse the output of a Pydantic validation error."""
     out_table: list[str] = []
     for data in json.loads(error.json()):
         _input = data.get("input") if data["input"] is not None else "None"
+        _line_limit = 50
         if isinstance(_input, dict):
             _input_str = json.dumps(_input, indent=2)
             _input_str = "\n".join(
-                f"{line[:47]}..." if len(line) > 50 else line
+                f"{line[:47]}..." if len(line) > _line_limit else line
                 for line in _input_str.split("\n")
             )
         else:
             _input_str = (
                 _input_str
-                if len((_input_str := f"{_input}")) < 50
+                if len(_input_str := f"{_input}") < _line_limit
                 else f"{_input_str[:50]}..."
             )
         _type: str = data["type"]
@@ -215,9 +249,11 @@ def parse_pydantic_error(error: pydantic.ValidationError) -> str:
 def skip_if_failed(
     failure_attr: str,
     ignore_exc_attr: str,
-    on_failure_return: typing.Any | None = None,
+    on_failure_return: object | None = None,
 ) -> typing.Callable:
-    """Decorator for ensuring if Simvue throws an exception any other code continues.
+    """Ensurine if Simvue throws an exception any other code continues.
+
+    Decorator for methods.
 
     If Simvue throws an exception and the user has specified that such failure
     should not abort the run but rather log errors this decorator will skip
@@ -242,13 +278,15 @@ def skip_if_failed(
 
     def decorator(class_func: typing.Callable) -> typing.Callable:
         @functools.wraps(class_func)
-        def wrapper(self: "Run", *args, **kwargs) -> typing.Any:
+        def wrapper(
+            self: "Run", *args: tuple[object, ...], **kwargs: dict[str, object]
+        ) -> object:
             if getattr(self, failure_attr, None) and getattr(
                 self, ignore_exc_attr, None
             ):
                 logger.debug(
-                    f"Skipping call to '{class_func.__name__}', "
-                    f"client in fail state (see logs)."
+                    "Skipping call to '%s', client in fail state (see logs).",
+                    class_func.__name__,
                 )
                 return on_failure_return
 
@@ -256,12 +294,12 @@ def skip_if_failed(
             try:
                 return class_func(self, *args, **kwargs)
             except pydantic.ValidationError as e:
-                error_str = parse_pydantic_error(e)
+                _error_str = parse_pydantic_error(e)
                 if getattr(self, ignore_exc_attr, True):
                     setattr(self, failure_attr, True)
-                    logger.error(error_str)
+                    logger.error(_error_str)  # noqa: TRY400
                     return on_failure_return
-                self._error(error_str)
+                self._error(_error_str)
 
         setattr(wrapper, "__fail_safe", True)
         return wrapper
@@ -270,7 +308,7 @@ def skip_if_failed(
 
 
 def prettify_pydantic(class_func: typing.Callable) -> typing.Callable:
-    """Converts pydantic validation errors to a table
+    """Convert pydantic validation errors to a table.
 
     Parameters
     ----------
@@ -289,42 +327,40 @@ def prettify_pydantic(class_func: typing.Callable) -> typing.Callable:
     """
 
     @functools.wraps(class_func)
-    def wrapper(self, *args, **kwargs) -> typing.Any:
+    def wrapper(
+        self: Self, *args: tuple[object, ...], **kwargs: dict[str, object]
+    ) -> object:
         try:
             return class_func(self, *args, **kwargs)
         except pydantic.ValidationError as e:
             error_str = parse_pydantic_error(e)
-            raise RuntimeError(error_str)
+            raise RuntimeError(error_str) from e
 
     return wrapper
 
 
 def create_file(filename: str) -> None:
-    """
-    Create an empty file
-    """
+    """Create an empty file."""
     try:
-        with open(filename, "w") as fh:
+        with pathlib.Path(filename).open("w") as fh:
             fh.write("")
-    except Exception as err:
-        logger.error("Unable to write file %s due to: %s", filename, str(err))
+    except Exception:
+        logger.exception("Unable to write file %s", filename)
 
 
 def remove_file(filename: str) -> None:
-    """
-    Remove file
-    """
-    if os.path.isfile(filename):
-        try:
-            os.remove(filename)
-        except Exception as err:
-            logger.error("Unable to remove file %s due to: %s", filename, str(err))
+    """Remove file."""
+    if not pathlib.Path(filename).exists():
+        return
+
+    try:
+        pathlib.Path(filename).unlink(missing_ok=True)
+    except Exception:
+        logger.exception("Unable to remove file %s", filename)
 
 
-def get_expiry(token) -> int | None:
-    """
-    Get expiry date from a JWT token
-    """
+def get_expiry(token: str) -> int | None:
+    """Get expiry date from a JWT token."""
     expiry: int | None = None
     with contextlib.suppress(jwt.DecodeError):
         expiry = jwt.decode(token, options={"verify_signature": False})["exp"]
@@ -332,30 +368,29 @@ def get_expiry(token) -> int | None:
     return expiry
 
 
-def prepare_for_api(data_in, all=True):
-    """
-    Remove references to pickling
-    """
+def prepare_for_api(
+    data_in: dict[str, object], *, pickle_all: bool = True
+) -> dict[str, object]:
+    """Remove references to pickling."""
     data = data_in.copy()
     if "pickled" in data:
         del data["pickled"]
-    if "pickledFile" in data and all:
+    if "pickledFile" in data and pickle_all:
         del data["pickledFile"]
     return data
 
 
-def calculate_sha256(filename: str | typing.Any, is_file: bool) -> str | None:
-    """
-    Calculate sha256 checksum of the specified file
-    """
+def calculate_sha256(filename: str | object, *, is_file: bool) -> str | None:
+    """Calculate sha256 checksum of the specified file."""
     sha256_hash = hashlib.sha256()
     if is_file:
         try:
-            with open(filename, "rb") as fd:
+            with pathlib.Path(filename).open("rb") as fd:
                 for byte_block in iter(lambda: fd.read(CHECKSUM_BLOCK_SIZE), b""):
                     sha256_hash.update(byte_block)
                 return sha256_hash.hexdigest()
         except Exception:
+            logger.exception("Failed to calculate hash for %s", filename)
             return None
 
     if isinstance(filename, str):
@@ -365,12 +400,10 @@ def calculate_sha256(filename: str | typing.Any, is_file: bool) -> str | None:
     return sha256_hash.hexdigest()
 
 
-def validate_timestamp(timestamp):
-    """
-    Validate a user-provided timestamp
-    """
+def validate_timestamp(timestamp: str) -> bool:
+    """Validate a user-provided timestamp."""
     try:
-        datetime.datetime.strptime(timestamp, DATETIME_FORMAT)
+        datetime.datetime.strptime(timestamp, DATETIME_FORMAT).astimezone(datetime.UTC)
     except ValueError:
         return False
 
@@ -378,7 +411,7 @@ def validate_timestamp(timestamp):
 
 
 def simvue_timestamp(date_time: datetime.datetime | None = None) -> str:
-    """Return the Simvue valid timestamp
+    """Return the Simvue valid timestamp.
 
     Parameters
     ----------
@@ -391,13 +424,13 @@ def simvue_timestamp(date_time: datetime.datetime | None = None) -> str:
         Datetime string valid for the Simvue server
     """
     if not date_time:
-        date_time = datetime.datetime.now(timezone.utc)
+        date_time = datetime.datetime.now(datetime.UTC)
     return date_time.strftime(DATETIME_FORMAT)
 
 
 @functools.lru_cache
 def get_mimetypes() -> list[str]:
-    """Returns a list of allowed MIME types"""
+    """Return a list of allowed MIME types."""
     mimetypes.init()
     _valid_mimetypes = ["application/vnd.plotly.v1+json"]
     _valid_mimetypes += list(mimetypes.types_map.values())
@@ -405,7 +438,7 @@ def get_mimetypes() -> list[str]:
 
 
 def get_mimetype_for_file(file_path: pathlib.Path) -> str:
-    """Return MIME type for the given file"""
+    """Return MIME type for the given file."""
     _guess, *_ = mimetypes.guess_type(file_path)
     return _guess or "application/octet-stream"
 

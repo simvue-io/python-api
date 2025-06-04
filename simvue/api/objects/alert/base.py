@@ -6,14 +6,17 @@ Contains general definitions for Simvue Alert objects.
 
 """
 
-import http
-import pydantic
 import datetime
+import http
 import typing
+
+import pydantic
+
 from simvue.api.objects.base import SimvueObject, staging_check, write_only
-from simvue.api.request import get as sv_get, get_json_from_response
+from simvue.api.request import get as sv_get
+from simvue.api.request import get_json_from_response
 from simvue.api.url import URL
-from simvue.models import NAME_REGEX, DATETIME_FORMAT
+from simvue.models import DATETIME_FORMAT, NAME_REGEX
 
 
 class AlertBase(SimvueObject):
@@ -25,7 +28,6 @@ class AlertBase(SimvueObject):
     @classmethod
     def new(cls, **kwargs):
         """Create a new alert"""
-        pass
 
     def __init__(self, identifier: str | None = None, **kwargs) -> None:
         """Retrieve an alert from the Simvue server by identifier"""

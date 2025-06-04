@@ -37,19 +37,15 @@ class DirectDispatcher(DispatcherBaseClass):
 
     def run(self) -> None:
         """Run does not execute anything in this context"""
-        pass
 
     def start(self) -> None:
         """Start does not execute anything in this context"""
-        pass
 
     def join(self) -> None:
         """Join does not execute anything in this context"""
-        pass
 
     def purge(self) -> None:
         """Purge does not execute anything in this context"""
-        pass
 
     def is_alive(self) -> bool:
         """As unthreaded, state as not alive always"""

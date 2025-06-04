@@ -85,9 +85,15 @@ requires = ["poetry-core"]
 build-backend = "poetry.core.masonry.api"
 
 [tool.ruff]
-lint.extend-select = ["C901", "T201"]
+lint.select = ["ALL"]
 lint.mccabe.max-complexity = 11
-extend-exclude = ["tests", "examples", "notebooks"]
+extend-exclude = ["tests", "examples", "notebooks", "simvue/pynvml.py"]
+target-version = "py313"
+line-length = 88
+lint.ignore = [
+    "COM812"
+]
+lint.pydocstyle.convention = "numpy"
 
 [tool.pytest.ini_options]
 addopts = "-p no:warnings --no-cov -n 0"

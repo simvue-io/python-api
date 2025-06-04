@@ -9,9 +9,9 @@ Module contains classes for easier handling of URLs.
 try:
     from typing import Self
 except ImportError:
-    from typing_extensions import Self
-import urllib.parse
+    from typing import Self
 import copy
+import urllib.parse
 
 import pydantic
 
@@ -22,7 +22,7 @@ class URL:
     @pydantic.validate_call
     def __init__(self, url: str) -> None:
         """Initialise a url from string form"""
-        url = url[:-1] if url.endswith("/") else url
+        url = url.removesuffix("/")
 
         _url = urllib.parse.urlparse(url)
         self._scheme: str = _url.scheme
@@ -40,8 +40,8 @@ class URL:
     @pydantic.validate_call
     def __itruediv__(self, other: str) -> Self:
         """Define URL extension through use of '/'"""
-        other = other[1:] if other.startswith("/") else other
-        other = other[:-1] if other.endswith("/") else other
+        other = other.removeprefix("/")
+        other = other.removesuffix("/")
 
         self._path = f"{self._path}/{other}" if other else self._path
         return self

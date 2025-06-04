@@ -11,13 +11,13 @@ import typing
 try:
     from typing import Self
 except ImportError:
-    from typing_extensions import Self
+    from typing import Self
 import pydantic
 
 from simvue.api.objects.base import write_only
+from simvue.models import NAME_REGEX
 
 from .base import StorageBase, staging_check
-from simvue.models import NAME_REGEX
 
 
 class S3Storage(StorageBase):

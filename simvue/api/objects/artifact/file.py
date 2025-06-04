@@ -1,16 +1,18 @@
-from .base import ArtifactBase
-
-import typing
-import pydantic
 import os
 import pathlib
+import typing
+
+import pydantic
+
 from simvue.models import NAME_REGEX
-from simvue.utilities import get_mimetype_for_file, get_mimetypes, calculate_sha256
+from simvue.utilities import calculate_sha256, get_mimetype_for_file, get_mimetypes
+
+from .base import ArtifactBase
 
 try:
     from typing import Self
 except ImportError:
-    from typing_extensions import Self
+    from typing import Self
 
 
 class FileArtifact(ArtifactBase):

@@ -1,17 +1,19 @@
-from .base import ArtifactBase
+import io
+import sys
+import typing
+
+import pydantic
+
 from simvue.models import NAME_REGEX
 from simvue.serialization import serialize_object
 from simvue.utilities import calculate_sha256
 
-import pydantic
-import typing
-import sys
-import io
+from .base import ArtifactBase
 
 try:
     from typing import Self
 except ImportError:
-    from typing_extensions import Self
+    from typing import Self
 
 
 class ObjectArtifact(ArtifactBase):

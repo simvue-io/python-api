@@ -9,9 +9,11 @@ Statistics accessible to the current user.
 import http
 import typing
 
-from .base import SimvueObject
-from simvue.api.request import get as sv_get, get_json_from_response
+from simvue.api.request import get as sv_get
+from simvue.api.request import get_json_from_response
 from simvue.api.url import URL
+
+from .base import SimvueObject
 
 __all__ = ["Stats"]
 
@@ -65,11 +67,10 @@ class Stats(SimvueObject):
         -------
         None
         """
-        return None
+        return
 
     def on_reconnect(self, **_) -> None:
         """No offline to online reconnect functionality for statistics."""
-        pass
 
     @classmethod
     def get(cls, **kwargs) -> None:
@@ -133,7 +134,6 @@ class Stats(SimvueObject):
 
     def commit(self) -> None:
         """Does nothing, no data sendable to server."""
-        pass
 
 
 class RunStatistics:

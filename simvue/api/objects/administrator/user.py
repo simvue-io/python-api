@@ -12,7 +12,7 @@ import pydantic
 try:
     from typing import Self
 except ImportError:
-    from typing_extensions import Self
+    from typing import Self
 from simvue.api.objects.base import SimvueObject, staging_check, write_only
 
 

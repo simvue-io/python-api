@@ -6,10 +6,11 @@ import pathlib
 import time
 import typing
 import uuid
+
 import randomname
 
-from simvue.factory.proxy.base import SimvueBaseClass
 from simvue.config.user import SimvueConfiguration
+from simvue.factory.proxy.base import SimvueBaseClass
 from simvue.utilities import (
     create_file,
     prepare_for_api,
@@ -52,7 +53,7 @@ class Offline(SimvueBaseClass):
             with open(filename, "w") as fh:
                 json.dump(data, fh)
         except Exception as err:
-            self._error(f"Unable to write file {filename} due to {str(err)}")
+            self._error(f"Unable to write file {filename} due to {err!s}")
 
     @skip_if_failed("_aborted", "_suppress_errors", None)
     def _mock_api_post(
@@ -149,7 +150,7 @@ class Offline(SimvueBaseClass):
             data["pickledFile"] = temp_file
         unique_id = time.time()
         filename = os.path.join(self._directory, f"file-{unique_id}.json")
-        self._write_json(filename, prepare_for_api(data, False))
+        self._write_json(filename, prepare_for_api(data, pickle_all=False))
         return data
 
     def add_alert(self, data: dict[str, typing.Any]) -> dict[str, typing.Any] | None:

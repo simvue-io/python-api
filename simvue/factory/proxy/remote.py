@@ -1,6 +1,6 @@
+import http
 import logging
 import typing
-import http
 
 if typing.TYPE_CHECKING:
     from simvue.config.user import SimvueConfiguration
@@ -49,7 +49,7 @@ class Remote(SimvueBaseClass):
                 f"{self._user_config.server.url}/runs/{self._id}", self._headers
             )
         except Exception as err:
-            self._error(f"Exception retrieving tags: {str(err)}")
+            self._error(f"Exception retrieving tags: {err!s}")
             return []
 
         logger.debug(
@@ -82,7 +82,7 @@ class Remote(SimvueBaseClass):
                     {"path": data.get("folder")},
                 )
             except Exception as err:
-                self._error(f"Exception creating folder: {str(err)}")
+                self._error(f"Exception creating folder: {err!s}")
                 return (None, None)
 
             logger.debug(
@@ -103,7 +103,7 @@ class Remote(SimvueBaseClass):
         try:
             response = post(f"{self._user_config.server.url}/runs", self._headers, data)
         except Exception as err:
-            self._error(f"Exception creating run: {str(err)}")
+            self._error(f"Exception creating run: {err!s}")
             return (None, None)
 
         logger.debug(
@@ -115,7 +115,7 @@ class Remote(SimvueBaseClass):
         if response.status_code == http.HTTPStatus.CONFLICT:
             self._error(f"Duplicate run, name {data['name']} already exists")
             return (None, None)
-        elif response.status_code != http.HTTPStatus.OK:
+        if response.status_code != http.HTTPStatus.OK:
             self._error(f"Got status code {response.status_code} when creating run")
             return (None, None)
 
@@ -222,7 +222,7 @@ class Remote(SimvueBaseClass):
             )
         except Exception as err:
             self._error(
-                f"Got exception when preparing to upload file {data['name']} to object storage: {str(err)}"
+                f"Got exception when preparing to upload file {data['name']} to object storage: {err!s}"
             )
             return None
 
@@ -268,7 +268,7 @@ class Remote(SimvueBaseClass):
                         return None
                 except Exception as err:
                     self._error(
-                        f"Got exception when uploading object {data['name']} to object storage: {str(err)}"
+                        f"Got exception when uploading object {data['name']} to object storage: {err!s}"
                     )
                     return None
             else:
@@ -291,7 +291,7 @@ class Remote(SimvueBaseClass):
                             return None
                 except Exception as err:
                     self._error(
-                        f"Got exception when uploading file {data['name']} to object storage: {str(err)}"
+                        f"Got exception when uploading file {data['name']} to object storage: {err!s}"
                     )
                     return None
 
@@ -303,7 +303,7 @@ class Remote(SimvueBaseClass):
                 response = put(path, self._headers, prepare_for_api(data))
             except Exception as err:
                 self._error(
-                    f"Got exception when confirming upload of file {data['name']}: {str(err)}"
+                    f"Got exception when confirming upload of file {data['name']}: {err!s}"
                 )
                 return None
 
@@ -330,7 +330,7 @@ class Remote(SimvueBaseClass):
                 f"{self._user_config.server.url}/alerts", self._headers, data
             )
         except Exception as err:
-            self._error(f"Got exception when creating an alert: {str(err)}")
+            self._error(f"Got exception when creating an alert: {err!s}")
             return False
 
         logger.debug(
@@ -369,7 +369,7 @@ class Remote(SimvueBaseClass):
         try:
             response = get(f"{self._user_config.server.url}/alerts", self._headers)
         except Exception as err:
-            self._error(f"Got exception when listing alerts: {str(err)}")
+            self._error(f"Got exception when listing alerts: {err!s}")
             return []
 
         if not (response_data := response.json()) or (
@@ -397,7 +397,7 @@ class Remote(SimvueBaseClass):
                 is_json=False,
             )
         except Exception as err:
-            self._error(f"Exception sending metrics: {str(err)}")
+            self._error(f"Exception sending metrics: {err!s}")
             return None
 
         logger.debug("Got status code %d when sending metrics", response.status_code)
@@ -423,7 +423,7 @@ class Remote(SimvueBaseClass):
                 is_json=False,
             )
         except Exception as err:
-            self._error(f"Exception sending event: {str(err)}")
+            self._error(f"Exception sending event: {err!s}")
             return None
 
         logger.debug("Got status code %d when sending events", response.status_code)
@@ -448,7 +448,7 @@ class Remote(SimvueBaseClass):
                 {"id": self._id},
             )
         except Exception as err:
-            self._error(f"Exception creating run: {str(err)}")
+            self._error(f"Exception creating run: {err!s}")
             return None
 
         logger.debug("Got status code %d when sending heartbeat", response.status_code)
@@ -469,7 +469,7 @@ class Remote(SimvueBaseClass):
                 self._headers_mp,
             )
         except Exception as err:
-            self._error(f"Exception retrieving abort status: {str(err)}")
+            self._error(f"Exception retrieving abort status: {err!s}")
             return False
 
         logger.debug(

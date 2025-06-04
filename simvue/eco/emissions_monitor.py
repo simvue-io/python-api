@@ -8,14 +8,15 @@ Provides an interface for estimating CO2 usage for processes on the CPU.
 __author__ = "Kristian Zarebski"
 __date__ = "2025-02-27"
 
+import dataclasses
 import datetime
 import json
-import pydantic
-import dataclasses
 import logging
-import humanfriendly
-import pathlib
 import os.path
+import pathlib
+
+import humanfriendly
+import pydantic
 
 from simvue.eco.api_client import APIClient, CO2SignalResponse
 
@@ -52,7 +53,7 @@ class CO2Monitor(pydantic.BaseModel):
 
     def now(self) -> str:
         """Return data file timestamp for the current time"""
-        _now: datetime.datetime = datetime.datetime.now(datetime.timezone.utc)
+        _now: datetime.datetime = datetime.datetime.now(datetime.UTC)
         return _now.strftime(TIME_FORMAT)
 
     @property
