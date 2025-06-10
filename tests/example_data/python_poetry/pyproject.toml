@@ -9,7 +9,7 @@ readme = "README.md"
 python = "^3.13"
 numpy = "^2.2.0"
 pandas = "^2.2.3"
-requests = "^2.32.3"
+requests = "^2.32.4"
 
 
 [build-system]
