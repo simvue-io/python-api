@@ -309,17 +309,24 @@ def get_paginated(
     # else if undefined or greater than the page limit use the limit
     _request_count: int = min(count or MAX_ENTRIES_PER_PAGE, MAX_ENTRIES_PER_PAGE)
 
-    while (
-        _response := get(
-            url=url,
-            headers=headers,
-            params=(params or {}) | {"count": _request_count, "start": _offset},
-            timeout=timeout,
-            json=json,
-        )
-    ).json():
-        yield _response
-        _offset += MAX_ENTRIES_PER_PAGE
+    try:
+        while (
+            _response := get(
+                url=url,
+                headers=headers,
+                params=(params or {}) | {"count": _request_count, "start": _offset},
+                timeout=timeout,
+                json=json,
+            )
+        ).json():
+            yield _response
+            _offset += MAX_ENTRIES_PER_PAGE
 
-        if (count and _offset > count) or (_response.json().get("count", 0) < _offset):
-            break
+            if (count and _offset > count) or (
+                _response.json().get("count", 0) < _offset
+            ):
+                break
+    except json_module.JSONDecodeError:
+        raise RuntimeError(
+            f"[{_response.status_code}] Failed to retrieve content from server: {_response.text}"
+        )

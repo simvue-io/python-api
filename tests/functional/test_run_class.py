@@ -1,4 +1,5 @@
 import json
+import logging
 import os
 import pytest
 import pytest_mock
@@ -598,6 +599,7 @@ def test_runs_multiple_series(request: pytest.FixtureRequest) -> None:
 def test_suppressed_errors(
     setup_logging: "CountingLogHandler", post_init: bool, request: pytest.FixtureRequest
 ) -> None:
+    logging.getLogger("simvue").setLevel(logging.DEBUG)
     setup_logging.captures = ["Skipping call to"]
 
     with sv_run.Run(mode="offline") as run:
