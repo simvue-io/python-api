@@ -38,4 +38,4 @@ jobs:
       env:
         SIMVUE_URL: ${{ secrets.SIMVUE_NIGHTLY_URL }}
         SIMVUE_TOKEN: ${{ secrets.SIMVUE_NIGHTLY_TOKEN }}
-      run: python -m pytest tests/ -m 'not scenario'
+      run: python -m pytest tests/ -m 'not scenario' -c /dev/null -o cache_dir=.pytest-cache

@@ -39,7 +39,10 @@ jobs:
       env:
         SIMVUE_URL: ${{ secrets.SIMVUE_URL }}
         SIMVUE_TOKEN: ${{ secrets.SIMVUE_TOKEN }}
-      run: python -m pytest tests/unit/ -x  -m online -c /dev/null -p no:warnings -n 0 -v
+      run: >-
+        python -m pytest tests/unit/ -x
+        -m online -c /dev/null -p no:warnings
+        -n 0 -v -o cache_dir=.pytest-cache
   offline_unit_tests:
     runs-on: ubuntu-latest
     timeout-minutes: 40
@@ -61,7 +64,10 @@ jobs:
       env:
         SIMVUE_URL: ${{ secrets.SIMVUE_URL }}
         SIMVUE_TOKEN: ${{ secrets.SIMVUE_TOKEN }}
-      run: python -m pytest tests/unit/ -x  -m offline -c /dev/null -p no:warnings -n 0 -v
+      run: >-
+        python -m pytest tests/unit/ -x
+        -m offline -c /dev/null -p no:warnings
+        -n 0 -v -o cache_dir=.pytest-cache
   online_functional_tests:
     runs-on: ubuntu-latest
     timeout-minutes: 40
@@ -83,7 +89,10 @@ jobs:
       env:
         SIMVUE_URL: ${{ secrets.SIMVUE_URL }}
         SIMVUE_TOKEN: ${{ secrets.SIMVUE_TOKEN }}
-      run: python -m pytest tests/functional/ -x  -m online -c /dev/null -p no:warnings -n 0 -v
+      run: >-
+        python -m pytest tests/functional/ -x
+        -m online -c /dev/null -p no:warnings
+        -n 0 -v -o cache_dir=.pytest-cache
   offline_functional_tests:
     runs-on: ubuntu-latest
     timeout-minutes: 40
@@ -105,7 +114,10 @@ jobs:
       env:
         SIMVUE_URL: ${{ secrets.SIMVUE_URL }}
         SIMVUE_TOKEN: ${{ secrets.SIMVUE_TOKEN }}
-      run: python -m pytest tests/functional/ -x  -m offline -c /dev/null -p no:warnings -n 0 -v
+      run: >-
+        python -m pytest tests/functional/ -x
+        -m offline -c /dev/null -p no:warnings
+        -n 0 -v -o cache_dir=.pytest-cache
   other_unit_tests:
     runs-on: ubuntu-latest
     timeout-minutes: 40
@@ -127,7 +139,11 @@ jobs:
       env:
         SIMVUE_URL: ${{ secrets.SIMVUE_URL }}
         SIMVUE_TOKEN: ${{ secrets.SIMVUE_TOKEN }}
-      run: python -m pytest tests/unit/ -x  -m 'not offline' -m 'not online' -m 'not scenario' -c /dev/null -p no:warnings -n 0 -v
+      run: >-
+        python -m pytest tests/unit/ -x
+        -m 'not offline' -m 'not online'
+        -m 'not scenario' -c /dev/null
+        -p no:warnings -n 0 -v -o cache_dir=.pytest-cache
   other_functional_tests:
     runs-on: ubuntu-latest
     timeout-minutes: 40
@@ -149,4 +165,8 @@ jobs:
       env:
         SIMVUE_URL: ${{ secrets.SIMVUE_URL }}
         SIMVUE_TOKEN: ${{ secrets.SIMVUE_TOKEN }}
-      run: python -m pytest tests/functional/ -x  -m 'not offline' -m 'not online' -m 'not scenario' -c /dev/null -p no:warnings -n 0 -v
+      run: >-
+        python -m pytest tests/functional/ -x
+        -m 'not offline' -m 'not online'
+        -m 'not scenario' -c /dev/null
+        -p no:warnings -n 0 -v -o cache_dir=.pytest-cache
