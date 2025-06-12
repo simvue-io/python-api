@@ -1,5 +1,6 @@
 # Change log
 ## Unreleased
+* Fixed bug where uploading larger files timed out leading to file of size 0B.
 * Fixed bug where if the range or threshold of an alert is zero the alert type validation fails.
 ## [v2.1.1](https://github.com/simvue-io/client/releases/tag/v2.1.1) - 2025-04-25
 * Changed from CO2 Signal to ElectricityMaps
