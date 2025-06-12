@@ -152,4 +152,6 @@ class Alert:
                     ),
                 )
             else:
-                raise RuntimeError(f"Unrecognised alert source '{_entry['source']}'")
+                raise RuntimeError(
+                    f"Unrecognised alert source '{_entry['source']}' with data '{_entry}'"
+                )

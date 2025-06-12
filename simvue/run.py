@@ -70,7 +70,6 @@ except ImportError:
 if typing.TYPE_CHECKING:
     from .factory.dispatch import DispatcherBaseClass
 
-UPLOAD_TIMEOUT: int = 30
 HEARTBEAT_INTERVAL: int = 60
 RESOURCES_METRIC_PREFIX: str = "resources"
 

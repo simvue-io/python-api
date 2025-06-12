@@ -68,6 +68,7 @@ def post(
     params: dict[str, str],
     data: typing.Any,
     is_json: bool = True,
+    timeout: int | None = None,
     files: dict[str, typing.Any] | None = None,
 ) -> requests.Response:
     """HTTP POST with retries
@@ -102,7 +103,7 @@ def post(
         headers=headers,
         params=params,
         data=data_sent,
-        timeout=DEFAULT_API_TIMEOUT,
+        timeout=timeout,
         files=files,
     )
 

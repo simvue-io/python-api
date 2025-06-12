@@ -1,10 +1,65 @@
+import pathlib
 import pytest
 import simvue
 import time
 import contextlib
 import random
+import tempfile
 import threading
 from multiprocessing import Process, Manager
+
+from simvue.api.objects.artifact.fetch import Artifact
+
+
+@pytest.mark.scenario
+@pytest.mark.parametrize(
+    "file_size", (1, 10, 100)
+)
+def test_large_file_upload(file_size: int, create_plain_run: tuple[simvue.Run, dict]) -> None:
+    FILE_SIZE_MB: int = file_size
+    run, _ = create_plain_run
+    run.update_metadata({"file_size_mb": file_size})
+    _file = None
+    _temp_file_name = None
+
+    try:
+        with tempfile.NamedTemporaryFile(mode="w+b", delete=False) as temp_f:
+            temp_f.seek(FILE_SIZE_MB * 1024 * 1024 - 1)
+            temp_f.write(b'\0')
+            temp_f.flush()
+            temp_f.seek(0)
+            temp_f.close()
+        _temp_file_name = temp_f.name
+        _input_file_size = pathlib.Path(f"{_temp_file_name}").stat().st_size
+        run.save_file(file_path=f"{temp_f.name}", category="output", name="test_large_file_artifact")
+
+        run.close()
+
+        client = simvue.Client()
+
+        with tempfile.TemporaryDirectory() as tempd:
+            client.get_artifact_as_file(
+                run_id=run.id,
+                name="test_large_file_artifact",
+                output_dir=tempd
+            )
+
+            _file = next(pathlib.Path(tempd).glob("*"))
+
+            # Assert the returned file size
+            assert _file.stat().st_size == _input_file_size
+    except Exception as e:
+        _run = simvue.Run()
+        _run.reconnect(run.id)
+        _run.set_status("failed")
+        raise e
+    finally:
+        if _file and _file.exists():
+            _file.unlink()
+        if _temp_file_name and (_src := pathlib.Path(_temp_file_name)).exists():
+            _src.unlink()
+        with contextlib.suppress(Exception):
+            Artifact.from_name("test_large_file_artifact", run_id=run.id).delete()
 
 
 @pytest.mark.scenario
