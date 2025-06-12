@@ -103,7 +103,7 @@ def post(
         headers=headers,
         params=params,
         data=data_sent,
-        timeout=DEFAULT_API_TIMEOUT,
+        timeout=timeout,
         files=files,
     )
 
