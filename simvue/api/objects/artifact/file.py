@@ -37,6 +37,7 @@ class FileArtifact(ArtifactBase):
         file_path: pydantic.FilePath,
         mime_type: str | None,
         metadata: dict[str, typing.Any] | None,
+        upload_timeout: int | None = None,
         offline: bool = False,
         **kwargs,
     ) -> Self:
@@ -56,6 +57,8 @@ class FileArtifact(ArtifactBase):
             the mime type for this file, else this is determined
         metadata : dict[str, Any] | None
             supply metadata information for this artifact
+        upload_timeout : int | None, optional
+            specify the timeout in seconds for upload
         offline : bool, optional
             whether to define this artifact locally, default is False
 
@@ -100,6 +103,6 @@ class FileArtifact(ArtifactBase):
             return _artifact
 
         with open(_file_orig_path, "rb") as out_f:
-            _artifact._upload(file=out_f)
+            _artifact._upload(file=out_f, timeout=upload_timeout, file_size=_file_size)
 
         return _artifact
