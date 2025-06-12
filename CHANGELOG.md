@@ -1,4 +1,6 @@
 # Change log
+## Unreleased
+* Fixed bug where if the range or threshold of an alert is zero the alert type validation fails.
 ## [v2.1.1](https://github.com/simvue-io/client/releases/tag/v2.1.1) - 2025-04-25
 * Changed from CO2 Signal to ElectricityMaps
 * Fixed a number of bugs in how offline mode is handled with emissions
