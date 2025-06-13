@@ -1,5 +1,7 @@
 # Change log
 ## Unreleased
+* Fixed issue in downloading files from tenant runs.
+* Fixed bug in pagination whereby the count value specified by the user is ignored.
 * Fixed bug where uploading larger files timed out leading to file of size 0B.
 * Fixed bug where if the range or threshold of an alert is zero the alert type validation fails.
 ## [v2.1.1](https://github.com/simvue-io/client/releases/tag/v2.1.1) - 2025-04-25
