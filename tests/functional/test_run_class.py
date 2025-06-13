@@ -674,7 +674,7 @@ def test_set_folder_details(request: pytest.FixtureRequest) -> None:
     ids=[f"scenario_{i}" for i in range(1, 6)],
 )
 def test_save_file_online(
-    create_plain_run: typing.Tuple[sv_run.Run, dict],
+    create_plain_run: tuple[sv_run.Run, dict],
     valid_mimetype: bool,
     preserve_path: bool,
     name: str | None,
@@ -743,7 +743,7 @@ def test_save_file_online(
     ids=[f"scenario_{i}" for i in range(1, 6)],
 )
 def test_save_file_offline(
-    create_plain_run_offline: typing.Tuple[sv_run.Run, dict],
+    create_plain_run_offline: tuple[sv_run.Run, dict],
     preserve_path: bool,
     name: str | None,
     allow_pickle: bool,
@@ -798,7 +798,7 @@ def test_save_file_offline(
 
 @pytest.mark.run
 def test_update_tags_running(
-    create_plain_run: typing.Tuple[sv_run.Run, dict],
+    create_plain_run: tuple[sv_run.Run, dict],
     request: pytest.FixtureRequest,
 ) -> None:
     simvue_run, _ = create_plain_run
@@ -824,7 +824,7 @@ def test_update_tags_running(
 
 @pytest.mark.run
 def test_update_tags_created(
-    create_pending_run: typing.Tuple[sv_run.Run, dict],
+    create_pending_run: tuple[sv_run.Run, dict],
     request: pytest.FixtureRequest,
 ) -> None:
     simvue_run, _ = create_pending_run
@@ -851,7 +851,7 @@ def test_update_tags_created(
 @pytest.mark.offline
 @pytest.mark.run
 def test_update_tags_offline(
-    create_plain_run_offline: typing.Tuple[sv_run.Run, dict],
+    create_plain_run_offline: tuple[sv_run.Run, dict],
 ) -> None:
     simvue_run, _ = create_plain_run_offline
     run_name = simvue_run._name
@@ -879,7 +879,7 @@ def test_update_tags_offline(
 @pytest.mark.run
 @pytest.mark.parametrize("object_type", ("DataFrame", "ndarray"))
 def test_save_object(
-    create_plain_run: typing.Tuple[sv_run.Run, dict], object_type: str
+    create_plain_run: tuple[sv_run.Run, dict], object_type: str
 ) -> None:
     simvue_run, _ = create_plain_run
 
@@ -1081,7 +1081,7 @@ def test_abort_on_alert_process(mocker: pytest_mock.MockerFixture) -> None:
 
 @pytest.mark.run
 def test_abort_on_alert_python(
-    speedy_heartbeat, create_plain_run: typing.Tuple[sv_run.Run, dict], mocker: pytest_mock.MockerFixture
+    speedy_heartbeat, create_plain_run: tuple[sv_run.Run, dict], mocker: pytest_mock.MockerFixture
 ) -> None:
     timeout: int = 20
     interval: int = 0
@@ -1094,7 +1094,7 @@ def test_abort_on_alert_python(
 
 @pytest.mark.run
 def test_abort_on_alert_raise(
-    create_plain_run: typing.Tuple[sv_run.Run, dict]
+    create_plain_run: tuple[sv_run.Run, dict]
 ) -> None:
 
     run, _ = create_plain_run
@@ -1119,7 +1119,7 @@ def test_abort_on_alert_raise(
 
 
 @pytest.mark.run
-def test_kill_all_processes(create_plain_run: typing.Tuple[sv_run.Run, dict]) -> None:
+def test_kill_all_processes(create_plain_run: tuple[sv_run.Run, dict]) -> None:
     run, _ = create_plain_run
     run.config(system_metrics_interval=1)
     run.add_process(identifier="forever_long_1", executable="bash", c="sleep 10000")
@@ -1150,7 +1150,7 @@ def test_run_created_with_no_timeout() -> None:
 
 @pytest.mark.parametrize("mode", ("online", "offline"), ids=("online", "offline"))
 @pytest.mark.run
-def test_reconnect(mode, monkeypatch: pytest.MonkeyPatch) -> None:
+def test_reconnect_functionality(mode, monkeypatch: pytest.MonkeyPatch) -> None:
     temp_d: tempfile.TemporaryDirectory | None = None
 
     if mode == "offline":
@@ -1191,3 +1191,16 @@ def test_reconnect(mode, monkeypatch: pytest.MonkeyPatch) -> None:
     if temp_d:
         temp_d.cleanup()
 
+
+def test_reconnect_with_process(create_plain_run: tuple[sv_run.Run, dict]) -> None:
+    run, _ = create_plain_run
+    run.init(name="test_reconnect_with_process", folder="/simvue_unit_testing", retention_period="2 minutes", running=False)
+    run.close()
+
+    with sv_run.Run() as new_run:
+        new_run.reconnect(run.id)
+        run.add_process(
+            identifier="test_process",
+            executable="bash",
+            c="echo 'Hello World!'",
+        )
