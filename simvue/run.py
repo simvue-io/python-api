@@ -982,7 +982,10 @@ class Run:
 
         self._id = run_id
         self._sv_obj = RunObject(identifier=self._id, _read_only=False)
+        self._name = self._sv_obj.name
+        self._sv_obj.status = self._status
         self._sv_obj.system = get_system()
+        self._sv_obj.commit()
         self._start()
 
         return True

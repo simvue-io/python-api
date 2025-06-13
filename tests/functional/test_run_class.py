@@ -1177,6 +1177,7 @@ def test_reconnect(mode, monkeypatch: pytest.MonkeyPatch) -> None:
 
     with simvue.Run() as run:
         run.reconnect(run_id)
+        assert run._sv_obj.status == "running"
         run.log_metrics({"test_metric": 1})
         run.log_event("Testing!")
 
