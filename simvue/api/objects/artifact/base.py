@@ -31,6 +31,7 @@ from simvue.api.request import (
 
 Category = typing.Literal["code", "input", "output"]
 
+BASE_TIMEOUT: int = 10
 UPLOAD_TIMEOUT_PER_MB: int = 1
 DOWNLOAD_TIMEOUT_PER_MB: int = 1
 DOWNLOAD_CHUNK_SIZE: int = 8192
@@ -117,10 +118,10 @@ class ArtifactBase(SimvueObject):
             return
 
         if not timeout:
-            timeout = UPLOAD_TIMEOUT_PER_MB * file_size / 1024 / 1024
+            timeout = BASE_TIMEOUT + UPLOAD_TIMEOUT_PER_MB * file_size / 1024 / 1024
 
         self._logger.debug(
-            f"Will wait for a period of {timeout}s for upload of file to complete."
+            f"Will wait for a period of {timeout:.0f}s for upload of file for {file_size}B file to complete."
         )
 
         _name = self._staging["name"]
@@ -332,9 +333,16 @@ class ArtifactBase(SimvueObject):
             raise ValueError(
                 f"Could not retrieve URL for artifact '{self._identifier}'"
             )
+
+        _timeout = BASE_TIMEOUT + DOWNLOAD_TIMEOUT_PER_MB * self.size / 1024 / 1024
+
+        self._logger.debug(
+            f"Will wait {_timeout:.0f}s for download of file {self.name} of size {self.size}B"
+        )
+
         _response = sv_get(
             f"{self.download_url}",
-            timeout=DOWNLOAD_TIMEOUT_PER_MB * self.size / 1024 / 1024,
+            timeout=_timeout,
             headers=None,
         )
 
