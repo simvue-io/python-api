@@ -147,7 +147,7 @@ def create_test_run(request, prevent_script_exit) -> typing.Generator[typing.Tup
     for alert_id in _test_run_data.get("alert_ids", []):
         with contextlib.suppress(ObjectNotFoundError):
             sv_api_obj.Alert(identifier=alert_id).delete()
-clear_out_files()
+    clear_out_files()
 
 
 @pytest.fixture
