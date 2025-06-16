@@ -103,7 +103,7 @@ def run_deleter(request):
 def upload(name: str, values_per_run: int, shared_dict) -> None:
     run = simvue.Run()
     run.init(name=name, tags=["simvue_client_tests"])
-    shared_dict["ident"] = run._id
+    shared_dict["ident"] = run.id
     for i in range(values_per_run):
         run.log_metrics({"increment": i})
     run.close()
