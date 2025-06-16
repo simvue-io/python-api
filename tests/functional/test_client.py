@@ -291,20 +291,24 @@ PRE_DELETION_TESTS: list[str] = [
 
 @pytest.mark.dependency
 @pytest.mark.client(depends=PRE_DELETION_TESTS)
-def test_run_deletion(create_test_run: tuple[sv_run.Run, dict]) -> None:
-    run, run_data = create_test_run
+def test_run_deletion() -> None:
+    run = sv_run.Run()
+    run.init(name="test_run_deletion", folder="/simvue_unit_testing", tags=["test_run_deletion"], retention_period="1 min")
+    run.log_metrics({"x": 2})
     run.close()
     client = svc.Client()
-    assert not client.delete_run(run_data["run_id"])
+    assert not client.delete_run(run.id)
 
 
 @pytest.mark.dependency
 @pytest.mark.client(depends=PRE_DELETION_TESTS)
-def test_runs_deletion(create_test_run: tuple[sv_run.Run, dict]) -> None:
-    run, run_data = create_test_run
-    run.close()
+def test_runs_deletion() -> None:
+    _runs = [sv_run.Run() for _ in range(5)]
+    for i, run in enumerate(_runs):
+        run.init(name="test_runs_deletion", folder="/simvue_unit_testing/runs_batch", tags=["test_runs_deletion"], retention_period="1 min")
+        run.log_metrics({"x": i})
     client = svc.Client()
-    assert len(client.delete_runs(run_data["folder"])) > 0
+    assert len(client.delete_runs("/simvue_unit_testing/runs_batch")) > 0
 
 
 @pytest.mark.dependency
