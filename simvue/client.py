@@ -1153,7 +1153,7 @@ class Client:
 
     @prettify_pydantic
     @pydantic.validate_call
-    def get_tag(self, tag_id: str) -> Tag | None:
+    def get_tag(self, tag_id: str) -> Tag:
         """Retrieve a single tag
 
         Parameters
@@ -1170,8 +1170,7 @@ class Client:
         ------
         RuntimeError
             if retrieval of information from the server on this tag failed
+        ObjectNotFoundError
+            if tag does not exist
         """
-        try:
-            return Tag(identifier=tag_id)
-        except ObjectNotFoundError:
-            return None
+        return Tag(identifier=tag_id)
