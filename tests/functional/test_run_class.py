@@ -768,13 +768,6 @@ def test_save_file_offline(
             preserve_path=preserve_path,
             name=name,
         )
-
-        simvue_run.save_file(
-            out_name,
-            category=category,
-            preserve_path=preserve_path,
-            name=name,
-        )
         sv_send.sender(os.environ["SIMVUE_OFFLINE_DIRECTORY"], 2, 10)
         simvue_run.close()
         time.sleep(1.0)
