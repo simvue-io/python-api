@@ -56,7 +56,7 @@ def test_check_run_initialised_decorator() -> None:
 def test_run_with_emissions_online(speedy_heartbeat, mock_co2_signal, create_plain_run) -> None:
     run_created, _ = create_plain_run
     run_created._user_config.eco.co2_signal_api_token = "test_token"
-    run_created.config(enable_emission_metrics=True)
+    run_created.config(enable_emission_metrics=True, system_metrics_interval=1)
     time.sleep(5)
     _run = RunObject(identifier=run_created.id)
     _metric_names = [item[0] for item in _run.metrics]
