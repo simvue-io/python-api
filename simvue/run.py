@@ -257,7 +257,9 @@ class Run:
     ) -> None:
         logger.debug(
             "Automatically closing run '%s' in status %s",
-            self.id if self._user_config.run.mode == "online" else "unregistered",
+            self.id
+            if self._user_config.run.mode == "online" and self._sv_obj
+            else "unregistered",
             self._status,
         )
 
@@ -940,7 +942,10 @@ class Run:
     def name(self) -> str | None:
         """Return the name of the run"""
         if not self._sv_obj:
-            raise RuntimeError("Run has not been initialised")
+            logger.warning(
+                "Attempted to get name on non initialized run - returning None"
+            )
+            return None
         return self._sv_obj.name
 
     @property
@@ -954,7 +959,10 @@ class Run:
     ):
         """Return the status of the run"""
         if not self._sv_obj:
-            raise RuntimeError("Run has not been initialised")
+            logger.warning(
+                "Attempted to get name on non initialized run - returning cached value"
+            )
+            return self._status
         return self._sv_obj.status
 
     @property
@@ -966,7 +974,10 @@ class Run:
     def id(self) -> str | None:
         """Return the unique id of the run"""
         if not self._sv_obj:
-            raise RuntimeError("Run has not been initialised")
+            logger.warning(
+                "Attempted to get name on non initialized run - returning None"
+            )
+            return None
         return self._sv_obj.id
 
     @skip_if_failed("_aborted", "_suppress_errors", False)
@@ -986,9 +997,8 @@ class Run:
         """
         self._status = "running"
 
-        self._id = run_id
         self._sv_obj = RunObject(identifier=run_id, _read_only=False)
-        self._name = self._sv_obj.name
+
         self._sv_obj.status = self._status
         self._sv_obj.system = get_system()
         self._sv_obj.commit()
