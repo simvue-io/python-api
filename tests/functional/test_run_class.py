@@ -158,7 +158,9 @@ def test_log_metrics(
                 retention_period="1 hour",
                 visibility=visibility,
             )
-            run.config(system_metrics_interval=1)
+            # Will log system metrics on startup, and then not again within timeframe of test
+            # So should have exactly one measurement of this
+            run.config(system_metrics_interval=100)
         return
 
     run.init(
@@ -171,8 +173,9 @@ def test_log_metrics(
         visibility=visibility,
         retention_period="1 hour",
     )
-    run.config(system_metrics_interval=1)
-
+    # Will log system metrics on startup, and then not again within timeframe of test
+    # So should have exactly one measurement of this
+    run.config(system_metrics_interval=100)
     # Speed up the read rate for this test
     run._dispatcher._max_buffer_size = 10
     run._dispatcher._max_read_rate *= 10
