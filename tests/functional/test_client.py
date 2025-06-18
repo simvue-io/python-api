@@ -322,7 +322,8 @@ def test_folder_deletion() -> None:
     # This test is called last, one run created so expect length 1
     assert len(client.delete_folder("/simvue_unit_testing/delete_me", remove_runs=True)) == 1
     time.sleep(10)
-    assert not client.get_folder("/simvue_unit_testing/delete_me")
+    with pytest.raises(ObjectNotFoundError):
+        client.get_folder("/simvue_unit_testing/delete_me")
     with pytest.raises(ObjectNotFoundError):
         client.get_run(run_id=run.id)
 
