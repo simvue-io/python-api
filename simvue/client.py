@@ -446,7 +446,7 @@ class Client:
             delete_runs=remove_runs, recursive=recursive, runs_only=False
         )
 
-        if folder_path not in _response.get("folders", []):
+        if folder_id not in _response.get("folders", []):
             raise RuntimeError("Deletion of folder failed, server returned mismatch.")
 
         return _response.get("runs", [])
