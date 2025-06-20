@@ -756,7 +756,7 @@ class Run:
 
         if self._user_config.run.mode == "online":
             click.secho(
-                f"[simvue] Run {self._sv_obj.name} created",
+                f"[simvue] Run {self.name} created",
                 bold=self._term_color,
                 fg="green" if self._term_color else None,
             )

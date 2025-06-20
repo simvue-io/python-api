@@ -168,7 +168,7 @@ def test_run_get_properties() -> None:
     _uuid: str = f"{uuid.uuid4()}".split("-")[0]
     _folder_name = f"/simvue_unit_testing/{_uuid}"
     _folder = Folder.new(path=_folder_name)
-    _run = Run.new(folder=_folder_name)
+    _run = Run.new(name="test_run_get_properties", folder=_folder_name)
     _run.status = "running"
     _run.ttl = 60
     _folder.commit()
