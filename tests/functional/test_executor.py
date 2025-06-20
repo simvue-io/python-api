@@ -1,4 +1,6 @@
+import contextlib
 import typing
+import uuid
 import pytest
 import simvue
 import time
@@ -8,7 +10,10 @@ import pathlib
 import os
 import multiprocessing
 import multiprocessing.synchronize
-    
+
+from simvue.api.objects.folder import Folder
+from simvue.exception import ObjectNotFoundError
+
 
 @pytest.mark.executor
 @pytest.mark.parametrize("successful", (True, False), ids=("successful", "failing"))
@@ -18,6 +23,9 @@ def test_executor_add_process(
 ) -> None:
     import logging
     trigger = multiprocessing.Event()
+    folder_id = f"{uuid.uuid4()}".split("-")[0]
+    folder = Folder.new(path=f"/simvue_unit_testing/{folder_id}")
+    folder.commit()
 
     def completion_callback(*_, trigger=trigger, **__):
         trigger.set()
@@ -26,7 +34,8 @@ def test_executor_add_process(
     run.init(
         f"test_executor_{'success' if successful else 'fail'}",
         tags=["simvue_client_unit_tests", request.node.name.replace("[", "_").replace("]", "_")],
-        folder="/simvue_unit_testing"
+        folder=f"/simvue_unit_testing/{folder_id}",
+        retention_period="2 mins"
     )
     run.add_process(
         identifier=f"test_add_process_{'success' if successful else 'fail'}",
@@ -44,6 +53,9 @@ def test_executor_add_process(
         with pytest.raises(SystemExit):
             run.close()
 
+    with contextlib.suppress(ObjectNotFoundError):
+        folder.delete(recursive=True, delete_runs=True)
+
 
 @pytest.mark.executor
 @pytest.mark.unix
@@ -51,11 +63,14 @@ def test_executor_multiprocess(request: pytest.FixtureRequest) -> None:
     triggers: dict[int, multiprocessing.synchronize.Event] = {}
     callbacks: dict[int, typing.Callable] = {}
     events: dict[int, bool] = {}
+    folder_id = f"{uuid.uuid4()}".split("-")[0]
+    folder = Folder.new(path=f"/simvue_unit_testing/{folder_id}")
+    folder.commit()
     with tempfile.TemporaryDirectory() as tempd:
         with simvue.Run() as run:
             run.init(
                 "test_executor_multiprocess",
-                folder="/simvue_unit_testing",
+                folder=f"/simvue_unit_testing/{folder_id}",
                 tags=["simvue_client_tests", request.node.name]
             )
 
@@ -82,10 +97,15 @@ def test_executor_multiprocess(request: pytest.FixtureRequest) -> None:
     for i in range(10):
         os.remove(f"test_executor_multiprocess_cmd_{i}.err")
         os.remove(f"test_executor_multiprocess_cmd_{i}.out")
+    with contextlib.suppress(ObjectNotFoundError):
+        folder.delete(recursive=True, delete_runs=True)
 
 
 @pytest.mark.executor
 def test_add_process_command_assembly(request: pytest.FixtureRequest) -> None:
+    folder_id = f"{uuid.uuid4()}".split("-")[0]
+    folder = Folder.new(path=f"/simvue_unit_testing/{folder_id}")
+    folder.commit()
     with tempfile.TemporaryDirectory() as tempd:
         _python_script="""
 import argparse
@@ -115,7 +135,7 @@ with open(args.output_file, 'w') as out_f:
         with simvue.Run() as run:
             run.init(
                 "test_advanced_executor",
-                folder="/simvue_unit_testing",
+                folder=f"/simvue_unit_testing/{folder_id}",
                 tags=["simvue_client_tests", request.node.name]
             )
             run.add_process(
@@ -126,17 +146,22 @@ with open(args.output_file, 'w') as out_f:
                 output_file=out_file
             )
             assert run._executor.command_str[exe_id] == expected_cmd
+    with contextlib.suppress(ObjectNotFoundError):
+        folder.delete(recursive=True, delete_runs=True)
 
 @pytest.mark.executor
 def test_completion_callbacks_var_change(request: pytest.FixtureRequest) -> None:
     success: dict[str, bool] = {"complete": False}
     def completion_callback(*_, success: dict[str, bool]=success, **__):
         success["complete"] = True
+    folder_id = f"{uuid.uuid4()}".split("-")[0]
+    folder = Folder.new(path=f"/simvue_unit_testing/{folder_id}")
+    folder.commit()
 
     with simvue.Run() as run:
         run.init(
             "test_completion_callbacks_var_change",
-            folder="/simvue_unit_testing",
+            folder=f"/simvue_unit_testing/{folder_id}",
             tags=["simvue_client_tests", request.node.name]
         )
         run.add_process(
@@ -150,16 +175,21 @@ def test_completion_callbacks_var_change(request: pytest.FixtureRequest) -> None
     time.sleep(1)
 
     assert success["complete"]
+    with contextlib.suppress(ObjectNotFoundError):
+        folder.delete(recursive=True, delete_runs=True)
 
 @pytest.mark.executor
 @pytest.mark.unix
 def test_completion_trigger_set(request: pytest.FixtureRequest) -> None:
     trigger = multiprocessing.Event()
+    folder_id = f"{uuid.uuid4()}".split("-")[0]
+    folder = Folder.new(path=f"/simvue_unit_testing/{folder_id}")
+    folder.commit()
 
     with simvue.Run() as run:
         run.init(
             "test_completion_trigger_set",
-            folder="/simvue_unit_testing",
+            folder=f"/simvue_unit_testing/{folder_id}",
             tags=["simvue_client_tests", request.node.name]
         )
         run.add_process(
@@ -173,6 +203,8 @@ def test_completion_trigger_set(request: pytest.FixtureRequest) -> None:
     time.sleep(1)
 
     assert trigger.is_set()
+    with contextlib.suppress(ObjectNotFoundError):
+        folder.delete(recursive=True, delete_runs=True)
 
 @pytest.mark.executor
 def test_completion_callbacks_trigger_set(request: pytest.FixtureRequest) -> None:
@@ -180,6 +212,10 @@ def test_completion_callbacks_trigger_set(request: pytest.FixtureRequest) -> Non
 
     def completion_callback(*_, trigger=trigger, **__):
         trigger.set()
+
+    folder_id = f"{uuid.uuid4()}".split("-")[0]
+    folder = Folder.new(path=f"/simvue_unit_testing/{folder_id}")
+    folder.commit()
 
     with simvue.Run() as run:
         run.init(
@@ -198,4 +234,6 @@ def test_completion_callbacks_trigger_set(request: pytest.FixtureRequest) -> Non
     time.sleep(1)
 
     assert trigger.is_set()
+    with contextlib.suppress(ObjectNotFoundError):
+        folder.delete(recursive=True, delete_runs=True)
 
