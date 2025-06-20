@@ -186,7 +186,7 @@ def create_plain_run_offline(request,prevent_script_exit,monkeypatch) -> typing.
     clear_out_files()
 
 
-@pytest.fixture
+@pytest.fixture(scope="function")
 def create_run_object(mocker: pytest_mock.MockFixture) -> sv_api_obj.Run:
     def testing_exit(status: int) -> None:
         raise SystemExit(status)
