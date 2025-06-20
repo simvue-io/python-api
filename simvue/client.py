@@ -32,7 +32,16 @@ from .utilities import check_extra, prettify_pydantic
 from .models import FOLDER_REGEX, NAME_REGEX
 from .config.user import SimvueConfiguration
 from .api.request import get_json_from_response
-from .api.objects import Run, Folder, Tag, Artifact, Alert, FileArtifact, ObjectArtifact
+from .api.objects import (
+    Run,
+    Folder,
+    Tag,
+    Artifact,
+    Alert,
+    FileArtifact,
+    ObjectArtifact,
+    get_folder_from_path,
+)
 
 
 CONCURRENT_DOWNLOADS = 10
@@ -429,6 +438,9 @@ class Client:
             delete_runs=remove_runs, recursive=recursive, runs_only=False
         )
 
+        if folder_path not in _response.get("folders", []):
+            raise RuntimeError("Deletion of folder failed, server returned mismatch.")
+
         return _response.get("runs", [])
 
     @prettify_pydantic
@@ -665,17 +677,12 @@ class Client:
         RuntimeError
             if there was a failure when retrieving information from the server
         """
-        _folders: typing.Generator[tuple[str, Folder], None, None] = Folder.get(
-            filters=json.dumps([f"path == {folder_path}"])
-        )  # type: ignore
-
         try:
-            _, _folder = next(_folders)
-            if not read_only:
-                _folder.read_only(read_only)
-            return _folder
-        except StopIteration:
+            _folder = get_folder_from_path(path=folder_path)
+        except ObjectNotFoundError:
             return None
+        _folder.read_only(is_read_only=read_only)
+        return _folder
 
     @pydantic.validate_call
     def get_folders(

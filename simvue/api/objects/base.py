@@ -412,6 +412,10 @@ class SimvueObject(abc.ABC):
                     f"Expected key 'data' for retrieval of {_class_instance.__class__.__name__.lower()}s"
                 )
 
+            # If data is an empty list
+            if not _data:
+                return
+
             for entry in _data:
                 _id = entry["id"]
                 yield _id, cls(_read_only=True, identifier=_id, _local=True, **entry)
