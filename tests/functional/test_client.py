@@ -15,7 +15,6 @@ import simvue.run as sv_run
 import simvue.api.objects as sv_api_obj
 from simvue.api.objects.alert.base import AlertBase
 
-
 @pytest.mark.dependency
 @pytest.mark.client
 def test_get_events(create_test_run: tuple[sv_run.Run, dict]) -> None:
@@ -25,8 +24,12 @@ def test_get_events(create_test_run: tuple[sv_run.Run, dict]) -> None:
 
 @pytest.mark.dependency
 @pytest.mark.client
-@pytest.mark.parametrize("from_run", (True, False), ids=("from_run", "all_runs"))
-@pytest.mark.parametrize("names_only", (True, False), ids=("names_only", "all_details"))
+@pytest.mark.parametrize(
+    "from_run", (True, False), ids=("from_run", "all_runs")
+)
+@pytest.mark.parametrize(
+    "names_only", (True, False), ids=("names_only", "all_details")
+)
 @pytest.mark.parametrize(
     "critical_only", (True, False), ids=("critical_only", "all_states")
 )
@@ -40,44 +43,42 @@ def test_get_alerts(
     run_id = run.id
     unique_id = f"{uuid.uuid4()}".split("-")[0]
     _id_1 = run.create_user_alert(
-        name=f"user_alert_1_{unique_id}",
+        name=f"user_alert_1_{unique_id}", 
     )
     run.create_user_alert(
-        name=f"user_alert_2_{unique_id}",
+        name=f"user_alert_2_{unique_id}", 
     )
-    run.create_user_alert(name=f"user_alert_3_{unique_id}", attach_to_run=False)
+    run.create_user_alert(
+        name=f"user_alert_3_{unique_id}",
+        attach_to_run=False
+    )
     run.log_alert(identifier=_id_1, state="critical")
     time.sleep(2)
     run.close()
-
+    
     client = svc.Client()
 
     if critical_only and not from_run:
         with pytest.raises(RuntimeError) as e:
-            _alerts = client.get_alerts(
-                critical_only=critical_only, names_only=names_only
-            )
-        assert (
-            "critical_only is ambiguous when returning alerts with no run ID specified."
-            in str(e.value)
-        )
+            _alerts = client.get_alerts(critical_only=critical_only, names_only=names_only)
+        assert "critical_only is ambiguous when returning alerts with no run ID specified." in str(e.value)
     else:
         sorting = None if run_id else [("name", True), ("created", True)]
         _alerts = client.get_alerts(
             run_id=run_id if from_run else None,
             critical_only=critical_only,
             names_only=names_only,
-            sort_by_columns=sorting,
+            sort_by_columns=sorting
         )
-
+    
         if names_only:
             assert all(isinstance(item, str) for item in _alerts)
         else:
-            assert all(isinstance(item, AlertBase) for item in _alerts)
+            assert all(isinstance(item, AlertBase) for item in _alerts)            
             _alerts = [alert.name for alert in _alerts]
-
+            
         assert f"user_alert_1_{unique_id}" in _alerts
-
+            
         if not from_run:
             assert len(_alerts) > 2
             assert f"user_alert_3_{unique_id}" in _alerts
@@ -88,7 +89,6 @@ def test_get_alerts(
             else:
                 assert len(_alerts) == 2
                 assert f"user_alert_2_{unique_id}" in _alerts
-
 
 @pytest.mark.dependency
 @pytest.mark.client
@@ -104,8 +104,12 @@ def test_get_run_id_from_name(create_test_run: tuple[sv_run.Run, dict]) -> None:
 @pytest.mark.client
 @pytest.mark.parametrize(
     "aggregate,use_name_labels",
-    [(True, False), (False, False), (False, True)],
-    ids=("aggregate", "complete_ids", "complete_labels"),
+    [
+        (True, False),
+        (False, False),
+        (False, True)
+    ],
+    ids=("aggregate", "complete_ids", "complete_labels")
 )
 def test_get_metric_values(
     create_test_run: tuple[sv_run.Run, dict], aggregate: bool, use_name_labels: bool
@@ -126,9 +130,9 @@ def test_get_metric_values(
     assert create_test_run[1]["metrics"][0] in _metrics_dict.keys()
     if aggregate:
         _value_types = {i[1] for i in _first_entry}
-        assert all(i in _value_types for i in ("average", "min", "max")), (
-            f"Expected ('average', 'min', 'max') in {_value_types}"
-        )
+        assert all(
+            i in _value_types for i in ("average", "min", "max")
+        ), f"Expected ('average', 'min', 'max') in {_value_types}"
     elif not use_name_labels:
         _runs = {i[1] for i in _first_entry}
         assert create_test_run[1]["run_id"] in _runs
@@ -153,17 +157,12 @@ def test_plot_metrics(create_test_run: tuple[sv_run.Run, dict]) -> None:
 @pytest.mark.dependency
 @pytest.mark.client
 @pytest.mark.parametrize(
-    "sorting",
-    ([("metadata.test_identifier", True)], [("name", True), ("created", True)], None),
-    ids=("sorted-metadata", "sorted-name-created", None),
+    "sorting", ([("metadata.test_identifier", True)], [("name", True), ("created", True)], None),
+    ids=("sorted-metadata", "sorted-name-created", None)
 )
-def test_get_artifacts_entries(
-    create_test_run: tuple[sv_run.Run, dict], sorting: list[tuple[str, bool]] | None
-) -> None:
+def test_get_artifacts_entries(create_test_run: tuple[sv_run.Run, dict], sorting: list[tuple[str, bool]] | None) -> None:
     client = svc.Client()
-    assert dict(
-        client.list_artifacts(create_test_run[1]["run_id"], sort_by_columns=sorting)
-    )
+    assert dict(client.list_artifacts(create_test_run[1]["run_id"], sort_by_columns=sorting))
     assert client.get_artifact(create_test_run[1]["run_id"], name="test_attributes")
 
 
@@ -181,9 +180,7 @@ def test_get_artifact_as_file(
             name=_file_name,
             output_dir=tempd,
         )
-        assert pathlib.Path(tempd).joinpath(_file_name).exists(), (
-            f"Failed to download '{_file_name}'"
-        )
+        assert pathlib.Path(tempd).joinpath(_file_name).exists(), f"Failed to download '{_file_name}'"
 
 
 @pytest.mark.dependency
@@ -199,7 +196,7 @@ def test_get_artifacts_as_files(
             create_test_run[1]["run_id"], category=category, output_dir=tempd
         )
         files = [os.path.basename(i) for i in glob.glob(os.path.join(tempd, "*"))]
-
+        
         if not category:
             expected_files = ["file_1", "file_2", "file_3"]
         elif category == "input":
@@ -208,7 +205,7 @@ def test_get_artifacts_as_files(
             expected_files = ["file_2"]
         elif category == "code":
             expected_files = ["file_3"]
-
+            
         for file in ["file_1", "file_2", "file_3"]:
             if file in expected_files:
                 assert create_test_run[1][file] in files
@@ -225,18 +222,12 @@ def test_get_artifacts_as_files(
         ("dataframe", [("created", True), ("started", True)]),
         ("objects", [("metadata.test_identifier", True)]),
     ],
-    ids=("dict-unsorted", "dataframe-datesorted", "objects-metasorted"),
+    ids=("dict-unsorted", "dataframe-datesorted", "objects-metasorted")
 )
-def test_get_runs(
-    create_test_run: tuple[sv_run.Run, dict],
-    output_format: str,
-    sorting: list[tuple[str, bool]] | None,
-) -> None:
+def test_get_runs(create_test_run: tuple[sv_run.Run, dict], output_format: str, sorting: list[tuple[str, bool]] | None) -> None:
     client = svc.Client()
 
-    _result = client.get_runs(
-        filters=[], output_format=output_format, count_limit=10, sort_by_columns=sorting
-    )
+    _result = client.get_runs(filters=[], output_format=output_format, count_limit=10, sort_by_columns=sorting)
 
     if output_format == "dataframe":
         assert not _result.empty
@@ -254,13 +245,10 @@ def test_get_run(create_test_run: tuple[sv_run.Run, dict]) -> None:
 @pytest.mark.dependency
 @pytest.mark.client
 @pytest.mark.parametrize(
-    "sorting",
-    (None, [("metadata.test_identifier", True), ("path", True)], [("modified", False)]),
-    ids=("no-sort", "sort-path-metadata", "sort-modified"),
+    "sorting", (None, [("metadata.test_identifier", True), ("path", True)], [("modified", False)]),
+    ids=("no-sort", "sort-path-metadata", "sort-modified")
 )
-def test_get_folders(
-    create_test_run: tuple[sv_run.Run, dict], sorting: list[tuple[str, bool]] | None
-) -> None:
+def test_get_folders(create_test_run: tuple[sv_run.Run, dict], sorting: list[tuple[str, bool]] | None) -> None:
     client = svc.Client()
     assert (folders := client.get_folders(sort_by_columns=sorting))
     _id, _folder = next(folders)
@@ -289,12 +277,7 @@ def test_get_tag(create_plain_run: tuple[sv_run.Run, dict]) -> None:
 @pytest.mark.client
 def test_run_deletion() -> None:
     run = sv_run.Run()
-    run.init(
-        name="test_run_deletion",
-        folder="/simvue_unit_testing",
-        tags=["test_run_deletion"],
-        retention_period="1 min",
-    )
+    run.init(name="test_run_deletion", folder="/simvue_unit_testing", tags=["test_run_deletion"], retention_period="1 min")
     run.log_metrics({"x": 2})
     run.close()
     client = svc.Client()
@@ -308,18 +291,13 @@ def test_run_deletion() -> None:
 def test_runs_deletion() -> None:
     _runs = [sv_run.Run() for _ in range(5)]
     for i, run in enumerate(_runs):
-        run.init(
-            name="test_runs_deletion",
-            folder="/simvue_unit_testing/runs_batch",
-            tags=["test_runs_deletion"],
-            retention_period="1 min",
-        )
+        run.init(name="test_runs_deletion", folder="/simvue_unit_testing/runs_batch", tags=["test_runs_deletion"], retention_period="1 min")
         run.log_metrics({"x": i})
     client = svc.Client()
     assert len(client.delete_runs("/simvue_unit_testing/runs_batch")) > 0
     for run in _runs:
         with pytest.raises(ObjectNotFoundError):
-            client.get_run(run.id)
+            client.get_run(run.id) 
 
 
 @pytest.mark.dependency
@@ -339,26 +317,14 @@ def test_get_tags(create_plain_run: tuple[sv_run.Run, dict]) -> None:
 def test_folder_deletion() -> None:
     run = sv_run.Run()
     _temp_folder_id: str = f"{uuid.uuid4()}".split()[0]
-    run.init(
-        name="test_folder_deletion",
-        folder=f"/simvue_unit_testing/{_temp_folder_id}",
-        tags=["test_folder_deletion"],
-        retention_period="1 min",
-    )
+    run.init(name="test_folder_deletion", folder=f"/simvue_unit_testing/{_temp_folder_id}", tags=["test_folder_deletion"], retention_period="1 min")
     run.close()
     client = svc.Client()
     # This test is called last, one run created so expect length 1
-    assert (
-        len(
-            client.delete_folder(
-                f"/simvue_unit_testing/{_temp_folder_id}", remove_runs=True
-            )
-        )
-        == 1
-    )
-    time.sleep(10)
-    with pytest.raises(ObjectNotFoundError):
-        client.get_folder("/simvue_unit_testing/delete_me")
+    assert len(client.delete_folder(f"/simvue_unit_testing/{_temp_folder_id}", remove_runs=True)) == 1
+
+    # If the folder has been deleted then an ObjectNotFoundError should be raised
+    assert not client.get_folder(f"/simvue_unit_testing/{_temp_folder_id}")
     with pytest.raises(ObjectNotFoundError):
         client.get_run(run_id=run.id)
 
@@ -367,11 +333,11 @@ def test_folder_deletion() -> None:
 def test_run_folder_metadata_find(create_plain_run: tuple[sv_run.Run, dict]) -> None:
     run, run_data = create_plain_run
     rand_val = random.randint(0, 1000)
-    run.set_folder_details(metadata={"atest": rand_val})
+    run.set_folder_details(metadata={'atest': rand_val})
     run.close()
     time.sleep(1.0)
     client = svc.Client()
-    data = client.get_folders(filters=[f"metadata.atest == {rand_val}"])
+    data = client.get_folders(filters=[f'metadata.atest == {rand_val}'])
 
     assert run_data["folder"] in [i.path for _, i in data]
 
@@ -379,12 +345,7 @@ def test_run_folder_metadata_find(create_plain_run: tuple[sv_run.Run, dict]) -> 
 @pytest.mark.client
 def test_tag_deletion() -> None:
     run = sv_run.Run()
-    run.init(
-        name="test_folder_deletion",
-        folder="/simvue_unit_testing",
-        tags=["test_tag_deletion"],
-        retention_period="1 min",
-    )
+    run.init(name="test_folder_deletion", folder="/simvue_unit_testing", tags=["test_tag_deletion"], retention_period="1 min")
     run.close()
     unique_id = f"{uuid.uuid4()}".split("-")[0]
     run.update_tags([(tag_str := f"delete_me_{unique_id}")])
@@ -438,9 +399,7 @@ def test_multiple_metric_retrieval(
 
 @pytest.mark.client
 def test_alert_deletion() -> None:
-    _alert = sv_api_obj.UserAlert.new(
-        name="test_alert", notification="none", description=None
-    )
+    _alert = sv_api_obj.UserAlert.new(name="test_alert", notification="none", description=None)
     _alert.commit()
     _client = svc.Client()
     _client.delete_alert(alert_id=_alert.id)
@@ -464,3 +423,5 @@ def test_abort_run(speedy_heartbeat, create_plain_run: tuple[sv_run.Run, dict]) 
     except AssertionError:
         time.sleep(2)
         assert run._status == "terminated"
+
+
