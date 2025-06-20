@@ -690,3 +690,15 @@ class SimvueObject(abc.ABC):
             the locally staged data if available.
         """
         return self._staging or None
+
+    def __str__(self) -> str:
+        """String representation of Simvue object."""
+        return f"{self.__class__.__name__}({self.id=})"
+
+    def __repr__(self) -> str:
+        _out_str = f"{self.__class__.__module__}.{self.__class__.__qualname__}("
+        _out_str += ", ".join(
+            f"{property}={getattr(self, property)!r}" for property in self._properties
+        )
+        _out_str += ")"
+        return _out_str
