@@ -53,7 +53,7 @@ def clear_out_files() -> None:
     for file_obj in out_files:
         file_obj.unlink()
 
-        
+
 @pytest.fixture()
 def offline_cache_setup(monkeypatch: monkeypatch.MonkeyPatch):
     # Will be executed before test
@@ -63,7 +63,8 @@ def offline_cache_setup(monkeypatch: monkeypatch.MonkeyPatch):
     # Will be executed after test
     cache_dir.cleanup()
     monkeypatch.setenv("SIMVUE_OFFLINE_DIRECTORY", None)
-    
+
+
 @pytest.fixture
 def mock_co2_signal(monkeypatch: monkeypatch.MonkeyPatch) -> dict[str, dict | str]:
     _mock_data = {
@@ -100,7 +101,7 @@ def mock_co2_signal(monkeypatch: monkeypatch.MonkeyPatch) -> dict[str, dict | st
 
     monkeypatch.setattr(requests, "get", _mock_get)
     monkeypatch.setattr(sv_eco.APIClient, "_get_user_location_info", _mock_location_info)
-    
+
     _fetch = sv_cfg.SimvueConfiguration.fetch
     @classmethod
     def _mock_fetch(cls, *args, **kwargs) -> sv_cfg.SimvueConfiguration:

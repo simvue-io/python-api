@@ -97,7 +97,6 @@ testpaths = [
 markers = [
     "eco: tests for emission metrics",
     "client: tests of Simvue client",
-    "converters: tests for Simvue object converters",
     "dispatch: test data dispatcher",
     "run: test the simvue Run class",
     "utilities: test simvue utilities module",

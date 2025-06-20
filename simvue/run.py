@@ -478,14 +478,14 @@ class Run:
                     offline=self._user_config.run.mode == "offline",
                     events=buffer,
                 )
-                _events.commit()
+                return _events.commit()
             else:
                 _metrics = Metrics.new(
                     run=self.id,
                     offline=self._user_config.run.mode == "offline",
                     metrics=buffer,
                 )
-                _metrics.commit()
+                return _metrics.commit()
 
         return _dispatch_callback
 

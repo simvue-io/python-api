@@ -477,7 +477,7 @@ class SimvueObject(abc.ABC):
         if not self._read_only:
             self._staging = self._get_local_staged()
 
-    def commit(self) -> None:
+    def commit(self) -> dict | None:
         """Send updates to the server, or if offline, store locally."""
         if self._read_only:
             raise AttributeError("Cannot commit object in 'read-only' mode")
@@ -489,21 +489,25 @@ class SimvueObject(abc.ABC):
             self._cache()
             return
 
+        _response: dict | None = None
+
         # Initial commit is creation of object
         # if staging is empty then we do not need to use PUT
         if not self._identifier or self._identifier.startswith("offline_"):
             self._logger.debug(
                 f"Posting from staged data for {self._label} '{self.id}': {self._staging}"
             )
-            self._post(**self._staging)
+            _response = self._post(**self._staging)
         elif self._staging:
             self._logger.debug(
                 f"Pushing updates from staged data for {self._label} '{self.id}': {self._staging}"
             )
-            self._put(**self._staging)
+            _response = self._put(**self._staging)
 
         # Clear staged changes
         self._clear_staging()
+
+        return _response
 
     @property
     def id(self) -> str | None:

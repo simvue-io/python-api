@@ -2,6 +2,7 @@ import json
 import logging
 import os
 import pytest
+import requests
 import pytest_mock
 import time
 import typing
@@ -53,11 +54,20 @@ def test_check_run_initialised_decorator() -> None:
 @pytest.mark.run
 @pytest.mark.eco
 @pytest.mark.online
-def test_run_with_emissions_online(speedy_heartbeat, mock_co2_signal, create_plain_run) -> None:
+def test_run_with_emissions_online(speedy_heartbeat, mock_co2_signal, create_plain_run: tuple[sv_run.Run, ...], mocker) -> None:
     run_created, _ = create_plain_run
+    metric_interval = 1
     run_created._user_config.eco.co2_signal_api_token = "test_token"
-    run_created.config(enable_emission_metrics=True, system_metrics_interval=1)
-    time.sleep(5)
+    run_created.config(enable_emission_metrics=True, system_metrics_interval=metric_interval)
+    spy = mocker.spy(run_created, "_get_internal_metrics")
+    while (
+        "sustainability.emissions.total" not in requests.get(
+            url=f"{run_created._user_config.server.url}/metrics/names",
+            headers=run_created._headers,
+            params={"runs": json.dumps([run_created.id])}).json()
+        and spy.call_count < 4
+    ):
+        time.sleep(metric_interval)
     _run = RunObject(identifier=run_created.id)
     _metric_names = [item[0] for item in _run.metrics]
     client = sv_cl.Client()
@@ -75,7 +85,7 @@ def test_run_with_emissions_online(speedy_heartbeat, mock_co2_signal, create_pla
         # Check that total = previous total + latest delta
         _total_values = _metric_values[_total_metric_name].tolist()
         _delta_values = _metric_values[_delta_metric_name].tolist()
-        assert len(_total_values) > 1
+        assert len(_total_values) == spy.call_count
         for i in range(1, len(_total_values)):
             assert _total_values[i] == _total_values[i - 1] + _delta_values[i]
 
