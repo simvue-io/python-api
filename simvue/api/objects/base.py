@@ -365,7 +365,7 @@ class SimvueObject(abc.ABC):
         """
         _class_instance = cls(_read_only=True, _local=True)
         _count: int = 0
-        for response in cls._get_all_objects(offset, count=count):
+        for response in cls._get_all_objects(offset, count=count, **kwargs):
             if (_data := response.get("data")) is None:
                 raise RuntimeError(
                     f"Expected key 'data' for retrieval of {_class_instance.__class__.__name__.lower()}s"
