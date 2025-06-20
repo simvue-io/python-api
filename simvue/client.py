@@ -359,9 +359,17 @@ class Client:
         _ids = Folder.ids(filters=json.dumps([f"path == {path}"]))
 
         try:
-            return next(_ids)
+            _id = next(_ids)
         except StopIteration:
             return None
+
+        with contextlib.suppress(StopIteration):
+            next(_ids)
+            raise RuntimeError(
+                f"Expected single folder match for '{path}', but found duplicate."
+            )
+
+        return _id
 
     @prettify_pydantic
     @pydantic.validate_call
