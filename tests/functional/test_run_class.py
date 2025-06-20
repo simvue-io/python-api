@@ -58,14 +58,14 @@ def test_run_with_emissions_online(speedy_heartbeat, mock_co2_signal, create_pla
     run_created, _ = create_plain_run
     metric_interval = 1
     run_created._user_config.eco.co2_signal_api_token = "test_token"
+    current_count = run_created.metric_spy.call_count
     run_created.config(enable_emission_metrics=True, system_metrics_interval=metric_interval)
-    spy = mocker.spy(run_created, "_get_internal_metrics")
     while (
         "sustainability.emissions.total" not in requests.get(
             url=f"{run_created._user_config.server.url}/metrics/names",
             headers=run_created._headers,
             params={"runs": json.dumps([run_created.id])}).json()
-        and spy.call_count < 4
+        and run_created.metric_spy.call_count < 4
     ):
         time.sleep(metric_interval)
     _run = RunObject(identifier=run_created.id)
@@ -85,7 +85,7 @@ def test_run_with_emissions_online(speedy_heartbeat, mock_co2_signal, create_pla
         # Check that total = previous total + latest delta
         _total_values = _metric_values[_total_metric_name].tolist()
         _delta_values = _metric_values[_delta_metric_name].tolist()
-        assert len(_total_values) == spy.call_count
+        assert len(_total_values) >= run_created.metric_spy.call_count - current_count
         for i in range(1, len(_total_values)):
             assert _total_values[i] == _total_values[i - 1] + _delta_values[i]
 

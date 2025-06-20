@@ -163,10 +163,11 @@ def create_test_run_offline(request, monkeypatch: pytest.MonkeyPatch, prevent_sc
 
 
 @pytest.fixture
-def create_plain_run(request, prevent_script_exit) -> typing.Generator[typing.Tuple[sv_run.Run, dict], None, None]:
+def create_plain_run(request, prevent_script_exit, mocker) -> typing.Generator[typing.Tuple[sv_run.Run, dict], None, None]:
     def testing_exit(status: int) -> None:
         raise SystemExit(status)
     with sv_run.Run() as run:
+        run.metric_spy = mocker.spy(run, "_get_internal_metrics")
         yield run, setup_test_run(run, False, request)
     clear_out_files()
 
