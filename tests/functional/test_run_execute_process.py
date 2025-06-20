@@ -1,3 +1,4 @@
+import pathlib
 import time
 import os
 import sys
@@ -23,13 +24,15 @@ def test_monitor_processes(create_plain_run_offline: tuple[Run, dict]):
 @pytest.mark.executor
 def test_abort_all_processes(create_plain_run: tuple[Run, dict]) -> None:
     _run, _ = create_plain_run
-    start_time = time.time()
     with tempfile.NamedTemporaryFile(suffix=".py") as temp_f:
         with open(temp_f.name, "w") as out_f:
             out_f.writelines([
                 "import time\n",
-                "while True:\n"
-                "    time.sleep(5)\n"
+                "count = 0\n"
+                "while True:\n",
+                "    print(count)\n"
+                "    time.sleep(1)\n"
+                "    count += 1"
             ])
 
         for i in range(1, 3):
@@ -39,9 +42,20 @@ def test_abort_all_processes(create_plain_run: tuple[Run, dict]) -> None:
         time.sleep(3)
 
         _run.kill_all_processes()
-        end_time = time.time()
 
-    assert end_time - start_time < 10, f"{end_time - start_time} >= 10"
+        # Check the Python process did not error
+        _out_err = pathlib.Path.cwd().glob("*process_*.err")
+        for file in _out_err:
+            with file.open() as in_f:
+                assert not in_f.readlines()
+
+        # Now check the counter in the process was terminated
+        # just beyond the sleep time
+        _out_files = pathlib.Path.cwd().glob("*process_*.out")
+        for file in _out_files:
+            with file.open() as in_f:
+                assert (lines := in_f.readlines())
+                assert int(lines[0].strip()) < 4
 
 
 def test_processes_cwd(create_plain_run: dict[Run, dict]) -> None:
