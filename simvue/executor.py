@@ -80,6 +80,7 @@ def _execute_process(
         thread_out = threading.Thread(
             target=trigger_check,
             args=(completion_callback, completion_trigger, _result),
+            daemon=True,
         )
         thread_out.start()
 
