@@ -7,6 +7,8 @@ import typing
 import glob
 import pathlib
 import time
+
+import requests
 import pytest_mock
 import tempfile
 import simvue.client as svc
@@ -15,14 +17,12 @@ import simvue.run as sv_run
 import simvue.api.objects as sv_api_obj
 from simvue.api.objects.alert.base import AlertBase
 
-@pytest.mark.dependency
 @pytest.mark.client
 def test_get_events(create_test_run: tuple[sv_run.Run, dict]) -> None:
     client = svc.Client()
     assert client.get_events(run_id=create_test_run[1]["run_id"])
 
 
-@pytest.mark.dependency
 @pytest.mark.client
 @pytest.mark.parametrize(
     "from_run", (True, False), ids=("from_run", "all_runs")
@@ -90,7 +90,6 @@ def test_get_alerts(
                 assert len(_alerts) == 2
                 assert f"user_alert_2_{unique_id}" in _alerts
 
-@pytest.mark.dependency
 @pytest.mark.client
 def test_get_run_id_from_name(create_test_run: tuple[sv_run.Run, dict]) -> None:
     client = svc.Client()
@@ -100,7 +99,6 @@ def test_get_run_id_from_name(create_test_run: tuple[sv_run.Run, dict]) -> None:
     )
 
 
-@pytest.mark.dependency
 @pytest.mark.client
 @pytest.mark.parametrize(
     "aggregate,use_name_labels",
@@ -138,7 +136,6 @@ def test_get_metric_values(
         assert create_test_run[1]["run_id"] in _runs
 
 
-@pytest.mark.dependency
 @pytest.mark.client
 def test_plot_metrics(create_test_run: tuple[sv_run.Run, dict]) -> None:
     try:
@@ -154,7 +151,6 @@ def test_plot_metrics(create_test_run: tuple[sv_run.Run, dict]) -> None:
     )
 
 
-@pytest.mark.dependency
 @pytest.mark.client
 @pytest.mark.parametrize(
     "sorting", ([("metadata.test_identifier", True)], [("name", True), ("created", True)], None),
@@ -166,7 +162,6 @@ def test_get_artifacts_entries(create_test_run: tuple[sv_run.Run, dict], sorting
     assert client.get_artifact(create_test_run[1]["run_id"], name="test_attributes")
 
 
-@pytest.mark.dependency
 @pytest.mark.client
 @pytest.mark.parametrize("file_id", (1, 2, 3), ids=lambda x: f"file_{x}")
 def test_get_artifact_as_file(
@@ -183,7 +178,6 @@ def test_get_artifact_as_file(
         assert pathlib.Path(tempd).joinpath(_file_name).exists(), f"Failed to download '{_file_name}'"
 
 
-@pytest.mark.dependency
 @pytest.mark.client
 @pytest.mark.parametrize("category", (None, "code", "input", "output"))
 def test_get_artifacts_as_files(
@@ -213,7 +207,6 @@ def test_get_artifacts_as_files(
                 assert create_test_run[1][file] not in files
 
 
-@pytest.mark.dependency
 @pytest.mark.client
 @pytest.mark.parametrize(
     "output_format,sorting",
@@ -235,14 +228,12 @@ def test_get_runs(create_test_run: tuple[sv_run.Run, dict], output_format: str, 
         assert _result
 
 
-@pytest.mark.dependency
 @pytest.mark.client
 def test_get_run(create_test_run: tuple[sv_run.Run, dict]) -> None:
     client = svc.Client()
     assert client.get_run(run_id=create_test_run[1]["run_id"])
 
 
-@pytest.mark.dependency
 @pytest.mark.client
 @pytest.mark.parametrize(
     "sorting", (None, [("metadata.test_identifier", True), ("path", True)], [("modified", False)]),
@@ -256,24 +247,32 @@ def test_get_folders(create_test_run: tuple[sv_run.Run, dict], sorting: list[tup
     assert client.get_folder(_folder.path)
 
 
-@pytest.mark.dependency
 @pytest.mark.client
 def test_get_metrics_names(create_test_run: tuple[sv_run.Run, dict]) -> None:
     client = svc.Client()
-    time.sleep(1)
-    assert list(client.get_metrics_names(create_test_run[1]["run_id"]))
+    attempts: int = 0
+
+    while not list(client.get_metrics_names(create_test_run[1]["run_id"])) and attempts < 10:
+        time.sleep(1)
+        attempts += 1
+
+    if attempts >= 10:
+        raise AssertionError("Failed to retrieve metric name.")
 
 
-@pytest.mark.dependency
 @pytest.mark.client
 def test_get_tag(create_plain_run: tuple[sv_run.Run, dict]) -> None:
     _, run_data = create_plain_run
     client = svc.Client()
-    time.sleep(1.0)
-    assert any(tag.name == run_data["tags"][-1] for _, tag in client.get_tags())
+    attempts: int = 0
+    while not any(tag.name == run_data["tags"][-1] for _, tag in client.get_tags()) and attempts < 10:
+        time.sleep(1)
+        attempts += 1
+
+    if attempts >= 10:
+        raise AssertionError("Failed to retrieve tag.")
 
 
-@pytest.mark.dependency
 @pytest.mark.client
 def test_run_deletion() -> None:
     run = sv_run.Run()
@@ -286,7 +285,6 @@ def test_run_deletion() -> None:
         client.get_run(run.id)
 
 
-@pytest.mark.dependency
 @pytest.mark.client
 def test_runs_deletion() -> None:
     _runs = [sv_run.Run() for _ in range(5)]
@@ -300,19 +298,21 @@ def test_runs_deletion() -> None:
             client.get_run(run.id) 
 
 
-@pytest.mark.dependency
 @pytest.mark.client
 def test_get_tags(create_plain_run: tuple[sv_run.Run, dict]) -> None:
     run, run_data = create_plain_run
     tags = run_data["tags"]
     run.close()
-    time.sleep(1.0)
     client = svc.Client()
-    retrieved = [t.name for _, t in client.get_tags()]
-    assert all(t in retrieved for t in tags)
+    attempts = 0
+    while not all(f in [t.name for _, t in client.get_tags()] for f in tags) and attempts < 10:
+        time.sleep(1)
+        attempts += 1
+
+    if attempts >= 10:
+        raise AssertionError("Failed to retrieve tags.")
 
 
-@pytest.mark.dependency
 @pytest.mark.client
 def test_folder_deletion() -> None:
     run = sv_run.Run()
@@ -359,7 +359,6 @@ def test_tag_deletion() -> None:
         client.get_tag(tag_identifier)
 
 
-@pytest.mark.dependency
 @pytest.mark.client
 @pytest.mark.parametrize("aggregate", (True, False), ids=("aggregated", "normal"))
 @pytest.mark.parametrize("output_format", ("dict", "dataframe"))
@@ -414,14 +413,11 @@ def test_abort_run(speedy_heartbeat, create_plain_run: tuple[sv_run.Run, dict]) 
     run.update_tags([f"delete_me_{_uuid}"])
     _client = svc.Client()
     _client.abort_run(run.id, reason="Test abort")
-    time.sleep(2)
+    _attempts: int = 0
 
-    # On some machines it might take a little longer so
-    # try twice before accepting the abort failed
-    try:
-        assert run._status == "terminated"
-    except AssertionError:
-        time.sleep(2)
-        assert run._status == "terminated"
-
+    while run.status != "terminated" and _attempts < 10:
+        time.sleep(1)
+        _attempts += 1
+    if _attempts >= 10:
+        raise AssertionError("Failed to terminate run.")
 
