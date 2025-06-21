@@ -127,7 +127,7 @@ def test_nested_queued_dispatch(multi_queue: bool) -> None:
     threads = []
 
     for i in range(3):
-        _thread = Thread(target=_main, args=(result_queue, i,))
+        _thread = Thread(target=_main, args=(result_queue, i,), daemon=True)
         _thread.start()
         threads.append(_thread)
     

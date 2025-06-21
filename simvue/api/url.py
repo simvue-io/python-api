@@ -37,6 +37,11 @@ class URL:
         _new /= other
         return _new
 
+    def __repr__(self) -> str:
+        """Representation of URL"""
+        _out_str = f"{self.__class__.__module__}.{self.__class__.__qualname__}"
+        return f"{_out_str}(url={self.__str__()!r})"
+
     @pydantic.validate_call
     def __itruediv__(self, other: str) -> Self:
         """Define URL extension through use of '/'"""

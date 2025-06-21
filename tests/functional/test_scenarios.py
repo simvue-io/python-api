@@ -123,7 +123,7 @@ def test_uploaded_data_immediately_accessible(
     else:
         if processing == "on_thread":
             thread = threading.Thread(
-                target=upload, args=(name, values_per_run, shared_dict)
+                target=upload, args=(name, values_per_run, shared_dict), daemon=True
             )
         else:
             thread = Process(target=upload, args=(name, values_per_run, shared_dict))

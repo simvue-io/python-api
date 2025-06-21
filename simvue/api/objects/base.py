@@ -365,7 +365,7 @@ class SimvueObject(abc.ABC):
         """
         _class_instance = cls(_read_only=True, _local=True)
         _count: int = 0
-        for response in cls._get_all_objects(offset, count=count):
+        for response in cls._get_all_objects(offset, count=count, **kwargs):
             if (_data := response.get("data")) is None:
                 raise RuntimeError(
                     f"Expected key 'data' for retrieval of {_class_instance.__class__.__name__.lower()}s"
@@ -411,6 +411,10 @@ class SimvueObject(abc.ABC):
                 raise RuntimeError(
                     f"Expected key 'data' for retrieval of {_class_instance.__class__.__name__.lower()}s"
                 )
+
+            # If data is an empty list
+            if not _data:
+                return
 
             for entry in _data:
                 _id = entry["id"]
@@ -473,7 +477,7 @@ class SimvueObject(abc.ABC):
         if not self._read_only:
             self._staging = self._get_local_staged()
 
-    def commit(self) -> None:
+    def commit(self) -> dict | None:
         """Send updates to the server, or if offline, store locally."""
         if self._read_only:
             raise AttributeError("Cannot commit object in 'read-only' mode")
@@ -485,21 +489,25 @@ class SimvueObject(abc.ABC):
             self._cache()
             return
 
+        _response: dict | None = None
+
         # Initial commit is creation of object
         # if staging is empty then we do not need to use PUT
         if not self._identifier or self._identifier.startswith("offline_"):
             self._logger.debug(
                 f"Posting from staged data for {self._label} '{self.id}': {self._staging}"
             )
-            self._post(**self._staging)
+            _response = self._post(**self._staging)
         elif self._staging:
             self._logger.debug(
                 f"Pushing updates from staged data for {self._label} '{self.id}': {self._staging}"
             )
-            self._put(**self._staging)
+            _response = self._put(**self._staging)
 
         # Clear staged changes
         self._clear_staging()
+
+        return _response
 
     @property
     def id(self) -> str | None:
@@ -686,3 +694,15 @@ class SimvueObject(abc.ABC):
             the locally staged data if available.
         """
         return self._staging or None
+
+    def __str__(self) -> str:
+        """String representation of Simvue object."""
+        return f"{self.__class__.__name__}({self.id=})"
+
+    def __repr__(self) -> str:
+        _out_str = f"{self.__class__.__module__}.{self.__class__.__qualname__}("
+        _out_str += ", ".join(
+            f"{property}={getattr(self, property)!r}" for property in self._properties
+        )
+        _out_str += ")"
+        return _out_str
