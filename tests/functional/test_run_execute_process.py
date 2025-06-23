@@ -39,9 +39,21 @@ def test_abort_all_processes(create_plain_run: tuple[Run, dict]) -> None:
             _run.add_process(f"process_{i}", executable="python", script=temp_f.name)
             assert _run.executor.get_command(f"process_{i}") == f"python {temp_f.name}"
 
-        time.sleep(3)
+
+        time.sleep(1)
 
         _run.kill_all_processes()
+
+        # Check that for when one of the processes has stopped
+        _attempts: int = 0
+        _first_out = next(pathlib.Path.cwd().glob("*process_*.out"))
+
+        while _first_out.stat().st_size == 0 and attempts < 10:
+            time.sleep(1)
+            _attempts += 1
+
+        if _attempts >= 10:
+            raise AssertionError("Failed to terminate processes")
 
         # Check the Python process did not error
         _out_err = pathlib.Path.cwd().glob("*process_*.err")
