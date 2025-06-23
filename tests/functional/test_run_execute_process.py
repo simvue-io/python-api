@@ -24,23 +24,21 @@ def test_monitor_processes(create_plain_run_offline: tuple[Run, dict]):
 @pytest.mark.executor
 def test_abort_all_processes(create_plain_run: tuple[Run, dict]) -> None:
     _run, _ = create_plain_run
-    with tempfile.NamedTemporaryFile(suffix=".py") as temp_f:
+    with tempfile.NamedTemporaryFile(suffix=".sh") as temp_f:
         with open(temp_f.name, "w") as out_f:
             out_f.writelines([
-                "import time\n",
-                "count = 0\n"
-                "while True:\n",
-                "    print(count)\n"
-                "    time.sleep(1)\n"
-                "    count += 1"
+                "for i in {0..20}; do\n",
+                "   echo $i\n",
+                "   sleep 1\n",
+                "done\n"
             ])
 
         for i in range(1, 3):
-            _run.add_process(f"process_{i}", executable="python", script=temp_f.name)
-            assert _run.executor.get_command(f"process_{i}") == f"python {temp_f.name}"
+            _run.add_process(f"process_{i}", executable="bash", script=temp_f.name)
+            assert _run.executor.get_command(f"process_{i}") == f"bash {temp_f.name}"
 
 
-        time.sleep(1)
+        time.sleep(3)
 
         _run.kill_all_processes()
 
@@ -48,7 +46,7 @@ def test_abort_all_processes(create_plain_run: tuple[Run, dict]) -> None:
         _attempts: int = 0
         _first_out = next(pathlib.Path.cwd().glob("*process_*.out"))
 
-        while _first_out.stat().st_size == 0 and attempts < 10:
+        while _first_out.stat().st_size == 0 and _attempts < 10:
             time.sleep(1)
             _attempts += 1
 
