@@ -153,17 +153,18 @@ def test_log_metrics(
 
     metrics_spy = mocker.spy(Metrics, "new")
     system_metrics_spy = mocker.spy(sv_run.Run, "_get_internal_metrics")
+    unique_id = f"{uuid.uuid4()}".split("-")[0]
 
     if visibility == "bad_option":
         with pytest.raises(SimvueRunError, match="visibility") as e:
             run.init(
-                name=f"test_run_{str(uuid.uuid4()).split('-', 1)[0]}",
+                name=f"test_run_{unique_id}",
                 tags=[
                     "simvue_client_unit_tests",
                     request.node.name.replace("[", "_").replace("]", "_"),
                 ],
-                folder="/simvue_unit_testing",
-                retention_period="1 hour",
+                folder=f"/simvue_unit_testing/{unique_id}",
+                retention_period="2 mins",
                 visibility=visibility,
             )
             # Will log system metrics on startup, and then not again within timeframe of test
@@ -172,14 +173,14 @@ def test_log_metrics(
         return
 
     run.init(
-        name=f"test_run_{str(uuid.uuid4()).split('-', 1)[0]}",
+        name=f"test_run_{unique_id}",
         tags=[
             "simvue_client_unit_tests",
             request.node.name.replace("[", "_").replace("]", "_"),
         ],
-        folder="/simvue_unit_testing",
+        folder=f"/simvue_unit_testing/{unique_id}",
         visibility=visibility,
-        retention_period="1 hour",
+        retention_period="2 mins",
     )
     # Will log system metrics on startup, and then not again within timeframe of test
     # So should have exactly one measurement of this

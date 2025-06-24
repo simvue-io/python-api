@@ -1,4 +1,5 @@
 import pathlib
+import uuid
 import pytest
 import simvue
 import time
@@ -17,10 +18,17 @@ def test_large_file_upload(
     file_size: int, create_plain_run: tuple[simvue.Run, dict]
 ) -> None:
     FILE_SIZE_MB: int = file_size
-    run, _ = create_plain_run
-    run.update_metadata({"file_size_mb": file_size})
     _file = None
     _temp_file_name = None
+    run = simvue.Run()
+    _uuid = f"{uuid.uuid4()}".split("-")[0]
+    run.init(
+        "test_large_file_artifact",
+        folder=f"/simvue_unit_testing/{_uuid}",
+        retention_period="20 mins",
+        tags=["test_large_file_artifact"],
+    )
+    run.update_metadata({"file_size_mb": file_size})
 
     try:
         with tempfile.NamedTemporaryFile(mode="w+b", delete=False) as temp_f:
@@ -36,7 +44,6 @@ def test_large_file_upload(
             category="output",
             name="test_large_file_artifact",
         )
-
         run.close()
 
         client = simvue.Client()
