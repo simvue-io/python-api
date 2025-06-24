@@ -539,7 +539,9 @@ class Run:
             )
 
             self._heartbeat_thread = threading.Thread(
-                target=self._create_heartbeat_callback(), daemon=True
+                target=self._create_heartbeat_callback(),
+                daemon=True,
+                name=f"{self.id}_heartbeat",
             )
 
         except RuntimeError as e:

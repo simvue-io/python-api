@@ -12,10 +12,10 @@ from simvue.api.objects.artifact.fetch import Artifact
 
 
 @pytest.mark.scenario
-@pytest.mark.parametrize(
-    "file_size", (1, 10, 100)
-)
-def test_large_file_upload(file_size: int, create_plain_run: tuple[simvue.Run, dict]) -> None:
+@pytest.mark.parametrize("file_size", (1, 10, 100))
+def test_large_file_upload(
+    file_size: int, create_plain_run: tuple[simvue.Run, dict]
+) -> None:
     FILE_SIZE_MB: int = file_size
     run, _ = create_plain_run
     run.update_metadata({"file_size_mb": file_size})
@@ -25,13 +25,17 @@ def test_large_file_upload(file_size: int, create_plain_run: tuple[simvue.Run, d
     try:
         with tempfile.NamedTemporaryFile(mode="w+b", delete=False) as temp_f:
             temp_f.seek(FILE_SIZE_MB * 1024 * 1024 - 1)
-            temp_f.write(b'\0')
+            temp_f.write(b"\0")
             temp_f.flush()
             temp_f.seek(0)
             temp_f.close()
         _temp_file_name = temp_f.name
         _input_file_size = pathlib.Path(f"{_temp_file_name}").stat().st_size
-        run.save_file(file_path=f"{temp_f.name}", category="output", name="test_large_file_artifact")
+        run.save_file(
+            file_path=f"{temp_f.name}",
+            category="output",
+            name="test_large_file_artifact",
+        )
 
         run.close()
 
@@ -39,9 +43,7 @@ def test_large_file_upload(file_size: int, create_plain_run: tuple[simvue.Run, d
 
         with tempfile.TemporaryDirectory() as tempd:
             client.get_artifact_as_file(
-                run_id=run.id,
-                name="test_large_file_artifact",
-                output_dir=tempd
+                run_id=run.id, name="test_large_file_artifact", output_dir=tempd
             )
 
             _file = next(pathlib.Path(tempd).glob("*"))
@@ -72,7 +74,7 @@ def test_time_multi_run_create_threshold() -> None:
             f"test run {i}",
             tags=["test_benchmarking"],
             folder="/simvue_benchmark_testing",
-            retention_period="1 hour"
+            retention_period="1 hour",
         )
         runs.append(run)
     for run in runs:
@@ -100,6 +102,7 @@ def run_deleter(request):
     request.addfinalizer(delete_run)
     return ident_dict
 
+
 def upload(name: str, values_per_run: int, shared_dict) -> None:
     run = simvue.Run()
     run.init(name=name, tags=["simvue_client_tests"])
@@ -107,6 +110,7 @@ def upload(name: str, values_per_run: int, shared_dict) -> None:
     for i in range(values_per_run):
         run.log_metrics({"increment": i})
     run.close()
+
 
 @pytest.mark.scenario
 @pytest.mark.parametrize("values_per_run", (1, 2, 100, 1500))
@@ -123,7 +127,10 @@ def test_uploaded_data_immediately_accessible(
     else:
         if processing == "on_thread":
             thread = threading.Thread(
-                target=upload, args=(name, values_per_run, shared_dict), daemon=True
+                target=upload,
+                args=(name, values_per_run, shared_dict),
+                daemon=True,
+                name=f"{name}_Thread",
             )
         else:
             thread = Process(target=upload, args=(name, values_per_run, shared_dict))
@@ -133,10 +140,16 @@ def test_uploaded_data_immediately_accessible(
     run_deleter["ident"] = shared_dict["ident"]
 
     values = simvue.Client().get_metric_values(
-        ["increment"], "step", run_ids=[shared_dict["ident"]], max_points=2 * values_per_run, aggregate=False
+        ["increment"],
+        "step",
+        run_ids=[shared_dict["ident"]],
+        max_points=2 * values_per_run,
+        aggregate=False,
     )["increment"]
 
     assert len(values) == values_per_run, "all uploaded values should be returned"
 
     for i in range(len(values)):
-        assert i == int(values[(i, shared_dict["ident"])]), "values should be ascending ints"
+        assert i == int(values[(i, shared_dict["ident"])]), (
+            "values should be ascending ints"
+        )

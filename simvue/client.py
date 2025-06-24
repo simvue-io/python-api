@@ -642,7 +642,9 @@ class Client:
             Artifact.from_run(run_id=run_id, category=category)
         )
 
-        with ThreadPoolExecutor(CONCURRENT_DOWNLOADS) as executor:
+        with ThreadPoolExecutor(
+            CONCURRENT_DOWNLOADS, thread_name_prefix=f"get_artifacts_run_{run_id}"
+        ) as executor:
             futures = [
                 executor.submit(_download_artifact_to_file, artifact, output_dir)
                 for _, artifact in _artifacts

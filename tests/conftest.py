@@ -310,3 +310,4 @@ def setup_test_run(run: sv_run.Run, create_objects: bool, request: pytest.Fixtur
     TEST_DATA["alert_ids"] = _alert_ids
 
     return TEST_DATA
+

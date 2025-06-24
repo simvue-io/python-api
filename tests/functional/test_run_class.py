@@ -464,6 +464,7 @@ def test_update_metadata_offline(
 
 
 @pytest.mark.run
+@pytest.mark.scenario
 @pytest.mark.parametrize("multi_threaded", (True, False), ids=("multi", "single"))
 def test_runs_multiple_parallel(
     multi_threaded: bool, request: pytest.FixtureRequest
@@ -491,7 +492,7 @@ def test_runs_multiple_parallel(
                     run.log_metrics(metric)
             return index, metrics, run.id
 
-        with concurrent.futures.ThreadPoolExecutor(max_workers=N_RUNS) as executor:
+        with concurrent.futures.ThreadPoolExecutor(max_workers=N_RUNS, thread_name_prefix="test_runs_multiple_parallel") as executor:
             futures = [executor.submit(thread_func, i) for i in range(N_RUNS)]
 
             time.sleep(1)
@@ -561,6 +562,7 @@ def test_runs_multiple_parallel(
 
 
 @pytest.mark.run
+@pytest.mark.scenario
 def test_runs_multiple_series(request: pytest.FixtureRequest) -> None:
     N_RUNS: int = 2
 
