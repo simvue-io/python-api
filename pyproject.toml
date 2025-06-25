@@ -108,7 +108,9 @@ markers = [
     "metadata: tests of metadata gathering functions",
     "online: tests for online functionality",
     "offline: tests for offline functionality",
-    "local: tests of functionality which do not involve a server or writing to an offline cache file"
+    "local: tests of functionality which do not involve a server or writing to an offline cache file",
+    "object_retrieval: tests relating to retrieval of objects from the server",
+    "object_removal: tests relating to removal of objects from the server",
 ]
 
 [tool.interrogate]

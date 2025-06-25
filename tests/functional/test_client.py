@@ -19,12 +19,14 @@ from simvue.api.objects.alert.base import AlertBase
 
 
 @pytest.mark.client
+@pytest.mark.object_retrieval
 def test_get_events(create_test_run: tuple[sv_run.Run, dict]) -> None:
     client = svc.Client()
     assert client.get_events(run_id=create_test_run[1]["run_id"])
 
 
 @pytest.mark.client
+@pytest.mark.object_retrieval
 @pytest.mark.parametrize("from_run", (True, False), ids=("from_run", "all_runs"))
 @pytest.mark.parametrize("names_only", (True, False), ids=("names_only", "all_details"))
 @pytest.mark.parametrize(
@@ -96,6 +98,7 @@ def test_get_alerts(
 
 
 @pytest.mark.client
+@pytest.mark.object_retrieval
 def test_get_run_id_from_name(create_test_run: tuple[sv_run.Run, dict]) -> None:
     client = svc.Client()
     assert (
@@ -105,6 +108,7 @@ def test_get_run_id_from_name(create_test_run: tuple[sv_run.Run, dict]) -> None:
 
 
 @pytest.mark.client
+@pytest.mark.object_retrieval
 @pytest.mark.parametrize(
     "aggregate,use_name_labels",
     [(True, False), (False, False), (False, True)],
@@ -138,6 +142,7 @@ def test_get_metric_values(
 
 
 @pytest.mark.client
+@pytest.mark.object_retrieval
 def test_plot_metrics(create_test_run: tuple[sv_run.Run, dict]) -> None:
     try:
         import matplotlib
@@ -153,6 +158,7 @@ def test_plot_metrics(create_test_run: tuple[sv_run.Run, dict]) -> None:
 
 
 @pytest.mark.client
+@pytest.mark.object_retrieval
 @pytest.mark.parametrize(
     "sorting",
     ([("metadata.test_identifier", True)], [("name", True), ("created", True)], None),
@@ -169,6 +175,7 @@ def test_get_artifacts_entries(
 
 
 @pytest.mark.client
+@pytest.mark.object_retrieval
 @pytest.mark.parametrize("file_id", (1, 2, 3), ids=lambda x: f"file_{x}")
 def test_get_artifact_as_file(
     create_test_run: tuple[sv_run.Run, dict], file_id: int
@@ -187,6 +194,7 @@ def test_get_artifact_as_file(
 
 
 @pytest.mark.client
+@pytest.mark.object_retrieval
 @pytest.mark.parametrize("category", (None, "code", "input", "output"))
 def test_get_artifacts_as_files(
     create_test_run: tuple[sv_run.Run, dict],
@@ -216,6 +224,7 @@ def test_get_artifacts_as_files(
 
 
 @pytest.mark.client
+@pytest.mark.object_retrieval
 @pytest.mark.parametrize(
     "output_format,sorting",
     [
@@ -243,12 +252,14 @@ def test_get_runs(
 
 
 @pytest.mark.client
+@pytest.mark.object_retrieval
 def test_get_run(create_test_run: tuple[sv_run.Run, dict]) -> None:
     client = svc.Client()
     assert client.get_run(run_id=create_test_run[1]["run_id"])
 
 
 @pytest.mark.client
+@pytest.mark.object_retrieval
 @pytest.mark.parametrize(
     "sorting",
     (None, [("metadata.test_identifier", True), ("path", True)], [("modified", False)]),
@@ -265,6 +276,7 @@ def test_get_folders(
 
 
 @pytest.mark.client
+@pytest.mark.object_retrieval
 def test_get_metrics_names(create_test_run: tuple[sv_run.Run, dict]) -> None:
     client = svc.Client()
     attempts: int = 0
@@ -281,6 +293,7 @@ def test_get_metrics_names(create_test_run: tuple[sv_run.Run, dict]) -> None:
 
 
 @pytest.mark.client
+@pytest.mark.object_retrieval
 def test_get_tag(create_plain_run: tuple[sv_run.Run, dict]) -> None:
     _, run_data = create_plain_run
     client = svc.Client()
@@ -297,6 +310,7 @@ def test_get_tag(create_plain_run: tuple[sv_run.Run, dict]) -> None:
 
 
 @pytest.mark.client
+@pytest.mark.object_removal
 def test_run_deletion() -> None:
     run = sv_run.Run()
     run.init(
@@ -314,6 +328,7 @@ def test_run_deletion() -> None:
 
 
 @pytest.mark.client
+@pytest.mark.object_removal
 def test_runs_deletion() -> None:
     _runs = [sv_run.Run() for _ in range(5)]
     for i, run in enumerate(_runs):
@@ -332,6 +347,7 @@ def test_runs_deletion() -> None:
 
 
 @pytest.mark.client
+@pytest.mark.object_retrieval
 def test_get_tags() -> None:
     _uuid = f"{uuid.uuid4()}".split("-")[0]
     tags = ["simvue_unit_testing", "test_get_tags", "testing", _uuid]
@@ -358,6 +374,7 @@ def test_get_tags() -> None:
 
 
 @pytest.mark.client
+@pytest.mark.object_removal
 def test_folder_deletion() -> None:
     run = sv_run.Run()
     _temp_folder_id: str = f"{uuid.uuid4()}".split()[0]
@@ -386,6 +403,7 @@ def test_folder_deletion() -> None:
 
 
 @pytest.mark.client
+@pytest.mark.object_retrieval
 def test_run_folder_metadata_find() -> None:
     _uuid: str = f"{uuid.uuid4()}".split()[0]
     with sv_run.Run() as run:
@@ -404,6 +422,7 @@ def test_run_folder_metadata_find() -> None:
 
 
 @pytest.mark.client
+@pytest.mark.object_removal
 def test_tag_deletion() -> None:
     with sv_run.Run() as run:
         unique_id = f"{uuid.uuid4()}".split("-")[0]
@@ -424,6 +443,7 @@ def test_tag_deletion() -> None:
 
 
 @pytest.mark.client
+@pytest.mark.object_retrieval
 @pytest.mark.parametrize("aggregate", (True, False), ids=("aggregated", "normal"))
 @pytest.mark.parametrize("output_format", ("dict", "dataframe"))
 @pytest.mark.parametrize("xaxis", ("step", "time", "timestamp"))
@@ -461,6 +481,7 @@ def test_multiple_metric_retrieval(
 
 
 @pytest.mark.client
+@pytest.mark.object_removal
 def test_alert_deletion() -> None:
     _alert = sv_api_obj.UserAlert.new(
         name="test_alert", notification="none", description=None
@@ -473,6 +494,7 @@ def test_alert_deletion() -> None:
 
 
 @pytest.mark.client
+@pytest.mark.object_removal
 def test_abort_run(speedy_heartbeat, create_plain_run: tuple[sv_run.Run, dict]) -> None:
     run, run_data = create_plain_run
     _uuid = f"{uuid.uuid4()}".split("-")[0]
