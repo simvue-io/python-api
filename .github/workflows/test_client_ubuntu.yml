@@ -18,7 +18,7 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  client_tests:
+  object_retrieval:
     runs-on: ubuntu-latest
     timeout-minutes: 30
     steps:
@@ -41,7 +41,32 @@ jobs:
         SIMVUE_TOKEN: ${{ secrets.SIMVUE_TOKEN }}
       run: >-
         python -m pytest -x
-        -m client -c /dev/null -p no:warnings
+        -m object_retrieval -c /dev/null -p no:warnings
+        -n 0 -v -o cache_dir=${GITHUB_WORKSPACE}/.pytest-cache
+  object_removal:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+    - uses: actions/checkout@v4
+    - name: Set up Python 3.13
+      uses: actions/setup-python@v5
+      with:
+        python-version: "3.13"
+    - name: Install dependencies
+      run: |
+        python -m pip install poetry
+        poetry self add poetry-plugin-export
+        poetry export -f requirements.txt --with dev -o requirements.txt --all-extras
+        python -m pip install torch --index-url https://download.pytorch.org/whl/cpu
+        python -m pip install -r requirements.txt
+        python -m pip install .
+    - name: Test with pytest
+      env:
+        SIMVUE_URL: ${{ secrets.SIMVUE_URL }}
+        SIMVUE_TOKEN: ${{ secrets.SIMVUE_TOKEN }}
+      run: >-
+        python -m pytest -x
+        -m object_removal -c /dev/null -p no:warnings
         -n 0 -v -o cache_dir=${GITHUB_WORKSPACE}/.pytest-cache
   dispatch_tests:
     runs-on: ubuntu-latest
