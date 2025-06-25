@@ -1,0 +1,328 @@
+{
+  "$defs": {
+    "ClientGeneralOptions": {
+      "properties": {
+        "debug": {
+          "default": false,
+          "title": "Debug",
+          "type": "boolean"
+        }
+      },
+      "title": "ClientGeneralOptions",
+      "type": "object"
+    },
+    "DefaultRunSpecifications": {
+      "properties": {
+        "name": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Name"
+        },
+        "description": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Description"
+        },
+        "tags": {
+          "anyOf": [
+            {
+              "items": {
+                "type": "string"
+              },
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Tags"
+        },
+        "folder": {
+          "default": "/",
+          "pattern": "^/.*",
+          "title": "Folder",
+          "type": "string"
+        },
+        "metadata": {
+          "anyOf": [
+            {
+              "additionalProperties": {
+                "anyOf": [
+                  {
+                    "type": "string"
+                  },
+                  {
+                    "type": "integer"
+                  },
+                  {
+                    "type": "number"
+                  },
+                  {
+                    "type": "boolean"
+                  }
+                ]
+              },
+              "type": "object"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Metadata"
+        },
+        "mode": {
+          "default": "online",
+          "enum": [
+            "offline",
+            "disabled",
+            "online"
+          ],
+          "title": "Mode",
+          "type": "string"
+        }
+      },
+      "title": "DefaultRunSpecifications",
+      "type": "object"
+    },
+    "EcoConfig": {
+      "description": "Configurations for CO2 emission metrics gathering.\n\nParameters\n----------\nco2_signal_api_token: str | None, optional\n    the CO2 signal API token (Recommended), default is None\ncpu_thermal_design_power: int | None, optional\n    the TDP for the CPU\ngpu_thermal_design_power: int | None, optional\n    the TDP for each GPU",
+      "properties": {
+        "co2_signal_api_token": {
+          "anyOf": [
+            {
+              "format": "password",
+              "type": "string",
+              "writeOnly": true
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Co2 Signal Api Token"
+        },
+        "cpu_thermal_design_power": {
+          "anyOf": [
+            {
+              "exclusiveMinimum": 0,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Cpu Thermal Design Power"
+        },
+        "cpu_n_cores": {
+          "anyOf": [
+            {
+              "exclusiveMinimum": 0,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Cpu N Cores"
+        },
+        "gpu_thermal_design_power": {
+          "anyOf": [
+            {
+              "exclusiveMinimum": 0,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Gpu Thermal Design Power"
+        },
+        "intensity_refresh_interval": {
+          "anyOf": [
+            {
+              "anyOf": [
+                {
+                  "exclusiveMinimum": 0,
+                  "type": "integer"
+                },
+                {
+                  "type": "string"
+                }
+              ],
+              "gt": 120
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": "1 hour",
+          "title": "Intensity Refresh Interval"
+        },
+        "co2_intensity": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Co2 Intensity"
+        }
+      },
+      "title": "EcoConfig",
+      "type": "object"
+    },
+    "MetricsSpecifications": {
+      "properties": {
+        "system_metrics_interval": {
+          "anyOf": [
+            {
+              "exclusiveMinimum": 0,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": -1,
+          "title": "System Metrics Interval"
+        },
+        "enable_emission_metrics": {
+          "default": false,
+          "title": "Enable Emission Metrics",
+          "type": "boolean"
+        }
+      },
+      "title": "MetricsSpecifications",
+      "type": "object"
+    },
+    "OfflineSpecifications": {
+      "properties": {
+        "cache": {
+          "anyOf": [
+            {
+              "format": "path",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Cache"
+        }
+      },
+      "title": "OfflineSpecifications",
+      "type": "object"
+    },
+    "ServerSpecifications": {
+      "properties": {
+        "url": {
+          "anyOf": [
+            {
+              "format": "uri",
+              "minLength": 1,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Url"
+        },
+        "token": {
+          "anyOf": [
+            {
+              "format": "password",
+              "type": "string",
+              "writeOnly": true
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Token"
+        }
+      },
+      "required": [
+        "url",
+        "token"
+      ],
+      "title": "ServerSpecifications",
+      "type": "object"
+    }
+  },
+  "properties": {
+    "client": {
+      "$ref": "#/$defs/ClientGeneralOptions",
+      "default": {
+        "debug": false
+      }
+    },
+    "server": {
+      "$ref": "#/$defs/ServerSpecifications",
+      "description": "Specifications for Simvue server"
+    },
+    "run": {
+      "$ref": "#/$defs/DefaultRunSpecifications",
+      "default": {
+        "name": null,
+        "description": null,
+        "tags": null,
+        "folder": "/",
+        "metadata": null,
+        "mode": "online"
+      }
+    },
+    "offline": {
+      "$ref": "#/$defs/OfflineSpecifications",
+      "default": {
+        "cache": null
+      }
+    },
+    "metrics": {
+      "$ref": "#/$defs/MetricsSpecifications",
+      "default": {
+        "system_metrics_interval": -1,
+        "enable_emission_metrics": false
+      }
+    },
+    "eco": {
+      "$ref": "#/$defs/EcoConfig",
+      "default": {
+        "co2_signal_api_token": null,
+        "cpu_thermal_design_power": null,
+        "cpu_n_cores": null,
+        "gpu_thermal_design_power": null,
+        "intensity_refresh_interval": "1 hour",
+        "co2_intensity": null
+      }
+    }
+  },
+  "required": [
+    "server"
+  ],
+  "title": "SimvueConfiguration",
+  "type": "object"
+}

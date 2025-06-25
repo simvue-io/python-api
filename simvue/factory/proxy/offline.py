@@ -74,8 +74,8 @@ class Offline(SimvueBaseClass):
             self._logger.error("No directory specified")
             return (None, None)
 
-        if not self._name:
-            self._name = randomname.get_name()
+        if not self.name:
+            self.name = randomname.get_name()
 
         try:
             os.makedirs(self._directory, exist_ok=True)
@@ -98,7 +98,7 @@ class Offline(SimvueBaseClass):
         filename = f"{self._directory}/{status}"
         create_file(filename)
 
-        return self._name, self._id
+        return self.name, self.id
 
     @skip_if_failed("_aborted", "_suppress_errors", None)
     def update(self, data) -> dict[str, typing.Any] | None:
@@ -171,7 +171,7 @@ class Offline(SimvueBaseClass):
         with open(_alert_file) as alert_in:
             _alert_data = json.load(alert_in)
 
-        _alert_data |= {"run": self._id, "alert": alert_id, "status": status}
+        _alert_data |= {"run": self.id, "alert": alert_id, "status": status}
 
         self._write_json(_alert_file, _alert_data)
 

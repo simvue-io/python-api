@@ -25,6 +25,10 @@ from simvue.exception import ObjectNotFoundError
 
 MAX_BUFFER_SIZE: int = 10
 
+def pytest_addoption(parser):
+    parser.addoption("--debug-simvue", action="store_true", default=False)
+
+
 class CountingLogHandler(logging.Handler):
     def __init__(self, level=logging.DEBUG):
         super().__init__(level)
@@ -48,6 +52,7 @@ def clear_out_files() -> None:
 
     for file_obj in out_files:
         file_obj.unlink()
+
         
 @pytest.fixture()
 def offline_cache_setup(monkeypatch: monkeypatch.MonkeyPatch):
@@ -113,11 +118,11 @@ def speedy_heartbeat(monkeypatch: monkeypatch.MonkeyPatch) -> None:
 
 
 @pytest.fixture(autouse=True)
-def setup_logging() -> CountingLogHandler:
-    logging.basicConfig(level=logging.DEBUG)
+def setup_logging(pytestconfig) -> CountingLogHandler:
+    logging.basicConfig(level=logging.WARNING)
     handler = CountingLogHandler()
-    logging.getLogger().setLevel(logging.DEBUG)
-    logging.getLogger().addHandler(handler)
+    logging.getLogger("simvue").setLevel(logging.DEBUG if pytestconfig.getoption("debug_simvue") else logging.WARNING)
+    logging.getLogger("simvue").addHandler(handler)
     return handler
 
 
@@ -142,7 +147,7 @@ def create_test_run(request, prevent_script_exit) -> typing.Generator[typing.Tup
     for alert_id in _test_run_data.get("alert_ids", []):
         with contextlib.suppress(ObjectNotFoundError):
             sv_api_obj.Alert(identifier=alert_id).delete()
-clear_out_files()
+    clear_out_files()
 
 
 @pytest.fixture
@@ -274,8 +279,8 @@ def setup_test_run(run: sv_run.Run, create_objects: bool, request: pytest.Fixtur
     if create_objects:
         TEST_DATA["metrics"] = ("metric_counter", "metric_val")
 
-    TEST_DATA["run_id"] = run._id
-    TEST_DATA["run_name"] = run._name
+    TEST_DATA["run_id"] = run.id
+    TEST_DATA["run_name"] = run.name
     TEST_DATA["url"] = run._user_config.server.url
     TEST_DATA["headers"] = run._headers
     TEST_DATA["pid"] = run._pid

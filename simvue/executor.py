@@ -16,6 +16,7 @@ import sys
 import multiprocessing
 import threading
 import os
+import shutil
 import psutil
 import subprocess
 import contextlib
@@ -205,6 +206,19 @@ class Executor:
                 "due to function pickling restrictions"
             )
 
+        # To check the executable provided by the user exists combine with environment
+        # PATH variable if exists, if not provided use the current environment
+        _session_path: str | None = (os.environ.copy() | (env or {})).get("PATH", None)
+
+        if (
+            executable
+            and not pathlib.Path(executable).exists()
+            and not shutil.which(executable, path=_session_path)
+        ):
+            raise FileNotFoundError(
+                f"Executable '{executable}' does not exist, please check the path/environment."
+            )
+
         if script:
             self._runner.save_file(file_path=script, category="code")
 
@@ -377,7 +391,7 @@ class Executor:
             # This is so that if a process incorrectly reports its return code,
             # the user can manually set the correct status depending on logs etc.
             _alert = UserAlert(identifier=self._alert_ids[proc_id])
-            _is_set = _alert.get_status(run_id=self._runner._id)
+            _is_set = _alert.get_status(run_id=self._runner.id)
 
             if process.returncode != 0:
                 # If the process fails then purge the dispatcher event queue
@@ -404,6 +418,10 @@ class Executor:
 
     def _save_output(self) -> None:
         """Save the output to Simvue"""
+        if self._runner.status != "running":
+            logger.debug("Run is not active, skipping output save.")
+            return
+
         for proc_id in self._processes.keys():
             # Only save the file if the contents are not empty
             if self.std_err(proc_id):

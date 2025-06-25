@@ -89,7 +89,7 @@ def test_get_alerts(
             else:
                 assert len(_alerts) == 2
                 assert f"user_alert_2_{unique_id}" in _alerts
-            
+
 @pytest.mark.dependency
 @pytest.mark.client
 def test_get_run_id_from_name(create_test_run: tuple[sv_run.Run, dict]) -> None:
@@ -273,42 +273,35 @@ def test_get_tag(create_plain_run: tuple[sv_run.Run, dict]) -> None:
     assert any(tag.name == run_data["tags"][-1] for _, tag in client.get_tags())
 
 
-PRE_DELETION_TESTS: list[str] = [
-    "test_get_metrics",
-    "test_get_runs",
-    "test_get_run",
-    "test_get_artifact_as_file",
-    "test_get_artifacts_as_files",
-    "test_get_folders",
-    "test_get_metrics_names",
-    "test_get_metrics_multiple",
-    "test_plot_metrics",
-    "test_get_run_id_from_name",
-    "test_get_folder",
-    "test_get_tags"
-]
-
-
 @pytest.mark.dependency
-@pytest.mark.client(depends=PRE_DELETION_TESTS)
-def test_run_deletion(create_test_run: tuple[sv_run.Run, dict]) -> None:
-    run, run_data = create_test_run
+@pytest.mark.client
+def test_run_deletion() -> None:
+    run = sv_run.Run()
+    run.init(name="test_run_deletion", folder="/simvue_unit_testing", tags=["test_run_deletion"], retention_period="1 min")
+    run.log_metrics({"x": 2})
     run.close()
     client = svc.Client()
-    assert not client.delete_run(run_data["run_id"])
+    assert not client.delete_run(run.id)
+    with pytest.raises(ObjectNotFoundError):
+        client.get_run(run.id)
 
 
 @pytest.mark.dependency
-@pytest.mark.client(depends=PRE_DELETION_TESTS)
-def test_runs_deletion(create_test_run: tuple[sv_run.Run, dict]) -> None:
-    run, run_data = create_test_run
-    run.close()
+@pytest.mark.client
+def test_runs_deletion() -> None:
+    _runs = [sv_run.Run() for _ in range(5)]
+    for i, run in enumerate(_runs):
+        run.init(name="test_runs_deletion", folder="/simvue_unit_testing/runs_batch", tags=["test_runs_deletion"], retention_period="1 min")
+        run.log_metrics({"x": i})
     client = svc.Client()
-    assert len(client.delete_runs(run_data["folder"])) > 0
+    assert len(client.delete_runs("/simvue_unit_testing/runs_batch")) > 0
+    for run in _runs:
+        with pytest.raises(ObjectNotFoundError):
+            client.get_run(run.id) 
 
 
 @pytest.mark.dependency
-@pytest.mark.client(depends=PRE_DELETION_TESTS)
+@pytest.mark.client
 def test_get_tags(create_plain_run: tuple[sv_run.Run, dict]) -> None:
     run, run_data = create_plain_run
     tags = run_data["tags"]
@@ -320,14 +313,19 @@ def test_get_tags(create_plain_run: tuple[sv_run.Run, dict]) -> None:
 
 
 @pytest.mark.dependency
-@pytest.mark.client(depends=PRE_DELETION_TESTS + ["test_runs_deletion"])
-def test_folder_deletion(create_test_run: tuple[sv_run.Run, dict]) -> None:
-    run, run_data = create_test_run
+@pytest.mark.client
+def test_folder_deletion() -> None:
+    run = sv_run.Run()
+    run.init(name="test_folder_deletion", folder="/simvue_unit_testing/delete_me", tags=["test_folder_deletion"], retention_period="1 min")
     run.close()
     client = svc.Client()
     # This test is called last, one run created so expect length 1
-    assert len(client.delete_folder(run_data["folder"], remove_runs=True)) == 1
-    assert not client.get_folder(run_data["folder"])
+    assert len(client.delete_folder("/simvue_unit_testing/delete_me", remove_runs=True)) == 1
+    time.sleep(10)
+    with pytest.raises(ObjectNotFoundError):
+        client.get_folder("/simvue_unit_testing/delete_me")
+    with pytest.raises(ObjectNotFoundError):
+        client.get_run(run_id=run.id)
 
 
 @pytest.mark.client
@@ -344,20 +342,20 @@ def test_run_folder_metadata_find(create_plain_run: tuple[sv_run.Run, dict]) -> 
 
 
 @pytest.mark.client
-def test_tag_deletion(create_plain_run: tuple[sv_run.Run, dict]) -> None:
-    run, run_data = create_plain_run
-    unique_id = f"{uuid.uuid4()}".split("-")[0]
-    run.update_tags([f"delete_me_{unique_id}"])
+def test_tag_deletion() -> None:
+    run = sv_run.Run()
+    run.init(name="test_folder_deletion", folder="/simvue_unit_testing/delete_me", tags=["test_tag_deletion"], retention_period="1 min")
     run.close()
-    time.sleep(1.0)
+    unique_id = f"{uuid.uuid4()}".split("-")[0]
+    run.update_tags([(tag_str := f"delete_me_{unique_id}")])
+    run.close()
     client = svc.Client()
     tags = client.get_tags()
     client.delete_run(run.id)
-    time.sleep(1.0)
-    tag_identifier = [identifier for identifier, tag in tags if tag.name == f"delete_me_{unique_id}"][0]
+    tag_identifier = [identifier for identifier, tag in tags if tag.name == tag_str][0]
     client.delete_tag(tag_identifier)
-    time.sleep(1.0)
-    assert not client.get_tag(tag_identifier)
+    with pytest.raises(ObjectNotFoundError):
+        client.get_tag(tag_identifier)
 
 
 @pytest.mark.dependency
@@ -403,9 +401,7 @@ def test_alert_deletion() -> None:
     _alert = sv_api_obj.UserAlert.new(name="test_alert", notification="none", description=None)
     _alert.commit()
     _client = svc.Client()
-    time.sleep(1)
     _client.delete_alert(alert_id=_alert.id)
-
     with pytest.raises(ObjectNotFoundError) as e:
         sv_api_obj.Alert(identifier=_alert.id)
 

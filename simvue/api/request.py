@@ -68,6 +68,7 @@ def post(
     params: dict[str, str],
     data: typing.Any,
     is_json: bool = True,
+    timeout: int | None = None,
     files: dict[str, typing.Any] | None = None,
 ) -> requests.Response:
     """HTTP POST with retries
@@ -102,7 +103,7 @@ def post(
         headers=headers,
         params=params,
         data=data_sent,
-        timeout=DEFAULT_API_TIMEOUT,
+        timeout=timeout,
         files=files,
     )
 
@@ -303,18 +304,30 @@ def get_paginated(
         server response
     """
     _offset: int = offset or 0
-    while (
-        _response := get(
-            url=url,
-            headers=headers,
-            params=(params or {})
-            | {"count": count or MAX_ENTRIES_PER_PAGE, "start": _offset},
-            timeout=timeout,
-            json=json,
-        )
-    ).json():
-        yield _response
-        _offset += MAX_ENTRIES_PER_PAGE
 
-        if (count and _offset > count) or (_response.json().get("count", 0) < _offset):
-            break
+    # Restrict the number of entries retrieved to be paginated,
+    # if the count requested is below page limit use this value
+    # else if undefined or greater than the page limit use the limit
+    _request_count: int = min(count or MAX_ENTRIES_PER_PAGE, MAX_ENTRIES_PER_PAGE)
+
+    try:
+        while (
+            _response := get(
+                url=url,
+                headers=headers,
+                params=(params or {}) | {"count": _request_count, "start": _offset},
+                timeout=timeout,
+                json=json,
+            )
+        ).json():
+            yield _response
+            _offset += MAX_ENTRIES_PER_PAGE
+
+            if (count and _offset > count) or (
+                _response.json().get("count", 0) < _offset
+            ):
+                break
+    except json_module.JSONDecodeError:
+        raise RuntimeError(
+            f"[{_response.status_code}] Failed to retrieve content from server: {_response.text}"
+        )

@@ -1,4 +1,5 @@
 import json
+import logging
 import os
 import pytest
 import pytest_mock
@@ -55,7 +56,7 @@ def test_check_run_initialised_decorator() -> None:
 def test_run_with_emissions_online(speedy_heartbeat, mock_co2_signal, create_plain_run) -> None:
     run_created, _ = create_plain_run
     run_created._user_config.eco.co2_signal_api_token = "test_token"
-    run_created.config(enable_emission_metrics=True)
+    run_created.config(enable_emission_metrics=True, system_metrics_interval=1)
     time.sleep(5)
     _run = RunObject(identifier=run_created.id)
     _metric_names = [item[0] for item in _run.metrics]
@@ -157,7 +158,9 @@ def test_log_metrics(
                 retention_period="1 hour",
                 visibility=visibility,
             )
-            run.config(system_metrics_interval=1)
+            # Will log system metrics on startup, and then not again within timeframe of test
+            # So should have exactly one measurement of this
+            run.config(system_metrics_interval=100)
         return
 
     run.init(
@@ -170,8 +173,9 @@ def test_log_metrics(
         visibility=visibility,
         retention_period="1 hour",
     )
-    run.config(system_metrics_interval=1)
-
+    # Will log system metrics on startup, and then not again within timeframe of test
+    # So should have exactly one measurement of this
+    run.config(system_metrics_interval=100)
     # Speed up the read rate for this test
     run._dispatcher._max_buffer_size = 10
     run._dispatcher._max_read_rate *= 10
@@ -185,14 +189,14 @@ def test_log_metrics(
     run.close()
     client = sv_cl.Client()
     _data = client.get_metric_values(
-        run_ids=[run._id],
+        run_ids=[run.id],
         metric_names=list(METRICS.keys()),
         xaxis="step",
         aggregate=False,
     )
 
     with contextlib.suppress(RuntimeError):
-        client.delete_run(run._id)
+        client.delete_run(run.id)
 
     assert _data
 
@@ -220,7 +224,7 @@ def test_log_metrics(
 def test_log_metrics_offline(create_plain_run_offline: tuple[sv_run.Run, dict]) -> None:
     METRICS = {"a": 10, "b": 1.2, "c": 2}
     run, _ = create_plain_run_offline
-    run_name = run._name
+    run_name = run.name
     run.log_metrics(METRICS)
     time.sleep(1)
     sv_send.sender(os.environ["SIMVUE_OFFLINE_DIRECTORY"], 2, 10)
@@ -276,7 +280,7 @@ def test_visibility_online(
         retention_period="1 hour",
     )
     time.sleep(1)
-    _id = run._id
+    _id = run.id
     run.close()
     _retrieved_run = RunObject(identifier=_id)
 
@@ -329,7 +333,7 @@ def test_visibility_offline(
             retention_period="1 hour",
         )
         time.sleep(1)
-        _id = run._id
+        _id = run.id
         _id_mapping = sv_send.sender(os.environ["SIMVUE_OFFLINE_DIRECTORY"], 2, 10)
         run.close()
         _retrieved_run = RunObject(identifier=_id_mapping.get(_id))
@@ -360,7 +364,7 @@ def test_log_events_online(create_test_run: tuple[sv_run.Run, dict]) -> None:
 def test_log_events_offline(create_plain_run_offline: tuple[sv_run.Run, dict]) -> None:
     EVENT_MSG = "Hello offline world!"
     run, _ = create_plain_run_offline
-    run_name = run._name
+    run_name = run.name
     run.log_event(EVENT_MSG)
     time.sleep(1)
     sv_send.sender(os.environ["SIMVUE_OFFLINE_DIRECTORY"], 2, 10)
@@ -430,7 +434,7 @@ def test_update_metadata_offline(
 ) -> None:
     METADATA = {"a": 1, "b": 1.2, "c": "word", "d": "new"}
     run, _ = create_plain_run_offline
-    run_name = run._name
+    run_name = run.name
     # Add an initial set of metadata
     run.update_metadata({"a": 10, "b": 1.2, "c": "word"})
     # Try updating a second time, check original dict isnt overwritten
@@ -475,7 +479,7 @@ def test_runs_multiple_parallel(
                     metric = {f"var_{index + 1}": random.random()}
                     metrics.append(metric)
                     run.log_metrics(metric)
-            return index, metrics, run._id
+            return index, metrics, run.id
 
         with concurrent.futures.ThreadPoolExecutor(max_workers=N_RUNS) as executor:
             futures = [executor.submit(thread_func, i) for i in range(N_RUNS)]
@@ -531,7 +535,7 @@ def test_runs_multiple_parallel(
 
                 client = sv_cl.Client()
 
-                for i, run_id in enumerate((run_1._id, run_2._id)):
+                for i, run_id in enumerate((run_1.id, run_2.id)):
                     assert metrics
                     assert client.get_metric_values(
                         run_ids=[run_id],
@@ -542,8 +546,8 @@ def test_runs_multiple_parallel(
                     )
 
         with contextlib.suppress(RuntimeError):
-            client.delete_run(run_1._id)
-            client.delete_run(run_2._id)
+            client.delete_run(run_1.id)
+            client.delete_run(run_2.id)
 
 
 @pytest.mark.run
@@ -566,7 +570,7 @@ def test_runs_multiple_series(request: pytest.FixtureRequest) -> None:
                 folder="/simvue_unit_testing",
                 retention_period="1 hour",
             )
-            run_ids.append(run._id)
+            run_ids.append(run.id)
             for _ in range(10):
                 time.sleep(1)
                 metric = {f"var_{index}": random.random()}
@@ -598,6 +602,7 @@ def test_runs_multiple_series(request: pytest.FixtureRequest) -> None:
 def test_suppressed_errors(
     setup_logging: "CountingLogHandler", post_init: bool, request: pytest.FixtureRequest
 ) -> None:
+    logging.getLogger("simvue").setLevel(logging.DEBUG)
     setup_logging.captures = ["Skipping call to"]
 
     with sv_run.Run(mode="offline") as run:
@@ -672,7 +677,7 @@ def test_set_folder_details(request: pytest.FixtureRequest) -> None:
     ids=[f"scenario_{i}" for i in range(1, 6)],
 )
 def test_save_file_online(
-    create_plain_run: typing.Tuple[sv_run.Run, dict],
+    create_plain_run: tuple[sv_run.Run, dict],
     valid_mimetype: bool,
     preserve_path: bool,
     name: str | None,
@@ -741,7 +746,7 @@ def test_save_file_online(
     ids=[f"scenario_{i}" for i in range(1, 6)],
 )
 def test_save_file_offline(
-    create_plain_run_offline: typing.Tuple[sv_run.Run, dict],
+    create_plain_run_offline: tuple[sv_run.Run, dict],
     preserve_path: bool,
     name: str | None,
     allow_pickle: bool,
@@ -750,7 +755,7 @@ def test_save_file_offline(
     capfd,
 ) -> None:
     simvue_run, _ = create_plain_run_offline
-    run_name = simvue_run._name
+    run_name = simvue_run.name
     file_type: str = "text/plain"
     with tempfile.TemporaryDirectory() as tempd:
         with open(
@@ -763,13 +768,6 @@ def test_save_file_offline(
             out_name,
             category=category,
             file_type=file_type,
-            preserve_path=preserve_path,
-            name=name,
-        )
-
-        simvue_run.save_file(
-            out_name,
-            category=category,
             preserve_path=preserve_path,
             name=name,
         )
@@ -796,7 +794,7 @@ def test_save_file_offline(
 
 @pytest.mark.run
 def test_update_tags_running(
-    create_plain_run: typing.Tuple[sv_run.Run, dict],
+    create_plain_run: tuple[sv_run.Run, dict],
     request: pytest.FixtureRequest,
 ) -> None:
     simvue_run, _ = create_plain_run
@@ -810,19 +808,19 @@ def test_update_tags_running(
 
     time.sleep(1)
     client = sv_cl.Client()
-    run_data = client.get_run(simvue_run._id)
+    run_data = client.get_run(simvue_run.id)
     assert sorted(run_data.tags) == sorted(tags)
 
     simvue_run.update_tags(["additional"])
 
     time.sleep(1)
-    run_data = client.get_run(simvue_run._id)
+    run_data = client.get_run(simvue_run.id)
     assert sorted(run_data.tags) == sorted(tags + ["additional"])
 
 
 @pytest.mark.run
 def test_update_tags_created(
-    create_pending_run: typing.Tuple[sv_run.Run, dict],
+    create_pending_run: tuple[sv_run.Run, dict],
     request: pytest.FixtureRequest,
 ) -> None:
     simvue_run, _ = create_pending_run
@@ -836,23 +834,23 @@ def test_update_tags_created(
 
     time.sleep(1)
     client = sv_cl.Client()
-    run_data = client.get_run(simvue_run._id)
+    run_data = client.get_run(simvue_run.id)
     assert sorted(run_data.tags) == sorted(tags)
 
     simvue_run.update_tags(["additional"])
 
     time.sleep(1)
-    run_data = client.get_run(simvue_run._id)
+    run_data = client.get_run(simvue_run.id)
     assert sorted(run_data.tags) == sorted(tags + ["additional"])
 
 
 @pytest.mark.offline
 @pytest.mark.run
 def test_update_tags_offline(
-    create_plain_run_offline: typing.Tuple[sv_run.Run, dict],
+    create_plain_run_offline: tuple[sv_run.Run, dict],
 ) -> None:
     simvue_run, _ = create_plain_run_offline
-    run_name = simvue_run._name
+    run_name = simvue_run.name
 
     simvue_run.set_tags(
         [
@@ -870,14 +868,14 @@ def test_update_tags_offline(
     run_data = client.get_run(client.get_run_id_from_name(run_name))
 
     time.sleep(1)
-    run_data = client.get_run(simvue_run._id)
+    run_data = client.get_run(simvue_run.id)
     assert sorted(run_data.tags) == sorted(["simvue_client_unit_tests", "additional"])
 
 
 @pytest.mark.run
 @pytest.mark.parametrize("object_type", ("DataFrame", "ndarray"))
 def test_save_object(
-    create_plain_run: typing.Tuple[sv_run.Run, dict], object_type: str
+    create_plain_run: tuple[sv_run.Run, dict], object_type: str
 ) -> None:
     simvue_run, _ = create_plain_run
 
@@ -919,7 +917,7 @@ def test_add_alerts() -> None:
     _expected_alerts.append(_id)
     time.sleep(1)
     # Retrieve run, check if alert has been added
-    _online_run = RunObject(identifier=run._id)
+    _online_run = RunObject(identifier=run.id)
     assert _id in _online_run.alerts
 
     # Create another alert and attach to run
@@ -983,7 +981,7 @@ def test_add_alerts() -> None:
     run.close()
 
     client = sv_cl.Client()
-    client.delete_run(run._id)
+    client.delete_run(run.id)
     for _id in _expected_alerts:
         client.delete_alert(_id)
 
@@ -1000,7 +998,7 @@ def test_log_alert() -> None:
         tags=["test_add_alerts"],
         visibility="tenant",
     )
-    _run_id = run._id
+    _run_id = run.id
     # Create a user alert
     _id = run.create_user_alert(
         name=f"user_alert_{_uuid}",
@@ -1066,7 +1064,7 @@ def test_abort_on_alert_process(mocker: pytest_mock.MockerFixture) -> None:
     assert len(child_processes := process.children(recursive=True)) == 3
     time.sleep(2)
     client = sv_cl.Client()
-    client.abort_run(run._id, reason="testing abort")
+    client.abort_run(run.id, reason="testing abort")
     time.sleep(4)
     assert run._system_metrics_interval == 1
     for child in child_processes:
@@ -1079,7 +1077,7 @@ def test_abort_on_alert_process(mocker: pytest_mock.MockerFixture) -> None:
 
 @pytest.mark.run
 def test_abort_on_alert_python(
-    speedy_heartbeat, create_plain_run: typing.Tuple[sv_run.Run, dict], mocker: pytest_mock.MockerFixture
+    speedy_heartbeat, create_plain_run: tuple[sv_run.Run, dict], mocker: pytest_mock.MockerFixture
 ) -> None:
     timeout: int = 20
     interval: int = 0
@@ -1092,7 +1090,7 @@ def test_abort_on_alert_python(
 
 @pytest.mark.run
 def test_abort_on_alert_raise(
-    create_plain_run: typing.Tuple[sv_run.Run, dict]
+    create_plain_run: tuple[sv_run.Run, dict]
 ) -> None:
 
     run, _ = create_plain_run
@@ -1117,7 +1115,7 @@ def test_abort_on_alert_raise(
 
 
 @pytest.mark.run
-def test_kill_all_processes(create_plain_run: typing.Tuple[sv_run.Run, dict]) -> None:
+def test_kill_all_processes(create_plain_run: tuple[sv_run.Run, dict]) -> None:
     run, _ = create_plain_run
     run.config(system_metrics_interval=1)
     run.add_process(identifier="forever_long_1", executable="bash", c="sleep 10000")
@@ -1143,12 +1141,12 @@ def test_run_created_with_no_timeout() -> None:
             timeout=None,
         )
     client = simvue.Client()
-    assert client.get_run(run._id)
+    assert client.get_run(run.id)
 
 
 @pytest.mark.parametrize("mode", ("online", "offline"), ids=("online", "offline"))
 @pytest.mark.run
-def test_reconnect(mode, monkeypatch: pytest.MonkeyPatch) -> None:
+def test_reconnect_functionality(mode, monkeypatch: pytest.MonkeyPatch) -> None:
     temp_d: tempfile.TemporaryDirectory | None = None
 
     if mode == "offline":
@@ -1175,6 +1173,7 @@ def test_reconnect(mode, monkeypatch: pytest.MonkeyPatch) -> None:
 
     with simvue.Run() as run:
         run.reconnect(run_id)
+        assert run._sv_obj.status == "running"
         run.log_metrics({"test_metric": 1})
         run.log_event("Testing!")
 
@@ -1188,3 +1187,16 @@ def test_reconnect(mode, monkeypatch: pytest.MonkeyPatch) -> None:
     if temp_d:
         temp_d.cleanup()
 
+
+def test_reconnect_with_process(create_plain_run: tuple[sv_run.Run, dict]) -> None:
+    run, _ = create_plain_run
+    run.init(name="test_reconnect_with_process", folder="/simvue_unit_testing", retention_period="2 minutes", running=False)
+    run.close()
+
+    with sv_run.Run() as new_run:
+        new_run.reconnect(run.id)
+        run.add_process(
+            identifier="test_process",
+            executable="bash",
+            c="echo 'Hello World!'",
+        )
