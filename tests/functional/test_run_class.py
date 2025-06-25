@@ -842,8 +842,6 @@ def test_save_file_offline(
             name=name,
         )
         sv_send.sender(os.environ["SIMVUE_OFFLINE_DIRECTORY"], 2, 10)
-        simvue_run.close()
-        time.sleep(1.0)
         os.remove(out_name)
         client = sv_cl.Client()
         base_name = name or out_name.name
