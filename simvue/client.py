@@ -439,7 +439,7 @@ class Client:
             if allow_missing:
                 return None
             else:
-                raise RuntimeError(
+                raise ObjectNotFoundError(
                     f"Deletion of folder '{folder_path}' failed, folder does not exist."
                 )
         _response = Folder(identifier=folder_id).delete(
