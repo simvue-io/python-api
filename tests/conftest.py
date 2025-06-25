@@ -27,6 +27,7 @@ MAX_BUFFER_SIZE: int = 10
 
 def pytest_addoption(parser):
     parser.addoption("--debug-simvue", action="store_true", default=False)
+    parser.addoption("--retention-period", default="2 mins")
 
 
 class CountingLogHandler(logging.Handler):
@@ -119,11 +120,13 @@ def speedy_heartbeat(monkeypatch: monkeypatch.MonkeyPatch) -> None:
 
 
 @pytest.fixture(autouse=True)
-def setup_logging(pytestconfig) -> CountingLogHandler:
+def setup_logging(pytestconfig, monkeypatch) -> CountingLogHandler:
     logging.basicConfig(level=logging.WARNING)
     handler = CountingLogHandler()
     logging.getLogger("simvue").setLevel(logging.DEBUG if pytestconfig.getoption("debug_simvue") else logging.WARNING)
     logging.getLogger("simvue").addHandler(handler)
+    if (_retention := pytestconfig.getoption("retention_period")):
+        monkeypatch.setenv("SIMVUE_TESTING_RETENTION_PERIOD", _retention)
     return handler
 
 
@@ -159,6 +162,11 @@ def create_test_run_offline(request, monkeypatch: pytest.MonkeyPatch, prevent_sc
         monkeypatch.setenv("SIMVUE_OFFLINE_DIRECTORY", temp_d)
         with sv_run.Run("offline") as run:
             yield run, setup_test_run(run, True, request)
+    with contextlib.suppress(ObjectNotFoundError):
+        sv_api_obj.Folder(identifier=run._folder.id).delete(recursive=True, delete_runs=True, runs_only=False)
+    for alert_id in _test_run_data.get("alert_ids", []):
+        with contextlib.suppress(ObjectNotFoundError):
+            sv_api_obj.Alert(identifier=alert_id).delete()
     clear_out_files()
 
 
@@ -223,7 +231,7 @@ def setup_test_run(run: sv_run.Run, create_objects: bool, request: pytest.Fixtur
         tags=TEST_DATA["tags"],
         folder=TEST_DATA["folder"],
         visibility="tenant" if os.environ.get("CI") else None,
-        retention_period="1 hour",
+        retention_period=os.environ.get("SIMVUE_TESTING_RETENTION_PERIOD", "2 mins"),
         timeout=60,
         no_color=True,
         running=not created_only

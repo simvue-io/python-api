@@ -440,7 +440,8 @@ class Client:
                 return None
             else:
                 raise ObjectNotFoundError(
-                    f"Deletion of folder '{folder_path}' failed, folder does not exist."
+                    name=folder_path,
+                    obj_type="folder",
                 )
         _response = Folder(identifier=folder_id).delete(
             delete_runs=remove_runs, recursive=recursive, runs_only=False

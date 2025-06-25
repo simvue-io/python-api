@@ -19,7 +19,7 @@ import datetime
 import simvue
 from simvue.api.objects import Alert, Metrics
 from simvue.eco.api_client import CO2SignalData, CO2SignalResponse
-from simvue.exception import SimvueRunError
+from simvue.exception import ObjectNotFoundError, SimvueRunError
 from simvue.eco.emissions_monitor import TIME_FORMAT, CO2Monitor
 import simvue.run as sv_run
 import simvue.client as sv_cl
@@ -33,11 +33,29 @@ if typing.TYPE_CHECKING:
 
 
 @pytest.mark.run
-def test_created_run() -> None:
+def test_created_run(request) -> None:
+    _uuid = f"{uuid.uuid4()}".split("-")[0]
     with sv_run.Run() as run_created:
-        run_created.init(running=False, retention_period="1 min")
+        run_created.init(
+            request.node.name.replace("[", "_").replace("]", "_"),
+            tags=[
+                "simvue_client_unit_tests",
+                "test_created_run"
+            ],
+            folder=f"/simvue_unit_testing/{_uuid}",
+            running=False,
+            visibility="tenant" if os.environ.get("CI") else None,
+            retention_period=os.environ.get("SIMVUE_TESTING_RETENTION_PERIOD", "2 mins"),
+        )
         _run = RunObject(identifier=run_created.id)
         assert _run.status == "created"
+    with contextlib.suppress(ObjectNotFoundError):
+        client = sv_cl.Client()
+        client.delete_folder(
+            f"/simvue_unit_testing/{uuid}",
+            remove_runs=True,
+            recursive=True
+        )
 
 
 @pytest.mark.run
@@ -126,7 +144,7 @@ def test_run_with_emissions_offline(speedy_heartbeat, mock_co2_signal, create_pl
         assert len(_total_values) > 1
         for i in range(1, len(_total_values)):
             assert _total_values[i] == _total_values[i - 1] + _delta_values[i]
-            
+
 @pytest.mark.run
 @pytest.mark.parametrize(
     "timestamp",
@@ -158,13 +176,13 @@ def test_log_metrics(
     if visibility == "bad_option":
         with pytest.raises(SimvueRunError, match="visibility") as e:
             run.init(
-                name=f"test_run_{unique_id}",
+                request.node.name.replace("[", "_").replace("]", "_"),
                 tags=[
                     "simvue_client_unit_tests",
-                    request.node.name.replace("[", "_").replace("]", "_"),
+                    "test_log_metrics",
                 ],
                 folder=f"/simvue_unit_testing/{unique_id}",
-                retention_period="2 mins",
+                retention_period=os.environ.get("SIMVUE_TESTING_RETENTION_PERIOD", "2 mins"),
                 visibility=visibility,
             )
             # Will log system metrics on startup, and then not again within timeframe of test
@@ -173,14 +191,14 @@ def test_log_metrics(
         return
 
     run.init(
-        name=f"test_run_{unique_id}",
+        request.node.name.replace("[", "_").replace("]", "_"),
         tags=[
             "simvue_client_unit_tests",
-            request.node.name.replace("[", "_").replace("]", "_"),
+            "test_log_metrics",
         ],
         folder=f"/simvue_unit_testing/{unique_id}",
         visibility=visibility,
-        retention_period="2 mins",
+        retention_period=os.environ.get("SIMVUE_TESTING_RETENTION_PERIOD", "2 mins"),
     )
     # Will log system metrics on startup, and then not again within timeframe of test
     # So should have exactly one measurement of this
@@ -194,8 +212,8 @@ def test_log_metrics(
             run.log_metrics({key: i for key in METRICS}, timestamp=timestamp)
     else:
         run.log_metrics(METRICS, timestamp=timestamp)
-    time.sleep(2.0 if overload_buffer else 1.0)
     run.close()
+    time.sleep(2.0 if overload_buffer else 1.0)
     client = sv_cl.Client()
     _data = client.get_metric_values(
         run_ids=[run.id],
@@ -204,8 +222,12 @@ def test_log_metrics(
         aggregate=False,
     )
 
-    with contextlib.suppress(RuntimeError):
-        client.delete_run(run.id)
+    with contextlib.suppress(ObjectNotFoundError):
+        client.delete_folder(
+            f"/simvue_unit_testing/{unique_id}",
+            recursive=True,
+            remove_runs=True
+        )
 
     assert _data
 
@@ -235,16 +257,18 @@ def test_log_metrics_offline(create_plain_run_offline: tuple[sv_run.Run, dict]) 
     run, _ = create_plain_run_offline
     run_name = run.name
     run.log_metrics(METRICS)
-    time.sleep(1)
-    sv_send.sender(os.environ["SIMVUE_OFFLINE_DIRECTORY"], 2, 10)
-    run.close()
     client = sv_cl.Client()
-    _data = client.get_metric_values(
+    sv_send.sender(os.environ["SIMVUE_OFFLINE_DIRECTORY"], 2, 10)
+    attempts: int = 0
+
+    while not (_data := client.get_metric_values(
         run_ids=[client.get_run_id_from_name(run_name)],
         metric_names=list(METRICS.keys()),
         xaxis="step",
         aggregate=False,
-    )
+    )) and attempts < 5:
+        sv_send.sender(os.environ["SIMVUE_OFFLINE_DIRECTORY"], 2, 10)
+
     assert sorted(set(METRICS.keys())) == sorted(set(_data.keys()))
     _steps = []
     for entry in _data.values():
@@ -263,32 +287,32 @@ def test_visibility_online(
 
     run = sv_run.Run()
     run.config(suppress_errors=False)
+    _uuid = f"{uuid.uuid4()}".split("-")[0]
 
     if visibility == "bad_option":
         with pytest.raises(SimvueRunError, match="visibility") as e:
             run.init(
-                name=f"test_visibility_{str(uuid.uuid4()).split('-', 1)[0]}",
+                request.node.name.replace("[", "_").replace("]", "_"),
                 tags=[
                     "simvue_client_unit_tests",
-                    request.node.name.replace("[", "_").replace("]", "_"),
+                    "test_visibility_online"
                 ],
-                folder="/simvue_unit_testing",
-                retention_period="1 hour",
+                folder=f"/simvue_unit_testing/{_uuid}",
+                retention_period=os.environ.get("SIMVUE_TESTING_RETENTION_PERIOD", "2 mins"),
                 visibility=visibility,
             )
         return
 
     run.init(
-        name=f"test_visibility_{str(uuid.uuid4()).split('-', 1)[0]}",
+        request.node.name.replace("[", "_").replace("]", "_"),
         tags=[
             "simvue_client_unit_tests",
-            request.node.name.replace("[", "_").replace("]", "_"),
+            "test_visibility_online"
         ],
-        folder="/simvue_unit_testing",
+        folder=f"/simvue_unit_testing/{_uuid}",
         visibility=visibility,
-        retention_period="1 hour",
+        retention_period=os.environ.get("SIMVUE_TESTING_RETENTION_PERIOD", "2 mins"),
     )
-    time.sleep(1)
     _id = run.id
     run.close()
     _retrieved_run = RunObject(identifier=_id)
@@ -312,6 +336,7 @@ def test_visibility_offline(
     monkeypatch,
     visibility: typing.Literal["public", "tenant"] | list[str] | None,
 ) -> None:
+    _uuid = f"{uuid.uuid4()}".split("-")[0]
     with tempfile.TemporaryDirectory() as tempd:
         os.environ["SIMVUE_OFFLINE_DIRECTORY"] = tempd
         run = sv_run.Run(mode="offline")
@@ -320,28 +345,27 @@ def test_visibility_offline(
         if visibility == "bad_option":
             with pytest.raises(SimvueRunError, match="visibility") as e:
                 run.init(
-                    name=f"test_visibility_{str(uuid.uuid4()).split('-', 1)[0]}",
+                    request.node.name.replace("[", "_").replace("]", "_"),
                     tags=[
                         "simvue_client_unit_tests",
-                        request.node.name.replace("[", "_").replace("]", "_"),
+                        "test_visibility_offline"
                     ],
-                    folder="/simvue_unit_testing",
-                    retention_period="1 hour",
+                    folder=f"/simvue_unit_testing/{_uuid}",
+                    retention_period=os.environ.get("SIMVUE_TESTING_RETENTION_PERIOD", "2 mins"),
                     visibility=visibility,
                 )
             return
 
         run.init(
-            name=f"test_visibility_{str(uuid.uuid4()).split('-', 1)[0]}",
+            request.node.name.replace("[", "_").replace("]", "_"),
             tags=[
-                "simvue_client_unit_tests",
-                request.node.name.replace("[", "_").replace("]", "_"),
+               "simvue_client_unit_tests",
+               "test_visibility_offline"
             ],
-            folder="/simvue_unit_testing",
+            folder=f"/simvue_unit_testing/{_uuid}",
             visibility=visibility,
-            retention_period="1 hour",
+            retention_period=os.environ.get("SIMVUE_TESTING_RETENTION_PERIOD", "2 mins"),
         )
-        time.sleep(1)
         _id = run.id
         _id_mapping = sv_send.sender(os.environ["SIMVUE_OFFLINE_DIRECTORY"], 2, 10)
         run.close()
@@ -355,14 +379,19 @@ def test_visibility_offline(
             assert not _retrieved_run.visibility.tenant and not _retrieved_run.visibility.public
         else:
             assert _retrieved_run.visibility.users == visibility
+        with contextlib.suppress(ObjectNotFoundError):
+            client = sv_cl.Client()
+            client.delete_folder(
+                f"/simvue_unit_testing/{_uuid}",
+                recursive=True,
+                remove_runs=True
+            )
 
 @pytest.mark.run
 def test_log_events_online(create_test_run: tuple[sv_run.Run, dict]) -> None:
     EVENT_MSG = "Hello world!"
     run, _ = create_test_run
     run.log_event(EVENT_MSG)
-    time.sleep(1.0)
-    run.close()
     client = sv_cl.Client()
     event_data = client.get_events(run.id, count_limit=1)
     assert event_data[0].get("message", EVENT_MSG)
@@ -375,11 +404,18 @@ def test_log_events_offline(create_plain_run_offline: tuple[sv_run.Run, dict]) -
     run, _ = create_plain_run_offline
     run_name = run.name
     run.log_event(EVENT_MSG)
-    time.sleep(1)
     sv_send.sender(os.environ["SIMVUE_OFFLINE_DIRECTORY"], 2, 10)
-    run.close()
     client = sv_cl.Client()
-    event_data = client.get_events(client.get_run_id_from_name(run_name), count_limit=1)
+    attempts: int = 0
+
+    # Because the time taken may vary between systems allow up to five attempts
+    # at an interval of 1 second
+    while (
+        not (event_data := client.get_events(client.get_run_id_from_name(run_name), count_limit=1))
+    ) and attempts < 5:
+        time.sleep(1)
+        sv_send.sender(os.environ["SIMVUE_OFFLINE_DIRECTORY"], 2, 10)
+        attempts += 1
     assert event_data[0].get("message", EVENT_MSG)
 
 
@@ -387,10 +423,9 @@ def test_log_events_offline(create_plain_run_offline: tuple[sv_run.Run, dict]) -
 @pytest.mark.offline
 def test_offline_tags(create_plain_run_offline: tuple[sv_run.Run, dict]) -> None:
     run, run_data = create_plain_run_offline
-    time.sleep(1.0)
     sv_send.sender(os.environ["SIMVUE_OFFLINE_DIRECTORY"], 2, 10)
-    run.close()
     client = sv_cl.Client()
+
     tags = client.get_tags()
 
     # Find tag
@@ -409,8 +444,6 @@ def test_update_metadata_running(create_test_run: tuple[sv_run.Run, dict]) -> No
     run.update_metadata({"d": "new"})
     # Try updating an already defined piece of metadata
     run.update_metadata({"a": 1})
-    run.close()
-    time.sleep(1.0)
     client = sv_cl.Client()
     run_info = client.get_run(run.id)
 
@@ -428,7 +461,6 @@ def test_update_metadata_created(create_pending_run: tuple[sv_run.Run, dict]) ->
     run.update_metadata({"d": "new"})
     # Try updating an already defined piece of metadata
     run.update_metadata({"a": 1})
-    time.sleep(1.0)
     client = sv_cl.Client()
     run_info = client.get_run(run.id)
 
@@ -452,8 +484,6 @@ def test_update_metadata_offline(
     run.update_metadata({"a": 1})
 
     sv_send.sender(os.environ["SIMVUE_OFFLINE_DIRECTORY"], 2, 10)
-    run.close()
-    time.sleep(1.0)
 
     client = sv_cl.Client()
     run_info = client.get_run(client.get_run_id_from_name(run_name))
@@ -469,19 +499,20 @@ def test_runs_multiple_parallel(
     multi_threaded: bool, request: pytest.FixtureRequest
 ) -> None:
     N_RUNS: int = 2
+    _uuid = f"{uuid.uuid4()}".split("-")[0]
     if multi_threaded:
 
         def thread_func(index: int) -> tuple[int, list[dict[str, typing.Any]], str]:
             with sv_run.Run() as run:
                 run.config(suppress_errors=False)
                 run.init(
-                    name=f"test_runs_multiple_{index + 1}",
+                    request.node.name.replace("[", "_").replace("]", "_") + f"_{index}",
                     tags=[
                         "simvue_client_unit_tests",
-                        request.node.name.replace("[", "_").replace("]", "_"),
                     ],
-                    folder="/simvue_unit_testing",
-                    retention_period="1 hour",
+                    folder=f"/simvue_client_unit_tests/{_uuid}",
+                    retention_period=os.environ.get("SIMVUE_TESTING_RETENTION_PERIOD", "2 mins"),
+                    visibility="tenant" if os.environ.get("CI") else None,
                 )
                 metrics = []
                 for _ in range(10):
@@ -493,8 +524,6 @@ def test_runs_multiple_parallel(
 
         with concurrent.futures.ThreadPoolExecutor(max_workers=N_RUNS, thread_name_prefix="test_runs_multiple_parallel") as executor:
             futures = [executor.submit(thread_func, i) for i in range(N_RUNS)]
-
-            time.sleep(1)
 
             client = sv_cl.Client()
 
@@ -515,20 +544,22 @@ def test_runs_multiple_parallel(
             with sv_run.Run() as run_2:
                 run_1.config(suppress_errors=False)
                 run_1.init(
-                    name="test_runs_multiple_unthreaded_1",
+                    request.node.name.replace("[", "_").replace("]", "_") + "_1",
                     tags=[
                         "simvue_client_unit_tests",
-                        request.node.name.replace("[", "_").replace("]", "_"),
+                        "test_multi_run_unthreaded"
                     ],
-                    folder="/simvue_unit_testing",
-                    retention_period="1 hour",
+                    folder=f"/simvue_client_unit_tests/{_uuid}",
+                    retention_period=os.environ.get("SIMVUE_TESTING_RETENTION_PERIOD", "2 mins"),
+                    visibility="tenant" if os.environ.get("CI") else None,
                 )
                 run_2.config(suppress_errors=False)
                 run_2.init(
-                    name="test_runs_multiple_unthreaded_2",
+                    request.node.name.replace("[", "_").replace("]", "_") + "_2",
                     tags=["simvue_client_unit_tests", "test_multi_run_unthreaded"],
-                    folder="/simvue_unit_testing",
-                    retention_period="1 hour",
+                    folder=f"/simvue_client_unit_tests/{_uuid}",
+                    retention_period=os.environ.get("SIMVUE_TESTING_RETENTION_PERIOD", "2 mins"),
+                    visibility="tenant" if os.environ.get("CI") else None,
                 )
                 metrics_1 = []
                 metrics_2 = []
@@ -541,7 +572,6 @@ def test_runs_multiple_parallel(
                         metrics.append(metric)
                         run.log_metrics(metric)
 
-                time.sleep(1)
 
                 client = sv_cl.Client()
 
@@ -556,8 +586,11 @@ def test_runs_multiple_parallel(
                     )
 
         with contextlib.suppress(RuntimeError):
-            client.delete_run(run_1.id)
-            client.delete_run(run_2.id)
+            client.delete_folder(
+                f"/simvue_unit_testing/{_uuid}",
+                remove_runs=True,
+                recursive=True
+            )
 
 
 @pytest.mark.run
@@ -567,19 +600,21 @@ def test_runs_multiple_series(request: pytest.FixtureRequest) -> None:
 
     metrics = []
     run_ids = []
+    _uuid = f"{uuid.uuid4()}".split("-")[0]
 
     for index in range(N_RUNS):
         with sv_run.Run() as run:
             run_metrics = []
             run.config(suppress_errors=False)
             run.init(
-                name=f"test_runs_multiple_series_{index}",
+                request.node.name.replace("[", "_").replace("]", "_"),
                 tags=[
                     "simvue_client_unit_tests",
-                    request.node.name.replace("[", "_").replace("]", "_"),
+                    "test_runs_multiple_series"
                 ],
-                folder="/simvue_unit_testing",
-                retention_period="1 hour",
+                folder=f"/simvue_unit_testing/{_uuid}",
+                retention_period=os.environ.get("SIMVUE_TESTING_RETENTION_PERIOD", "2 mins"),
+                visibility="tenant" if os.environ.get("CI") else None,
             )
             run_ids.append(run.id)
             for _ in range(10):
@@ -588,8 +623,6 @@ def test_runs_multiple_series(request: pytest.FixtureRequest) -> None:
                 run_metrics.append(metric)
                 run.log_metrics(metric)
         metrics.append(run_metrics)
-
-    time.sleep(1)
 
     client = sv_cl.Client()
 
@@ -603,9 +636,12 @@ def test_runs_multiple_series(request: pytest.FixtureRequest) -> None:
             aggregate=False,
         )
 
-    with contextlib.suppress(RuntimeError):
-        for run_id in run_ids:
-            client.delete_run(run_id)
+    with contextlib.suppress(ObjectNotFoundError):
+        client.delete_folder(
+            f"/simvue_unit_testing/{_uuid}",
+            recursive=True,
+            remove_runs=True
+        )
 
 
 @pytest.mark.run
@@ -615,6 +651,7 @@ def test_suppressed_errors(
 ) -> None:
     logging.getLogger("simvue").setLevel(logging.DEBUG)
     setup_logging.captures = ["Skipping call to"]
+    _uuid = f"{uuid.uuid4()}".split("-")[0]
 
     with sv_run.Run(mode="offline") as run:
         decorated_funcs = [
@@ -626,13 +663,14 @@ def test_suppressed_errors(
         if post_init:
             decorated_funcs.remove("init")
             run.init(
-                name="test_suppressed_errors",
-                folder="/simvue_unit_testing",
+                request.node.name.replace("[", "_").replace("]", "_"),
+                folder=f"/simvue_unit_testing/{_uuid}",
                 tags=[
                     "simvue_client_unit_tests",
-                    request.node.name.replace("[", "_").replace("]", "_"),
+                    "test_suppressed_errors"
                 ],
-                retention_period="1 hour",
+                retention_period=os.environ.get("SIMVUE_TESTING_RETENTION_PERIOD", "2 mins"),
+                visibility="tenant" if os.environ.get("CI") else None,
             )
 
         run.config(suppress_errors=True)
@@ -646,6 +684,14 @@ def test_suppressed_errors(
     else:
         assert setup_logging.counts[0] == len(decorated_funcs)
 
+    with contextlib.suppress(ObjectNotFoundError):
+        client = sv_cl.Client()
+        client.delete_folder(
+            f"/simvue_unit_testing/{_uuid}",
+            recursive=True,
+            remove_runs=True
+        )
+
 
 @pytest.mark.run
 def test_bad_run_arguments() -> None:
@@ -656,14 +702,20 @@ def test_bad_run_arguments() -> None:
 
 @pytest.mark.run
 def test_set_folder_details(request: pytest.FixtureRequest) -> None:
+    _uuid = f"{uuid.uuid4()}".split("-")[0]
     with sv_run.Run() as run:
-        folder_name: str = "/simvue_unit_tests"
+        folder_name: str = f"/simvue_unit_testing/{_uuid}"
         description: str = "test description"
         tags: list[str] = [
             "simvue_client_unit_tests",
-            request.node.name.replace("[", "_").replace("]", "_"),
+            "test_set_folder_details"
         ]
-        run.init(folder=folder_name)
+        run.init(
+            request.node.name.replace("[", "_").replace("]", "_"),
+            folder=folder_name,
+            visibility="tenant" if os.environ.get("CI") else None,
+            retention_period=os.environ.get("SIMVUE_TESTING_RETENTION_PERIOD", "2 mins"),
+        )
         run.set_folder_details(tags=tags, description=description)
 
     client = sv_cl.Client()
@@ -673,6 +725,13 @@ def test_set_folder_details(request: pytest.FixtureRequest) -> None:
     assert sorted(_folder.tags) == sorted(tags)
 
     assert _folder.description == description
+
+    with contextlib.suppress(ObjectNotFoundError):
+        client.delete_folder(
+            f"/simvue_unit_testing/{_uuid}",
+            remove_runs=True,
+            recursive=True
+        )
 
 
 @pytest.mark.run
@@ -817,14 +876,12 @@ def test_update_tags_running(
 
     simvue_run.set_tags(tags)
 
-    time.sleep(1)
     client = sv_cl.Client()
     run_data = client.get_run(simvue_run.id)
     assert sorted(run_data.tags) == sorted(tags)
 
     simvue_run.update_tags(["additional"])
 
-    time.sleep(1)
     run_data = client.get_run(simvue_run.id)
     assert sorted(run_data.tags) == sorted(tags + ["additional"])
 
@@ -843,14 +900,12 @@ def test_update_tags_created(
 
     simvue_run.set_tags(tags)
 
-    time.sleep(1)
     client = sv_cl.Client()
     run_data = client.get_run(simvue_run.id)
     assert sorted(run_data.tags) == sorted(tags)
 
     simvue_run.update_tags(["additional"])
 
-    time.sleep(1)
     run_data = client.get_run(simvue_run.id)
     assert sorted(run_data.tags) == sorted(tags + ["additional"])
 
@@ -872,14 +927,10 @@ def test_update_tags_offline(
     simvue_run.update_tags(["additional"])
 
     sv_send.sender(os.environ["SIMVUE_OFFLINE_DIRECTORY"], 2, 10)
-    simvue_run.close()
-    time.sleep(1.0)
 
     client = sv_cl.Client()
     run_data = client.get_run(client.get_run_id_from_name(run_name))
 
-    time.sleep(1)
-    run_data = client.get_run(simvue_run.id)
     assert sorted(run_data.tags) == sorted(["simvue_client_unit_tests", "additional"])
 
 
@@ -912,10 +963,10 @@ def test_add_alerts() -> None:
     run = sv_run.Run()
     run.init(
         name="test_add_alerts",
-        folder="/simvue_unit_tests",
-        retention_period="1 min",
+        folder=f"/simvue_unit_testing/{_uuid}",
+        retention_period=os.environ.get("SIMVUE_TESTING_RETENTION_PERIOD", "2 mins"),
         tags=["test_add_alerts"],
-        visibility="tenant",
+        visibility="tenant" if os.environ.get("CI") else None,
     )
 
     _expected_alerts = []
@@ -967,7 +1018,6 @@ def test_add_alerts() -> None:
             f"metric_threshold_alert_{_uuid}",
         ]
     )
-    time.sleep(1)
 
     # Check that there is no duplication
     _online_run.refresh()
@@ -975,7 +1025,6 @@ def test_add_alerts() -> None:
 
     # Create another run without adding to run
     _id = run.create_user_alert(name=f"user_alert_{_uuid}", attach_to_run=False)
-    time.sleep(1)
 
     # Check alert is not added
     _online_run.refresh()
@@ -984,7 +1033,6 @@ def test_add_alerts() -> None:
     # Try adding alerts with IDs, check there is no duplication
     _expected_alerts.append(_id)
     run.add_alerts(ids=_expected_alerts)
-    time.sleep(1)
 
     _online_run.refresh()
     assert sorted(_online_run.alerts) == sorted(_expected_alerts)
@@ -992,7 +1040,12 @@ def test_add_alerts() -> None:
     run.close()
 
     client = sv_cl.Client()
-    client.delete_run(run.id)
+    with contextlib.suppress(ObjectNotFoundError):
+        client.delete_folder(
+            f"/simvue_unit_testing/{_uuid}",
+            remove_runs=True,
+            recursive=True
+        )
     for _id in _expected_alerts:
         client.delete_alert(_id)
 
@@ -1004,10 +1057,10 @@ def test_log_alert() -> None:
     run = sv_run.Run()
     run.init(
         name="test_log_alerts",
-        folder="/simvue_unit_tests",
-        retention_period="1 min",
+        folder=f"/simvue_unit_testing/{_uuid}",
+        retention_period=os.environ.get("SIMVUE_TESTING_RETENTION_PERIOD", "2 mins"),
         tags=["test_add_alerts"],
-        visibility="tenant",
+        visibility="tenant" if os.environ.get("CI") else None,
     )
     _run_id = run.id
     # Create a user alert
@@ -1017,7 +1070,6 @@ def test_log_alert() -> None:
 
     # Set alert state to critical by name
     run.log_alert(name=f"user_alert_{_uuid}", state="critical")
-    time.sleep(1)
 
     client = sv_cl.Client()
     _alert = client.get_alerts(run_id=_run_id, critical_only=False, names_only=False)[0]
@@ -1025,7 +1077,6 @@ def test_log_alert() -> None:
 
     # Set alert state to OK by ID
     run.log_alert(identifier=_id, state="ok")
-    time.sleep(2)
 
     _alert.refresh()
     assert _alert.get_status(_run_id) == "ok"
@@ -1040,6 +1091,14 @@ def test_log_alert() -> None:
         run.log_alert(identifier="myid", name="myname", state="critical")
     assert "Please specify alert to update either by ID or by name." in str(e.value)
 
+    with contextlib.suppress(ObjectNotFoundError):
+        client.delete_folder(
+            f"/simvue_unit_testing/{_uuid}",
+            remove_runs=True,
+            recursive=True
+        )
+    client.delete_alert(_id)
+
 
 @pytest.mark.run
 def test_abort_on_alert_process(mocker: pytest_mock.MockerFixture) -> None:
@@ -1051,13 +1110,14 @@ def test_abort_on_alert_process(mocker: pytest_mock.MockerFixture) -> None:
     def abort_callback(abort_run=trigger) -> None:
         trigger.set()
 
+    _uuid = f"{uuid.uuid4()}".split("-")[0]
     run = sv_run.Run(abort_callback=abort_callback)
     run.init(
         name="test_abort_on_alert_process",
-        folder="/simvue_unit_tests",
-        retention_period="1 min",
+        folder=f"/simvue_unit_testing/{_uuid}",
+        retention_period=os.environ.get("SIMVUE_TESTING_RETENTION_PERIOD", "2 mins"),
         tags=["test_abort_on_alert_process"],
-        visibility="tenant",
+        visibility="tenant" if os.environ.get("CI") else None,
     )
 
     mocker.patch("os._exit", testing_exit)
@@ -1084,6 +1144,13 @@ def test_abort_on_alert_process(mocker: pytest_mock.MockerFixture) -> None:
         run.kill_all_processes()
         raise AssertionError("Run was not terminated")
     assert trigger.is_set()
+    run.close()
+    with contextlib.suppress(ObjectNotFoundError):
+        client.delete_folder(
+            f"/simvue_unit_testing/{_uuid}",
+            remove_runs=True,
+            recursive=True
+        )
 
 
 @pytest.mark.run
@@ -1095,8 +1162,15 @@ def test_abort_on_alert_python(
     run, _ = create_plain_run
     client = sv_cl.Client()
     client.abort_run(run.id, reason="Test abort")
-    time.sleep(2)
-    assert run._status == "terminated"
+
+    attempts: int = 0
+
+    while run._status == "terminated" and attemps < 5:
+        time.sleep(1)
+        attempts += 1
+
+    if attempts >= 5:
+        raise AssertionError("Failed to terminate run")
 
 
 @pytest.mark.run
@@ -1110,9 +1184,7 @@ def test_abort_on_alert_raise(
     run._testing = True
     alert_id = run.create_user_alert("abort_test", trigger_abort=True)
     run.add_process(identifier="forever_long", executable="bash", c="sleep 10")
-    time.sleep(2)
     run.log_alert(identifier=alert_id, state="critical")
-    time.sleep(1)
     _alert = Alert(identifier=alert_id)
     assert _alert.get_status(run.id) == "critical"
     counter = 0
@@ -1134,9 +1206,7 @@ def test_kill_all_processes(create_plain_run: tuple[sv_run.Run, dict]) -> None:
     processes = [
         psutil.Process(process.pid) for process in run._executor._processes.values()
     ]
-    time.sleep(2)
     run.kill_all_processes()
-    time.sleep(4)
     for process in processes:
         assert not process.is_running()
         assert all(not child.is_running() for child in process.children(recursive=True))
@@ -1144,21 +1214,30 @@ def test_kill_all_processes(create_plain_run: tuple[sv_run.Run, dict]) -> None:
 
 @pytest.mark.run
 def test_run_created_with_no_timeout() -> None:
+    _uuid = f"{uuid.uuid4()}".split("-")[0]
     with simvue.Run() as run:
         run.init(
             name="test_run_created_with_no_timeout",
-            folder="/simvue_unit_testing",
-            retention_period="2 minutes",
+            folder=f"/simvue_unit_testing/{_uuid}",
+            retention_period=os.environ.get("SIMVUE_TESTING_RETENTION_PERIOD", "2 mins"),
             timeout=None,
+            visibility="tenant" if os.environ.get("CI") else None,
         )
     client = simvue.Client()
     assert client.get_run(run.id)
+    with contextlib.suppress(ObjectNotFoundError):
+        client.delete_folder(
+            f"/simvue_unit_testing/{_uuid}",
+            remove_runs=True,
+            recursive=True
+        )
 
 
 @pytest.mark.parametrize("mode", ("online", "offline"), ids=("online", "offline"))
 @pytest.mark.run
 def test_reconnect_functionality(mode, monkeypatch: pytest.MonkeyPatch) -> None:
     temp_d: tempfile.TemporaryDirectory | None = None
+    _uuid = f"{uuid.uuid4()}".split("-")[0]
 
     if mode == "offline":
         temp_d = tempfile.TemporaryDirectory()
@@ -1167,8 +1246,8 @@ def test_reconnect_functionality(mode, monkeypatch: pytest.MonkeyPatch) -> None:
     with simvue.Run(mode=mode) as run:
         run.init(
             name="test_reconnect",
-            folder="/simvue_unit_testing",
-            retention_period="2 minutes",
+            folder=f"/simvue_unit_testing/{_uuid}",
+            retention_period=os.environ.get("SIMVUE_TESTING_RETENTION_PERIOD", "2 mins"),
             timeout=None,
             running=False,
         )
@@ -1180,7 +1259,6 @@ def test_reconnect_functionality(mode, monkeypatch: pytest.MonkeyPatch) -> None:
     client = simvue.Client()
     _created_run = client.get_run(run_id)
     assert _created_run.status == "created"
-    time.sleep(1)
 
     with simvue.Run() as run:
         run.reconnect(run_id)
@@ -1199,10 +1277,16 @@ def test_reconnect_functionality(mode, monkeypatch: pytest.MonkeyPatch) -> None:
         temp_d.cleanup()
 
 
-def test_reconnect_with_process(create_plain_run: tuple[sv_run.Run, dict]) -> None:
-    run, _ = create_plain_run
-    run.init(name="test_reconnect_with_process", folder="/simvue_unit_testing", retention_period="2 minutes", running=False)
-    run.close()
+def test_reconnect_with_process() -> None:
+    _uuid = f"{uuid.uuid4()}".split("-")[0]
+    with simvue.Run() as run:
+        run.init(
+            name="test_reconnect_with_process",
+            folder=f"/simvue_unit_testing/{_uuid}",
+            retention_period=os.environ.get("SIMVUE_TESTING_RETENTION_PERIOD", "2 mins"),
+            running=False,
+            visibility="tenant" if os.environ.get("CI") else None,
+        )
 
     with sv_run.Run() as new_run:
         new_run.reconnect(run.id)
@@ -1210,4 +1294,13 @@ def test_reconnect_with_process(create_plain_run: tuple[sv_run.Run, dict]) -> No
             identifier="test_process",
             executable="bash",
             c="echo 'Hello World!'",
+        )
+
+    client = sv_cl.Client()
+
+    with contextlib.suppress(ObjectNotFoundError):
+        client.delete_folder(
+            f"/simvue_unit_testing/{_uuid}",
+            remove_runs=True,
+            recursive=True
         )
