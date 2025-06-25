@@ -1,6 +1,6 @@
 [project]
 name = "simvue"
-version = "2.1.1"
+version = "2.1.2"
 description = "Simulation tracking and monitoring"
 authors = [
   {name = "Simvue Development Team", email = "info@simvue.io"}
@@ -97,7 +97,6 @@ testpaths = [
 markers = [
     "eco: tests for emission metrics",
     "client: tests of Simvue client",
-    "converters: tests for Simvue object converters",
     "dispatch: test data dispatcher",
     "run: test the simvue Run class",
     "utilities: test simvue utilities module",
@@ -107,10 +106,11 @@ markers = [
     "api: tests of RestAPI functionality",
     "unix: tests for UNIX systems only",
     "metadata: tests of metadata gathering functions",
-    "proxies: tests for remote/offline Simvue proxies",
     "online: tests for online functionality",
     "offline: tests for offline functionality",
-    "local: tests of functionality which do not involve a server or writing to an offline cache file"
+    "local: tests of functionality which do not involve a server or writing to an offline cache file",
+    "object_retrieval: tests relating to retrieval of objects from the server",
+    "object_removal: tests relating to removal of objects from the server",
 ]
 
 [tool.interrogate]
