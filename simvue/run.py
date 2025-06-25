@@ -151,6 +151,10 @@ class Run:
         self._timer: float = 0
         self._retention: float | None = None
 
+        # Keep track of if the Run class has been intialised
+        # through a context manager
+        self._context_manager_called: bool = False
+
         self._testing: bool = False
         self._abort_on_alert: typing.Literal["run", "terminate", "ignore"] = "terminate"
         self._abort_callback: typing.Callable[[Self], None] | None = abort_callback
@@ -209,6 +213,7 @@ class Run:
         self._emissions_monitor: CO2Monitor | None = None
 
     def __enter__(self) -> Self:
+        self._context_manager_called = True
         return self
 
     def _handle_exception_throw(
@@ -478,14 +483,14 @@ class Run:
                     offline=self._user_config.run.mode == "offline",
                     events=buffer,
                 )
-                _events.commit()
+                return _events.commit()
             else:
                 _metrics = Metrics.new(
                     run=self.id,
                     offline=self._user_config.run.mode == "offline",
                     metrics=buffer,
                 )
-                _metrics.commit()
+                return _metrics.commit()
 
         return _dispatch_callback
 
@@ -539,7 +544,9 @@ class Run:
             )
 
             self._heartbeat_thread = threading.Thread(
-                target=self._create_heartbeat_callback()
+                target=self._create_heartbeat_callback(),
+                daemon=True,
+                name=f"{self.id}_heartbeat",
             )
 
         except RuntimeError as e:
@@ -756,7 +763,7 @@ class Run:
 
         if self._user_config.run.mode == "online":
             click.secho(
-                f"[simvue] Run {self._sv_obj.name} created",
+                f"[simvue] Run {self.name} created",
                 bold=self._term_color,
                 fg="green" if self._term_color else None,
             )
@@ -1657,6 +1664,10 @@ class Run:
         bool
             whether close was successful
         """
+        if self._context_manager_called:
+            self._error("Cannot call close method in context manager.")
+            return
+
         self._executor.wait_for_completion()
 
         if not self._sv_obj:

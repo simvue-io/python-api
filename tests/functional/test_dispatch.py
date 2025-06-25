@@ -4,6 +4,7 @@ import typing
 import time
 from threading import Event, Thread
 from queue import Queue
+from concurrent.futures import ThreadPoolExecutor
 
 
 from simvue.factory.dispatch.queued import QueuedDispatcher
@@ -12,17 +13,16 @@ from simvue.factory.dispatch.direct import DirectDispatcher
 
 # FIXME: Update the layout of these tests
 
+
 @pytest.mark.dispatch
+@pytest.mark.parametrize("overload_buffer", (True, False), ids=("overload", "normal"))
 @pytest.mark.parametrize(
-    "overload_buffer", (True, False),
-    ids=("overload", "normal")
-)
-@pytest.mark.parametrize(
-    "append_during_dispatch", (True, False),
-    ids=("pre_append", "append")
+    "append_during_dispatch", (True, False), ids=("pre_append", "append")
 )
 @pytest.mark.parametrize("multiple", (True, False), ids=("multiple", "single"))
-def test_queued_dispatcher(overload_buffer: bool, multiple: bool, append_during_dispatch: bool) -> None:
+def test_queued_dispatcher(
+    overload_buffer: bool, multiple: bool, append_during_dispatch: bool
+) -> None:
     buffer_size: int = 10
     n_elements: int = 2 * buffer_size if overload_buffer else buffer_size - 1
     max_read_rate: float = 0.2
@@ -42,24 +42,39 @@ def test_queued_dispatcher(overload_buffer: bool, multiple: bool, append_during_
 
     for variable in variables:
         check_dict[variable] = {"counter": 0}
-        def callback(___: list[typing.Any], _: str, args=check_dict, var=variable) -> None:
+
+        def callback(
+            ___: list[typing.Any], _: str, args=check_dict, var=variable
+        ) -> None:
             args[var]["counter"] += 1
+
         dispatchers.append(
-            QueuedDispatcher(callback, [variable], event, max_buffer_size=buffer_size, max_read_rate=max_read_rate)
+            QueuedDispatcher(
+                callback,
+                [variable],
+                event,
+                max_buffer_size=buffer_size,
+                max_read_rate=max_read_rate,
+                name=f"Queued_Dispatcher_{variable}"
+            )
         )
 
     if not append_during_dispatch:
         for i in range(n_elements):
-            for variable, dispatcher in zip(variables, dispatchers):  
-                dispatcher.add_item({string.ascii_uppercase[i % 26]: i}, variable, False)
+            for variable, dispatcher in zip(variables, dispatchers):
+                dispatcher.add_item(
+                    {string.ascii_uppercase[i % 26]: i}, variable, False
+                )
 
     for dispatcher in dispatchers:
         dispatcher.start()
 
     if append_during_dispatch:
         for i in range(n_elements):
-            for variable, dispatcher in zip(variables, dispatchers):  
-                dispatcher.add_item({string.ascii_uppercase[i % 26]: i}, variable, False)
+            for variable, dispatcher in zip(variables, dispatchers):
+                dispatcher.add_item(
+                    {string.ascii_uppercase[i % 26]: i}, variable, False
+                )
 
     while not dispatcher.empty:
         time.sleep(0.1)
@@ -70,7 +85,9 @@ def test_queued_dispatcher(overload_buffer: bool, multiple: bool, append_during_
     time.sleep(0.1)
 
     for variable in variables:
-        assert check_dict[variable]["counter"] >= (2 if overload_buffer else 1), f"Check of counter for dispatcher '{variable}' failed with count = {check_dict[variable]['counter']}"
+        assert check_dict[variable]["counter"] >= (2 if overload_buffer else 1), (
+            f"Check of counter for dispatcher '{variable}' failed with count = {check_dict[variable]['counter']}"
+        )
     assert time.time() - start_time < time_threshold
 
 
@@ -86,19 +103,30 @@ def test_nested_queued_dispatch(multi_queue: bool) -> None:
     result_queue = Queue()
 
     event = Event()
-    def create_callback(index):
-        def callback(___: list[typing.Any], _: str, check_dict=check_dict[index]) -> None:
-            check_dict["counter"] += 1
-        return callback
-    def _main(res_queue, index, dispatch_callback=create_callback, term_event=event, variable=variable) -> bool:
 
+    def create_callback(index):
+        def callback(
+            ___: list[typing.Any], _: str, check_dict=check_dict[index]
+        ) -> None:
+            check_dict["counter"] += 1
+
+        return callback
+
+    def _main(
+        res_queue,
+        index,
+        dispatch_callback=create_callback,
+        term_event=event,
+        variable=variable,
+    ) -> bool:
         term_event = Event()
         dispatcher = QueuedDispatcher(
             dispatch_callback(index),
             [variable] if isinstance(variable, str) else variable,
             term_event,
             max_buffer_size=buffer_size,
-            max_read_rate=max_read_rate
+            max_read_rate=max_read_rate,
+            name=f"test_nested_queued_dispatch"
         )
 
         dispatcher.start()
@@ -106,13 +134,17 @@ def test_nested_queued_dispatch(multi_queue: bool) -> None:
         try:
             for i in range(n_elements):
                 if isinstance(variable, str):
-                    dispatcher.add_item({string.ascii_uppercase[i % 26]: i}, variable, False)
+                    dispatcher.add_item(
+                        {string.ascii_uppercase[i % 26]: i}, variable, False
+                    )
                 else:
                     for var in variable:
-                        dispatcher.add_item({string.ascii_uppercase[i % 26]: i}, var, False)
-        except(RuntimeError):
+                        dispatcher.add_item(
+                            {string.ascii_uppercase[i % 26]: i}, var, False
+                        )
+        except RuntimeError:
             res_queue.put("AARGHGHGHGHAHSHGHSDHFSEDHSE")
- 
+
         time.sleep(0.1)
 
         while not dispatcher.empty:
@@ -127,10 +159,18 @@ def test_nested_queued_dispatch(multi_queue: bool) -> None:
     threads = []
 
     for i in range(3):
-        _thread = Thread(target=_main, args=(result_queue, i,))
+        _thread = Thread(
+            target=_main,
+            args=(
+                result_queue,
+                i,
+            ),
+            daemon=True,
+            name=f"nested_queue_dispatch_{i}_Thread",
+        )
         _thread.start()
         threads.append(_thread)
-    
+
     for i in range(3):
         threads[i].join()
 
@@ -138,7 +178,10 @@ def test_nested_queued_dispatch(multi_queue: bool) -> None:
         assert False
 
     for i in range(3):
-        assert check_dict[i]["counter"] >= 2, f"Check of counter for dispatcher '{variable}' failed with count = {check_dict[i]['counter']}"
+        assert check_dict[i]["counter"] >= 2, (
+            f"Check of counter for dispatcher '{variable}' failed with count = {check_dict[i]['counter']}"
+        )
+
 
 def test_queued_dispatch_error_adding_item_after_termination() -> None:
     trigger = Event()
@@ -148,7 +191,8 @@ def test_queued_dispatch_error_adding_item_after_termination() -> None:
         object_types=["q"],
         termination_trigger=trigger,
         max_buffer_size=5,
-        max_read_rate=2
+        max_read_rate=2,
+        name="test_queued_dispatch_error_adding_item_after_termination"
     )
     dispatcher.start()
 
@@ -157,6 +201,7 @@ def test_queued_dispatch_error_adding_item_after_termination() -> None:
     with pytest.raises(RuntimeError):
         dispatcher.add_item("blah", "q", False)
 
+
 def test_queued_dispatch_error_attempting_to_use_non_existent_queue() -> None:
     trigger = Event()
     dispatcher = QueuedDispatcher(
@@ -164,7 +209,8 @@ def test_queued_dispatch_error_attempting_to_use_non_existent_queue() -> None:
         object_types=["q"],
         termination_trigger=trigger,
         max_buffer_size=5,
-        max_read_rate=2
+        max_read_rate=2,
+        name="test_queued_dispatch_error_attempting_to_use_non_existent_queue"
     )
     dispatcher.start()
 
@@ -194,18 +240,22 @@ def test_direct_dispatcher(multiple: bool) -> None:
 
     for variable in variables:
         check_dict[variable] = {"counter": 0}
-        def callback(___: list[typing.Any], _: str, args=check_dict, var=variable) -> None:
+
+        def callback(
+            ___: list[typing.Any], _: str, args=check_dict, var=variable
+        ) -> None:
             args[var]["counter"] += 1
-        dispatchers.append(
-            DirectDispatcher(callback, [variable], event)
-        )
+
+        dispatchers.append(DirectDispatcher(callback, [variable], event))
 
     for i in range(n_elements):
-        for variable, dispatcher in zip(variables, dispatchers):  
+        for variable, dispatcher in zip(variables, dispatchers):
             dispatcher.add_item({string.ascii_uppercase[i % 26]: i}, variable)
 
     event.set()
 
     for variable in variables:
-        assert check_dict[variable]["counter"] >= 1, f"Check of counter for dispatcher '{variable}' failed with count = {check_dict[variable]['counter']}"
+        assert check_dict[variable]["counter"] >= 1, (
+            f"Check of counter for dispatcher '{variable}' failed with count = {check_dict[variable]['counter']}"
+        )
     assert time.time() - start_time < time_threshold

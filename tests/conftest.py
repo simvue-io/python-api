@@ -27,6 +27,7 @@ MAX_BUFFER_SIZE: int = 10
 
 def pytest_addoption(parser):
     parser.addoption("--debug-simvue", action="store_true", default=False)
+    parser.addoption("--retention-period", default="2 mins")
 
 
 class CountingLogHandler(logging.Handler):
@@ -53,7 +54,7 @@ def clear_out_files() -> None:
     for file_obj in out_files:
         file_obj.unlink()
 
-        
+
 @pytest.fixture()
 def offline_cache_setup(monkeypatch: monkeypatch.MonkeyPatch):
     # Will be executed before test
@@ -63,7 +64,8 @@ def offline_cache_setup(monkeypatch: monkeypatch.MonkeyPatch):
     # Will be executed after test
     cache_dir.cleanup()
     monkeypatch.setenv("SIMVUE_OFFLINE_DIRECTORY", None)
-    
+
+
 @pytest.fixture
 def mock_co2_signal(monkeypatch: monkeypatch.MonkeyPatch) -> dict[str, dict | str]:
     _mock_data = {
@@ -100,7 +102,7 @@ def mock_co2_signal(monkeypatch: monkeypatch.MonkeyPatch) -> dict[str, dict | st
 
     monkeypatch.setattr(requests, "get", _mock_get)
     monkeypatch.setattr(sv_eco.APIClient, "_get_user_location_info", _mock_location_info)
-    
+
     _fetch = sv_cfg.SimvueConfiguration.fetch
     @classmethod
     def _mock_fetch(cls, *args, **kwargs) -> sv_cfg.SimvueConfiguration:
@@ -118,11 +120,13 @@ def speedy_heartbeat(monkeypatch: monkeypatch.MonkeyPatch) -> None:
 
 
 @pytest.fixture(autouse=True)
-def setup_logging(pytestconfig) -> CountingLogHandler:
+def setup_logging(pytestconfig, monkeypatch) -> CountingLogHandler:
     logging.basicConfig(level=logging.WARNING)
     handler = CountingLogHandler()
     logging.getLogger("simvue").setLevel(logging.DEBUG if pytestconfig.getoption("debug_simvue") else logging.WARNING)
     logging.getLogger("simvue").addHandler(handler)
+    if (_retention := pytestconfig.getoption("retention_period")):
+        monkeypatch.setenv("SIMVUE_TESTING_RETENTION_PERIOD", _retention)
     return handler
 
 
@@ -158,14 +162,20 @@ def create_test_run_offline(request, monkeypatch: pytest.MonkeyPatch, prevent_sc
         monkeypatch.setenv("SIMVUE_OFFLINE_DIRECTORY", temp_d)
         with sv_run.Run("offline") as run:
             yield run, setup_test_run(run, True, request)
+    with contextlib.suppress(ObjectNotFoundError):
+        sv_api_obj.Folder(identifier=run._folder.id).delete(recursive=True, delete_runs=True, runs_only=False)
+    for alert_id in _test_run_data.get("alert_ids", []):
+        with contextlib.suppress(ObjectNotFoundError):
+            sv_api_obj.Alert(identifier=alert_id).delete()
     clear_out_files()
 
 
 @pytest.fixture
-def create_plain_run(request, prevent_script_exit) -> typing.Generator[typing.Tuple[sv_run.Run, dict], None, None]:
+def create_plain_run(request, prevent_script_exit, mocker) -> typing.Generator[typing.Tuple[sv_run.Run, dict], None, None]:
     def testing_exit(status: int) -> None:
         raise SystemExit(status)
     with sv_run.Run() as run:
+        run.metric_spy = mocker.spy(run, "_get_internal_metrics")
         yield run, setup_test_run(run, False, request)
     clear_out_files()
 
@@ -186,7 +196,7 @@ def create_plain_run_offline(request,prevent_script_exit,monkeypatch) -> typing.
     clear_out_files()
 
 
-@pytest.fixture
+@pytest.fixture(scope="function")
 def create_run_object(mocker: pytest_mock.MockFixture) -> sv_api_obj.Run:
     def testing_exit(status: int) -> None:
         raise SystemExit(status)
@@ -221,7 +231,7 @@ def setup_test_run(run: sv_run.Run, create_objects: bool, request: pytest.Fixtur
         tags=TEST_DATA["tags"],
         folder=TEST_DATA["folder"],
         visibility="tenant" if os.environ.get("CI") else None,
-        retention_period="1 hour",
+        retention_period=os.environ.get("SIMVUE_TESTING_RETENTION_PERIOD", "2 mins"),
         timeout=60,
         no_color=True,
         running=not created_only
@@ -308,3 +318,4 @@ def setup_test_run(run: sv_run.Run, create_objects: bool, request: pytest.Fixtur
     TEST_DATA["alert_ids"] = _alert_ids
 
     return TEST_DATA
+

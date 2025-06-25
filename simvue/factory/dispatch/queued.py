@@ -36,6 +36,7 @@ class QueuedDispatcher(threading.Thread, DispatcherBaseClass):
         callback: typing.Callable[[list[typing.Any], str], None],
         object_types: list[str],
         termination_trigger: threading.Event,
+        name: str | None = None,
         max_buffer_size: int = MAX_BUFFER_SIZE,
         max_read_rate: float = MAX_REQUESTS_PER_SECOND,
     ) -> None:
@@ -51,6 +52,8 @@ class QueuedDispatcher(threading.Thread, DispatcherBaseClass):
         termination_trigger : threading.Event
             a threading event which when set declares that the dispatcher
             should terminate
+        name : str | None, optional
+            name for underlying thread, default None
         max_buffer_size : int
             maximum number of items allowed in created buffer.
         max_read_rate : float
@@ -62,7 +65,7 @@ class QueuedDispatcher(threading.Thread, DispatcherBaseClass):
             object_types=object_types,
             termination_trigger=termination_trigger,
         )
-        super().__init__()
+        super().__init__(name=name, daemon=True)
 
         self._termination_trigger = termination_trigger
         self._callback = callback

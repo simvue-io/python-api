@@ -32,7 +32,16 @@ from .utilities import check_extra, prettify_pydantic
 from .models import FOLDER_REGEX, NAME_REGEX
 from .config.user import SimvueConfiguration
 from .api.request import get_json_from_response
-from .api.objects import Run, Folder, Tag, Artifact, Alert, FileArtifact, ObjectArtifact
+from .api.objects import (
+    Run,
+    Folder,
+    Tag,
+    Artifact,
+    Alert,
+    FileArtifact,
+    ObjectArtifact,
+    get_folder_from_path,
+)
 
 
 CONCURRENT_DOWNLOADS = 10
@@ -350,9 +359,17 @@ class Client:
         _ids = Folder.ids(filters=json.dumps([f"path == {path}"]))
 
         try:
-            return next(_ids)
+            _id = next(_ids)
         except StopIteration:
             return None
+
+        with contextlib.suppress(StopIteration):
+            next(_ids)
+            raise RuntimeError(
+                f"Expected single folder match for '{path}', but found duplicate."
+            )
+
+        return _id
 
     @prettify_pydantic
     @pydantic.validate_call
@@ -422,12 +439,16 @@ class Client:
             if allow_missing:
                 return None
             else:
-                raise RuntimeError(
-                    f"Deletion of folder '{folder_path}' failed, folder does not exist."
+                raise ObjectNotFoundError(
+                    name=folder_path,
+                    obj_type="folder",
                 )
         _response = Folder(identifier=folder_id).delete(
             delete_runs=remove_runs, recursive=recursive, runs_only=False
         )
+
+        if folder_id not in _response.get("folders", []):
+            raise RuntimeError("Deletion of folder failed, server returned mismatch.")
 
         return _response.get("runs", [])
 
@@ -622,7 +643,9 @@ class Client:
             Artifact.from_run(run_id=run_id, category=category)
         )
 
-        with ThreadPoolExecutor(CONCURRENT_DOWNLOADS) as executor:
+        with ThreadPoolExecutor(
+            CONCURRENT_DOWNLOADS, thread_name_prefix=f"get_artifacts_run_{run_id}"
+        ) as executor:
             futures = [
                 executor.submit(_download_artifact_to_file, artifact, output_dir)
                 for _, artifact in _artifacts
@@ -665,17 +688,12 @@ class Client:
         RuntimeError
             if there was a failure when retrieving information from the server
         """
-        _folders: typing.Generator[tuple[str, Folder], None, None] = Folder.get(
-            filters=json.dumps([f"path == {folder_path}"])
-        )  # type: ignore
-
         try:
-            _, _folder = next(_folders)
-            if not read_only:
-                _folder.read_only(read_only)
-            return _folder
-        except StopIteration:
+            _folder = get_folder_from_path(path=folder_path)
+        except ObjectNotFoundError:
             return None
+        _folder.read_only(is_read_only=read_only)
+        return _folder
 
     @pydantic.validate_call
     def get_folders(
