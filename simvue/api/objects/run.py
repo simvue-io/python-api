@@ -14,6 +14,8 @@ import datetime
 import time
 import json
 
+from simvue.api.filters import RunsFilter
+
 try:
     from typing import Self
 except ImportError:
@@ -349,6 +351,25 @@ class Run(SimvueObject):
             _params["sorting"] = json.dumps([i.to_params() for i in sorting])
 
         return super().get(count=count, offset=offset, **_params)
+
+    @classmethod
+    def filter(cls, *args) -> RunsFilter:
+        """Perform a filtered search of Runs on the server.
+
+        Parameters
+        ----------
+        *args: str, optional
+            manually specify additional filter strings
+
+        Returns
+        -------
+        RunsFilter
+            special object for constructing a filtered query.
+
+        """
+        _filter = RunsFilter(cls)
+        _filter.query += args
+        return _filter
 
     @alerts.setter
     @write_only

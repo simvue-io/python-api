@@ -30,6 +30,7 @@ from simvue.api.request import (
     get_json_from_response,
 )
 from simvue.api.url import URL
+from simvue.api.filters.base import RestAPIFilter
 
 logging.basicConfig(level=logging.INFO)
 
@@ -420,6 +421,11 @@ class SimvueObject(abc.ABC):
                 _id = entry["id"]
                 yield _id, cls(_read_only=True, identifier=_id, _local=True, **entry)
                 _count += 1
+
+    @abc.abstractclassmethod
+    def filter(cls) -> RestAPIFilter:
+        """Filter results from the server."""
+        return RestAPIFilter(cls)
 
     @classmethod
     def count(cls, **kwargs) -> int:

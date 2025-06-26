@@ -3,6 +3,7 @@ import typing
 import pydantic
 import json
 
+from simvue.api.filters import ArtifactsFilter
 from simvue.api.objects.artifact.base import ArtifactBase
 from simvue.api.objects.base import Sort
 from .file import FileArtifact
@@ -210,3 +211,22 @@ class Artifact:
                 _id,
                 Artifact(_local=True, _read_only=True, identifier=_id, **_entry),
             )
+
+    @classmethod
+    def filter(cls, *args) -> ArtifactsFilter:
+        """Perform a filtered search of Artifacts on the server.
+
+        Parameters
+        ----------
+        *args: str, optional
+            manually specify additional filter strings
+
+        Returns
+        -------
+        ArtifactsFilter
+            special object for constructing a filtered query.
+
+        """
+        _filter = ArtifactsFilter(cls)
+        _filter.query += args
+        return _filter

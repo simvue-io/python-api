@@ -18,6 +18,7 @@ from simvue.exception import ObjectNotFoundError
 
 from .base import SimvueObject, staging_check, write_only, Sort
 from simvue.models import FOLDER_REGEX, DATETIME_FORMAT
+from simvue.api.filters import FoldersFilter
 
 # Need to use this inside of Generator typing to fix bug present in Python 3.10 - see issue #745
 try:
@@ -203,11 +204,49 @@ class Folder(SimvueObject):
             datetime.datetime.strptime(_created, DATETIME_FORMAT) if _created else None
         )
 
+    @classmethod
+    def filter(cls, *args) -> FoldersFilter:
+        """Perform a filtered search of Folders on the server.
+
+        Parameters
+        ----------
+        *args: str, optional
+            manually specify additional filter strings
+
+        Returns
+        -------
+        FoldersFilter
+            special object for constructing a filtered query.
+
+        """
+        _filter = FoldersFilter(cls)
+        _filter.query += args
+        return _filter
+
 
 @pydantic.validate_call
 def get_folder_from_path(
     path: typing.Annotated[str, pydantic.Field(pattern=FOLDER_REGEX)],
 ) -> Folder:
+    """Returns folder if path matched on server.
+
+    Note this returns the first match found.
+
+    Parameters
+    ----------
+    path: str
+        path of folder on server
+
+    Returns
+    -------
+    Folder
+        object mirroring server object if a match was found.
+
+    Raises
+    ------
+    ObjectNotFoundError
+        if path returned no result
+    """
     _folders = Folder.get(filters=json.dumps([f"path == {path}"]), count=1)
 
     try:
