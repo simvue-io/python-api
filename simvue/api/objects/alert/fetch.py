@@ -141,9 +141,9 @@ class Alert:
                         _local=True, _read_only=True, identifier=_id, **_entry
                     ),
                 )
-            elif (
-                _entry["source"] == "metrics"
-                and _entry.get("alert", {}).get("range_low") is not None
+            elif _entry["source"] == "metrics" and (
+                _entry.get("alert", {}).get("range_low") is not None
+                or _entry.get("alert", {}).get("range_high") is not None
             ):
                 yield (
                     _id,
