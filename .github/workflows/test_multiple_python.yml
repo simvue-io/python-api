@@ -17,6 +17,7 @@ concurrency:
 
 jobs:
   build:
+    name: Test Python {{ matrix.python-version }}
     runs-on: ubuntu-latest
     timeout-minutes: 40
     strategy:
