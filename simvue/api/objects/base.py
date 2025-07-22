@@ -677,8 +677,10 @@ class SimvueObject(abc.ABC):
         """
         return self._get() | self._staging
 
-    def on_reconnect(self, id_mapping: dict[str, str]) -> None:
+    def on_reconnect(self, id_mapping: dict[str, str]) -> bool:
         """Executed when a run switches from offline to online mode.
+
+        Return a boolean whether this conversion was successful or not.
 
         In this case no action is taken.
         """

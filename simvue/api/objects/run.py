@@ -586,7 +586,7 @@ class Run(SimvueObject):
             response=_response,
         )
 
-    def on_reconnect(self, id_mapping: dict[str, str]) -> None:
+    def on_reconnect(self, id_mapping: dict[str, str]) -> bool:
         """Executed when a run switches from offline to online mode.
 
         Parameters
@@ -596,12 +596,10 @@ class Run(SimvueObject):
         """
         online_alert_ids: list[str] = []
         for id in self._staging.get("alerts", []):
-            try:
-                online_alert_ids.append(id_mapping[id])
-            except KeyError:
-                raise KeyError(
-                    "Could not find alert ID in offline to online ID mapping."
-                )
+            if online_alert_id := id_mapping.get(id):
+                online_alert_ids.append(online_alert_id)
+            else:
+                return False
         # If run is offline, no alerts have been added yet, so add all alerts:
         if self._identifier is not None and self._identifier.startswith("offline"):
             self._staging["alerts"] = online_alert_ids
@@ -610,3 +608,4 @@ class Run(SimvueObject):
             self._staging["alerts"] = [
                 id for id in online_alert_ids if id not in list(self.alerts)
             ]
+        return True

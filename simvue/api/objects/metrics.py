@@ -155,6 +155,9 @@ class Metrics(SimvueObject):
         """
         if online_run_id := id_mapping.get(self._staging["run"]):
             self._staging["run"] = online_run_id
+            return True
+        else:
+            return False
 
     def to_dict(self) -> dict[str, typing.Any]:
         """Convert metrics object to dictionary.

@@ -67,9 +67,9 @@ class Stats(SimvueObject):
         """
         return None
 
-    def on_reconnect(self, **_) -> None:
+    def on_reconnect(self, **_) -> bool:
         """No offline to online reconnect functionality for statistics."""
-        pass
+        return True
 
     @classmethod
     def get(cls, **kwargs) -> None:

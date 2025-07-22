@@ -78,7 +78,11 @@ def upload_cached_file(
         obj_for_upload = _instance_class.new(**_data)
 
     with lock:
-        obj_for_upload.on_reconnect(id_mapping)
+        success = obj_for_upload.on_reconnect(id_mapping)
+        if not success:
+            _logger.error(
+                f"Online ID could not be found for {obj_for_upload.__class__.__name__} '{_current_id}' to connect to. Your cache is in an inconsistent state and needs to be fixed manually."
+            )
 
     try:
         obj_for_upload.commit()

@@ -97,7 +97,7 @@ class ArtifactBase(SimvueObject):
             response=_response,
         )
 
-    def on_reconnect(self, id_mapping: dict[str, str]) -> None:
+    def on_reconnect(self, id_mapping: dict[str, str]) -> bool:
         """Operations performed when this artifact is switched from offline to online mode.
 
         Parameters
@@ -107,7 +107,10 @@ class ArtifactBase(SimvueObject):
         """
         _offline_staging = self._init_data["runs"].copy()
         for id, category in _offline_staging.items():
-            self.attach_to_run(run_id=id_mapping[id], category=category)
+            if not (online_id := id_mapping.get(id)):
+                return False
+            self.attach_to_run(run_id=online_id, category=category)
+        return True
 
     def _upload(self, file: io.BytesIO, timeout: int, file_size: int) -> None:
         if self._offline:
