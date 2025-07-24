@@ -747,7 +747,6 @@ def test_set_folder_details(request: pytest.FixtureRequest) -> None:
     ids=[f"scenario_{i}" for i in range(1, 6)],
 )
 def test_save_file_online(
-    create_plain_run: tuple[sv_run.Run, dict],
     valid_mimetype: bool,
     preserve_path: bool,
     name: str | None,
@@ -755,8 +754,9 @@ def test_save_file_online(
     empty_file: bool,
     category: typing.Literal["input", "output", "code"],
     capfd,
+    request,
 ) -> None:
-    simvue_run, _ = create_plain_run
+    _uuid = f"{uuid.uuid4()}".split("-")[0]
     file_type: str = "text/plain" if valid_mimetype else "text/text"
     with tempfile.TemporaryDirectory() as tempd:
         with open(
@@ -764,27 +764,40 @@ def test_save_file_online(
             "w",
         ) as out_f:
             out_f.write("" if empty_file else "test data entry")
-
-        if valid_mimetype:
-            simvue_run.save_file(
-                out_name,
-                category=category,
-                file_type=file_type,
-                preserve_path=preserve_path,
-                name=name,
+        with sv_run.Run() as simvue_run:
+            folder_name: str = f"/simvue_unit_testing/{_uuid}"
+            tags: list[str] = [
+                "simvue_client_unit_tests",
+                "test_save_file_online"
+            ]
+            simvue_run.init(
+                request.node.name.replace("[", "_").replace("]", "_"),
+                folder=folder_name,
+                tags=tags,
+                visibility="tenant" if os.environ.get("CI") else None,
+                retention_period=os.environ.get("SIMVUE_TESTING_RETENTION_PERIOD", "2 mins"),
             )
-        else:
-            with pytest.raises(RuntimeError):
+
+
+            if valid_mimetype:
                 simvue_run.save_file(
                     out_name,
                     category=category,
                     file_type=file_type,
                     preserve_path=preserve_path,
+                    name=name,
                 )
-            return
+            else:
+                with pytest.raises(RuntimeError):
+                    simvue_run.save_file(
+                        out_name,
+                        category=category,
+                        file_type=file_type,
+                        preserve_path=preserve_path,
+                    )
+                return
 
-        variable = capfd.readouterr()
-        simvue_run.close()
+            variable = capfd.readouterr()
         time.sleep(1.0)
         os.remove(out_name)
         client = sv_cl.Client()
