@@ -63,7 +63,6 @@ def offline_cache_setup(monkeypatch: monkeypatch.MonkeyPatch):
     yield cache_dir
     # Will be executed after test
     cache_dir.cleanup()
-    monkeypatch.setenv("SIMVUE_OFFLINE_DIRECTORY", None)
 
 
 @pytest.fixture
