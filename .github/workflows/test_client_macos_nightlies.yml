@@ -15,9 +15,18 @@ concurrency:
 jobs:
   build:
     timeout-minutes: 40
+    name: macOS Nightly
     runs-on: macos-latest
+    strategy:
+      matrix:
+        git_ref:
+          - dev
+          - v2.1.2
     steps:
     - uses: actions/checkout@v4
+      with:
+        ref: ${{ matrix.git_ref }}
+        fetch-depth: 0
     - name: Set up Python 3.13
       uses: actions/setup-python@v5
       with:
