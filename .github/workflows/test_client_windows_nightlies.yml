@@ -18,6 +18,7 @@ jobs:
     timeout-minutes: 40
     name: Windows Nightly
     strategy:
+      fail-fast: false
       matrix:
         git_ref:
           - dev

@@ -18,6 +18,7 @@ jobs:
     name: macOS Nightly
     runs-on: macos-latest
     strategy:
+      fail-fast: false
       matrix:
         git_ref:
           - dev
