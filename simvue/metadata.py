@@ -114,6 +114,7 @@ def _conda_dependency_parse(dependency: str) -> tuple[str, str] | None:
         logger.warning(
             f"Ignoring '{dependency}' in Python environment record as no version constraint specified."
         )
+        return None
     else:
         module, version = dependency.split("==")
 
@@ -170,7 +171,7 @@ def _python_env(repository: pathlib.Path) -> dict[str, typing.Any]:
     elif (
         environment_file := pathlib.Path(repository).joinpath("environment.yml")
     ).exists():
-        return _conda_env(environment_file)
+        python_meta["environment"] = _conda_env(environment_file)
     else:
         with contextlib.suppress((KeyError, ImportError)):
             from pip._internal.operations.freeze import freeze
