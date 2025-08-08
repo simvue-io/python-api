@@ -111,19 +111,19 @@ def _conda_env(environment_file: pathlib.Path) -> dict[str, str]:
             _, version = dependency.split("-e")
             version = version.strip()
             module = pathlib.Path(version).name
-            python_environment[module.strip()] = version.strip()
+            python_environment[module.strip().replace("-", "_")] = version.strip()
         elif dependency.startswith("file://"):
             _, version = dependency.split("file://")
-            module = pathlib.Path(version).name
-            python_environment[module.strip()] = version.strip()
+            module = pathlib.Path(version).stem
+            python_environment[module.strip().replace("-", "_")] = version.strip()
         elif dependency.startswith("git+"):
             _, version = dependency.split("git+")
             if "#egg=" in version:
                 repo, module = version.split("#egg=")
+                module = repo.split("/")[-1].replace(".git", "")
             else:
                 module = version.split("/")[-1].replace(".git", "")
-            module = pathlib.Path(version).name
-            python_environment[module.strip()] = version.strip()
+            python_environment[module.strip().replace("-", "_")] = version.strip()
         elif "==" not in dependency:
             logger.warning(
                 f"Ignoring '{dependency}' in Python environment record as no version constraint specified."
