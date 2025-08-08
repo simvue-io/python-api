@@ -9,7 +9,6 @@ Contains functions for extracting additional metadata about the current project
 import contextlib
 import typing
 import json
-from git import repo
 import toml
 import yaml
 import logging
@@ -78,6 +77,49 @@ def git_info(repository: str) -> dict[str, typing.Any]:
         return {}
 
 
+def _conda_dependency_parse(dependency: str) -> tuple[str, str] | None:
+    """Parse a dependency definition into module-version."""
+    if dependency.startswith("::"):
+        logger.warning(
+            f"Skipping Conda specific channel definition '{dependency}' in Python environment metadata."
+        )
+        return None
+    elif ">=" in dependency:
+        module, version = dependency.split(">=")
+        logger.warning(
+            f"Ignoring '>=' constraint in Python package version, naively storing '{module}=={version}', "
+            "for a more accurate record use 'conda env export > environment.yml'"
+        )
+    elif "~=" in dependency:
+        module, version = dependency.split("~=")
+        logger.warning(
+            f"Ignoring '~=' constraint in Python package version, naively storing '{module}=={version}', "
+            "for a more accurate record use 'conda env export > environment.yml'"
+        )
+    elif dependency.startswith("-e"):
+        _, version = dependency.split("-e")
+        version = version.strip()
+        module = pathlib.Path(version).name
+    elif dependency.startswith("file://"):
+        _, version = dependency.split("file://")
+        module = pathlib.Path(version).stem
+    elif dependency.startswith("git+"):
+        _, version = dependency.split("git+")
+        if "#egg=" in version:
+            repo, module = version.split("#egg=")
+            module = repo.split("/")[-1].replace(".git", "")
+        else:
+            module = version.split("/")[-1].replace(".git", "")
+    elif "==" not in dependency:
+        logger.warning(
+            f"Ignoring '{dependency}' in Python environment record as no version constraint specified."
+        )
+    else:
+        module, version = dependency.split("==")
+
+    return module, version
+
+
 def _conda_env(environment_file: pathlib.Path) -> dict[str, str]:
     """Parse/interpret a Conda environment file."""
     content = yaml.load(environment_file.open(), Loader=yaml.SafeLoader)
@@ -89,48 +131,10 @@ def _conda_env(environment_file: pathlib.Path) -> dict[str, str]:
             break
 
     for dependency in pip_dependencies:
-        if dependency.startswith("::"):
-            logger.warning(
-                f"Skipping Conda specific channel definition '{dependency}' in Python environment metadata."
-            )
-        elif ">=" in dependency:
-            module, version = dependency.split(">=")
-            logger.warning(
-                f"Ignoring '>=' constraint in Python package version, naively storing '{module}=={version}', "
-                "for a more accurate record use 'conda env export > environment.yml'"
-            )
-            python_environment[module.strip()] = version.strip()
-        elif "~=" in dependency:
-            module, version = dependency.split("~=")
-            logger.warning(
-                f"Ignoring '~=' constraint in Python package version, naively storing '{module}=={version}', "
-                "for a more accurate record use 'conda env export > environment.yml'"
-            )
-            python_environment[module.strip()] = version.strip()
-        elif dependency.startswith("-e"):
-            _, version = dependency.split("-e")
-            version = version.strip()
-            module = pathlib.Path(version).name
-            python_environment[module.strip().replace("-", "_")] = version.strip()
-        elif dependency.startswith("file://"):
-            _, version = dependency.split("file://")
-            module = pathlib.Path(version).stem
-            python_environment[module.strip().replace("-", "_")] = version.strip()
-        elif dependency.startswith("git+"):
-            _, version = dependency.split("git+")
-            if "#egg=" in version:
-                repo, module = version.split("#egg=")
-                module = repo.split("/")[-1].replace(".git", "")
-            else:
-                module = version.split("/")[-1].replace(".git", "")
-            python_environment[module.strip().replace("-", "_")] = version.strip()
-        elif "==" not in dependency:
-            logger.warning(
-                f"Ignoring '{dependency}' in Python environment record as no version constraint specified."
-            )
-        else:
-            module, version = dependency.split("==")
-            python_environment[module.strip()] = version.strip()
+        if not (parsed := _conda_dependency_parse(dependency)):
+            continue
+        module, version = parsed
+        python_environment[module.strip().replace("-", "_")] = version.strip()
     return python_environment
 
 
