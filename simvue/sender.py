@@ -201,7 +201,9 @@ def sender(
             for file_path in _offline_files:
                 upload_cached_file(cache_dir, _obj_type, file_path, _id_mapping, _lock)
         else:
-            with ThreadPoolExecutor(max_workers=max_workers) as executor:
+            with ThreadPoolExecutor(
+                max_workers=max_workers, thread_name_prefix="sender_session_upload"
+            ) as executor:
                 _results = executor.map(
                     lambda file_path: upload_cached_file(
                         cache_dir=cache_dir,
@@ -230,7 +232,9 @@ def sender(
                 ),
             )
     else:
-        with ThreadPoolExecutor(max_workers=max_workers) as executor:
+        with ThreadPoolExecutor(
+            max_workers=max_workers, thread_name_prefix="sender_heartbeat"
+        ) as executor:
             _results = executor.map(
                 lambda _heartbeat_file: send_heartbeat(
                     file_path=_heartbeat_file,

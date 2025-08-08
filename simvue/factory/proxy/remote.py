@@ -39,14 +39,14 @@ class Remote(SimvueBaseClass):
         }
         super().__init__(name, uniq_id, suppress_errors)
 
-        self._id = uniq_id
+        self.id = uniq_id
 
     @skip_if_failed("_aborted", "_suppress_errors", None)
     def list_tags(self) -> list[str]:
         logger.debug("Retrieving existing tags")
         try:
             response = get(
-                f"{self._user_config.server.url}/runs/{self._id}", self._headers
+                f"{self._user_config.server.url}/runs/{self.id}", self._headers
             )
         except Exception as err:
             self._error(f"Exception retrieving tags: {str(err)}")
@@ -120,12 +120,12 @@ class Remote(SimvueBaseClass):
             return (None, None)
 
         if "name" in response.json():
-            self._name = response.json()["name"]
+            self.name = response.json()["name"]
 
         if "id" in response.json():
-            self._id = response.json()["id"]
+            self.id = response.json()["id"]
 
-        return self._name, self._id
+        return self.name, self.id
 
     @skip_if_failed("_aborted", "_suppress_errors", None)
     def update(
@@ -134,8 +134,8 @@ class Remote(SimvueBaseClass):
         """
         Update metadata, tags or status
         """
-        if self._id:
-            data["id"] = self._id
+        if self.id:
+            data["id"] = self.id
 
         logger.debug('Updating run with data: "%s"', data)
 
@@ -296,7 +296,7 @@ class Remote(SimvueBaseClass):
                     return None
 
         if storage_id:
-            path = f"{self._user_config.server.url}/runs/{self._id}/artifacts"
+            path = f"{self._user_config.server.url}/runs/{self.id}/artifacts"
             data["storage"] = storage_id
 
             try:
@@ -350,7 +350,7 @@ class Remote(SimvueBaseClass):
         """
         Set alert state
         """
-        data = {"run": self._id, "alert": alert_id, "status": status}
+        data = {"run": self.id, "alert": alert_id, "status": status}
         try:
             response = put(
                 f"{self._user_config.server.url}/alerts/status", self._headers, data
@@ -445,7 +445,7 @@ class Remote(SimvueBaseClass):
             response = put(
                 f"{self._user_config.server.url}/runs/heartbeat",
                 self._headers,
-                {"id": self._id},
+                {"id": self.id},
             )
         except Exception as err:
             self._error(f"Exception creating run: {str(err)}")
@@ -465,7 +465,7 @@ class Remote(SimvueBaseClass):
 
         try:
             response = get(
-                f"{self._user_config.server.url}/runs/{self._id}/abort",
+                f"{self._user_config.server.url}/runs/{self.id}/abort",
                 self._headers_mp,
             )
         except Exception as err:

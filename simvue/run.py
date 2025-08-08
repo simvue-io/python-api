@@ -70,7 +70,6 @@ except ImportError:
 if typing.TYPE_CHECKING:
     from .factory.dispatch import DispatcherBaseClass
 
-UPLOAD_TIMEOUT: int = 30
 HEARTBEAT_INTERVAL: int = 60
 RESOURCES_METRIC_PREFIX: str = "resources"
 
@@ -147,11 +146,14 @@ class Run:
         ```
         """
         self._uuid: str = f"{uuid.uuid4()}"
-        self._name: str | None = None
 
         # monitor duration with respect to retention period
         self._timer: float = 0
         self._retention: float | None = None
+
+        # Keep track of if the Run class has been intialised
+        # through a context manager
+        self._context_manager_called: bool = False
 
         self._testing: bool = False
         self._abort_on_alert: typing.Literal["run", "terminate", "ignore"] = "terminate"
@@ -161,7 +163,6 @@ class Run:
         self._executor = Executor(self)
         self._dispatcher: DispatcherBaseClass | None = None
 
-        self._id: str | None = None
         self._folder: Folder | None = None
         self._term_color: bool = True
         self._suppress_errors: bool = False
@@ -212,6 +213,7 @@ class Run:
         self._emissions_monitor: CO2Monitor | None = None
 
     def __enter__(self) -> Self:
+        self._context_manager_called = True
         return self
 
     def _handle_exception_throw(
@@ -260,7 +262,9 @@ class Run:
     ) -> None:
         logger.debug(
             "Automatically closing run '%s' in status %s",
-            self._id if self._user_config.run.mode == "online" else "unregistered",
+            self.id
+            if self._user_config.run.mode == "online" and self._sv_obj
+            else "unregistered",
             self._status,
         )
 
@@ -365,24 +369,25 @@ class Run:
         # Set join on fail to false as if an error is thrown
         # join would be called on this thread and a thread cannot
         # join itself!
-        self._add_metrics_to_dispatch(
-            _current_system_measure.to_dict(),
-            join_on_fail=False,
-            step=system_metrics_step,
-        )
+        if self.status == "running":
+            self._add_metrics_to_dispatch(
+                _current_system_measure.to_dict(),
+                join_on_fail=False,
+                step=system_metrics_step,
+            )
 
         # For the first emissions metrics reading, the time interval to use
         # Is the time since the run started, otherwise just use the time between readings
         if self._emissions_monitor:
             _estimated = self._emissions_monitor.estimate_co2_emissions(
-                process_id=f"{self._name}",
+                process_id=f"{self._sv_obj.name}",
                 cpu_percent=_current_system_measure.cpu_percent,
                 measure_interval=(time.time() - self._start_time)
                 if system_metrics_step == 0
                 else self._system_metrics_interval,
                 gpu_percent=_current_system_measure.gpu_percent,
             )
-            if _estimated:
+            if _estimated and self.status == "running":
                 self._add_metrics_to_dispatch(
                     self._emissions_monitor.simvue_metrics(),
                     join_on_fail=False,
@@ -395,7 +400,7 @@ class Run:
         """Defines the callback executed at the heartbeat interval for the Run."""
         if (
             self._user_config.run.mode == "online"
-            and (not self._user_config.server.url or not self._id)
+            and (not self._user_config.server.url or not self.id)
         ) or not self._heartbeat_termination_trigger:
             raise RuntimeError("Could not commence heartbeat, run not initialised")
 
@@ -460,7 +465,7 @@ class Run:
         executed on metrics and events objects held in a buffer.
         """
 
-        if self._user_config.run.mode == "online" and not self._id:
+        if self._user_config.run.mode == "online" and not self.id:
             raise RuntimeError("Expected identifier for run")
 
         if (
@@ -478,14 +483,14 @@ class Run:
                     offline=self._user_config.run.mode == "offline",
                     events=buffer,
                 )
-                _events.commit()
+                return _events.commit()
             else:
                 _metrics = Metrics.new(
                     run=self.id,
                     offline=self._user_config.run.mode == "offline",
                     metrics=buffer,
                 )
-                _metrics.commit()
+                return _metrics.commit()
 
         return _dispatch_callback
 
@@ -539,7 +544,9 @@ class Run:
             )
 
             self._heartbeat_thread = threading.Thread(
-                target=self._create_heartbeat_callback()
+                target=self._create_heartbeat_callback(),
+                daemon=True,
+                name=f"{self.id}_heartbeat",
             )
 
         except RuntimeError as e:
@@ -591,7 +598,6 @@ class Run:
         # Simvue support now terminated as the instance of Run has entered
         # the dormant state due to exception throw so set listing to be 'lost'
         if self._status == "running" and self._sv_obj:
-            self._sv_obj.name = self._name
             self._sv_obj.status = "lost"
             self._sv_obj.commit()
 
@@ -702,8 +708,6 @@ class Run:
         elif not name and self._user_config.run.mode == "offline":
             name = randomname.get_name()
 
-        self._name = name
-
         self._status = "running" if running else "created"
 
         # Parse the time to live/retention time if specified
@@ -751,28 +755,20 @@ class Run:
         self._data = self._sv_obj._staging
         self._sv_obj.commit()
 
-        if self._user_config.run.mode == "online":
-            name = self._sv_obj.name
-
-        self._id = self._sv_obj.id
-
-        if not name:
+        if not self.name:
             return False
-
-        elif name is not True:
-            self._name = name
 
         if self._status == "running":
             self._start()
 
         if self._user_config.run.mode == "online":
             click.secho(
-                f"[simvue] Run {self._name} created",
+                f"[simvue] Run {self.name} created",
                 bold=self._term_color,
                 fg="green" if self._term_color else None,
             )
             click.secho(
-                f"[simvue] Monitor in the UI at {self._user_config.server.url.rsplit('/api', 1)[0]}/dashboard/runs/run/{self._id}",
+                f"[simvue] Monitor in the UI at {self._user_config.server.url.rsplit('/api', 1)[0]}/dashboard/runs/run/{self.id}",
                 bold=self._term_color,
                 fg="green" if self._term_color else None,
             )
@@ -952,7 +948,29 @@ class Run:
     @property
     def name(self) -> str | None:
         """Return the name of the run"""
-        return self._name
+        if not self._sv_obj:
+            logger.warning(
+                "Attempted to get name on non initialized run - returning None"
+            )
+            return None
+        return self._sv_obj.name
+
+    @property
+    def status(
+        self,
+    ) -> (
+        typing.Literal[
+            "created", "running", "completed", "failed", "terminated", "lost"
+        ]
+        | None
+    ):
+        """Return the status of the run"""
+        if not self._sv_obj:
+            logger.warning(
+                "Attempted to get name on non initialized run - returning cached value"
+            )
+            return self._status
+        return self._sv_obj.status
 
     @property
     def uid(self) -> str:
@@ -962,7 +980,12 @@ class Run:
     @property
     def id(self) -> str | None:
         """Return the unique id of the run"""
-        return self._id
+        if not self._sv_obj:
+            logger.warning(
+                "Attempted to get name on non initialized run - returning None"
+            )
+            return None
+        return self._sv_obj.id
 
     @skip_if_failed("_aborted", "_suppress_errors", False)
     @pydantic.validate_call
@@ -981,8 +1004,11 @@ class Run:
         """
         self._status = "running"
 
-        self._id = run_id
-        self._sv_obj = RunObject(identifier=self._id, _read_only=False)
+        self._sv_obj = RunObject(identifier=run_id, _read_only=False)
+
+        self._sv_obj.status = self._status
+        self._sv_obj.system = get_system()
+        self._sv_obj.commit()
         self._start()
 
         return True
@@ -1611,7 +1637,7 @@ class Run:
             and self._status != "created"
         ):
             self._user_config.offline.cache.joinpath(
-                "runs", f"{self._id}.closed"
+                "runs", f"{self.id}.closed"
             ).touch()
 
         if _non_zero := self.executor.exit_status:
@@ -1638,6 +1664,10 @@ class Run:
         bool
             whether close was successful
         """
+        if self._context_manager_called:
+            self._error("Cannot call close method in context manager.")
+            return
+
         self._executor.wait_for_completion()
 
         if not self._sv_obj:
@@ -2085,7 +2115,7 @@ class Run:
             )
             return False
         _alert.read_only(False)
-        _alert.set_status(run_id=self._id, status=state)
+        _alert.set_status(run_id=self.id, status=state)
         _alert.commit()
 
         return True

@@ -18,9 +18,9 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  online_unit_tests:
+  object_retrieval:
     runs-on: ubuntu-latest
-    timeout-minutes: 40
+    timeout-minutes: 30
     steps:
     - uses: actions/checkout@v4
     - name: Set up Python 3.13
@@ -39,10 +39,13 @@ jobs:
       env:
         SIMVUE_URL: ${{ secrets.SIMVUE_URL }}
         SIMVUE_TOKEN: ${{ secrets.SIMVUE_TOKEN }}
-      run: python -m pytest tests/unit/ -x  -m online -c /dev/null -p no:warnings -n 0 -v
-  offline_unit_tests:
+      run: >-
+        python -m pytest -x
+        -m object_retrieval -c /dev/null -p no:warnings
+        -n 0 -v -o cache_dir=${GITHUB_WORKSPACE}/.pytest-cache
+  object_removal:
     runs-on: ubuntu-latest
-    timeout-minutes: 40
+    timeout-minutes: 30
     steps:
     - uses: actions/checkout@v4
     - name: Set up Python 3.13
@@ -61,10 +64,37 @@ jobs:
       env:
         SIMVUE_URL: ${{ secrets.SIMVUE_URL }}
         SIMVUE_TOKEN: ${{ secrets.SIMVUE_TOKEN }}
-      run: python -m pytest tests/unit/ -x  -m offline -c /dev/null -p no:warnings -n 0 -v
-  online_functional_tests:
+      run: >-
+        python -m pytest -x
+        -m object_removal -c /dev/null -p no:warnings
+        -n 0 -v -o cache_dir=${GITHUB_WORKSPACE}/.pytest-cache
+  dispatch_tests:
     runs-on: ubuntu-latest
-    timeout-minutes: 40
+    timeout-minutes: 30
+    steps:
+    - uses: actions/checkout@v4
+    - name: Set up Python 3.13
+      uses: actions/setup-python@v5
+      with:
+        python-version: "3.13"
+    - name: Install dependencies
+      run: |
+        python -m pip install poetry
+        poetry self add poetry-plugin-export
+        poetry export -f requirements.txt --with dev -o requirements.txt --all-extras
+        python -m pip install -r requirements.txt
+        python -m pip install .
+    - name: Test with pytest
+      env:
+        SIMVUE_URL: ${{ secrets.SIMVUE_URL }}
+        SIMVUE_TOKEN: ${{ secrets.SIMVUE_TOKEN }}
+      run: >-
+        python -m pytest -x
+        -m dispatch -c /dev/null -p no:warnings
+        -n 0 -v -o cache_dir=${GITHUB_WORKSPACE}/.pytest-cache
+  run_tests_online:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
     steps:
     - uses: actions/checkout@v4
     - name: Set up Python 3.13
@@ -83,10 +113,13 @@ jobs:
       env:
         SIMVUE_URL: ${{ secrets.SIMVUE_URL }}
         SIMVUE_TOKEN: ${{ secrets.SIMVUE_TOKEN }}
-      run: python -m pytest tests/functional/ -x  -m online -c /dev/null -p no:warnings -n 0 -v
-  offline_functional_tests:
+      run: >-
+        python -m pytest -x
+        -m run -m online -c /dev/null -p no:warnings
+        -n 0 -v -o cache_dir=${GITHUB_WORKSPACE}/.pytest-cache
+  run_tests_offline:
     runs-on: ubuntu-latest
-    timeout-minutes: 40
+    timeout-minutes: 30
     steps:
     - uses: actions/checkout@v4
     - name: Set up Python 3.13
@@ -105,10 +138,13 @@ jobs:
       env:
         SIMVUE_URL: ${{ secrets.SIMVUE_URL }}
         SIMVUE_TOKEN: ${{ secrets.SIMVUE_TOKEN }}
-      run: python -m pytest tests/functional/ -x  -m offline -c /dev/null -p no:warnings -n 0 -v
-  other_unit_tests:
+      run: >-
+        python -m pytest -x
+        -m run -m offline -c /dev/null -p no:warnings
+        -n 0 -v -o cache_dir=${GITHUB_WORKSPACE}/.pytest-cache
+  config_tests:
     runs-on: ubuntu-latest
-    timeout-minutes: 40
+    timeout-minutes: 30
     steps:
     - uses: actions/checkout@v4
     - name: Set up Python 3.13
@@ -120,17 +156,19 @@ jobs:
         python -m pip install poetry
         poetry self add poetry-plugin-export
         poetry export -f requirements.txt --with dev -o requirements.txt --all-extras
-        python -m pip install torch --index-url https://download.pytorch.org/whl/cpu
         python -m pip install -r requirements.txt
         python -m pip install .
     - name: Test with pytest
       env:
         SIMVUE_URL: ${{ secrets.SIMVUE_URL }}
         SIMVUE_TOKEN: ${{ secrets.SIMVUE_TOKEN }}
-      run: python -m pytest tests/unit/ -x  -m 'not offline' -m 'not online' -m 'not scenario' -c /dev/null -p no:warnings -n 0 -v
-  other_functional_tests:
+      run: >-
+        python -m pytest -x
+        -m config -c /dev/null -p no:warnings
+        -n 0 -v -o cache_dir=${GITHUB_WORKSPACE}/.pytest-cache
+  executor_tests:
     runs-on: ubuntu-latest
-    timeout-minutes: 40
+    timeout-minutes: 30
     steps:
     - uses: actions/checkout@v4
     - name: Set up Python 3.13
@@ -142,11 +180,61 @@ jobs:
         python -m pip install poetry
         poetry self add poetry-plugin-export
         poetry export -f requirements.txt --with dev -o requirements.txt --all-extras
-        python -m pip install torch --index-url https://download.pytorch.org/whl/cpu
         python -m pip install -r requirements.txt
         python -m pip install .
     - name: Test with pytest
       env:
         SIMVUE_URL: ${{ secrets.SIMVUE_URL }}
         SIMVUE_TOKEN: ${{ secrets.SIMVUE_TOKEN }}
-      run: python -m pytest tests/functional/ -x  -m 'not offline' -m 'not online' -m 'not scenario' -c /dev/null -p no:warnings -n 0 -v
+      run: >-
+        python -m pytest -x
+        -m executor -c /dev/null -p no:warnings
+        -n 0 -v -o cache_dir=${GITHUB_WORKSPACE}/.pytest-cache
+  api_tests:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+    - uses: actions/checkout@v4
+    - name: Set up Python 3.13
+      uses: actions/setup-python@v5
+      with:
+        python-version: "3.13"
+    - name: Install dependencies
+      run: |
+        python -m pip install poetry
+        poetry self add poetry-plugin-export
+        poetry export -f requirements.txt --with dev -o requirements.txt --all-extras
+        python -m pip install -r requirements.txt
+        python -m pip install .
+    - name: Test with pytest
+      env:
+        SIMVUE_URL: ${{ secrets.SIMVUE_URL }}
+        SIMVUE_TOKEN: ${{ secrets.SIMVUE_TOKEN }}
+      run: >-
+        python -m pytest -x
+        -m api -c /dev/null -p no:warnings
+        -n 0 -v -o cache_dir=${GITHUB_WORKSPACE}/.pytest-cache
+  local_tests:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+    - uses: actions/checkout@v4
+    - name: Set up Python 3.13
+      uses: actions/setup-python@v5
+      with:
+        python-version: "3.13"
+    - name: Install dependencies
+      run: |
+        python -m pip install poetry
+        poetry self add poetry-plugin-export
+        poetry export -f requirements.txt --with dev -o requirements.txt --all-extras
+        python -m pip install -r requirements.txt
+        python -m pip install .
+    - name: Test with pytest
+      env:
+        SIMVUE_URL: ${{ secrets.SIMVUE_URL }}
+        SIMVUE_TOKEN: ${{ secrets.SIMVUE_TOKEN }}
+      run: >-
+        python -m pytest -x
+        -m local -c /dev/null -p no:warnings
+        -n 0 -v -o cache_dir=${GITHUB_WORKSPACE}/.pytest-cache

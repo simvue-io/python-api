@@ -14,8 +14,8 @@ class SimvueBaseClass(abc.ABC):
         self._logger = logging.getLogger(f"simvue.{self.__class__.__name__}")
         self._suppress_errors: bool = suppress_errors
         self._uuid: str = uniq_id
-        self._name: str | None = name
-        self._id: int | None = None
+        self.name: str | None = name
+        self.id: int | None = None
         self._aborted: bool = False
 
     def _error(self, message: str) -> None:
