@@ -1,5 +1,6 @@
 import json
 import logging
+import toml
 import os
 import pytest
 import requests
@@ -1315,3 +1316,28 @@ def test_reconnect_with_process() -> None:
             remove_runs=True,
             recursive=True
         )
+
+@pytest.mark.parametrize(
+    "environment", ("python_conda", "python_poetry", "python_uv", "julia", "rust", "nodejs")
+)
+def test_run_environment_metadata(environment: str, mocker: pytest_mock.MockerFixture) -> None:
+    """Tests that the environment information is compatible with the server."""
+    from simvue.config.user import SimvueConfiguration
+    from simvue.metadata import environment as env_func
+    _data_dir = pathlib.Path(__file__).parents[1].joinpath("example_data")
+    _target_dir = _data_dir
+    if "python" in environment:
+        _target_dir = _data_dir.joinpath(environment)
+    _config = SimvueConfiguration.fetch()
+
+    with sv_run.Run(server_token=_config.server.token, server_url=_config.server.url) as run:
+        _uuid = f"{uuid.uuid4()}".split("-")[0]
+        run.init(
+            name=f"test_run_environment_metadata_{environment}",
+            folder=f"/simvue_unit_testing/{_uuid}",
+            retention_period=os.environ.get("SIMVUE_TESTING_RETENTION_PERIOD", "2 mins"),
+            running=False,
+            visibility="tenant" if os.environ.get("CI") else None,
+        )
+        run.update_metadata(env_func(_target_dir))
+
