@@ -9,7 +9,9 @@ Contains functions for extracting additional metadata about the current project
 import contextlib
 import typing
 import json
+from git import repo
 import toml
+import yaml
 import logging
 import pathlib
 
@@ -76,6 +78,62 @@ def git_info(repository: str) -> dict[str, typing.Any]:
         return {}
 
 
+def _conda_env(environment_file: pathlib.Path) -> dict[str, str]:
+    """Parse/interpret a Conda environment file."""
+    content = yaml.load(environment_file.open(), Loader=yaml.SafeLoader)
+    python_environment: dict[str, str] = {}
+    pip_dependencies: list[str] = []
+    for dependency in content.get("dependencies", []):
+        if isinstance(dependency, dict) and dependency.get("pip"):
+            pip_dependencies = dependency["pip"]
+            break
+
+    for dependency in pip_dependencies:
+        if dependency.startswith("::"):
+            logger.warning(
+                f"Skipping Conda specific channel definition '{dependency}' in Python environment metadata."
+            )
+        elif ">=" in dependency:
+            module, version = dependency.split(">=")
+            logger.warning(
+                f"Ignoring '>=' constraint in Python package version, naively storing '{module}=={version}', "
+                "for a more accurate record use 'conda env export > environment.yml'"
+            )
+            python_environment[module.strip()] = version.strip()
+        elif "~=" in dependency:
+            module, version = dependency.split("~=")
+            logger.warning(
+                f"Ignoring '~=' constraint in Python package version, naively storing '{module}=={version}', "
+                "for a more accurate record use 'conda env export > environment.yml'"
+            )
+            python_environment[module.strip()] = version.strip()
+        elif dependency.startswith("-e"):
+            _, version = dependency.split("-e")
+            version = version.strip()
+            module = pathlib.Path(version).name
+            python_environment[module.strip()] = version.strip()
+        elif dependency.startswith("file://"):
+            _, version = dependency.split("file://")
+            module = pathlib.Path(version).name
+            python_environment[module.strip()] = version.strip()
+        elif dependency.startswith("git+"):
+            _, version = dependency.split("git+")
+            if "#egg=" in version:
+                repo, module = version.split("#egg=")
+            else:
+                module = version.split("/")[-1].replace(".git", "")
+            module = pathlib.Path(version).name
+            python_environment[module.strip()] = version.strip()
+        elif "==" not in dependency:
+            logger.warning(
+                f"Ignoring '{dependency}' in Python environment record as no version constraint specified."
+            )
+        else:
+            module, version = dependency.split("==")
+            python_environment[module.strip()] = version.strip()
+    return python_environment
+
+
 def _python_env(repository: pathlib.Path) -> dict[str, typing.Any]:
     """Retrieve a dictionary of Python dependencies if lock file is available"""
     python_meta: dict[str, dict] = {}
@@ -103,6 +161,12 @@ def _python_env(repository: pathlib.Path) -> dict[str, typing.Any]:
         python_meta["environment"] = {
             package["name"]: package["version"] for package in content
         }
+    # Handle Conda case, albeit naively given the user may or may not have used 'conda env'
+    # to dump their exact dependency versions
+    elif (
+        environment_file := pathlib.Path(repository).joinpath("environment.yml")
+    ).exists():
+        return _conda_env(environment_file)
     else:
         with contextlib.suppress((KeyError, ImportError)):
             from pip._internal.operations.freeze import freeze
