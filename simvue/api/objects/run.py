@@ -23,10 +23,11 @@ from .base import SimvueObject, Sort, staging_check, Visibility, write_only
 from simvue.api.request import (
     get as sv_get,
     put as sv_put,
+    post as sv_post,
     get_json_from_response,
 )
 from simvue.api.url import URL
-from simvue.models import FOLDER_REGEX, NAME_REGEX, DATETIME_FORMAT
+from simvue.models import FOLDER_REGEX, NAME_REGEX, DATETIME_FORMAT, GridInput
 
 Status = typing.Literal[
     "lost", "failed", "completed", "terminated", "running", "created"
@@ -316,8 +317,7 @@ class Run(SimvueObject):
             return self._get_attribute("alerts")
 
         return [alert["id"] for alert in self.get_alert_details()]
-
-    @classmethod
+    
     @pydantic.validate_call
     def get(
         cls,
@@ -504,6 +504,42 @@ class Run(SimvueObject):
             expected_status=[http.HTTPStatus.OK],
             scenario="Retrieving heartbeat state",
         )
+    
+    @property
+    @staging_check
+    def grids(self) -> list[GridInput]:
+        _url = self._base_url
+        _url /= f"{self._identifier}/grids"
+        _response = sv_get(
+            f"{_url}",
+            headers=self._headers
+        )
+        return get_json_from_response(
+            response=_response,
+            expected_status=[http.HTTPStatus.OK],
+            scenario="Retrieving run grids"
+        )
+
+    @grids.setter
+    @write_only
+    @pydantic.validate_call
+    def grids(self, grids: list[GridInput]) -> dict[str, typing.Any] | None:
+        _url = self._base_url
+        _url /= f"{self._identifier}/grids"
+        _response = sv_post(
+            f"{_url}",
+            data=[
+                grid.model_dump()
+                for grid in grids
+            ],
+            headers=self._headers,
+            params={}
+        )
+        return get_json_from_response(
+            response=_response,
+            expected_status=[http.HTTPStatus.CREATED],
+            scenario="Creating new grid"
+        )
 
     @property
     def _abort_url(self) -> URL | None:
@@ -515,6 +551,14 @@ class Run(SimvueObject):
             return None
         _url = self.url
         _url /= "artifacts"
+        return _url
+    
+    @property
+    def _grid_url(self) -> URL | None:
+        if not self._identifier or not self.url:
+            return None
+        _url = self.url
+        _url /= "grids"
         return _url
 
     @property
@@ -557,6 +601,19 @@ class Run(SimvueObject):
             scenario=f"Retrieving artifacts for run '{self.id}'",
             expected_type=list,
         )
+
+    @property
+    @staging_check
+    def star(self) -> bool:
+        """Return if this run is starred"""
+        return self._get().get("starred", False)
+
+    @star.setter
+    @write_only
+    @pydantic.validate_call
+    def star(self, is_true: bool = True) -> None:
+        """Star this star as a favourite"""
+        self._staging["starred"] = is_true
 
     @pydantic.validate_call
     def abort(self, reason: str) -> dict[str, typing.Any]:
@@ -610,3 +667,4 @@ class Run(SimvueObject):
             self._staging["alerts"] = [
                 id for id in online_alert_ids if id not in list(self.alerts)
             ]
+
