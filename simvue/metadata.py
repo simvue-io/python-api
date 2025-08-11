@@ -12,6 +12,7 @@ import json
 import os
 import fnmatch
 import toml
+import yaml
 import logging
 import pathlib
 
@@ -78,9 +79,71 @@ def git_info(repository: str) -> dict[str, typing.Any]:
         return {}
 
 
+def _conda_dependency_parse(dependency: str) -> tuple[str, str] | None:
+    """Parse a dependency definition into module-version."""
+    if dependency.startswith("::"):
+        logger.warning(
+            f"Skipping Conda specific channel definition '{dependency}' in Python environment metadata."
+        )
+        return None
+    elif ">=" in dependency:
+        module, version = dependency.split(">=")
+        logger.warning(
+            f"Ignoring '>=' constraint in Python package version, naively storing '{module}=={version}', "
+            "for a more accurate record use 'conda env export > environment.yml'"
+        )
+    elif "~=" in dependency:
+        module, version = dependency.split("~=")
+        logger.warning(
+            f"Ignoring '~=' constraint in Python package version, naively storing '{module}=={version}', "
+            "for a more accurate record use 'conda env export > environment.yml'"
+        )
+    elif dependency.startswith("-e"):
+        _, version = dependency.split("-e")
+        version = version.strip()
+        module = pathlib.Path(version).name
+    elif dependency.startswith("file://"):
+        _, version = dependency.split("file://")
+        module = pathlib.Path(version).stem
+    elif dependency.startswith("git+"):
+        _, version = dependency.split("git+")
+        if "#egg=" in version:
+            repo, module = version.split("#egg=")
+            module = repo.split("/")[-1].replace(".git", "")
+        else:
+            module = version.split("/")[-1].replace(".git", "")
+    elif "==" not in dependency:
+        logger.warning(
+            f"Ignoring '{dependency}' in Python environment record as no version constraint specified."
+        )
+        return None
+    else:
+        module, version = dependency.split("==")
+
+    return module, version
+
+
+def _conda_env(environment_file: pathlib.Path) -> dict[str, str]:
+    """Parse/interpret a Conda environment file."""
+    content = yaml.load(environment_file.open(), Loader=yaml.SafeLoader)
+    python_environment: dict[str, str] = {}
+    pip_dependencies: list[str] = []
+    for dependency in content.get("dependencies", []):
+        if isinstance(dependency, dict) and dependency.get("pip"):
+            pip_dependencies = dependency["pip"]
+            break
+
+    for dependency in pip_dependencies:
+        if not (parsed := _conda_dependency_parse(dependency)):
+            continue
+        module, version = parsed
+        python_environment[module.strip().replace("-", "_")] = version.strip()
+    return python_environment
+
+
 def _python_env(repository: pathlib.Path) -> dict[str, typing.Any]:
     """Retrieve a dictionary of Python dependencies if lock file is available"""
-    python_meta: dict[str, str] = {}
+    python_meta: dict[str, dict] = {}
 
     if (pyproject_file := pathlib.Path(repository).joinpath("pyproject.toml")).exists():
         content = toml.load(pyproject_file)
@@ -105,22 +168,37 @@ def _python_env(repository: pathlib.Path) -> dict[str, typing.Any]:
         python_meta["environment"] = {
             package["name"]: package["version"] for package in content
         }
+    # Handle Conda case, albeit naively given the user may or may not have used 'conda env'
+    # to dump their exact dependency versions
+    elif (
+        environment_file := pathlib.Path(repository).joinpath("environment.yml")
+    ).exists():
+        python_meta["environment"] = _conda_env(environment_file)
     else:
         with contextlib.suppress((KeyError, ImportError)):
             from pip._internal.operations.freeze import freeze
 
-            python_meta["environment"] = {
-                entry[0]: entry[-1]
-                for line in freeze(local_only=True)
-                if (entry := line.split("=="))
-            }
+            # Conda supports having file names with @ as entries
+            # in the requirements.txt file as opposed to ==
+            python_meta["environment"] = {}
+
+            for line in freeze(local_only=True):
+                if line.startswith("-e"):
+                    python_meta["environment"]["local_install"] = line.split(" ")[-1]
+                    continue
+                if "@" in line:
+                    entry = line.split("@")
+                    python_meta["environment"][entry[0].strip()] = entry[-1].strip()
+                elif "==" in line:
+                    entry = line.split("==")
+                    python_meta["environment"][entry[0].strip()] = entry[-1].strip()
 
     return python_meta
 
 
 def _rust_env(repository: pathlib.Path) -> dict[str, typing.Any]:
     """Retrieve a dictionary of Rust dependencies if lock file available"""
-    rust_meta: dict[str, str] = {}
+    rust_meta: dict[str, dict] = {}
 
     if (cargo_file := pathlib.Path(repository).joinpath("Cargo.toml")).exists():
         content = toml.load(cargo_file).get("package", {})
@@ -136,7 +214,7 @@ def _rust_env(repository: pathlib.Path) -> dict[str, typing.Any]:
     cargo_dat = toml.load(cargo_lock)
     rust_meta["environment"] = {
         dependency["name"]: dependency["version"]
-        for dependency in cargo_dat.get("package")
+        for dependency in cargo_dat.get("package", [])
     }
 
     return rust_meta
@@ -144,7 +222,7 @@ def _rust_env(repository: pathlib.Path) -> dict[str, typing.Any]:
 
 def _julia_env(repository: pathlib.Path) -> dict[str, typing.Any]:
     """Retrieve a dictionary of Julia dependencies if a project file is available"""
-    julia_meta: dict[str, str] = {}
+    julia_meta: dict[str, dict] = {}
     if (project_file := pathlib.Path(repository).joinpath("Project.toml")).exists():
         content = toml.load(project_file)
         julia_meta["project"] = {
@@ -157,7 +235,7 @@ def _julia_env(repository: pathlib.Path) -> dict[str, typing.Any]:
 
 
 def _node_js_env(repository: pathlib.Path) -> dict[str, typing.Any]:
-    js_meta: dict[str, str] = {}
+    js_meta: dict[str, dict] = {}
     if (
         project_file := pathlib.Path(repository).joinpath("package-lock.json")
     ).exists():

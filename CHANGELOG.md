@@ -3,6 +3,7 @@
 ## Unreleased
 
 - Added ability to include environment variables within metadata for runs.
+- Improve handling of Conda based environments in metadata collection.
 
 ## [v2.1.2](https://github.com/simvue-io/client/releases/tag/v2.1.2) - 2025-06-25
 
