@@ -5,7 +5,6 @@ from simvue.utilities import calculate_sha256
 
 import pydantic
 import typing
-import sys
 import io
 
 try:
@@ -94,7 +93,7 @@ class ObjectArtifact(ArtifactBase):
         _artifact = ObjectArtifact(
             name=name,
             storage=storage,
-            size=sys.getsizeof(_serialized),
+            size=len(_serialized),
             mime_type=_data_type,
             checksum=_checksum,
             metadata=metadata,
