@@ -6,6 +6,7 @@ import pathlib
 import time
 import typing
 import uuid
+import unicodedata
 import randomname
 
 from simvue.factory.proxy.base import SimvueBaseClass
@@ -65,6 +66,15 @@ class Offline(SimvueBaseClass):
         self._write_json(filename, data)
         return data
 
+    @staticmethod
+    def _generate_random_name() -> str:
+        """Generates a random name with only valid ASCII characters."""
+        return (
+            unicodedata.normalize("NFKD", randomname.get_name())
+            .encode("ascii", "ignore")
+            .decode("ascii")
+        )
+
     @skip_if_failed("_aborted", "_suppress_errors", (None, None))
     def create_run(self, data) -> tuple[str, str | None]:
         """
@@ -75,7 +85,7 @@ class Offline(SimvueBaseClass):
             return (None, None)
 
         if not self.name:
-            self.name = randomname.get_name()
+            self.name = self._generate_random_name()
 
         try:
             os.makedirs(self._directory, exist_ok=True)
