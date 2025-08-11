@@ -1795,7 +1795,7 @@ class Run:
         rule: typing.Literal["is inside range", "is outside range"],
         *,
         description: str | None = None,
-        window: pydantic.PositiveInt = 5,
+        window: pydantic.PositiveInt | None = None,
         frequency: pydantic.PositiveInt = 1,
         aggregation: typing.Literal[
             "average", "sum", "at least one", "all"
@@ -1823,8 +1823,9 @@ class Run:
             * is outside range - metric value falls outside of value range.
         description : str, optional
             description for this alert, default None
-        window : PositiveInt, optional
-            time period in seconds over which metrics are averaged, by default 5
+        window : PositiveInt | None, optional
+            time period in seconds over which metrics are averaged,
+            default of None sets this to be the same as frequency.
         frequency : PositiveInt, optional
             frequency at which to check alert condition in seconds, by default 1
         aggregation : Literal['average', 'sum', 'at least one', 'all'], optional
@@ -1852,7 +1853,7 @@ class Run:
             name=name,
             description=description,
             metric=metric,
-            window=window,
+            window=window or frequency,
             aggregation=aggregation,
             notification=notification,
             rule=rule,
@@ -1877,7 +1878,7 @@ class Run:
         rule: typing.Literal["is above", "is below"],
         *,
         description: str | None = None,
-        window: pydantic.PositiveInt = 5,
+        window: pydantic.PositiveInt | None = None,
         frequency: pydantic.PositiveInt = 1,
         aggregation: typing.Literal[
             "average", "sum", "at least one", "all"
@@ -1904,8 +1905,9 @@ class Run:
                 * is below - value is below threshold.
         description : str, optional
             description for this alert, default None
-        window : PositiveInt, optional
-            time period in seconds over which metrics are averaged, by default 5
+        window : PositiveInt | None, optional
+            time period in seconds over which metrics are averaged,
+            default of None sets this to be the same as frequency.
         frequency : PositiveInt, optional
             frequency at which to check alert condition in seconds, by default 1
         aggregation : Literal['average', 'sum', 'at least one', 'all'], optional
@@ -1935,7 +1937,7 @@ class Run:
             description=description,
             threshold=threshold,
             rule=rule,
-            window=window,
+            window=window or frequency,
             frequency=frequency,
             aggregation=aggregation,
             notification=notification,
