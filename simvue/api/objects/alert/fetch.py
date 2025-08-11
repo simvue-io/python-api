@@ -131,8 +131,9 @@ class Alert:
                     _id,
                     UserAlert(_read_only=True, identifier=_id, _local=True, **_entry),
                 )
-            elif _entry["source"] == "metrics" and _entry.get("alert", {}).get(
-                "threshold"
+            elif (
+                _entry["source"] == "metrics"
+                and _entry.get("alert", {}).get("threshold") is not None
             ):
                 yield (
                     _id,
@@ -140,8 +141,9 @@ class Alert:
                         _local=True, _read_only=True, identifier=_id, **_entry
                     ),
                 )
-            elif _entry["source"] == "metrics" and _entry.get("alert", {}).get(
-                "range_low"
+            elif (
+                _entry["source"] == "metrics"
+                and _entry.get("alert", {}).get("range_low") is not None
             ):
                 yield (
                     _id,
@@ -150,4 +152,6 @@ class Alert:
                     ),
                 )
             else:
-                raise RuntimeError(f"Unrecognised alert source '{_entry['source']}'")
+                raise RuntimeError(
+                    f"Unrecognised alert source '{_entry['source']}' with data '{_entry}'"
+                )

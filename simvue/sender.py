@@ -15,6 +15,7 @@ import psutil
 from simvue.config.user import SimvueConfiguration
 
 import simvue.api.objects
+from simvue.eco.emissions_monitor import CO2Monitor
 from simvue.version import __version__
 
 UPLOAD_ORDER: list[str] = [
@@ -150,7 +151,7 @@ def sender(
     max_workers: int = 5,
     threading_threshold: int = 10,
     objects_to_upload: list[str] = UPLOAD_ORDER,
-):
+) -> dict[str, str]:
     """Send data from a local cache directory to the Simvue server.
 
     Parameters
@@ -163,8 +164,13 @@ def sender(
         The number of cached files above which threading will be used
     objects_to_upload : list[str]
         Types of objects to upload, by default uploads all types of objects present in cache
+
+    Returns
+    -------
+    id_mapping
+        mapping of local ID to server ID
     """
-    _user_config = SimvueConfiguration.fetch()
+    _user_config: SimvueConfiguration = SimvueConfiguration.fetch()
     cache_dir = cache_dir or _user_config.offline.cache
 
     cache_dir.joinpath("server_ids").mkdir(parents=True, exist_ok=True)
@@ -195,7 +201,9 @@ def sender(
             for file_path in _offline_files:
                 upload_cached_file(cache_dir, _obj_type, file_path, _id_mapping, _lock)
         else:
-            with ThreadPoolExecutor(max_workers=max_workers) as executor:
+            with ThreadPoolExecutor(
+                max_workers=max_workers, thread_name_prefix="sender_session_upload"
+            ) as executor:
                 _results = executor.map(
                     lambda file_path: upload_cached_file(
                         cache_dir=cache_dir,
@@ -224,7 +232,9 @@ def sender(
                 ),
             )
     else:
-        with ThreadPoolExecutor(max_workers=max_workers) as executor:
+        with ThreadPoolExecutor(
+            max_workers=max_workers, thread_name_prefix="sender_heartbeat"
+        ) as executor:
             _results = executor.map(
                 lambda _heartbeat_file: send_heartbeat(
                     file_path=_heartbeat_file,
@@ -234,6 +244,21 @@ def sender(
                 ),
                 _heartbeat_files,
             )
+
+    # If CO2 emissions are requested create a dummy monitor which just
+    # refreshes the CO2 intensity value if required. No emission metrics
+    # will be taken by the sender itself, values are assumed to be recorded
+    # by any offline runs being sent.
+    if _user_config.metrics.enable_emission_metrics:
+        CO2Monitor(
+            thermal_design_power_per_gpu=None,
+            thermal_design_power_per_cpu=None,
+            local_data_directory=cache_dir,
+            intensity_refresh_interval=_user_config.eco.intensity_refresh_interval,
+            co2_intensity=_user_config.eco.co2_intensity,
+            co2_signal_api_token=_user_config.eco.co2_signal_api_token,
+        ).check_refresh()
+
     # Remove lock file to allow another sender to start in the future
     _lock_path.unlink()
     return _id_mapping

@@ -23,6 +23,7 @@ from simvue.exception import ObjectNotFoundError
 from simvue.version import __version__
 from simvue.api.request import (
     get as sv_get,
+    get_paginated,
     post as sv_post,
     put as sv_put,
     delete as sv_delete,
@@ -347,7 +348,7 @@ class SimvueObject(abc.ABC):
     @classmethod
     def ids(
         cls, count: int | None = None, offset: int | None = None, **kwargs
-    ) -> list[str]:
+    ) -> typing.Generator[str, None, None]:
         """Retrieve a list of all object identifiers.
 
         Parameters
@@ -357,17 +358,23 @@ class SimvueObject(abc.ABC):
         offset : int | None, optional
             set start index for objects list
 
-        Returns
+        Yields
         -------
-        list[str]
+        str
             identifiers for all objects of this type.
         """
         _class_instance = cls(_read_only=True, _local=True)
-        if (_data := cls._get_all_objects(count, offset, **kwargs).get("data")) is None:
-            raise RuntimeError(
-                f"Expected key 'data' for retrieval of {_class_instance.__class__.__name__.lower()}s"
-            )
-        return [_entry["id"] for _entry in _data]
+        _count: int = 0
+        for response in cls._get_all_objects(offset, count=count, **kwargs):
+            if (_data := response.get("data")) is None:
+                raise RuntimeError(
+                    f"Expected key 'data' for retrieval of {_class_instance.__class__.__name__.lower()}s"
+                )
+            for entry in _data:
+                yield entry["id"]
+                _count += 1
+                if count and _count > count:
+                    return
 
     @classmethod
     @pydantic.validate_call
@@ -396,23 +403,23 @@ class SimvueObject(abc.ABC):
         Generator[tuple[str, SimvueObject | None], None, None]
         """
         _class_instance = cls(_read_only=True, _local=True)
-        if (
-            _data := cls._get_all_objects(
-                count=count,
-                offset=offset,
-                **kwargs,
-            ).get("data")
-        ) is None:
-            raise RuntimeError(
-                f"Expected key 'data' for retrieval of {_class_instance.__class__.__name__.lower()}s"
-            )
-
-        for _entry in _data:
-            if not (_id := _entry.pop("id", None)):
+        _count: int = 0
+        for _response in cls._get_all_objects(offset, count=count, **kwargs):
+            if count and _count > count:
+                return
+            if (_data := _response.get("data")) is None:
                 raise RuntimeError(
-                    f"Expected key 'id' for {_class_instance.__class__.__name__.lower()}"
+                    f"Expected key 'data' for retrieval of {_class_instance.__class__.__name__.lower()}s"
                 )
-            yield _id, cls(_read_only=True, identifier=_id, _local=True, **_entry)
+
+            # If data is an empty list
+            if not _data:
+                return
+
+            for entry in _data:
+                _id = entry["id"]
+                yield _id, cls(_read_only=True, identifier=_id, _local=True, **entry)
+                _count += 1
 
     @classmethod
     def count(cls, **kwargs) -> int:
@@ -424,42 +431,34 @@ class SimvueObject(abc.ABC):
             total from server database for current user.
         """
         _class_instance = cls(_read_only=True)
-        if (
-            _count := cls._get_all_objects(count=None, offset=None, **kwargs).get(
-                "count"
-            )
-        ) is None:
-            raise RuntimeError(
-                f"Expected key 'count' for retrieval of {_class_instance.__class__.__name__.lower()}s"
-            )
-        return _count
+        _count_total: int = 0
+        for _data in cls._get_all_objects(**kwargs):
+            if not (_count := _data.get("count")):
+                raise RuntimeError(
+                    f"Expected key 'count' for retrieval of {_class_instance.__class__.__name__.lower()}s"
+                )
+            _count_total += _count
+        return _count_total
 
     @classmethod
     def _get_all_objects(
-        cls,
-        count: int | None,
-        offset: int | None,
-        **kwargs,
-    ) -> dict[str, typing.Any]:
+        cls, offset: int | None, count: int | None, **kwargs
+    ) -> typing.Generator[dict, None, None]:
         _class_instance = cls(_read_only=True)
         _url = f"{_class_instance._base_url}"
-        _params: dict[str, int | str] = {"start": offset, "count": count}
-
-        _response = sv_get(
-            _url,
-            headers=_class_instance._headers,
-            params=_params | kwargs,
-        )
 
         _label = _class_instance.__class__.__name__.lower()
         if _label.endswith("s"):
             _label = _label[:-1]
 
-        return get_json_from_response(
-            response=_response,
-            expected_status=[http.HTTPStatus.OK],
-            scenario=f"Retrieval of {_label}s",
-        )
+        for response in get_paginated(
+            _url, headers=_class_instance._headers, offset=offset, count=count, **kwargs
+        ):
+            yield get_json_from_response(
+                response=response,
+                expected_status=[http.HTTPStatus.OK],
+                scenario=f"Retrieval of {_label}s",
+            )  # type: ignore
 
     def read_only(self, is_read_only: bool) -> None:
         """Set whether this object is in read only state.
@@ -478,7 +477,7 @@ class SimvueObject(abc.ABC):
         if not self._read_only:
             self._staging = self._get_local_staged()
 
-    def commit(self) -> None:
+    def commit(self) -> dict | None:
         """Send updates to the server, or if offline, store locally."""
         if self._read_only:
             raise AttributeError("Cannot commit object in 'read-only' mode")
@@ -490,21 +489,25 @@ class SimvueObject(abc.ABC):
             self._cache()
             return
 
+        _response: dict | None = None
+
         # Initial commit is creation of object
         # if staging is empty then we do not need to use PUT
         if not self._identifier or self._identifier.startswith("offline_"):
             self._logger.debug(
                 f"Posting from staged data for {self._label} '{self.id}': {self._staging}"
             )
-            self._post(**self._staging)
+            _response = self._post(**self._staging)
         elif self._staging:
             self._logger.debug(
                 f"Pushing updates from staged data for {self._label} '{self.id}': {self._staging}"
             )
-            self._put(**self._staging)
+            _response = self._put(**self._staging)
 
         # Clear staged changes
         self._clear_staging()
+
+        return _response
 
     @property
     def id(self) -> str | None:
@@ -691,3 +694,15 @@ class SimvueObject(abc.ABC):
             the locally staged data if available.
         """
         return self._staging or None
+
+    def __str__(self) -> str:
+        """String representation of Simvue object."""
+        return f"{self.__class__.__name__}({self.id=})"
+
+    def __repr__(self) -> str:
+        _out_str = f"{self.__class__.__module__}.{self.__class__.__qualname__}("
+        _out_str += ", ".join(
+            f"{property}={getattr(self, property)!r}" for property in self._properties
+        )
+        _out_str += ")"
+        return _out_str

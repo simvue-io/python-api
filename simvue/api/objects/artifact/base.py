@@ -31,8 +31,9 @@ from simvue.api.request import (
 
 Category = typing.Literal["code", "input", "output"]
 
-UPLOAD_TIMEOUT: int = 30
-DOWNLOAD_TIMEOUT: int = 30
+BASE_TIMEOUT: int = 10
+UPLOAD_TIMEOUT_PER_MB: int = 1
+DOWNLOAD_TIMEOUT_PER_MB: int = 1
 DOWNLOAD_CHUNK_SIZE: int = 8192
 
 
@@ -108,13 +109,20 @@ class ArtifactBase(SimvueObject):
         for id, category in _offline_staging.items():
             self.attach_to_run(run_id=id_mapping[id], category=category)
 
-    def _upload(self, file: io.BytesIO) -> None:
+    def _upload(self, file: io.BytesIO, timeout: int, file_size: int) -> None:
         if self._offline:
             super().commit()
             return
 
         if not (_url := self._staging.get("url")):
             return
+
+        if not timeout:
+            timeout = BASE_TIMEOUT + UPLOAD_TIMEOUT_PER_MB * file_size / 1024 / 1024
+
+        self._logger.debug(
+            f"Will wait for a period of {timeout:.0f}s for upload of file for {file_size}B file to complete."
+        )
 
         _name = self._staging["name"]
 
@@ -123,6 +131,7 @@ class ArtifactBase(SimvueObject):
             headers={},
             params={},
             is_json=False,
+            timeout=timeout,
             files={"file": file},
             data=self._init_data.get("fields"),
         )
@@ -324,8 +333,17 @@ class ArtifactBase(SimvueObject):
             raise ValueError(
                 f"Could not retrieve URL for artifact '{self._identifier}'"
             )
+
+        _timeout = BASE_TIMEOUT + DOWNLOAD_TIMEOUT_PER_MB * self.size / 1024 / 1024
+
+        self._logger.debug(
+            f"Will wait {_timeout:.0f}s for download of file {self.name} of size {self.size}B"
+        )
+
         _response = sv_get(
-            f"{self.download_url}", timeout=DOWNLOAD_TIMEOUT, headers=None
+            f"{self.download_url}",
+            timeout=_timeout,
+            headers=None,
         )
 
         get_json_from_response(

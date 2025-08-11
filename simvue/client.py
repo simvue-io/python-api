@@ -32,7 +32,16 @@ from .utilities import check_extra, prettify_pydantic
 from .models import FOLDER_REGEX, NAME_REGEX
 from .config.user import SimvueConfiguration
 from .api.request import get_json_from_response
-from .api.objects import Run, Folder, Tag, Artifact, Alert
+from .api.objects import (
+    Run,
+    Folder,
+    Tag,
+    Artifact,
+    Alert,
+    FileArtifact,
+    ObjectArtifact,
+    get_folder_from_path,
+)
 
 
 CONCURRENT_DOWNLOADS = 10
@@ -42,8 +51,10 @@ logger = logging.getLogger(__file__)
 
 
 def _download_artifact_to_file(
-    artifact: Artifact, output_dir: pathlib.Path | None
+    artifact: FileArtifact | ObjectArtifact, output_dir: pathlib.Path | None
 ) -> None:
+    if not artifact.name:
+        raise RuntimeError(f"Expected artifact '{artifact.id}' to have a name")
     _output_file = (output_dir or pathlib.Path.cwd()).joinpath(artifact.name)
     # If this is a hierarchical structure being downloaded, need to create directories
     _output_file.parent.mkdir(parents=True, exist_ok=True)
@@ -181,7 +192,7 @@ class Client:
         output_format: typing.Literal["dict", "objects", "dataframe"] = "objects",
         count_limit: pydantic.PositiveInt | None = 100,
         start_index: pydantic.NonNegativeInt = 0,
-        show_shared: bool = False,
+        show_shared: bool = True,
         sort_by_columns: list[tuple[str, bool]] | None = None,
     ) -> DataFrame | typing.Generator[tuple[str, Run], None, None] | None:
         """Retrieve all runs matching filters.
@@ -210,7 +221,7 @@ class Client:
         start_index : int, optional
             the index from which to count entries. Default is 0.
         show_shared : bool, optional
-            whether to include runs shared with the current user. Default is False.
+            whether to include runs shared with the current user. Default is True.
         sort_by_columns : list[tuple[str, bool]], optional
             sort by columns in the order given,
             list of tuples in the form (column_name: str, sort_descending: bool),
@@ -234,8 +245,9 @@ class Client:
         RuntimeError
             if there was a failure in data retrieval from the server
         """
+        filters = filters or []
         if not show_shared:
-            filters = (filters or []) + ["user == self"]
+            filters += ["user == self"]
 
         _runs = Run.get(
             count=count_limit,
@@ -346,7 +358,18 @@ class Client:
         """
         _ids = Folder.ids(filters=json.dumps([f"path == {path}"]))
 
-        return _ids[0] if _ids else None
+        try:
+            _id = next(_ids)
+        except StopIteration:
+            return None
+
+        with contextlib.suppress(StopIteration):
+            next(_ids)
+            raise RuntimeError(
+                f"Expected single folder match for '{path}', but found duplicate."
+            )
+
+        return _id
 
     @prettify_pydantic
     @pydantic.validate_call
@@ -416,12 +439,16 @@ class Client:
             if allow_missing:
                 return None
             else:
-                raise RuntimeError(
-                    f"Deletion of folder '{folder_path}' failed, folder does not exist."
+                raise ObjectNotFoundError(
+                    name=folder_path,
+                    obj_type="folder",
                 )
         _response = Folder(identifier=folder_id).delete(
             delete_runs=remove_runs, recursive=recursive, runs_only=False
         )
+
+        if folder_id not in _response.get("folders", []):
+            raise RuntimeError("Deletion of folder failed, server returned mismatch.")
 
         return _response.get("runs", [])
 
@@ -471,13 +498,14 @@ class Client:
         )  # type: ignore
 
     def _retrieve_artifacts_from_server(
-        self, run_id: str, name: str, count: int | None = None
-    ) -> typing.Generator[tuple[str, Artifact], None, None]:
-        return Artifact.get(
-            runs=json.dumps([run_id]),
-            filters=json.dumps([f"name == {name}"]),
-            count=count,
-        )  # type: ignore
+        self, run_id: str, name: str
+    ) -> FileArtifact | ObjectArtifact | None:
+        return Artifact.from_name(
+            run_id=run_id,
+            name=name,
+            server_url=self._user_config.server.url,
+            server_token=self._user_config.server.token,
+        )
 
     @prettify_pydantic
     @pydantic.validate_call
@@ -525,12 +553,14 @@ class Client:
         RuntimeError
             if retrieval of artifact from the server failed
         """
-        _artifact = Artifact.from_name(
-            run_id=run_id,
-            name=name,
-            server_url=self._user_config.server.url,
-            server_token=self._user_config.server.token,
-        )
+        _artifact = self._retrieve_artifacts_from_server(run_id, name)
+
+        if not _artifact:
+            raise ObjectNotFoundError(
+                obj_type="artifact",
+                name=name,
+                extra=f"for run '{run_id}'",
+            )
 
         _content = b"".join(_artifact.download_content())
 
@@ -570,12 +600,14 @@ class Client:
             if there was a failure during retrieval of information from the
             server
         """
-        _artifacts = self._retrieve_artifacts_from_server(run_id, name, count=1)
+        _artifact = self._retrieve_artifacts_from_server(run_id, name)
 
-        try:
-            _id, _artifact = next(_artifacts)
-        except StopIteration as e:
-            raise ValueError(f"No artifact '{name}' found for run '{run_id}'") from e
+        if not _artifact:
+            raise ObjectNotFoundError(
+                obj_type="artifact",
+                name=name,
+                extra=f"for run '{run_id}'",
+            )
 
         _download_artifact_to_file(_artifact, output_dir)
 
@@ -611,7 +643,9 @@ class Client:
             Artifact.from_run(run_id=run_id, category=category)
         )
 
-        with ThreadPoolExecutor(CONCURRENT_DOWNLOADS) as executor:
+        with ThreadPoolExecutor(
+            CONCURRENT_DOWNLOADS, thread_name_prefix=f"get_artifacts_run_{run_id}"
+        ) as executor:
             futures = [
                 executor.submit(_download_artifact_to_file, artifact, output_dir)
                 for _, artifact in _artifacts
@@ -628,7 +662,9 @@ class Client:
     @prettify_pydantic
     @pydantic.validate_call
     def get_folder(
-        self, folder_path: typing.Annotated[str, pydantic.Field(pattern=FOLDER_REGEX)]
+        self,
+        folder_path: typing.Annotated[str, pydantic.Field(pattern=FOLDER_REGEX)],
+        read_only: bool = True,
     ) -> Folder | None:
         """Retrieve a folder by identifier
 
@@ -637,6 +673,10 @@ class Client:
         folder_path : str
             the path of the folder to retrieve on the server.
             Paths are prefixed with `/`
+        read_only : bool, optional
+            whether the returned object should be editable or not,
+            default is True, the object is a cached copy of data
+            from the server.
 
         Returns
         -------
@@ -648,15 +688,12 @@ class Client:
         RuntimeError
             if there was a failure when retrieving information from the server
         """
-        _folders: typing.Generator[tuple[str, Folder], None, None] = Folder.get(
-            filters=json.dumps([f"path == {folder_path}"])
-        )  # type: ignore
-
         try:
-            _, _folder = next(_folders)
-            return _folder
-        except StopIteration:
+            _folder = get_folder_from_path(path=folder_path)
+        except ObjectNotFoundError:
             return None
+        _folder.read_only(is_read_only=read_only)
+        return _folder
 
     @pydantic.validate_call
     def get_folders(
@@ -824,7 +861,8 @@ class Client:
 
         _args = {"filters": json.dumps(run_filters)} if run_filters else {}
 
-        _run_data = dict(Run.get(**_args))
+        if not run_ids:
+            _run_data = dict(Run.get(**_args))
 
         if not (
             _run_metrics := self._get_run_metrics_from_server(
@@ -842,7 +880,8 @@ class Client:
             )
         if use_run_names:
             _run_metrics = {
-                _run_data[key].name: _run_metrics[key] for key in _run_metrics.keys()
+                Run(identifier=key).name: _run_metrics[key]
+                for key in _run_metrics.keys()
             }
         return parse_run_set_metrics(
             _run_metrics,
@@ -1132,7 +1171,7 @@ class Client:
 
     @prettify_pydantic
     @pydantic.validate_call
-    def get_tag(self, tag_id: str) -> Tag | None:
+    def get_tag(self, tag_id: str) -> Tag:
         """Retrieve a single tag
 
         Parameters
@@ -1149,8 +1188,7 @@ class Client:
         ------
         RuntimeError
             if retrieval of information from the server on this tag failed
+        ObjectNotFoundError
+            if tag does not exist
         """
-        try:
-            return Tag(identifier=tag_id)
-        except ObjectNotFoundError:
-            return None
+        return Tag(identifier=tag_id)

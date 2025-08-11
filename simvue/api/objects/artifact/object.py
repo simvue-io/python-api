@@ -39,6 +39,7 @@ class ObjectArtifact(ArtifactBase):
         storage: str | None,
         obj: typing.Any,
         metadata: dict[str, typing.Any] | None,
+        upload_timeout: int | None = None,
         allow_pickling: bool = True,
         offline: bool = False,
         **kwargs,
@@ -57,6 +58,8 @@ class ObjectArtifact(ArtifactBase):
             object to serialize and upload
         metadata : dict[str, Any] | None
             supply metadata information for this artifact
+        upload_timeout : int | None, optional
+            specify the timeout in seconds for upload
         allow_pickling : bool, optional
             whether to allow the object to be pickled if no other
             serialization found. Default is True
@@ -119,5 +122,11 @@ class ObjectArtifact(ArtifactBase):
         if offline:
             return _artifact
 
-        _artifact._upload(file=io.BytesIO(_serialized))
+        _file_data = io.BytesIO(_serialized)
+
+        _artifact._upload(
+            file=_file_data,
+            timeout=upload_timeout,
+            file_size=len(_file_data.getbuffer()),
+        )
         return _artifact

@@ -33,6 +33,7 @@ from simvue.config.files import (
 from simvue.version import __version__
 from simvue.api.request import get as sv_get
 from simvue.api.url import URL
+from simvue.eco.config import EcoConfig
 
 logger = logging.getLogger(__name__)
 
@@ -42,7 +43,9 @@ SIMVUE_SERVER_LOWER_CONSTRAINT: semver.Version | None = semver.Version.parse("1.
 
 class SimvueConfiguration(pydantic.BaseModel):
     # Hide values as they contain token and URL
-    model_config = pydantic.ConfigDict(hide_input_in_errors=True)
+    model_config = pydantic.ConfigDict(
+        hide_input_in_errors=True, revalidate_instances="always"
+    )
     client: ClientGeneralOptions = ClientGeneralOptions()
     server: ServerSpecifications = pydantic.Field(
         ..., description="Specifications for Simvue server"
@@ -50,6 +53,7 @@ class SimvueConfiguration(pydantic.BaseModel):
     run: DefaultRunSpecifications = DefaultRunSpecifications()
     offline: OfflineSpecifications = OfflineSpecifications()
     metrics: MetricsSpecifications = MetricsSpecifications()
+    eco: EcoConfig = EcoConfig()
 
     @classmethod
     def _load_pyproject_configs(cls) -> dict | None:
@@ -135,7 +139,7 @@ class SimvueConfiguration(pydantic.BaseModel):
 
     @pydantic.model_validator(mode="after")
     @classmethod
-    def check_valid_server(cls, values: "SimvueConfiguration") -> bool:
+    def check_valid_server(cls, values: "SimvueConfiguration") -> "SimvueConfiguration":
         if os.environ.get("SIMVUE_NO_SERVER_CHECK"):
             return values
 
@@ -196,6 +200,7 @@ class SimvueConfiguration(pydantic.BaseModel):
             _default_dir = _config_dict["offline"].get(
                 "cache", DEFAULT_OFFLINE_DIRECTORY
             )
+        pathlib.Path(_default_dir).mkdir(parents=True, exist_ok=True)
 
         _config_dict["offline"]["cache"] = _default_dir
 

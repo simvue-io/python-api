@@ -26,7 +26,7 @@ def test_user_alert_creation_online() -> None:
 
 @pytest.mark.api
 @pytest.mark.offline
-def test_user_alert_creation_offline() -> None:
+def test_user_alert_creation_offline(offline_cache_setup) -> None:
     _uuid: str = f"{uuid.uuid4()}".split("-")[0]
     _alert = UserAlert.new(
         name=f"users_alert_{_uuid}",
@@ -84,7 +84,7 @@ def test_user_alert_modification_online() -> None:
 
 @pytest.mark.api
 @pytest.mark.offline
-def test_user_alert_modification_offline() -> None:
+def test_user_alert_modification_offline(offline_cache_setup) -> None:
     _uuid: str = f"{uuid.uuid4()}".split("-")[0]
     _alert = UserAlert.new(
         name=f"users_alert_{_uuid}",
@@ -176,7 +176,7 @@ def test_user_alert_status() -> None:
     
 @pytest.mark.api
 @pytest.mark.offline
-def test_user_alert_status_offline() -> None:
+def test_user_alert_status_offline(offline_cache_setup) -> None:
     _uuid: str = f"{uuid.uuid4()}".split("-")[0]
     _alert = UserAlert.new(
         name=f"users_alert_{_uuid}",

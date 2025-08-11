@@ -33,7 +33,7 @@ def test_events_creation_online() -> None:
 
 @pytest.mark.api
 @pytest.mark.offline
-def test_events_creation_offline() -> None:
+def test_events_creation_offline(offline_cache_setup) -> None:
     _uuid: str = f"{uuid.uuid4()}".split("-")[0]
     _folder_name = f"/simvue_unit_testing/{_uuid}"
     _folder = Folder.new(path=_folder_name, offline=True)

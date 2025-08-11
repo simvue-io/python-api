@@ -79,7 +79,7 @@ class Metrics(SimvueObject):
         count: pydantic.PositiveInt | None = None,
         offset: pydantic.PositiveInt | None = None,
         **kwargs,
-    ) -> typing.Generator[MetricSet, None, None]:
+    ) -> typing.Generator[dict[str, dict[str, list[dict[str, float]]]], None, None]:
         """Retrieve metrics from the server for a given set of runs.
 
         Parameters
@@ -100,20 +100,17 @@ class Metrics(SimvueObject):
 
         Yields
         ------
-        MetricSet
+        dict[str,  dict[str, list[dict[str, float]]]
             metric set object containing metrics for run.
         """
-        _class_instance = cls(_read_only=True, _local=True)
-        _data = cls._get_all_objects(
-            count,
+        yield from cls._get_all_objects(
             offset,
             metrics=json.dumps(metrics),
             runs=json.dumps(runs),
             xaxis=xaxis,
+            count=count,
             **kwargs,
         )
-        # TODO: Temp fix, just return the dictionary. Not sure what format we really want this in...
-        return _data
 
     @pydantic.validate_call
     def span(self, run_ids: list[str]) -> dict[str, int | float]:
