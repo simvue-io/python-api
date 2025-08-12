@@ -432,7 +432,7 @@ class SimvueObject(abc.ABC):
         """
         _class_instance = cls(_read_only=True)
         _count_total: int = 0
-        for _data in cls._get_all_objects(**kwargs):
+        for _data in cls._get_all_objects(count=None, offset=None, **kwargs):
             if not (_count := _data.get("count")):
                 raise RuntimeError(
                     f"Expected key 'count' for retrieval of {_class_instance.__class__.__name__.lower()}s"
