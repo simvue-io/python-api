@@ -7,6 +7,7 @@ import uuid
 import tempfile
 import os
 import json
+import platform
 import pathlib
 import logging
 import requests
@@ -43,8 +44,8 @@ class CountingLogHandler(logging.Handler):
 
 
 def clear_out_files() -> None:
-    out_files = list(pathlib.Path.cwd().glob("test_*.out"))
-    out_files += list(pathlib.Path.cwd().glob("test_*.err"))
+    out_files = list(pathlib.Path.cwd().glob(f"test_*_{os.environ.get("PYTEST_XDIST_WORKER", 0)}.out"))
+    out_files += list(pathlib.Path.cwd().glob(f"test_*_{os.environ.get("PYTEST_XDIST_WORKER", 0)}.err"))
 
     for file_obj in out_files:
         file_obj.unlink()
@@ -213,7 +214,7 @@ def setup_test_run(run: sv_run.Run, create_objects: bool, request: pytest.Fixtur
             "test_identifier": f"{_test_name}_{fix_use_id}"
         },
         "folder": f"/simvue_unit_testing/{fix_use_id}",
-        "tags": ["simvue_client_unit_tests", _test_name]
+        "tags": ["simvue_client_unit_tests", _test_name, f"{platform.system()}"]
     }
 
     if os.environ.get("CI"):

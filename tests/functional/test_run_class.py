@@ -1,6 +1,6 @@
 import json
 import logging
-import toml
+import platform
 import os
 import pytest
 import requests
@@ -39,7 +39,7 @@ def test_created_run(request) -> None:
     with sv_run.Run() as run_created:
         run_created.init(
             request.node.name.replace("[", "_").replace("]", "_"),
-            tags=[
+            tags=[platform.system(), 
                 "simvue_client_unit_tests",
                 "test_created_run"
             ],
@@ -178,7 +178,7 @@ def test_log_metrics(
         with pytest.raises(SimvueRunError, match="visibility") as e:
             run.init(
                 request.node.name.replace("[", "_").replace("]", "_"),
-                tags=[
+                tags=[platform.system(), 
                     "simvue_client_unit_tests",
                     "test_log_metrics",
                 ],
@@ -193,7 +193,7 @@ def test_log_metrics(
 
     run.init(
         request.node.name.replace("[", "_").replace("]", "_"),
-        tags=[
+        tags=[platform.system(), 
             "simvue_client_unit_tests",
             "test_log_metrics",
         ],
@@ -294,7 +294,7 @@ def test_visibility_online(
         with pytest.raises(SimvueRunError, match="visibility") as e:
             run.init(
                 request.node.name.replace("[", "_").replace("]", "_"),
-                tags=[
+                tags=[platform.system(), 
                     "simvue_client_unit_tests",
                     "test_visibility_online"
                 ],
@@ -306,7 +306,7 @@ def test_visibility_online(
 
     run.init(
         request.node.name.replace("[", "_").replace("]", "_"),
-        tags=[
+        tags=[platform.system(), 
             "simvue_client_unit_tests",
             "test_visibility_online"
         ],
@@ -347,7 +347,7 @@ def test_visibility_offline(
             with pytest.raises(SimvueRunError, match="visibility") as e:
                 run.init(
                     request.node.name.replace("[", "_").replace("]", "_"),
-                    tags=[
+                    tags=[platform.system(), 
                         "simvue_client_unit_tests",
                         "test_visibility_offline"
                     ],
@@ -359,7 +359,7 @@ def test_visibility_offline(
 
         run.init(
             request.node.name.replace("[", "_").replace("]", "_"),
-            tags=[
+            tags=[platform.system(), 
                "simvue_client_unit_tests",
                "test_visibility_offline"
             ],
@@ -508,7 +508,7 @@ def test_runs_multiple_parallel(
                 run.config(suppress_errors=False)
                 run.init(
                     request.node.name.replace("[", "_").replace("]", "_") + f"_{index}",
-                    tags=[
+                    tags=[platform.system(), 
                         "simvue_client_unit_tests",
                     ],
                     folder=f"/simvue_client_unit_tests/{_uuid}",
@@ -546,7 +546,7 @@ def test_runs_multiple_parallel(
                 run_1.config(suppress_errors=False)
                 run_1.init(
                     request.node.name.replace("[", "_").replace("]", "_") + "_1",
-                    tags=[
+                    tags=[platform.system(), 
                         "simvue_client_unit_tests",
                         "test_multi_run_unthreaded"
                     ],
@@ -557,7 +557,7 @@ def test_runs_multiple_parallel(
                 run_2.config(suppress_errors=False)
                 run_2.init(
                     request.node.name.replace("[", "_").replace("]", "_") + "_2",
-                    tags=["simvue_client_unit_tests", "test_multi_run_unthreaded"],
+                    tags=[platform.system(), "simvue_client_unit_tests", "test_multi_run_unthreaded"],
                     folder=f"/simvue_client_unit_tests/{_uuid}",
                     retention_period=os.environ.get("SIMVUE_TESTING_RETENTION_PERIOD", "2 mins"),
                     visibility="tenant" if os.environ.get("CI") else None,
@@ -586,7 +586,7 @@ def test_runs_multiple_parallel(
                         aggregate=False,
                     )
 
-        with contextlib.suppress(RuntimeError):
+        with contextlib.suppress(ObjectNotFoundError):
             client.delete_folder(
                 f"/simvue_unit_testing/{_uuid}",
                 remove_runs=True,
@@ -609,7 +609,7 @@ def test_runs_multiple_series(request: pytest.FixtureRequest) -> None:
             run.config(suppress_errors=False)
             run.init(
                 request.node.name.replace("[", "_").replace("]", "_"),
-                tags=[
+                tags=[platform.system(), 
                     "simvue_client_unit_tests",
                     "test_runs_multiple_series"
                 ],
@@ -666,7 +666,7 @@ def test_suppressed_errors(
             run.init(
                 request.node.name.replace("[", "_").replace("]", "_"),
                 folder=f"/simvue_unit_testing/{_uuid}",
-                tags=[
+                tags=[platform.system(), 
                     "simvue_client_unit_tests",
                     "test_suppressed_errors"
                 ],
@@ -977,7 +977,7 @@ def test_add_alerts() -> None:
         name="test_add_alerts",
         folder=f"/simvue_unit_testing/{_uuid}",
         retention_period=os.environ.get("SIMVUE_TESTING_RETENTION_PERIOD", "2 mins"),
-        tags=["test_add_alerts"],
+        tags=[platform.system(), "test_add_alerts"],
         visibility="tenant" if os.environ.get("CI") else None,
     )
 
@@ -1071,7 +1071,7 @@ def test_log_alert() -> None:
         name="test_log_alerts",
         folder=f"/simvue_unit_testing/{_uuid}",
         retention_period=os.environ.get("SIMVUE_TESTING_RETENTION_PERIOD", "2 mins"),
-        tags=["test_add_alerts"],
+        tags=[platform.system(), "test_add_alerts"],
         visibility="tenant" if os.environ.get("CI") else None,
     )
     _run_id = run.id
@@ -1128,7 +1128,7 @@ def test_abort_on_alert_process(mocker: pytest_mock.MockerFixture) -> None:
         name="test_abort_on_alert_process",
         folder=f"/simvue_unit_testing/{_uuid}",
         retention_period=os.environ.get("SIMVUE_TESTING_RETENTION_PERIOD", "2 mins"),
-        tags=["test_abort_on_alert_process"],
+        tags=[platform.system(), "test_abort_on_alert_process"],
         visibility="tenant" if os.environ.get("CI") else None,
     )
 
@@ -1138,7 +1138,7 @@ def test_abort_on_alert_process(mocker: pytest_mock.MockerFixture) -> None:
     run._heartbeat_interval = 1
     run._testing = True
     run.add_process(
-        identifier="forever_long",
+        identifier=f"forever_long_{os.environ.get("PYTEST_XDIST_WORKER", 0)}",
         executable="bash",
         c="&".join(["sleep 10"] * N_PROCESSES),
     )
@@ -1195,7 +1195,7 @@ def test_abort_on_alert_raise(
     run._heartbeat_interval = 1
     run._testing = True
     alert_id = run.create_user_alert("abort_test", trigger_abort=True)
-    run.add_process(identifier="forever_long", executable="bash", c="sleep 10")
+    run.add_process(identifier=f"forever_long_other_{os.environ.get("PYTEST_XDIST_WORKER", 0)}", executable="bash", c="sleep 10")
     run.log_alert(identifier=alert_id, state="critical")
     _alert = Alert(identifier=alert_id)
     assert _alert.get_status(run.id) == "critical"
@@ -1213,8 +1213,8 @@ def test_abort_on_alert_raise(
 def test_kill_all_processes(create_plain_run: tuple[sv_run.Run, dict]) -> None:
     run, _ = create_plain_run
     run.config(system_metrics_interval=1)
-    run.add_process(identifier="forever_long_1", executable="bash", c="sleep 10000")
-    run.add_process(identifier="forever_long_2", executable="bash", c="sleep 10000")
+    run.add_process(identifier=f"forever_long_a_{os.environ.get("PYTEST_XDIST_WORKER", 0)}", executable="bash", c="sleep 10000")
+    run.add_process(identifier=f"forever_long_b_{os.environ.get("PYTEST_XDIST_WORKER", 0)}", executable="bash", c="sleep 10000")
     processes = [
         psutil.Process(process.pid) for process in run._executor._processes.values()
     ]
@@ -1303,7 +1303,7 @@ def test_reconnect_with_process() -> None:
     with sv_run.Run() as new_run:
         new_run.reconnect(run.id)
         run.add_process(
-            identifier="test_process",
+            identifier=f"test_process_{os.environ.get("PYTEST_XDIST_WORKER", 0)}",
             executable="bash",
             c="echo 'Hello World!'",
         )
