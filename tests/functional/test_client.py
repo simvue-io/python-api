@@ -1,4 +1,3 @@
-from logging import critical
 import pytest
 import uuid
 import random
@@ -8,8 +7,6 @@ import glob
 import pathlib
 import time
 
-import requests
-import pytest_mock
 import tempfile
 import simvue.client as svc
 from simvue.exception import ObjectNotFoundError
@@ -226,11 +223,11 @@ def test_get_artifacts_as_files(
 @pytest.mark.client
 @pytest.mark.object_retrieval
 @pytest.mark.parametrize(
-    "output_format,sorting",
+    "output_format,sorting,system_info,timing_info,metrics,metadata,alerts,attributes",
     [
-        ("dict", None),
-        ("dataframe", [("created", True), ("started", True)]),
-        ("objects", [("metadata.test_identifier", True)]),
+        ("dict", None, False, True, False, True, False, ["test_engine"]),
+        ("dataframe", [("created", True), ("started", True)], True, False, True, False, True, None),
+        ("objects", [("metadata.test_identifier", True)], False, False, False, False, False, None),
     ],
     ids=("dict-unsorted", "dataframe-datesorted", "objects-metasorted"),
 )
@@ -238,11 +235,23 @@ def test_get_runs(
     create_test_run: tuple[sv_run.Run, dict],
     output_format: str,
     sorting: list[tuple[str, bool]] | None,
+    system_info: bool,
+    timing_info: bool,
+    metrics: bool,
+    metadata: bool,
+    alerts: bool,
+    attributes: list[str] | None
 ) -> None:
     client = svc.Client()
 
     _result = client.get_runs(
-        filters=[], output_format=output_format, count_limit=10, sort_by_columns=sorting
+        filters=[],
+        output_format=output_format,
+        count_limit=10,
+        sort_by_columns=sorting,
+        timing_info=True,
+        system_info=True,
+        attributes=attributes
     )
 
     if output_format == "dataframe":
