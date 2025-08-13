@@ -186,9 +186,12 @@ class Client:
         filters: list[str] | None,
         *,
         system: bool = False,
+        attributes: list[str] | None = None,
+        metadata: bool = False,
         metrics: bool = False,
         alerts: bool = False,
-        metadata: bool = False,
+        system_info: bool = False,
+        timing_info: bool = False,
         output_format: typing.Literal["dict", "objects", "dataframe"] = "objects",
         count_limit: pydantic.PositiveInt | None = 100,
         start_index: pydantic.NonNegativeInt = 0,
@@ -202,6 +205,9 @@ class Client:
         filters: list[str] | None
             set of filters to apply to query results. If None is specified
             return all results without filtering.
+        attributes : list[str] | None, optional
+            specify specific attributes to retrieve for runs.
+            Default of None includes all.
         metadata : bool, optional
             whether to include metadata information in the response.
             Default False.
@@ -210,6 +216,12 @@ class Client:
             Default False.
         alerts : bool, optional
             whether to include alert information in the response.
+            Default False.
+        system_info : bool, optional
+            whether to include system information in the response.
+            Default False.
+        timing_info: bool, optional
+            whether to include timing information in the response.
             Default False.
         output_format : Literal['dict', objects', 'dataframe'], optional
             the structure of the response
@@ -252,11 +264,13 @@ class Client:
         _runs = Run.get(
             count=count_limit,
             offset=start_index,
+            attributes=json.dumps(attributes),
             filters=json.dumps(filters),
             return_basic=True,
+            return_system=system_info,
+            return_timing=timing_info,
             return_metrics=metrics,
             return_alerts=alerts,
-            return_system=system,
             return_metadata=metadata,
             sorting=[dict(zip(("column", "descending"), a)) for a in sort_by_columns]
             if sort_by_columns
