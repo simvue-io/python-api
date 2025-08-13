@@ -1,12 +1,9 @@
 import contextlib
 from _pytest import monkeypatch
-from numpy import fix
 import pytest
-import datetime
 import pytest_mock
 import typing
 import uuid
-import time
 import tempfile
 import os
 import json
@@ -18,9 +15,7 @@ import simvue.eco.api_client as sv_eco
 import simvue.run as sv_run
 import simvue.api.objects as sv_api_obj
 import simvue.config.user as sv_cfg
-import simvue.utilities
 
-from simvue.api.objects.artifact import Artifact
 from simvue.exception import ObjectNotFoundError
 
 MAX_BUFFER_SIZE: int = 10
