@@ -1090,6 +1090,8 @@ class Client:
                     ]
                     if sort_by_columns
                     else None,
+                    count=count_limit,
+                    offset=start_index,
                 )
             ]  # type: ignore
 
