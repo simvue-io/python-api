@@ -255,7 +255,6 @@ def test_get_runs(
     )
 
     if output_format == "dataframe":
-        print(_result)
         assert not _result.empty
     else:
         assert _result
