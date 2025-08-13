@@ -280,34 +280,8 @@ class Client:
         if output_format == "objects":
             return _runs
 
-        _params: dict[str, bool | str] = {
-            "filters": json.dumps(filters),
-            "return_basic": True,
-            "return_metrics": metrics,
-            "return_alerts": alerts,
-            "return_system": system,
-            "return_metadata": metadata,
-        }
-
-        response = requests.get(
-            f"{self._user_config.server.url}/runs",
-            headers=self._headers,
-            params=_params,
-        )
-
-        response.raise_for_status()
-
-        if output_format not in ("dict", "dataframe"):
-            raise ValueError("Invalid format specified")
-
-        json_response = get_json_from_response(
-            expected_status=[http.HTTPStatus.OK],
-            scenario="Run retrieval",
-            response=response,
-        )
-
-        if (response_data := json_response.get("data")) is None:
-            raise RuntimeError("Failed to retrieve runs data")
+        run_objs: list[Run] = [run for _, run in _runs]
+        response_data = [run.to_dict() for run in run_objs]
 
         if output_format == "dict":
             return response_data
