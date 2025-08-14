@@ -72,6 +72,7 @@ class DefaultRunSpecifications(pydantic.BaseModel):
     folder: str = pydantic.Field("/", pattern=sv_models.FOLDER_REGEX)
     metadata: dict[str, str | int | float | bool] | None = None
     mode: typing.Literal["offline", "disabled", "online"] = "online"
+    record_shell_vars: list[str] | None = None
 
 
 class ClientGeneralOptions(pydantic.BaseModel):

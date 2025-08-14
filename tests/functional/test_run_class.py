@@ -1285,10 +1285,28 @@ def test_reconnect_functionality(mode, monkeypatch: pytest.MonkeyPatch) -> None:
     assert dict(_reconnected_run.metrics)["test_metric"]["last"] == 1
     assert client.get_events(run_id)[0]["message"] == "Testing!"
 
-    if temp_d:
-        temp_d.cleanup()
 
+@pytest.mark.run
+def test_env_var_metadata() -> None:
+    # Add some environment variables to glob
+    _recorded_env = {
+        "SIMVUE_RUN_TEST_VAR_1": "1",
+        "SIMVUE_RUN_TEST_VAR_2": "hello"
+    }
+    os.environ.update(_recorded_env)
+    with simvue.Run() as run:
+        run.init(
+            name="test_reconnect",
+            folder="/simvue_unit_testing",
+            retention_period="2 minutes",
+            timeout=None,
+            running=False,
+            record_shell_vars={"SIMVUE_RUN_TEST_VAR_*"}
+        )
+    _recorded_meta = RunObject(identifier=run.id).metadata
+    assert all(key in _recorded_meta.get("shell") for key in _recorded_env)
 
+@pytest.mark.run
 def test_reconnect_with_process() -> None:
     _uuid = f"{uuid.uuid4()}".split("-")[0]
     with simvue.Run() as run:
