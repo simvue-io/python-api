@@ -39,6 +39,7 @@ class Metrics(SimvueObject):
         self._label = "metric"
         super().__init__(_read_only=_read_only, _local=_local, **kwargs)
         self._run_id = self._staging.get("run")
+        self._is_set = True
 
     @classmethod
     @pydantic.validate_call

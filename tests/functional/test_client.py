@@ -148,6 +148,16 @@ def test_plot_metrics(create_test_run: tuple[sv_run.Run, dict]) -> None:
         pytest.skip("Plotting modules not found")
 
     client = svc.Client()
+    attempts: int = 0
+    while (
+        not list(client.get_metrics_names(create_test_run[1]["run_id"]))
+        and attempts < 10
+    ):
+        time.sleep(1)
+        attempts += 1
+
+    if attempts >= 10:
+        raise AssertionError("Failed to retrieve metrics.")
     client.plot_metrics(
         run_ids=[create_test_run[1]["run_id"]],
         metric_names=list(create_test_run[1]["metrics"]),
@@ -244,19 +254,34 @@ def test_get_runs(
     attributes: list[str] | None
 ) -> None:
     client = svc.Client()
+    attempts: int = 0
 
-    _result = client.get_runs(
-        filters=[],
-        output_format=output_format,
-        count_limit=10,
-        sort_by_columns=sorting,
-        timing_info=timing_info,
-        system_info=system_info,
-        metrics=metrics,
-        metadata=metadata,
-        alerts=alerts,
-        attributes=attributes
-    )
+    _result = None
+    while (
+        _result is None
+        and attempts < 10
+    ):
+        time.sleep(1)
+        try:
+            _result = client.get_runs(
+                filters=[],
+                output_format=output_format,
+                count_limit=10,
+                sort_by_columns=sorting,
+                timing_info=timing_info,
+                system_info=system_info,
+                metrics=metrics,
+                metadata=metadata,
+                alerts=alerts,
+                attributes=attributes
+            )
+        except ObjectNotFoundError:
+            _result = None
+        attempts += 1
+
+    if attempts >= 10:
+        raise AssertionError("Failed to retrieve created runs.")
+
 
     if output_format == "dataframe":
         assert not _result.empty

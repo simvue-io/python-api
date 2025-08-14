@@ -1303,7 +1303,7 @@ def test_env_var_metadata() -> None:
             running=False,
             record_shell_vars={"SIMVUE_RUN_TEST_VAR_*"}
         )
-    _recorded_meta = RunObject(identifier=run._id).metadata
+    _recorded_meta = RunObject(identifier=run.id).metadata
     assert all(key in _recorded_meta.get("shell") for key in _recorded_env)
 
 @pytest.mark.run

@@ -1,3 +1,4 @@
+import contextlib
 import pytest
 import os
 import uuid
@@ -46,7 +47,8 @@ def test_file_artifact_creation_online() -> None:
         assert _artifact.to_dict()
     _run.delete()
     _folder.delete(recursive=True, delete_runs=True, runs_only=False)
-    os.unlink(temp_f.name)
+    with contextlib.suppress(FileNotFoundError):
+        os.unlink(temp_f.name)
     if _failed:
         raise AssertionError("\n\t-" + "\n\t- ".join(": ".join(i) for i in _failed))
 
