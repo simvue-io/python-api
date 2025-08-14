@@ -96,8 +96,8 @@ def test_executor_multiprocess(request: pytest.FixtureRequest) -> None:
             assert out_file.exists()
             assert triggers[i].is_set()
     for i in range(10):
-        os.remove(f"test_executor_multiprocess_cmd_{i}.err")
-        os.remove(f"test_executor_multiprocess_cmd_{i}.out")
+        os.remove(f"test_executor_multiprocess_cmd_{i}_{os.environ.get("PYTEST_XDIST_WORKER", 0)}.err")
+        os.remove(f"test_executor_multiprocess_cmd_{i}_{os.environ.get("PYTEST_XDIST_WORKER", 0)}.out")
     with contextlib.suppress(ObjectNotFoundError):
         folder.delete(recursive=True, delete_runs=True)
 
