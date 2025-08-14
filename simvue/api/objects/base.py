@@ -563,6 +563,9 @@ class SimvueObject(abc.ABC):
         if _id := _json_response.get("id"):
             self._logger.debug("'%s' created successfully", _id)
             self._identifier = _id
+        else:
+            _detail = _json_response.get("detail", "")
+            raise RuntimeError(f"Expected new ID for {self._label} but none found: {_detail}.")
 
         return _json_response
 

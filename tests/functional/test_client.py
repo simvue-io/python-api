@@ -1,4 +1,5 @@
 import pytest
+import platform
 import uuid
 import random
 import os.path
@@ -39,7 +40,7 @@ def test_get_alerts(
     run.init(
         "test_get_alerts",
         folder=f"/simvue_unit_testing/{unique_id}",
-        tags=["test_get_alerts"],
+        tags=["test_get_alerts", platform.system()],
         retention_period="2 mins",
     )
     run_id = run.id
@@ -249,8 +250,11 @@ def test_get_runs(
         output_format=output_format,
         count_limit=10,
         sort_by_columns=sorting,
-        timing_info=True,
-        system_info=True,
+        timing_info=timing_info,
+        system_info=system_info,
+        metrics=metrics,
+        metadata=metadata,
+        alerts=alerts,
         attributes=attributes
     )
 
@@ -325,7 +329,7 @@ def test_run_deletion() -> None:
     run.init(
         name="test_run_deletion",
         folder="/simvue_unit_testing",
-        tags=["test_run_deletion"],
+        tags=["test_run_deletion", platform.system()],
         retention_period="1 min",
     )
     run.log_metrics({"x": 2})
@@ -344,7 +348,7 @@ def test_runs_deletion() -> None:
         run.init(
             name="test_runs_deletion",
             folder="/simvue_unit_testing/runs_batch",
-            tags=["test_runs_deletion"],
+            tags=["test_runs_deletion", platform.system()],
             retention_period="1 min",
         )
         run.log_metrics({"x": i})
@@ -359,7 +363,7 @@ def test_runs_deletion() -> None:
 @pytest.mark.object_retrieval
 def test_get_tags() -> None:
     _uuid = f"{uuid.uuid4()}".split("-")[0]
-    tags = ["simvue_unit_testing", "test_get_tags", "testing", _uuid]
+    tags = ["simvue_unit_testing", "test_get_tags", "testing", _uuid, platform.system()]
 
     with sv_run.Run() as run:
         run.init(
@@ -390,7 +394,7 @@ def test_folder_deletion() -> None:
     run.init(
         name="test_folder_deletion",
         folder=f"/simvue_unit_testing/{_temp_folder_id}",
-        tags=["test_folder_deletion"],
+        tags=["test_folder_deletion", platform.system()],
         retention_period="1 min",
     )
     run.close()
@@ -418,7 +422,7 @@ def test_run_folder_metadata_find() -> None:
     with sv_run.Run() as run:
         run.init(
             "test_run_folder_metadata_find",
-            tags=["test_run_folder_metadata_find", "testing"],
+            tags=["test_run_folder_metadata_find", "testing", platform.system()],
             folder=(_folder := f"/simvue_unit_testing/{_uuid}"),
             retention_period="2 mins"
         )
@@ -438,7 +442,7 @@ def test_tag_deletion() -> None:
         run.init(
             name="test_folder_deletion",
             folder=f"/simvue_unit_testing/{unique_id}",
-            tags=["test_tag_deletion"],
+            tags=["test_tag_deletion", platform.system()],
             retention_period="1 min",
         )
         run.update_tags([(tag_str := f"delete_me_{unique_id}")])

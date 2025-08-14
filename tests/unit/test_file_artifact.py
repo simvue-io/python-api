@@ -1,4 +1,5 @@
 import pytest
+import os
 import uuid
 import time
 import pathlib
@@ -21,7 +22,7 @@ def test_file_artifact_creation_online() -> None:
 
     _failed = []
 
-    with tempfile.NamedTemporaryFile(suffix=".txt") as temp_f:
+    with tempfile.NamedTemporaryFile(delete=False, suffix=".txt") as temp_f:
         _path = pathlib.Path(temp_f.name)
         with _path.open("w") as out_f:
             out_f.write(f"Hello World! {_uuid}")
@@ -45,6 +46,7 @@ def test_file_artifact_creation_online() -> None:
         assert _artifact.to_dict()
     _run.delete()
     _folder.delete(recursive=True, delete_runs=True, runs_only=False)
+    os.unlink(temp_f.name)
     if _failed:
         raise AssertionError("\n\t-" + "\n\t- ".join(": ".join(i) for i in _failed))
 
