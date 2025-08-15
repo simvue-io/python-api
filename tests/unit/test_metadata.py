@@ -1,3 +1,4 @@
+import os
 import pytest
 import pathlib
 import re
@@ -55,3 +56,25 @@ def test_environment() -> None:
     assert metadata["rust"]["project"]["name"] == "example_project"
     assert metadata["julia"]["project"]["name"] == "Julia Demo Project"
     assert metadata["javascript"]["project"]["name"] == "my-awesome-project"
+
+@pytest.mark.metadata
+@pytest.mark.local
+def test_slurm_env_var_capture() -> None:
+    _slurm_env = {
+        "SLURM_CPUS_PER_TASK": "2",
+        "SLURM_TASKS_PER_NODE": "1",
+        "SLURM_NNODES": "1",
+        "SLURM_NTASKS_PER_NODE": "1",
+        "SLURM_NTASKS": "1",
+        "SLURM_JOB_CPUS_PER_NODE": "2",
+        "SLURM_CPUS_ON_NODE": "2",
+        "SLURM_JOB_NUM_NODES": "1",
+        "SLURM_MEM_PER_NODE": "2000",
+        "SLURM_NPROCS": "1",
+        "SLURM_TRES_PER_TASK": "cpu:2",
+    }
+    os.environ.update(_slurm_env)
+
+    sv_meta.metadata = sv_meta.environment(env_var_glob_exprs={"SLURM_*"})
+    assert all((key, value) in sv_meta.metadata["shell"].items() for key, value in _slurm_env.items())
+
