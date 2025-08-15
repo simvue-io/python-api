@@ -443,7 +443,10 @@ class SimvueObject(abc.ABC):
 
     @classmethod
     def _get_all_objects(
-        cls, offset: int | None, count: int | None, **kwargs
+        cls,
+        offset: int | None,
+        count: int | None,
+        **kwargs,
     ) -> typing.Generator[dict, None, None]:
         _class_instance = cls(_read_only=True)
         _url = f"{_class_instance._base_url}"
