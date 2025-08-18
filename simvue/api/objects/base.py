@@ -446,10 +446,18 @@ class SimvueObject(abc.ABC):
         cls,
         offset: int | None,
         count: int | None,
+        endpoint: str | None = None,
         **kwargs,
     ) -> typing.Generator[dict, None, None]:
         _class_instance = cls(_read_only=True)
-        _url = f"{_class_instance._base_url}"
+
+        # Allow the possibility of paginating a URL that is not the
+        # main class endpoint
+        _url = (
+            f"{_class_instance._user_config.server.url}/{endpoint}"
+            if endpoint
+            else f"{_class_instance._base_url}"
+        )
 
         _label = _class_instance.__class__.__name__.lower()
         if _label.endswith("s"):

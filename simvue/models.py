@@ -1,5 +1,6 @@
 import datetime
 import typing
+import numpy
 import pydantic
 
 
@@ -44,6 +45,30 @@ class MetricSet(pydantic.BaseModel):
                 f"Invalid timestamp, expected form '{DATETIME_FORMAT}'"
             ) from e
         return value
+
+
+class GridMetricSet(pydantic.BaseModel):
+    model_config = pydantic.ConfigDict(arbitrary_types_allowed=True)
+    time: pydantic.NonNegativeFloat | pydantic.NonNegativeInt
+    timestamp: str
+    step: pydantic.NonNegativeInt
+    array: numpy.ndarray
+    grid_identifier: str
+
+    @pydantic.field_validator("timestamp", mode="after")
+    @classmethod
+    def timestamp_str(cls, value: str) -> str:
+        try:
+            datetime.datetime.strptime(value, DATETIME_FORMAT)
+        except ValueError as e:
+            raise AssertionError(
+                f"Invalid timestamp, expected form '{DATETIME_FORMAT}'"
+            ) from e
+        return value
+
+    @pydantic.field_serializer("array", when_used="always")
+    def serialize_array(cls, value: numpy.ndarray) -> list:
+        return value.tolist()
 
 
 class EventSet(pydantic.BaseModel):
