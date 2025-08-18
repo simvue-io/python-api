@@ -18,7 +18,9 @@ from pandas import DataFrame
 
 import requests
 
-from simvue.api.objects.alert.base import AlertBase
+from simvue.api.filters.folder import FoldersFilter
+from simvue.api.filters.run import RunsFilter
+from simvue.api.objects import AlertBase, Events
 from simvue.exception import ObjectNotFoundError
 
 from .converters import (
@@ -123,7 +125,7 @@ class Client:
             if either information could not be retrieved from the server,
             or multiple/no runs are found
         """
-        _runs = Run.get(filters=json.dumps([f"name == {name}"]))
+        _runs = Run.filter().name.contains(name).get()
 
         try:
             _id, _ = next(_runs)
@@ -183,7 +185,7 @@ class Client:
     @pydantic.validate_call
     def get_runs(
         self,
-        filters: list[str] | None,
+        filters: list[str] | str | RunsFilter | None,
         *,
         system: bool = False,
         attributes: list[str] | None = None,
@@ -261,11 +263,10 @@ class Client:
         if not show_shared:
             filters += ["user == self"]
 
-        _runs = Run.get(
+        _args = dict(
             count=count_limit,
             offset=start_index,
             attributes=json.dumps(attributes),
-            filters=json.dumps(filters),
             return_basic=True,
             return_system=system_info,
             return_timing=timing_info,
@@ -276,6 +277,15 @@ class Client:
             if sort_by_columns
             else None,
         )
+
+        if isinstance(filters, RunsFilter):
+            _runs = filters.get(**_args)
+        elif isinstance(filters, str):
+            _runs = Run.filter(*(f.strip() for f in filters.split("&&"))).get(**_args)
+        elif filters:
+            _runs = Run.filter(*filters).get(**_args)
+        else:
+            _runs.get(**_args)
 
         if output_format == "objects":
             return _runs
@@ -323,7 +333,7 @@ class Client:
         Folder | None
             if a match is found, return the folder
         """
-        _folders = Folder.get(filters=json.dumps([f"path == {path}"]))
+        _folders = Folder.filter.path.equals(path).get()
 
         try:
             _, _folder = next(_folders)
@@ -687,7 +697,7 @@ class Client:
     def get_folders(
         self,
         *,
-        filters: list[str] | None = None,
+        filters: list[str] | str | FoldersFilter | None = None,
         count: pydantic.PositiveInt = 100,
         start_index: pydantic.NonNegativeInt = 0,
         sort_by_columns: list[tuple[str, bool]] | None = None,
@@ -696,7 +706,7 @@ class Client:
 
         Parameters
         ----------
-        filters : list[str] | None
+        filters : list[str] | str | FoldersFilter | None
             set of filters to apply to the search
         count : int, optional
             maximum number of entries to return. Default is 100.
@@ -717,14 +727,22 @@ class Client:
         RuntimeError
             if there was a failure retrieving data from the server
         """
-        return Folder.get(
+        _args = dict(
             filters=json.dumps(filters or []),
             count=count,
             offset=start_index,
             sorting=[dict(zip(("column", "descending"), a)) for a in sort_by_columns]
             if sort_by_columns
             else None,
-        )  # type: ignore
+        )
+
+        if isinstance(filters, list):
+            return Folder.filter(*filters).get(**_args)
+        elif isinstance(filters, str):
+            return Folder.filter(*(f.strip() for f in filters.split("&&"))).get(**_args)
+        elif isinstance(filters, FoldersFilter):
+            return filters.get(**_args)
+        return Folder.get()  # type: ignore
 
     @prettify_pydantic
     @pydantic.validate_call
@@ -788,7 +806,7 @@ class Client:
         *,
         output_format: typing.Literal["dataframe", "dict"] = "dict",
         run_ids: list[str] | None = None,
-        run_filters: list[str] | None = None,
+        run_filters: list[str] | str | RunsFilter | None = None,
         use_run_names: bool = False,
         aggregate: bool = False,
         max_points: pydantic.PositiveInt | None = None,
@@ -815,7 +833,7 @@ class Client:
                 * dataframe - values as dataframe (requires Pandas).
         run_ids : list[str], optional
             list of runs by id to include within metric retrieval
-        run_filters : list[str]
+        run_filters : list[str] | str | RunsFilter | None
             filters for specifying runs to include
         use_run_names : bool, optional
             use run names as opposed to IDs, note this is not recommended for
@@ -840,6 +858,11 @@ class Client:
                 "Specification of both 'run_ids' and 'run_filters' "
                 "in get_metric_values is ambiguous"
             )
+
+        if isinstance(run_filters, str):
+            run_filters = [f.strip() for f in run_filters.split("&")]
+        elif isinstance(run_filters, RunsFilter):
+            run_filters = run_filters.values
 
         if xaxis == "timestamp" and aggregate:
             raise AssertionError(
@@ -996,33 +1019,14 @@ class Client:
         RuntimeError
             if there was a failure retrieving information from the server
         """
+        _args = dict(run=run_id, start=start_index or 0, count=count_limit or 0)
 
-        msg_filter: str = (
-            json.dumps([f"event.message contains {message_contains}"])
-            if message_contains
-            else ""
-        )
+        if message_contains:
+            _generator = Events.filter().message.contains(message_contains).get(**_args)
+        else:
+            _generator = Events.get(**_args)
 
-        params: dict[str, str | int] = {
-            "run": run_id,
-            "filters": msg_filter,
-            "start": start_index or 0,
-            "count": count_limit or 0,
-        }
-
-        response = requests.get(
-            f"{self._user_config.server.url}/events",
-            headers=self._headers,
-            params=params,
-        )
-
-        json_response = get_json_from_response(
-            expected_status=[http.HTTPStatus.OK],
-            scenario=f"Retrieval of events for run '{run_id}'",
-            response=response,
-        )
-
-        return json_response.get("data", [])
+        return list(_generator)
 
     @prettify_pydantic
     @pydantic.validate_call

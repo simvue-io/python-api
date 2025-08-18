@@ -187,17 +187,17 @@ class RunsFilter(TemporalFilter):
     @property
     def name(self) -> ObjectStrProperty:
         """Return comparator for run name."""
-        return ObjectStrProperty("name", self)
+        return ObjectStrProperty(name="name", filter=self)
 
     @property
     def author(self) -> ObjectStrProperty:
         """Return comparator for run author."""
-        return ObjectStrProperty("author", self)
+        return ObjectStrProperty(name="author", filter=self)
 
     @property
     def description(self) -> ObjectStrProperty:
         """Return comparator for run description."""
-        return ObjectStrProperty("description", self)
+        return ObjectStrProperty(name="description", filter=self)
 
     @property
     def folder(self) -> PropertyComposite:
@@ -207,7 +207,7 @@ class RunsFilter(TemporalFilter):
     @property
     def tags(self) -> ObjectListProperty:
         """Return comparator for run tags."""
-        return ObjectListProperty("tags", self, str)
+        return ObjectListProperty(name="tags", filter=self, member_property_type=str)
 
     @property
     def metadata(self) -> MetadataFilter:
@@ -240,12 +240,12 @@ class RunsFilter(TemporalFilter):
     @property
     def owned_by_user(self) -> "ObjectStrProperty":
         """Return comparator for if run owned by user."""
-        return ObjectStrProperty("user", self).equals("self")
+        return ObjectStrProperty(name="user", filter=self).equals("self")
 
     @property
     def owned_by_others(self) -> "ObjectStrProperty":
         """Return comparator for if run owned by others."""
-        return ObjectStrProperty("user", self).not_equals("self")
+        return ObjectStrProperty(name="user", filter=self).not_equals("self")
 
     @property
     def shared_with_user(self) -> Self:

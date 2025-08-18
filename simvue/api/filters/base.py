@@ -3,7 +3,6 @@
 Allows more advanced querying of the Simvue server based on conditionals.
 """
 
-import abc
 import json
 import sys
 import typing
@@ -20,7 +19,7 @@ if typing.TYPE_CHECKING:
 T = typing.TypeVar("T")
 
 
-class RestAPIFilter(abc.ABC):
+class RestAPIFilter:
     """Base class for attaching filters to server object queries."""
 
     def __init__(self, sv_obj: typing.Type["SimvueObject"]) -> None:
