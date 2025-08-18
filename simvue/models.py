@@ -67,7 +67,7 @@ class GridMetricSet(pydantic.BaseModel):
         return value
 
     @pydantic.field_serializer("array", when_used="always")
-    def serialize_array(cls, value: numpy.ndarray) -> list:
+    def serialize_array(self, value: numpy.ndarray, *_) -> list:
         return value.tolist()
 
 

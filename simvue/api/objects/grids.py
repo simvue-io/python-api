@@ -57,13 +57,17 @@ class Grid(SimvueObject):
 
         return get_json_from_response(
             expected_status=[http.HTTPStatus.OK],
-            scenario=f"adding grid '{self.name}' to run '{run_id}'",
+            scenario=f"adding grid '{self._identifier}' to run '{run_id}'",
             response=_response,
         )
 
     @property
     def grid(self) -> list[list[float]]:
         return self._get_attribute("grid")
+
+    @property
+    def name(self) -> str:
+        return self._get_attribute("name")
 
     @classmethod
     @pydantic.validate_call(config={"arbitrary_types_allowed": True})
@@ -287,13 +291,12 @@ class GridMetrics(SimvueObject):
     ) -> dict[str, list[GridMetricSet]]:
         groups: dict[str, list[GridMetricSet]] = {}
         for metric in metric_list:
-            groups.setdefault(metric.grid_identifier, [])
-            groups[metric.grid_identifier].append(metric)
+            groups.setdefault(metric["grid_identifier"], [])
+            groups[metric["grid_identifier"]].append(metric)
         return groups
 
     @pydantic.validate_call
     @write_only
-    @classmethod
     def _log_values(self, metrics: list[GridMetricSet]) -> None:
         # FIXME: Having to sort metrics before sending them is a bottleneck
         # require server endpoint for sending metrics for multiple grids at once
@@ -302,10 +305,11 @@ class GridMetrics(SimvueObject):
             _response = sv_post(
                 url=f"{self._base_url}/{grid_id}",
                 headers=self._headers,
-                body={
+                data={
                     "run": self._run_id,
                     "metrics": metric_set,
                 },
+                params={},
             )
 
         get_json_from_response(

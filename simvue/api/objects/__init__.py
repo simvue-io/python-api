@@ -33,10 +33,11 @@ from .tag import Tag
 from .folder import Folder, get_folder_from_path
 from .events import Events as Events
 from .metrics import Metrics as Metrics
-from .grids import Grid
+from .grids import Grid, GridMetrics
 
 __all__ = [
     "Grid",
+    "GridMetrics",
     "Metrics",
     "Events",
     "get_folder_from_path",
