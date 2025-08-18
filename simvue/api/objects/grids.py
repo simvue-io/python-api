@@ -123,7 +123,6 @@ class Grid(SimvueObject):
         """Returns the grid dimensions."""
         return numpy.array(self.grid).shape
 
-    @classmethod
     def run_data_url(self, run_id: str) -> URL:
         """Returns the URL for grid data for a specific run."""
         return URL(
