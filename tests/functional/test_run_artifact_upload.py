@@ -7,7 +7,7 @@ import pathlib
 import tempfile
 import pytest
 
-from simvue.api.objects import Run, FileArtifact, storage
+from simvue.api.objects import Run, FileArtifact
 from simvue.api.objects.folder import Folder
 
 
@@ -20,14 +20,14 @@ def test_add_artifact_to_run() -> None:
     _run.status = "running"
     _run.commit()
 
-    with tempfile.NamedTemporaryFile() as tempf:
+    with tempfile.NamedTemporaryFile(delete=False) as tempf:
         with open(tempf.name, "w") as in_f:
             in_f.write("Hello")
 
         _artifact = FileArtifact.new(
             name=f"test_{_uuid}",
             storage=None,
-            file_path=pathlib.Path(tempf.name),
+            file_path=(_temp_file := pathlib.Path(tempf.name)),
             mime_type=None,
             metadata=None
         )
@@ -35,6 +35,8 @@ def test_add_artifact_to_run() -> None:
     _run.status = "completed"
     _run.commit()
     assert _run.artifacts
+    _temp_file.unlink()
     _run.delete()
     _folder.delete(recursive=True, delete_runs=True)
+
 

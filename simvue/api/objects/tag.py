@@ -7,10 +7,11 @@ a new tag given relevant arguments.
 
 """
 
-import pydantic.color
 import typing
 import json
 import datetime
+import pydantic
+import pydantic_extra_types.color as pyd_color
 
 from simvue.api.objects.base import SimvueObject, Sort, staging_check, write_only
 from simvue.models import DATETIME_FORMAT
@@ -70,14 +71,14 @@ class Tag(SimvueObject):
 
     @property
     @staging_check
-    def colour(self) -> pydantic.color.RGBA:
+    def colour(self) -> pyd_color.RGBA:
         """Retrieve the tag colour"""
-        return pydantic.color.parse_str(self._get_attribute("colour"))
+        return pyd_color.parse_str(self._get_attribute("colour"))
 
     @colour.setter
     @write_only
     @pydantic.validate_call
-    def colour(self, colour: pydantic.color.Color) -> None:
+    def colour(self, colour: pyd_color.Color) -> None:
         """Set the tag colour"""
         self._staging["colour"] = colour.as_hex()
 

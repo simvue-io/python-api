@@ -3,6 +3,7 @@ import uuid
 import pytest
 import simvue
 import time
+import platform
 import contextlib
 import random
 import tempfile
@@ -26,7 +27,7 @@ def test_large_file_upload(
         "test_large_file_artifact",
         folder=f"/simvue_unit_testing/{_uuid}",
         retention_period="20 mins",
-        tags=["test_large_file_artifact"],
+        tags=[platform.system(), "test_large_file_artifact"],
     )
     run.update_metadata({"file_size_mb": file_size})
 
@@ -79,7 +80,7 @@ def test_time_multi_run_create_threshold() -> None:
         run = simvue.Run()
         run.init(
             f"test run {i}",
-            tags=["test_benchmarking"],
+            tags=[platform.system(), "test_benchmarking"],
             folder="/simvue_benchmark_testing",
             retention_period="1 hour",
         )
@@ -112,7 +113,7 @@ def run_deleter(request):
 
 def upload(name: str, values_per_run: int, shared_dict) -> None:
     run = simvue.Run()
-    run.init(name=name, tags=["simvue_client_tests"])
+    run.init(name=name, tags=[platform.system(), "simvue_client_tests"])
     shared_dict["ident"] = run.id
     for i in range(values_per_run):
         run.log_metrics({"increment": i})

@@ -185,6 +185,7 @@ class SimvueObject(abc.ABC):
         self._logger = logging.getLogger(f"simvue.{self.__class__.__name__}")
         self._label: str = getattr(self, "_label", self.__class__.__name__.lower())
         self._read_only: bool = _read_only
+        self._is_set: bool = False
         self._endpoint: str = getattr(self, "_endpoint", f"{self._label}s")
         self._identifier: str | None = (
             identifier if identifier is not None else f"offline_{uuid.uuid1()}"
@@ -438,7 +439,7 @@ class SimvueObject(abc.ABC):
         """
         _class_instance = cls(_read_only=True)
         _count_total: int = 0
-        for _data in cls._get_all_objects(**kwargs):
+        for _data in cls._get_all_objects(count=None, offset=None, **kwargs):
             if not (_count := _data.get("count")):
                 raise RuntimeError(
                     f"Expected key 'count' for retrieval of {_class_instance.__class__.__name__.lower()}s"
@@ -569,6 +570,15 @@ class SimvueObject(abc.ABC):
         if _id := _json_response.get("id"):
             self._logger.debug("'%s' created successfully", _id)
             self._identifier = _id
+        elif not self._is_set:
+            _detail = _json_response.get("detail", _json_response)
+
+            if not _detail:
+                _detail = "No information in JSON response."
+
+            raise RuntimeError(
+                f"Expected new ID for {self._label} but none found: {_detail}."
+            )
 
         return _json_response
 
