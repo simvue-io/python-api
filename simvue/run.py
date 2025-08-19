@@ -634,6 +634,7 @@ class Run:
         timeout: int | None = 180,
         visibility: typing.Literal["public", "tenant"] | list[str] | None = None,
         no_color: bool = False,
+        record_shell_vars: set[str] | None = None,
     ) -> bool:
         """Initialise a Simvue run
 
@@ -671,6 +672,9 @@ class Run:
                 * A list of usernames with which to share this run
         no_color : bool, optional
             disable terminal colors. Default False.
+        record_shell_vars : list[str] | None,
+            list of environment variables to store as metadata, these can
+            either be defined as literal strings or globular expressions
 
         Returns
         -------
@@ -688,6 +692,7 @@ class Run:
         folder = folder or self._user_config.run.folder
         name = name or self._user_config.run.name
         metadata = (metadata or {}) | (self._user_config.run.metadata or {})
+        record_shell_vars = record_shell_vars or self._user_config.run.record_shell_vars
 
         self._term_color = not no_color
 
@@ -753,7 +758,11 @@ class Run:
         self._sv_obj.ttl = self._retention
         self._sv_obj.status = self._status
         self._sv_obj.tags = tags
-        self._sv_obj.metadata = (metadata or {}) | git_info(os.getcwd()) | environment()
+        self._sv_obj.metadata = (
+            (metadata or {})
+            | git_info(os.getcwd())
+            | environment(env_var_glob_exprs=record_shell_vars)
+        )
         self._sv_obj.heartbeat_timeout = timeout
         self._sv_obj.alerts = []
         self._sv_obj.created = time.time()

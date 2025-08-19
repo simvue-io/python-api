@@ -4,6 +4,7 @@
 
 - Improves handling of Conda based environments in metadata collection.
 - Adds additional options to `Client.get_runs`.
+- Added ability to include environment variables within metadata for runs.
 
 ## [v2.1.2](https://github.com/simvue-io/client/releases/tag/v2.1.2) - 2025-06-25
 
