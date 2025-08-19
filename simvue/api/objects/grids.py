@@ -210,7 +210,6 @@ class GridMetrics(SimvueObject):
         self._run_id = self._staging.get("run")
         self._is_set = True
 
-    @property
     @staticmethod
     def run_grids_endpoint(run: str | None = None) -> URL:
         """Returns the URL for grids for a specific run."""
@@ -220,7 +219,7 @@ class GridMetrics(SimvueObject):
         return super()._get_attribute(
             attribute,
             *default,
-            url=f"{self._user_config.server.url / self.run_grids_endpoint(self._run_id)}",
+            url=f"{self._user_config.server.url}/{self.run_grids_endpoint(self._run_id)}",
         )
 
     @classmethod
@@ -285,35 +284,18 @@ class GridMetrics(SimvueObject):
         _run_staging = self._staging.pop("values", None)
         self._log_values(self._staging["metrics"])
 
-    @staticmethod
-    def group_metrics_by_grid(
-        metric_list: list[GridMetricSet],
-    ) -> dict[str, list[GridMetricSet]]:
-        groups: dict[str, list[GridMetricSet]] = {}
-        for metric in metric_list:
-            groups.setdefault(metric["grid_identifier"], [])
-            groups[metric["grid_identifier"]].append(metric)
-        return groups
-
     @pydantic.validate_call
     @write_only
     def _log_values(self, metrics: list[GridMetricSet]) -> None:
-        # FIXME: Having to sort metrics before sending them is a bottleneck
-        # require server endpoint for sending metrics for multiple grids at once
-        # temporary work around is to sort metrics into grids
-        for grid_id, metric_set in self.group_metrics_by_grid(metrics).items():
-            _response = sv_post(
-                url=f"{self._base_url}/{grid_id}",
-                headers=self._headers,
-                data={
-                    "run": self._run_id,
-                    "metrics": metric_set,
-                },
-                params={},
-            )
+        _response = sv_post(
+            url=f"{self._user_config.server.url}/{self.run_grids_endpoint(self._run_id)}",
+            headers=self._headers,
+            data=metrics,
+            params={},
+        )
 
         get_json_from_response(
             expected_status=[http.HTTPStatus.OK],
-            scenario=f"adding values to grid '{grid_id}' for run '{self._run_id}'",
+            scenario=f"adding tensor values to run '{self._run_id}'",
             response=_response,
         )

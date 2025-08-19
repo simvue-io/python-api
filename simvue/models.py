@@ -53,7 +53,7 @@ class GridMetricSet(pydantic.BaseModel):
     timestamp: str
     step: pydantic.NonNegativeInt
     array: numpy.ndarray
-    grid_identifier: str
+    grid: str
 
     @pydantic.field_validator("timestamp", mode="after")
     @classmethod

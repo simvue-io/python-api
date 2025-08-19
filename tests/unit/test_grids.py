@@ -39,6 +39,7 @@ def test_grid_metrics_creation_online(create_test_run: tuple[Run, dict]) -> None
     _folder_name = f"/simvue_unit_testing/{_uuid}"
     _folder = Folder.new(path=_folder_name)
     _run = Run.new(folder=_folder_name)
+    _run.status = "running"
     _values = {
         "x": 1,
         "y": 2.0,
@@ -68,12 +69,14 @@ def test_grid_metrics_creation_online(create_test_run: tuple[Run, dict]) -> None
                 ),
                 "time": _time,
                 "step": _step,
-                "array": numpy.ones((10, 10)),
-                "grid_identifier": _grid.id
+                "array": numpy.ones((10, 10)) + numpy.identity(10),
+                "grid": _grid.id
             }
         ],
     )
     _metrics.commit()
+    _run.status = "completed"
+    _run.commit()
     _run.delete()
     _folder.delete(recursive=True, delete_runs=True, runs_only=False)
 
