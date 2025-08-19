@@ -32,6 +32,7 @@ import psutil
 
 from simvue.api.objects.alert.fetch import Alert
 from simvue.api.objects.folder import Folder
+from simvue.api.objects.grids import GridMetrics
 from simvue.exception import ObjectNotFoundError, SimvueRunError
 from simvue.utilities import prettify_pydantic
 
@@ -488,7 +489,12 @@ class Run:
                 )
                 return _events.commit()
             elif category == "metrics_tensor":
-                pass
+                _grid_metrics = GridMetrics.new(
+                    run=self.id,
+                    metrics=buffer,
+                    offline=self._user_config.run.mode == "offline",
+                )
+                return _grid_metrics.commit()
             else:
                 _metrics = Metrics.new(
                     run=self.id,
@@ -1281,9 +1287,8 @@ class Run:
 
     def _add_metrics_to_dispatch(
         self,
-        metrics: dict[str, int | float | numpy.ndarray],
+        metrics: dict[str, int | float],
         *,
-        tensor_based: bool = False,
         step: int | None = None,
         time: float | None = None,
         timestamp: str | None = None,
@@ -1314,17 +1319,67 @@ class Run:
             self._error("Invalid timestamp format", join_on_fail)
             return False
 
-        _label = f"metrics_{'tensor' if tensor_based else 'regular'}"
-
         _data: dict[str, typing.Any] = {
             "values": metrics,
             "time": time if time is not None else self.duration,
             "timestamp": timestamp if timestamp is not None else self.time_stamp,
             "step": step if step is not None else self._step,
         }
-        self._dispatcher.add_item(_data, _label, self._queue_blocking)
+        self._dispatcher.add_item(_data, "metrics_regular", self._queue_blocking)
 
         return True
+
+    def _add_tensors_to_dispatch(
+        self,
+        tensors: dict[str, int | float],
+        *,
+        step: int | None = None,
+        time: float | None = None,
+        timestamp: str | None = None,
+        join_on_fail: bool = True,
+    ) -> bool:
+        for tensor, array in tensors.items():
+            _data: dict[str, typing.Any] = {
+                "array": array,
+                "time": time if time is not None else self.duration,
+                "timestamp": timestamp if timestamp is not None else self.time_stamp,
+                "step": step if step is not None else self._step,
+                "grid": self._grids[tensor]["id"],
+            }
+
+            self._dispatcher.add_item(_data, "metrics_tensor", self._queue_blocking)
+
+        return True
+
+    def _add_values_to_dispatch(
+        self,
+        values: dict[str, int | float | numpy.ndarray],
+        *,
+        step: int | None = None,
+        time: float | None = None,
+        timestamp: str | None = None,
+        join_on_fail: bool = True,
+    ) -> bool:
+        # If there are no metrics to log just ignore
+        if self._user_config.run.mode == "disabled":
+            return True
+
+        if not values:
+            return True
+
+        if not self._active:
+            self._error("Run is not active", join_on_fail)
+            return False
+
+        if self._status != "running":
+            self._error(
+                "Cannot log metrics when not in the running state", join_on_fail
+            )
+            return False
+
+        if timestamp and not validate_timestamp(timestamp):
+            self._error("Invalid timestamp format", join_on_fail)
+            return False
 
     @skip_if_failed("_aborted", "_suppress_errors", False)
     @check_run_initialised
@@ -1369,7 +1424,13 @@ class Run:
         if axes_labels is not None and axes_ticks is not None:
             _new_grid = Grid.new(name=grid_name, grid=axes_ticks, labels=axes_labels)
             _new_grid.commit()
+
+            # Add entry for both the grid itself and the metric
             self._grids[grid_name] = {
+                "id": _new_grid.id,
+                "dimensionality": len(axes_labels),
+            }
+            self._grids[metric_name] = {
                 "id": _new_grid.id,
                 "dimensionality": len(axes_labels),
             }
@@ -1382,6 +1443,7 @@ class Run:
             _grid_attach = Grid(identifier=self._grids[grid_name]["id"])
             _grid_attach.read_only(False)
             _grid_attach.attach_to_run(self.id)
+            self._grids[metric_name] = self._grids[grid_name]
         except (RuntimeError, ObjectNotFoundError) as e:
             self._error(
                 f"Failed to attach run '{self.id}' to grid '{grid_name}': {e.args[0]}"
@@ -1422,6 +1484,7 @@ class Run:
         _tensor_metrics: list[numpy.ndarray] = {}
         _regular_metrics: list[numpy.ndarray] = {}
 
+        # Classify metrics into regular and tensor based
         for label, metric in metrics.items():
             if isinstance(metric, numpy.ndarray):
                 if label not in self._grids:
@@ -1438,15 +1501,35 @@ class Run:
             else:
                 _regular_metrics[label] = metric
 
-        _tensor_add_dispatch = self._add_metrics_to_dispatch(
-            _tensor_metrics,
-            tensor_based=True,
+        # If there are no metrics to log just ignore
+        if self._user_config.run.mode == "disabled":
+            return True
+
+        if not (_tensor_metrics or _regular_metrics):
+            return True
+
+        if not self._active:
+            self._error("Run is not active", join_threads=True)
+            return False
+
+        if self._status != "running":
+            self._error(
+                "Cannot log metrics when not in the running state", join_threads=True
+            )
+            return False
+
+        if timestamp and not validate_timestamp(timestamp):
+            self._error("Invalid timestamp format", timestamp)
+            return False
+
+        _tensor_add_dispatch = self._add_tensors_to_dispatch(
+            tensors=_tensor_metrics,
             step=step,
             time=time,
             timestamp=timestamp,
         )
         _regular_dispatch = self._add_metrics_to_dispatch(
-            _regular_metrics, step=step, time=time, timestamp=timestamp
+            metrics=_regular_metrics, step=step, time=time, timestamp=timestamp
         )
         self._step += 1
         return _tensor_add_dispatch and _regular_dispatch
