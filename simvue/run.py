@@ -1398,7 +1398,7 @@ class Run:
         *,
         metric_name: str,
         grid_name: str | None = None,
-        axes_ticks: numpy.ndarray | None = None,
+        axes_ticks: numpy.ndarray | list[list[float]] | None = None,
         axes_labels: list[str] | None = None,
     ) -> bool:
         """Assign a metric to a new/existing tensor-based metric grid.
@@ -1414,7 +1414,7 @@ class Run:
             name of the metric to assign.
         grid_name : str | None, optional
             a unique name for this grid, if not specified the metric name is used.
-        axes_ticks : NDArray, optional
+        axes_ticks : list[list[float]] | NDArray, optional
             the tick positions for each axis.
         axes_labels : list[str], optional
             the name for each axis
@@ -1424,6 +1424,9 @@ class Run:
         bool
             if the assignment was successful.
         """
+        if isinstance(axes_ticks, numpy.ndarray):
+            axes_ticks = axes_ticks.tolist()
+
         grid_name = grid_name or metric_name
 
         if grid_name not in self._grids and (axes_labels is None or axes_ticks is None):
@@ -1497,10 +1500,18 @@ class Run:
         for label, metric in metrics.items():
             if isinstance(metric, numpy.ndarray):
                 if label not in self._grids:
-                    self._error(
-                        f"Cannot log tensor metric '{label}' as no grid defined."
+                    logger.warning(
+                        f"Metric '{label}' is not assigned to a grid, "
+                        "using default axis range [0, 1] for all axes "
+                        "and assuming constant interval."
                     )
-                    continue
+                    _axes_ticks = [numpy.linspace(0, 1, n) for n in metric.shape]
+                    self.assign_metric_to_grid(
+                        metric_name=label,
+                        grid_name=label,
+                        axes_ticks=_axes_ticks,
+                        axes_labels=[f"axis_{i}" for i in range(metric.ndim)],
+                    )
                 if metric.ndim != (_ndims := self._grids[label]["dimensionality"]):
                     self._error(
                         f"Cannot log tensor '{label}', "

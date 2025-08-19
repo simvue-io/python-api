@@ -210,7 +210,7 @@ def test_log_metrics(
         retention_period=os.environ.get("SIMVUE_TESTING_RETENTION_PERIOD", "2 mins"),
     )
     if metric_type == "tensor":
-        METRICS = {"c": numpy.identity(10)}
+        METRICS = {"c": numpy.identity(10), "g": numpy.ones((10, 10)) + 3 * numpy.identity(10)}
         run.assign_metric_to_grid(
             metric_name="c",
             grid_name="test_log_metrics",

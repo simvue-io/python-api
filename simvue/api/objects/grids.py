@@ -34,12 +34,13 @@ except ImportError:
 __all__ = ["Grid"]
 
 
-def check_ordered_array(array: numpy.ndarray) -> bool:
+def check_ordered_array(axis_ticks: list[float]) -> bool:
     """Returns if array is ordered or reverse ordered."""
-    if array.ndim != 1:
+    if not isinstance(axis_ticks[0], float):
         raise ValueError("Ordering can only be checked on a 1D array")
-    return numpy.all(numpy.sort(array) == array) or numpy.all(
-        numpy.reversed(numpy.sort(array)) == array
+    _array = numpy.array(axis_ticks)
+    return numpy.all(numpy.sort(_array) == _array) or numpy.all(
+        numpy.reversed(numpy.sort(_array)) == _array
     )
 
 
@@ -75,7 +76,7 @@ class Grid(SimvueObject):
         cls,
         *,
         name: str,
-        grid: numpy.ndarray,
+        grid: list[list[float]],
         labels: list[str],
         offline: bool = False,
         **kwargs,
@@ -98,16 +99,16 @@ class Grid(SimvueObject):
         Metrics
             metrics object
         """
-        if not len(grid.shape) > 0:
+        if len(grid) < 1:
             raise ValueError("Invalid argument for 'grid'")
 
         if len(labels) != len(set(labels)):
             raise ValueError("Labels must be unique.")
 
-        if len(labels) != grid.shape[0]:
+        if len(labels) != len(grid):
             raise AssertionError(
                 "Length of argument 'labels' must match first "
-                f"grid dimension {grid.shape[0]}."
+                f"grid dimension {len(grid)}."
             )
 
         for i, axis in enumerate(grid):
@@ -115,7 +116,7 @@ class Grid(SimvueObject):
                 raise ValueError(f"Axis {i} has unordered values.")
 
         return Grid(
-            grid=grid.tolist(),
+            grid=grid,
             labels=labels,
             name=name,
             _read_only=False,
@@ -125,7 +126,7 @@ class Grid(SimvueObject):
     @property
     def dimensions(self) -> tuple[int, int]:
         """Returns the grid dimensions."""
-        return numpy.array(self.grid).shape
+        return len(self.grid)
 
     def run_data_url(self, run_id: str) -> URL:
         """Returns the URL for grid data for a specific run."""
