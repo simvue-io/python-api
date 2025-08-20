@@ -7,6 +7,7 @@ Contains base class for interacting with objects on the Simvue server
 
 import abc
 import pathlib
+import types
 import typing
 import inspect
 import uuid
@@ -281,23 +282,14 @@ class SimvueObject(abc.ABC):
         self,
         attribute: str,
         *,
-        local_default: object | None = None,
         url: str | None = None,
     ) -> object:
         """Retrieve an attribute for the given object.
-
-        The argument 'local_default' refers to the value to return when
-        retrieving objects of this type via 'get'. In this case, if a key
-        is not present (likely due to the user specifying key=False on retrieval)
-        we do not want to attempt to retrieve the value from the server, as doing
-        so for every item would cause significant overhead. Instead we use this value.
 
         Parameters
         ----------
         attribute : str
             name of attribute to retrieve
-        local_default : str | None, optional
-            if specified, the default value to return if the object is in 'local' mode.
         url : str | None, optional
             alternative URL to use for retrieval.
 
@@ -319,7 +311,7 @@ class SimvueObject(abc.ABC):
                 return self._staging[attribute]
             except KeyError as e:
                 if self._local:
-                    return local_default
+                    raise e
                 # If the key is not in staging, but the object is not in offline mode
                 # retrieve from the server and update cache instead
                 if not _offline_state and (
@@ -338,9 +330,6 @@ class SimvueObject(abc.ABC):
             )
             return self._get(url=url)[attribute]
         except KeyError as e:
-            if local_default:
-                return local_default
-
             if self._offline:
                 raise AttributeError(
                     f"A value for attribute '{attribute}' has "
@@ -740,9 +729,19 @@ class SimvueObject(abc.ABC):
 
     def __repr__(self) -> str:
         _out_str = f"{self.__class__.__module__}.{self.__class__.__qualname__}("
-        _out_str += ", ".join(
-            f"{property}={getattr(self, property, 'N/A')!r}"
-            for property in self._properties
-        )
+        _property_values: list[str] = []
+
+        for property in self._properties:
+            try:
+                _value = getattr(self, property)
+            except KeyError:
+                continue
+
+            if isinstance(_value, types.GeneratorType):
+                continue
+
+            _property_values.append(f"{property}={_value!r}")
+
+        _out_str += ", ".join(_property_values)
         _out_str += ")"
         return _out_str

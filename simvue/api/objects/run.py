@@ -372,7 +372,7 @@ class Run(SimvueObject):
             raise RuntimeError(
                 "Cannot get alert details from an offline run - use .alerts to access a list of IDs instead"
             )
-        for alert in self._get_attribute("alerts", local_default=[]):
+        for alert in self._get_attribute("alerts"):
             yield alert["alert"]
 
     @property
@@ -457,7 +457,7 @@ class Run(SimvueObject):
         -------
         Generator[tuple[str, dict[str, int | float | bool]]
         """
-        yield from self._get_attribute("metrics", local_default={}).items()
+        yield from self._get_attribute("metrics").items()
 
     @property
     def events(
