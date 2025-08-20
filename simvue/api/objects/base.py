@@ -183,6 +183,7 @@ class SimvueObject(abc.ABC):
     ) -> None:
         self._logger = logging.getLogger(f"simvue.{self.__class__.__name__}")
         self._label: str = getattr(self, "_label", self.__class__.__name__.lower())
+        self._local: bool = _local
         self._read_only: bool = _read_only
         self._is_set: bool = False
         self._endpoint: str = getattr(self, "_endpoint", f"{self._label}s")
@@ -232,7 +233,7 @@ class SimvueObject(abc.ABC):
         if (
             not self._identifier.startswith("offline_")
             and self._read_only
-            and not _local
+            and not self._local
         ):
             self._staging = self._get()
 
@@ -277,8 +278,34 @@ class SimvueObject(abc.ABC):
             json.dump(_staged_data, out_f, indent=2)
 
     def _get_attribute(
-        self, attribute: str, *default, url: str | None = None
-    ) -> typing.Any:
+        self,
+        attribute: str,
+        *,
+        local_default: object | None = None,
+        url: str | None = None,
+    ) -> object:
+        """Retrieve an attribute for the given object.
+
+        The argument 'local_default' refers to the value to return when
+        retrieving objects of this type via 'get'. In this case, if a key
+        is not present (likely due to the user specifying key=False on retrieval)
+        we do not want to attempt to retrieve the value from the server, as doing
+        so for every item would cause significant overhead. Instead we use this value.
+
+        Parameters
+        ----------
+        attribute : str
+            name of attribute to retrieve
+        local_default : str | None, optional
+            if specified, the default value to return if the object is in 'local' mode.
+        url : str | None, optional
+            alternative URL to use for retrieval.
+
+        Returns
+        -------
+        object
+            the attribute value
+        """
         # In the case where the object is read-only, staging is the data
         # already retrieved from the server
         _attribute_is_property: bool = attribute in self._properties
@@ -291,6 +318,15 @@ class SimvueObject(abc.ABC):
             try:
                 return self._staging[attribute]
             except KeyError as e:
+                if self._local:
+                    return local_default
+                # If the key is not in staging, but the object is not in offline mode
+                # retrieve from the server and update cache instead
+                if not _offline_state and (
+                    _attribute := self._get(url=url).get(attribute)
+                ):
+                    self._staging[attribute] = _attribute
+                    return _attribute
                 raise AttributeError(
                     f"Could not retrieve attribute '{attribute}' "
                     f"for {self._label} '{self._identifier}' from cached data"
@@ -302,8 +338,8 @@ class SimvueObject(abc.ABC):
             )
             return self._get(url=url)[attribute]
         except KeyError as e:
-            if default:
-                return default[0]
+            if local_default:
+                return local_default
 
             if self._offline:
                 raise AttributeError(
