@@ -369,16 +369,17 @@ def test_run_deletion() -> None:
 @pytest.mark.object_removal
 def test_runs_deletion() -> None:
     _runs = [sv_run.Run() for _ in range(5)]
+    _uuid = f"{uuid.uuid4()}".split("-")[0]
     for i, run in enumerate(_runs):
         run.init(
             name="test_runs_deletion",
-            folder="/simvue_unit_testing/runs_batch",
+            folder=f"/simvue_unit_testing/runs_batch_{_uuid}",
             tags=["test_runs_deletion", platform.system()],
             retention_period="1 min",
         )
         run.log_metrics({"x": i})
     client = svc.Client()
-    assert len(client.delete_runs("/simvue_unit_testing/runs_batch")) > 0
+    assert len(client.delete_runs(folder_path=f"/simvue_unit_testing/runs_batch_{_uuid}")) > 0
     for run in _runs:
         with pytest.raises(ObjectNotFoundError):
             client.get_run(run.id)
