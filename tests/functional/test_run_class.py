@@ -1138,7 +1138,7 @@ def test_abort_on_alert_process(mocker: pytest_mock.MockerFixture) -> None:
     run._heartbeat_interval = 1
     run._testing = True
     run.add_process(
-        identifier=f"forever_long_{os.environ.get("PYTEST_XDIST_WORKER", 0)}",
+        identifier=f"forever_long_{os.environ.get('PYTEST_XDIST_WORKER', 0)}",
         executable="bash",
         c="&".join(["sleep 10"] * N_PROCESSES),
     )
@@ -1195,7 +1195,7 @@ def test_abort_on_alert_raise(
     run._heartbeat_interval = 1
     run._testing = True
     alert_id = run.create_user_alert("abort_test", trigger_abort=True)
-    run.add_process(identifier=f"forever_long_other_{os.environ.get("PYTEST_XDIST_WORKER", 0)}", executable="bash", c="sleep 10")
+    run.add_process(identifier=f"forever_long_other_{os.environ.get('PYTEST_XDIST_WORKER', 0)}", executable="bash", c="sleep 10")
     run.log_alert(identifier=alert_id, state="critical")
     _alert = Alert(identifier=alert_id)
     assert _alert.get_status(run.id) == "critical"
@@ -1213,8 +1213,8 @@ def test_abort_on_alert_raise(
 def test_kill_all_processes(create_plain_run: tuple[sv_run.Run, dict]) -> None:
     run, _ = create_plain_run
     run.config(system_metrics_interval=1)
-    run.add_process(identifier=f"forever_long_a_{os.environ.get("PYTEST_XDIST_WORKER", 0)}", executable="bash", c="sleep 10000")
-    run.add_process(identifier=f"forever_long_b_{os.environ.get("PYTEST_XDIST_WORKER", 0)}", executable="bash", c="sleep 10000")
+    run.add_process(identifier=f"forever_long_a_{os.environ.get('PYTEST_XDIST_WORKER', 0)}", executable="bash", c="sleep 10000")
+    run.add_process(identifier=f"forever_long_b_{os.environ.get('PYTEST_XDIST_WORKER', 0)}", executable="bash", c="sleep 10000")
     processes = [
         psutil.Process(process.pid) for process in run._executor._processes.values()
     ]
@@ -1321,7 +1321,7 @@ def test_reconnect_with_process() -> None:
     with sv_run.Run() as new_run:
         new_run.reconnect(run.id)
         run.add_process(
-            identifier=f"test_process_{os.environ.get("PYTEST_XDIST_WORKER", 0)}",
+            identifier=f"test_process_{os.environ.get('PYTEST_XDIST_WORKER', 0)}",
             executable="bash",
             c="echo 'Hello World!'",
         )
