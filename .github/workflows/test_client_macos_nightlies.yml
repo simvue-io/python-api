@@ -16,7 +16,6 @@ jobs:
   object_retrieval:
     runs-on: macos-latest
     timeout-minutes: 30
-    name: macOS Nightly
     steps:
     - uses: actions/checkout@v4
     - name: Set up Python 3.13
