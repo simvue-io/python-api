@@ -105,7 +105,7 @@ class Metrics(SimvueObject):
             metric set object containing metrics for run.
         """
         yield from cls._get_all_objects(
-            offset,
+            offset=offset,
             metrics=json.dumps(metrics),
             runs=json.dumps(runs),
             xaxis=xaxis,

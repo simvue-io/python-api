@@ -447,6 +447,7 @@ class SimvueObject(abc.ABC):
         offset: int | None,
         count: int | None,
         endpoint: str | None = None,
+        expected_type: type = dict,
         **kwargs,
     ) -> typing.Generator[dict, None, None]:
         _class_instance = cls(_read_only=True)
@@ -466,11 +467,17 @@ class SimvueObject(abc.ABC):
         for response in get_paginated(
             _url, headers=_class_instance._headers, offset=offset, count=count, **kwargs
         ):
-            yield get_json_from_response(
+            _generator = get_json_from_response(
                 response=response,
                 expected_status=[http.HTTPStatus.OK],
                 scenario=f"Retrieval of {_label}s",
+                expected_type=expected_type,
             )  # type: ignore
+
+            if expected_type is dict:
+                yield _generator
+            else:
+                yield from _generator
 
     def read_only(self, is_read_only: bool) -> None:
         """Set whether this object is in read only state.

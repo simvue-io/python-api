@@ -26,9 +26,11 @@ UPLOAD_ORDER: list[str] = [
     "folders",
     "tags",
     "alerts",
+    "grids",
     "runs",
     "artifacts",
     "metrics",
+    "grid_metrics",
     "events",
 ]
 

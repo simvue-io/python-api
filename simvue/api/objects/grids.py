@@ -9,7 +9,6 @@ a new grid given relevant arguments.
 
 import http
 import numpy
-import json
 import typing
 
 import pydantic
@@ -51,6 +50,11 @@ class Grid(SimvueObject):
     @write_only
     def attach_to_run(self, run_id: str) -> None:
         """Attach this grid to a given run."""
+        if self._offline:
+            self._staging.setdefault("runs", [])
+            self._staging["runs"].append(run_id)
+            super().commit()
+            return
         _response = sv_put(
             url=f"{self.run_data_url(run_id)}",
             headers=self._headers,
@@ -61,6 +65,17 @@ class Grid(SimvueObject):
             scenario=f"adding grid '{self._identifier}' to run '{run_id}'",
             response=_response,
         )
+
+    def on_reconnect(self, id_mapping: dict[str, str]) -> None:
+        """Operations performed when this grid is switched from offline to online mode.
+
+        Parameters
+        ----------
+        id_mapping : dict[str, str]
+            mapping from offline identifier to new online identifier.
+        """
+        for run_id in self._staging.pop("runs", []):
+            self.attach_to_run(run_id=id_mapping[run_id])
 
     @property
     def grid(self) -> list[list[float]]:
@@ -206,7 +221,7 @@ class GridMetrics(SimvueObject):
         **kwargs,
     ) -> None:
         """Initialise a GridMetrics object instance."""
-        self._label = "grid"
+        self._label = "grid_metrics"
         super().__init__(_read_only=_read_only, _local=_local, **kwargs)
         self._run_id = self._staging.get("run")
         self._is_set = True
@@ -256,8 +271,11 @@ class GridMetrics(SimvueObject):
     def get(
         cls,
         runs: list[str],
+        step: pydantic.NonNegativeInt,
         *,
         spans: bool = False,
+        count: pydantic.PositiveInt | None = None,
+        offset: pydantic.PositiveInt | None = None,
         **kwargs,
     ) -> typing.Generator[dict[str, dict[str, list[dict[str, float]]]], None, None]:
         """Retrieve tensor-metrics from the server for a given set of runs.
@@ -266,6 +284,8 @@ class GridMetrics(SimvueObject):
         ----------
         runs : list[str]
             list of runs to return metrics for.
+        step : int
+            the timestep to retrieve grid metrics for
         spans : bool, optional
             return spans information
 
@@ -275,19 +295,42 @@ class GridMetrics(SimvueObject):
             metric set object containing metrics for run.
         """
         for run in runs:
-            yield from cls._get_all_objects(
-                runs=json.dumps(runs),
+            for grid_obj in cls._get_all_objects(
                 endpoint=cls.run_grids_endpoint(run),
+                offset=offset,
+                count=count,
+                expected_type=list,
                 **kwargs,
-            )
+            ):
+                _id = grid_obj["id"]
+                yield from cls._get_all_objects(
+                    endpoint=f"{cls.run_grids_endpoint(run)}/{_id}/values",
+                    step=step,
+                    offset=None,
+                    count=None,
+                )
 
     def commit(self) -> dict | None:
-        _run_staging = self._staging.pop("values", None)
-        self._log_values(self._staging["metrics"])
+        _metric_staging = self._staging.pop("metrics", None)
+        self._log_values(_metric_staging)
+
+    def on_reconnect(self, id_mapping: dict[str, str]) -> None:
+        """Operations performed when this grid metrics object is switched from offline to online mode.
+
+        Parameters
+        ----------
+        id_mapping : dict[str, str]
+            mapping from offline identifier to new online identifier.
+        """
+        self._log_values(self._staging.pop("metrics", []))
 
     @pydantic.validate_call
     @write_only
     def _log_values(self, metrics: list[GridMetricSet]) -> None:
+        if self._offline:
+            self._staging.setdefault("metrics", [])
+            self._staging["metrics"] += metrics
+            return
         _response = sv_post(
             url=f"{self._user_config.server.url}/{self.run_grids_endpoint(self._run_id)}",
             headers=self._headers,
