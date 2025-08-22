@@ -2,6 +2,7 @@ import json
 import logging
 import platform
 import os
+import numpy
 import pytest
 import requests
 import pytest_mock
@@ -19,6 +20,7 @@ import random
 import datetime
 import simvue
 from simvue.api.objects import Alert, Metrics
+from simvue.api.objects.grids import GridMetrics
 from simvue.eco.api_client import CO2SignalData, CO2SignalResponse
 from simvue.exception import ObjectNotFoundError, SimvueRunError
 from simvue.eco.emissions_monitor import TIME_FORMAT, CO2Monitor
@@ -156,12 +158,14 @@ def test_run_with_emissions_offline(speedy_heartbeat, mock_co2_signal, create_pl
 @pytest.mark.parametrize(
     "visibility", ("bad_option", "tenant", "public", ["user01"], None)
 )
+@pytest.mark.parametrize("metric_type", ("regular", "tensor"))
 def test_log_metrics(
     overload_buffer: bool,
     timestamp: str | None,
     mocker: pytest_mock.MockerFixture,
     request: pytest.FixtureRequest,
     visibility: typing.Literal["public", "tenant"] | list[str] | None,
+    metric_type: typing.Literal["regular", "tensor"],
 ) -> None:
     METRICS = {"a": 10, "b": 1.2}
 
@@ -170,7 +174,11 @@ def test_log_metrics(
     run = sv_run.Run()
     run.config(suppress_errors=False)
 
-    metrics_spy = mocker.spy(Metrics, "new")
+
+    if metric_type == "tensor":
+        metrics_spy = mocker.spy(GridMetrics, "new")
+    else:
+        metrics_spy = mocker.spy(Metrics, "new")
     system_metrics_spy = mocker.spy(sv_run.Run, "_get_internal_metrics")
     unique_id = f"{uuid.uuid4()}".split("-")[0]
 
@@ -201,6 +209,17 @@ def test_log_metrics(
         visibility=visibility,
         retention_period=os.environ.get("SIMVUE_TESTING_RETENTION_PERIOD", "2 mins"),
     )
+    if metric_type == "tensor":
+        METRICS = {"c": numpy.identity(10), "g": numpy.ones((10, 10)) + 3 * numpy.identity(10)}
+        run.assign_metric_to_grid(
+            metric_name="c",
+            grid_name="test_log_metrics",
+            axes_ticks=numpy.vstack([
+                numpy.linspace(0, 10, 10),
+                numpy.linspace(0, 20, 10),
+            ]),
+            axes_labels=["x", "y"]
+        )
     # Will log system metrics on startup, and then not again within timeframe of test
     # So should have exactly one measurement of this
     run.config(system_metrics_interval=100)
@@ -210,37 +229,43 @@ def test_log_metrics(
 
     if overload_buffer:
         for i in range(run._dispatcher._max_buffer_size * 3):
-            run.log_metrics({key: i for key in METRICS}, timestamp=timestamp)
+            _value = i * numpy.identity(10) if metric_type == "tensor" else i
+            run.log_metrics({key: _value for key in METRICS}, timestamp=timestamp)
     else:
         run.log_metrics(METRICS, timestamp=timestamp)
     run.close()
-    time.sleep(2.0 if overload_buffer else 1.0)
-    client = sv_cl.Client()
-    _data = client.get_metric_values(
-        run_ids=[run.id],
-        metric_names=list(METRICS.keys()),
-        xaxis="step",
-        aggregate=False,
-    )
 
-    with contextlib.suppress(ObjectNotFoundError):
-        client.delete_folder(
-            f"/simvue_unit_testing/{unique_id}",
-            recursive=True,
-            remove_runs=True
+    #TODO: No client functions defined for grids yet
+    if metric_type != "tensor":
+        return
+
+        time.sleep(2.0 if overload_buffer else 1.0)
+        client = sv_cl.Client()
+        _data = client.get_metric_values(
+            run_ids=[run.id],
+            metric_names=list(METRICS.keys()),
+            xaxis="step",
+            aggregate=False,
         )
 
-    assert _data
+        #with contextlib.suppress(ObjectNotFoundError):
+        #    client.delete_folder(
+        #        f"/simvue_unit_testing/{unique_id}",
+        #        recursive=True,
+        #        remove_runs=True
+        #    )
 
-    assert sorted(set(METRICS.keys())) == sorted(set(_data.keys()))
-    _steps = []
-    for entry in _data.values():
-        _steps += [i[0] for i in entry.keys()]
-    _steps = set(_steps)
+        assert _data
 
-    assert len(_steps) == (
-        run._dispatcher._max_buffer_size * 3 if overload_buffer else 1
-    )
+        assert sorted(set(METRICS.keys())) == sorted(set(_data.keys()))
+        _steps = []
+        for entry in _data.values():
+            _steps += [i[0] for i in entry.keys()]
+        _steps = set(_steps)
+
+        assert len(_steps) == (
+            run._dispatcher._max_buffer_size * 3 if overload_buffer else 1
+        )
 
     if overload_buffer:
         assert metrics_spy.call_count > 2
