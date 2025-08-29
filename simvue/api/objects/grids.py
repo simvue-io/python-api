@@ -286,12 +286,13 @@ class GridMetrics(SimvueObject):
             )
 
     def commit(self) -> dict | None:
-        _run_staging = self._staging.pop("values", None)
-        self._log_values(self._staging["data"])
+        if not (_run_staging := self._staging.pop("data", None)):
+            return
+        return self._log_values(_run_staging)
 
     @pydantic.validate_call
     @write_only
-    def _log_values(self, metrics: list[GridMetricSet]) -> None:
+    def _log_values(self, metrics: list[GridMetricSet]) -> dict[str, object]:
         _response = sv_post(
             url=f"{self._user_config.server.url}/{self.run_grids_endpoint(self._run_id)}",
             headers=self._headers,
@@ -299,7 +300,7 @@ class GridMetrics(SimvueObject):
             params={},
         )
 
-        get_json_from_response(
+        return get_json_from_response(
             expected_status=[http.HTTPStatus.OK],
             scenario=f"adding tensor values to run '{self._run_id}'",
             response=_response,
