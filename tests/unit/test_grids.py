@@ -100,8 +100,8 @@ def test_grid_metrics_creation_online() -> None:
         "y": 2.0,
         "z": True
     }
-    _time: int = 1
-    _step: int = 1
+    _time: int = 0
+    _step: int = 0
     _run.commit()
     _grid_def=numpy.vstack([
         numpy.linspace(0, 10, 10),
@@ -126,7 +126,7 @@ def test_grid_metrics_creation_online() -> None:
                 ),
                 "time": _time,
                 "step": _step,
-                "array": numpy.ones((10, 10)) + numpy.identity(10),
+                "array": numpy.ones((10, 10, 10)),
                 "grid": _grid.id
             }
         ],
@@ -136,7 +136,7 @@ def test_grid_metrics_creation_online() -> None:
     _run.commit()
     time.sleep(1)
     # Online metrics
-    assert list(GridMetrics.get(runs=[_run.id], step=1))
+    assert list(GridMetrics.get(runs=[_run.id], step=0))
     _run.delete()
     _folder.delete(recursive=True, delete_runs=True, runs_only=False)
 

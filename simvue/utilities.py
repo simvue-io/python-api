@@ -94,10 +94,10 @@ def parse_validation_response(
 
     if isinstance(issues, str):
         return tabulate.tabulate(
-            ["Unknown", "N/A", issues],
+            [["Unknown", "N/A", issues]],
             headers=["Type", "Location", "Message"],
             tablefmt="fancy_grid",
-        )
+        ).__str__()
 
     for issue in issues:
         obj_type: str = issue["type"]

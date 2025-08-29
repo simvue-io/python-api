@@ -331,6 +331,7 @@ class GridMetrics(SimvueObject):
             self._staging.setdefault("metrics", [])
             self._staging["metrics"] += metrics
             return
+
         _response = sv_post(
             url=f"{self._user_config.server.url}/{self.run_grids_endpoint(self._run_id)}",
             headers=self._headers,
