@@ -102,7 +102,8 @@ def parse_validation_response(
     for issue in issues:
         obj_type: str = issue["type"]
         location: list[str] = issue["loc"]
-        location.remove("body")
+        with contextlib.suppress(ValueError):
+            location.remove("body")
         location_addr: str = "".join(
             (f"[{loc}]" if isinstance(loc, int) else f"{'.' if i > 0 else ''}{loc}")
             for i, loc in enumerate(location)

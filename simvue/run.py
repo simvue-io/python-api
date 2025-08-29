@@ -1354,6 +1354,7 @@ class Run:
                 "timestamp": timestamp if timestamp is not None else self.time_stamp,
                 "step": step if step is not None else self._step,
                 "grid": self._grids[tensor]["id"],
+                "metric": tensor,
             }
 
             self._dispatcher.add_item(_data, "metrics_tensor", self._queue_blocking)
@@ -1454,7 +1455,7 @@ class Run:
         try:
             _grid_attach = Grid(identifier=self._grids[grid_name]["id"])
             _grid_attach.read_only(False)
-            _grid_attach.attach_to_run(self.id)
+            _grid_attach.attach_metric_for_run(self.id, metric_name)
             self._grids[metric_name] = self._grids[grid_name]
         except (RuntimeError, ObjectNotFoundError) as e:
             self._error(

@@ -36,7 +36,7 @@ def test_grid_creation_online() -> None:
         grid=_grid_list
     )
     _grid.commit()
-    _grid.attach_to_run(_run.id)
+    _grid.attach_metric_for_run(_run.id, "A")
     # Get online version of grid
     _online_grid = Grid(_grid.id)
     npt.assert_array_equal(numpy.array(_online_grid.grid), _grid_def)
@@ -68,7 +68,7 @@ def test_grid_creation_offline() -> None:
         offline=True
     )
     _grid.commit()
-    _grid.attach_to_run(_run.id)
+    _grid.attach_metric_for_run(_run.id, "A")
     with _grid._local_staging_file.open() as in_f:
         _local_data = json.load(in_f)
 
@@ -115,11 +115,11 @@ def test_grid_metrics_creation_online() -> None:
         grid=_grid_list
     )
     _grid.commit()
-    _grid.attach_to_run(_run.id)
+    _grid.attach_metric_for_run(_run.id, "A")
 
     _metrics = GridMetrics.new(
         run=_run.id,
-        metrics=[
+        data=[
             {
                 "timestamp": datetime.datetime.now(datetime.timezone.utc).strftime(
                     "%Y-%m-%dT%H:%M:%S.%f"
@@ -127,7 +127,8 @@ def test_grid_metrics_creation_online() -> None:
                 "time": _time,
                 "step": _step,
                 "array": numpy.ones((10, 10, 10)),
-                "grid": _grid.id
+                "grid": _grid.id,
+                "metric": "A"
             }
         ],
     )
@@ -136,7 +137,7 @@ def test_grid_metrics_creation_online() -> None:
     _run.commit()
     time.sleep(1)
     # Online metrics
-    assert list(GridMetrics.get(runs=[_run.id], step=0))
+    assert list(GridMetrics.get(runs=[_run.id], metrics=["A"], step=_step))
     _run.delete()
     _folder.delete(recursive=True, delete_runs=True, runs_only=False)
 
@@ -149,13 +150,8 @@ def test_grid_metrics_creation_offline() -> None:
     _folder = Folder.new(path=_folder_name, offline=True)
     _run = Run.new(name="test_grid_metrics_creation_offline", folder=_folder_name, offline=True)
     _run.status = "running"
-    _values = {
-        "x": 1,
-        "y": 2.0,
-        "z": True
-    }
-    _time: int = 1
-    _step: int = 1
+    _time: int = 0
+    _step: int = 0
     _folder.commit()
     _run.commit()
     _grid_def=numpy.vstack([
@@ -165,25 +161,26 @@ def test_grid_metrics_creation_offline() -> None:
     ])
     _grid_list = _grid_def.tolist()
     _grid = Grid.new(
-        name=f"test_grid_creation_online_{_uuid}",
+        name=f"test_grid_creation_offline_{_uuid}",
         labels=["x", "y", "z"],
         grid=_grid_list,
         offline=True
     )
     _grid.commit()
-    _grid.attach_to_run(_run.id)
+    _grid.attach_metric_for_run(_run.id, "A")
 
     _metrics = GridMetrics.new(
         run=_run.id,
-        metrics=[
+        data=[
             {
                 "timestamp": datetime.datetime.now(datetime.timezone.utc).strftime(
                     "%Y-%m-%dT%H:%M:%S.%f"
                 ),
                 "time": _time,
                 "step": _step,
-                "array": numpy.ones((10, 10)) + numpy.identity(10),
-                "grid": _grid.id
+                "array": numpy.ones((10, 10, 10)),
+                "grid": _grid.id,
+                "metric": "A"
             }
         ],
         offline=True
@@ -191,5 +188,9 @@ def test_grid_metrics_creation_offline() -> None:
     _metrics.commit()
     _run.status = "completed"
     _run.commit()
+    _id_mapping = sender(_grid._local_staging_file.parents[1], 1, 10, ["folders", "runs", "grids", "grid_metrics"])
+    time.sleep(1)
+    # Online metrics
+    assert list(GridMetrics.get(runs=[_id_mapping[_run.id]], metrics=["A"], step=_step))
     _run.delete()
     _folder.delete(recursive=True, delete_runs=True, runs_only=False)

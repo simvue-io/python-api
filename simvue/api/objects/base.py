@@ -552,14 +552,16 @@ class SimvueObject(abc.ABC):
         """
         return None if self._identifier is None else self._base_url / self._identifier
 
-    def _post(self, is_json: bool = True, **kwargs) -> dict[str, typing.Any]:
+    def _post(
+        self, *, is_json: bool = True, data: list | dict | None = None, **kwargs
+    ) -> dict[str, typing.Any]:
         if not is_json:
-            kwargs = msgpack.packb(kwargs, use_bin_type=True)
+            kwargs = msgpack.packb(data or kwargs, use_bin_type=True)
         _response = sv_post(
             url=f"{self._base_url}",
             headers=self._headers | {"Content-Type": "application/msgpack"},
             params=self._params,
-            data=kwargs,
+            data=data or kwargs,
             is_json=is_json,
         )
 

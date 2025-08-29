@@ -20,6 +20,7 @@ MetricKeyString = typing.Annotated[
 
 # Pydantic class to validate run.init()
 class RunInput(pydantic.BaseModel):
+    model_config = pydantic.ConfigDict(extra="forbid")
     name: str | None = pydantic.Field(None, pattern=NAME_REGEX)
     metadata: dict[MetadataKeyString, str | int | float | None] | None = None
     tags: list[TagString] | None = None
@@ -30,6 +31,7 @@ class RunInput(pydantic.BaseModel):
 
 
 class MetricSet(pydantic.BaseModel):
+    model_config = pydantic.ConfigDict(extra="forbid")
     time: pydantic.NonNegativeFloat | pydantic.NonNegativeInt
     timestamp: str
     step: pydantic.NonNegativeInt
@@ -48,12 +50,13 @@ class MetricSet(pydantic.BaseModel):
 
 
 class GridMetricSet(pydantic.BaseModel):
-    model_config = pydantic.ConfigDict(arbitrary_types_allowed=True)
+    model_config = pydantic.ConfigDict(arbitrary_types_allowed=True, extra="forbid")
     time: pydantic.NonNegativeFloat | pydantic.NonNegativeInt
     timestamp: str
     step: pydantic.NonNegativeInt
-    array: numpy.ndarray
+    array: list | numpy.ndarray
     grid: str
+    metric: str
 
     @pydantic.field_validator("timestamp", mode="after")
     @classmethod
@@ -67,11 +70,14 @@ class GridMetricSet(pydantic.BaseModel):
         return value
 
     @pydantic.field_serializer("array", when_used="always")
-    def serialize_array(self, value: numpy.ndarray, *_) -> list:
+    def serialize_array(self, value: numpy.ndarray | list, *_) -> list:
+        if isinstance(value, list):
+            return value
         return value.tolist()
 
 
 class EventSet(pydantic.BaseModel):
+    model_config = pydantic.ConfigDict(extra="forbid")
     message: str
     timestamp: str
 

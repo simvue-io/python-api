@@ -48,8 +48,8 @@ class Grid(SimvueObject):
 
     @pydantic.validate_call
     @write_only
-    def attach_to_run(self, run_id: str) -> None:
-        """Attach this grid to a given run."""
+    def attach_metric_for_run(self, run_id: str, metric_name: str) -> None:
+        """Associates a metric for a given run to this grid."""
         if self._offline:
             self._staging.setdefault("runs", [])
             self._staging["runs"].append(run_id)
@@ -58,11 +58,15 @@ class Grid(SimvueObject):
         _response = sv_put(
             url=f"{self.run_data_url(run_id)}",
             headers=self._headers,
+            json={"metric": metric_name},
         )
 
         return get_json_from_response(
             expected_status=[http.HTTPStatus.OK],
-            scenario=f"adding grid '{self._identifier}' to run '{run_id}'",
+            scenario=(
+                f"Adding '{metric_name}' to grid "
+                f"'{self._identifier}' to run '{run_id}'",
+            ),
             response=_response,
         )
 
@@ -221,7 +225,7 @@ class GridMetrics(SimvueObject):
         **kwargs,
     ) -> None:
         """Initialise a GridMetrics object instance."""
-        self._label = "grid_metrics"
+        self._label = "grid_metric"
         super().__init__(_read_only=_read_only, _local=_local, **kwargs)
         self._run_id = self._staging.get("run")
         self._is_set = True
@@ -229,7 +233,7 @@ class GridMetrics(SimvueObject):
     @staticmethod
     def run_grids_endpoint(run: str | None = None) -> URL:
         """Returns the URL for grids for a specific run."""
-        return URL(f"runs/{run}/grids/")
+        return URL(f"runs/{run}/metrics/")
 
     def _get_attribute(self, attribute: str, *default) -> typing.Any:
         return super()._get_attribute(
@@ -241,7 +245,7 @@ class GridMetrics(SimvueObject):
     @classmethod
     @pydantic.validate_call
     def new(
-        cls, *, run: str, metrics: list[GridMetricSet], offline: bool = False, **kwargs
+        cls, *, run: str, data: list[GridMetricSet], offline: bool = False, **kwargs
     ) -> Self:
         """Create a new GridMetrics object for n-dimensional metric submission.
 
@@ -249,7 +253,7 @@ class GridMetrics(SimvueObject):
         ----------
         run: str
             identifier for the run to attach metrics to.
-        metrics: list[GridMetricSet]
+        data: list[GridMetricSet]
             set of tensor-based metrics to attach to run.
         offline: bool, optional
             whether to create in offline mode, default is False.
@@ -261,7 +265,7 @@ class GridMetrics(SimvueObject):
         """
         return GridMetrics(
             run=run,
-            metrics=[metric.model_dump() for metric in metrics],
+            data=[metric.model_dump() for metric in data],
             _read_only=False,
             _offline=offline,
         )
@@ -270,9 +274,10 @@ class GridMetrics(SimvueObject):
     @pydantic.validate_call
     def get(
         cls,
-        runs: list[str],
-        step: pydantic.NonNegativeInt,
         *,
+        runs: list[str],
+        metrics: list[str],
+        step: pydantic.NonNegativeInt,
         spans: bool = False,
         count: pydantic.PositiveInt | None = None,
         offset: pydantic.PositiveInt | None = None,
@@ -283,7 +288,9 @@ class GridMetrics(SimvueObject):
         Parameters
         ----------
         runs : list[str]
-            list of runs to return metrics for.
+            list of runs to return metric values for.
+        metrics : list[str]
+            list of metrics to retrieve.
         step : int
             the timestep to retrieve grid metrics for
         spans : bool, optional
@@ -294,25 +301,19 @@ class GridMetrics(SimvueObject):
         dict[str,  dict[str, list[dict[str, float]]]
             metric set object containing metrics for run.
         """
-        for run in runs:
-            for grid_obj in cls._get_all_objects(
-                endpoint=cls.run_grids_endpoint(run),
-                offset=offset,
-                count=count,
-                expected_type=list,
-                **kwargs,
-            ):
-                _id = grid_obj["id"]
+        for metric in metrics:
+            for run in runs:
                 yield from cls._get_all_objects(
-                    endpoint=f"{cls.run_grids_endpoint(run)}/{_id}/values",
+                    endpoint=f"{cls.run_grids_endpoint(run)}/{metric}/values",
                     step=step,
                     offset=None,
                     count=None,
                 )
 
     def commit(self) -> dict | None:
-        _metric_staging = self._staging.pop("metrics", None)
-        self._log_values(_metric_staging)
+        if not (_run_staging := self._staging.pop("data", None)):
+            return
+        return self._log_values(_run_staging)
 
     def on_reconnect(self, id_mapping: dict[str, str]) -> None:
         """Operations performed when this grid metrics object is switched from offline to online mode.
@@ -322,14 +323,26 @@ class GridMetrics(SimvueObject):
         id_mapping : dict[str, str]
             mapping from offline identifier to new online identifier.
         """
-        self._log_values(self._staging.pop("metrics", []))
+        metrics = self._staging.pop("data", [])
+
+        if not (run_id := id_mapping.get(self._run_id)):
+            raise RuntimeError("Failed to retrieve online run identifier.")
+
+        self._run_id = run_id
+
+        for metric in metrics:
+            if not (new_id := id_mapping.get(metric["grid"])):
+                raise RuntimeError("Failed to retrieve new online identifier for grid")
+            metric["grid"] = new_id
+        self._log_values(metrics)
 
     @pydantic.validate_call
     @write_only
     def _log_values(self, metrics: list[GridMetricSet]) -> None:
         if self._offline:
-            self._staging.setdefault("metrics", [])
-            self._staging["metrics"] += metrics
+            self._staging.setdefault("data", [])
+            self._staging["data"] += metrics
+            super().commit()
             return
 
         _response = sv_post(
@@ -339,7 +352,7 @@ class GridMetrics(SimvueObject):
             params={},
         )
 
-        get_json_from_response(
+        return get_json_from_response(
             expected_status=[http.HTTPStatus.OK],
             scenario=f"adding tensor values to run '{self._run_id}'",
             response=_response,
