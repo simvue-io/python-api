@@ -7,6 +7,7 @@ Contains base class for interacting with objects on the Simvue server
 
 import abc
 import pathlib
+import types
 import typing
 import inspect
 import uuid
@@ -183,6 +184,7 @@ class SimvueObject(abc.ABC):
     ) -> None:
         self._logger = logging.getLogger(f"simvue.{self.__class__.__name__}")
         self._label: str = getattr(self, "_label", self.__class__.__name__.lower())
+        self._local: bool = _local
         self._read_only: bool = _read_only
         self._is_set: bool = False
         self._endpoint: str = getattr(self, "_endpoint", f"{self._label}s")
@@ -232,7 +234,7 @@ class SimvueObject(abc.ABC):
         if (
             not self._identifier.startswith("offline_")
             and self._read_only
-            and not _local
+            and not self._local
         ):
             self._staging = self._get()
 
@@ -277,8 +279,25 @@ class SimvueObject(abc.ABC):
             json.dump(_staged_data, out_f, indent=2)
 
     def _get_attribute(
-        self, attribute: str, *default, url: str | None = None
-    ) -> typing.Any:
+        self,
+        attribute: str,
+        *,
+        url: str | None = None,
+    ) -> object:
+        """Retrieve an attribute for the given object.
+
+        Parameters
+        ----------
+        attribute : str
+            name of attribute to retrieve
+        url : str | None, optional
+            alternative URL to use for retrieval.
+
+        Returns
+        -------
+        object
+            the attribute value
+        """
         # In the case where the object is read-only, staging is the data
         # already retrieved from the server
         _attribute_is_property: bool = attribute in self._properties
@@ -291,6 +310,8 @@ class SimvueObject(abc.ABC):
             try:
                 return self._staging[attribute]
             except KeyError as e:
+                if self._local:
+                    raise e
                 # If the key is not in staging, but the object is not in offline mode
                 # retrieve from the server and update cache instead
                 if not _offline_state and (
@@ -309,9 +330,6 @@ class SimvueObject(abc.ABC):
             )
             return self._get(url=url)[attribute]
         except KeyError as e:
-            if default:
-                return default[0]
-
             if self._offline:
                 raise AttributeError(
                     f"A value for attribute '{attribute}' has "
@@ -731,8 +749,19 @@ class SimvueObject(abc.ABC):
 
     def __repr__(self) -> str:
         _out_str = f"{self.__class__.__module__}.{self.__class__.__qualname__}("
-        _out_str += ", ".join(
-            f"{property}={getattr(self, property)!r}" for property in self._properties
-        )
+        _property_values: list[str] = []
+
+        for property in self._properties:
+            try:
+                _value = getattr(self, property)
+            except KeyError:
+                continue
+
+            if isinstance(_value, types.GeneratorType):
+                continue
+
+            _property_values.append(f"{property}={_value!r}")
+
+        _out_str += ", ".join(_property_values)
         _out_str += ")"
         return _out_str

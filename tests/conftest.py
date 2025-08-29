@@ -44,8 +44,8 @@ class CountingLogHandler(logging.Handler):
 
 
 def clear_out_files() -> None:
-    out_files = list(pathlib.Path.cwd().glob(f"test_*_{os.environ.get("PYTEST_XDIST_WORKER", 0)}.out"))
-    out_files += list(pathlib.Path.cwd().glob(f"test_*_{os.environ.get("PYTEST_XDIST_WORKER", 0)}.err"))
+    out_files = list(pathlib.Path.cwd().glob(f"test_*_{os.environ.get('PYTEST_XDIST_WORKER', 0)}.out"))
+    out_files += list(pathlib.Path.cwd().glob(f"test_*_{os.environ.get('PYTEST_XDIST_WORKER', 0)}.err"))
 
     for file_obj in out_files:
         file_obj.unlink()
