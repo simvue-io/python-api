@@ -49,16 +49,20 @@ class Grid(SimvueObject):
 
     @pydantic.validate_call
     @write_only
-    def attach_to_run(self, run_id: str) -> None:
-        """Attach this grid to a given run."""
+    def attach_metric_for_run(self, run_id: str, metric_name: str) -> None:
+        """Associates a metric for a given run to this grid."""
         _response = sv_put(
             url=f"{self.run_data_url(run_id)}",
             headers=self._headers,
+            json={"metric": metric_name},
         )
 
         return get_json_from_response(
             expected_status=[http.HTTPStatus.OK],
-            scenario=f"adding grid '{self._identifier}' to run '{run_id}'",
+            scenario=(
+                f"Adding '{metric_name}' to grid "
+                f"'{self._identifier}' to run '{run_id}'",
+            ),
             response=_response,
         )
 
@@ -214,7 +218,7 @@ class GridMetrics(SimvueObject):
     @staticmethod
     def run_grids_endpoint(run: str | None = None) -> URL:
         """Returns the URL for grids for a specific run."""
-        return URL(f"runs/{run}/grids/")
+        return URL(f"runs/{run}/metrics/")
 
     def _get_attribute(self, attribute: str, *default) -> typing.Any:
         return super()._get_attribute(
@@ -246,7 +250,7 @@ class GridMetrics(SimvueObject):
         """
         return GridMetrics(
             run=run,
-            metrics=[metric.model_dump() for metric in metrics],
+            data=[metric.model_dump() for metric in metrics],
             _read_only=False,
             _offline=offline,
         )
@@ -283,7 +287,7 @@ class GridMetrics(SimvueObject):
 
     def commit(self) -> dict | None:
         _run_staging = self._staging.pop("values", None)
-        self._log_values(self._staging["metrics"])
+        self._log_values(self._staging["data"])
 
     @pydantic.validate_call
     @write_only

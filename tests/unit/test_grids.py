@@ -29,7 +29,7 @@ def test_grid_creation_online(create_test_run: tuple[sv_Run, dict]) -> None:
         labels=["x", "y", "z"]
     )
     _grid.commit()
-    _grid.attach_to_run(_run.id)
+    _grid.attach_metric_for_run(_run.id, "A")
 
 
 @pytest.mark.api
@@ -40,11 +40,6 @@ def test_grid_metrics_creation_online(create_test_run: tuple[Run, dict]) -> None
     _folder = Folder.new(path=_folder_name)
     _run = Run.new(folder=_folder_name)
     _run.status = "running"
-    _values = {
-        "x": 1,
-        "y": 2.0,
-        "z": True
-    }
     _time: int = 1
     _step: int = 1
     _folder.commit()
@@ -58,7 +53,7 @@ def test_grid_metrics_creation_online(create_test_run: tuple[Run, dict]) -> None
         labels=["x", "y"]
     )
     _grid.commit()
-    _grid.attach_to_run(_run.id)
+    _grid.attach_metric_for_run(_run.id, "A")
 
     _metrics = GridMetrics.new(
         run=_run.id,
@@ -70,7 +65,8 @@ def test_grid_metrics_creation_online(create_test_run: tuple[Run, dict]) -> None
                 "time": _time,
                 "step": _step,
                 "array": numpy.ones((10, 10)) + numpy.identity(10),
-                "grid": _grid.id
+                "grid": _grid.id,
+                "metric": "A"
             }
         ],
     )
