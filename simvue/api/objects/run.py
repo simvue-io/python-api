@@ -518,6 +518,14 @@ class Run(SimvueObject):
         return _url
 
     @property
+    def _grid_url(self) -> URL | None:
+        if not self._identifier or not self.url:
+            return None
+        _url = self.url
+        _url /= "grids"
+        return _url
+
+    @property
     def abort_trigger(self) -> bool:
         """Returns the state of the abort run endpoint from the server.
 
@@ -555,6 +563,27 @@ class Run(SimvueObject):
             response=_response,
             expected_status=[http.HTTPStatus.OK],
             scenario=f"Retrieving artifacts for run '{self.id}'",
+            expected_type=list,
+        )
+
+    @property
+    def grids(self) -> list[dict[str, str]]:
+        """Retrieve the grids for this run.
+
+        Returns
+        -------
+        list[dict[str, str]]
+            the grids associated with this run
+        """
+        if self._offline or not self._grid_url:
+            return []
+
+        _response = sv_get(url=self._grid_url, headers=self._headers)
+
+        return get_json_from_response(
+            response=_response,
+            expected_status=[http.HTTPStatus.OK],
+            scenario=f"Retrieving grids for run '{self.id}'",
             expected_type=list,
         )
 

@@ -491,7 +491,7 @@ class Run:
             elif category == "metrics_tensor":
                 _grid_metrics = GridMetrics.new(
                     run=self.id,
-                    metrics=buffer,
+                    data=buffer,
                     offline=self._user_config.run.mode == "offline",
                 )
                 return _grid_metrics.commit()

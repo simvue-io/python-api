@@ -79,7 +79,10 @@ class Grid(SimvueObject):
             mapping from offline identifier to new online identifier.
         """
         for run_id in self._staging.pop("runs", []):
-            self.attach_to_run(run_id=id_mapping[run_id])
+            try:
+                self.attach_to_run(run_id=id_mapping[run_id])
+            except KeyError:
+                raise RuntimeError("Failed to retrieve online run identifier.")
 
     @property
     def grid(self) -> list[list[float]]:
@@ -153,14 +156,24 @@ class Grid(SimvueObject):
             f"{self._user_config.server.url}/runs/{run_id}/grids/{self._identifier}"
         )
 
+    def run_metric_url(self, run_id: str, metric_name: str) -> URL:
+        """Returns the URL for the values for a given run metric."""
+        return URL(
+            f"{self._user_config.server.url}/runs/{run_id}/metrics/{metric_name}/"
+        )
+
     @pydantic.validate_call
-    def get_run_values(self, step: int) -> dict:
+    def get_run_metric_values(
+        self, *, run_id: str, metric_name: str, step: int
+    ) -> dict:
         """Retrieve values for this grid from the server for a given run at a given step.
 
         Parameters
         ----------
         run_id : str
             run to return grid metrics for.
+        metric_name : str
+            name of metric to return values for
         step : int
             time step to retrieve values for.
 
@@ -170,7 +183,7 @@ class Grid(SimvueObject):
             dictionary containing values from this for the run at specified step.
         """
         _response = sv_get(
-            url=f"{self.run_data_url / 'values'}",
+            url=f"{self.run_metric_values_url(run_id, metric_name) / 'values'}",
             headers=self._headers,
             params={"step": step},
         )
@@ -179,17 +192,22 @@ class Grid(SimvueObject):
             response=_response,
             expected_status=[http.HTTPStatus.OK],
             expected_type=dict,
-            scenario=f"Retrieving grid values for run '{self._run_id}' at step {step}",
+            scenario=(
+                f"Retrieving '{metric_name}' grid values "
+                f"for run '{self._run_id}' at step {step}",
+            ),
         )
 
     @pydantic.validate_call
-    def get_run_span(self, run_id: str) -> dict:
+    def get_run_metric_span(self, *, run_id: str, metric_name: str) -> dict:
         """Retrieve span for this grid from the server for a given run.
 
         Parameters
         ----------
         run_id : str
             run to return grid metrics for.
+        metric_name : str
+            metric to retrieve span information for.
 
         Returns
         ------
@@ -197,7 +215,7 @@ class Grid(SimvueObject):
             dictionary containing span from this for the run at specified step.
         """
         _response = sv_get(
-            url=f"{self.run_data_url / 'span'}",
+            url=f"{self.run_metric_values_url(run_id, metric_name) / 'span'}",
             headers=self._headers,
         )
 
@@ -279,8 +297,6 @@ class GridMetrics(SimvueObject):
         metrics: list[str],
         step: pydantic.NonNegativeInt,
         spans: bool = False,
-        count: pydantic.PositiveInt | None = None,
-        offset: pydantic.PositiveInt | None = None,
         **kwargs,
     ) -> typing.Generator[dict[str, dict[str, list[dict[str, float]]]], None, None]:
         """Retrieve tensor-metrics from the server for a given set of runs.
@@ -294,7 +310,7 @@ class GridMetrics(SimvueObject):
         step : int
             the timestep to retrieve grid metrics for
         spans : bool, optional
-            return spans information
+            return spans informations
 
         Yields
         ------
