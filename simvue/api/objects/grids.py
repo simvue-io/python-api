@@ -52,9 +52,10 @@ class Grid(SimvueObject):
         """Associates a metric for a given run to this grid."""
         if self._offline:
             self._staging.setdefault("runs", [])
-            self._staging["runs"].append(run_id)
+            self._staging["runs"].append((run_id, metric_name))
             super().commit()
             return
+
         _response = sv_put(
             url=f"{self.run_data_url(run_id)}",
             headers=self._headers,
@@ -78,9 +79,11 @@ class Grid(SimvueObject):
         id_mapping : dict[str, str]
             mapping from offline identifier to new online identifier.
         """
-        for run_id in self._staging.pop("runs", []):
+        for run_id, metric_name in self._staging.pop("runs", []):
             try:
-                self.attach_to_run(run_id=id_mapping[run_id])
+                self.attach_metric_for_run(
+                    run_id=id_mapping[run_id], metric_name=metric_name
+                )
             except KeyError:
                 raise RuntimeError("Failed to retrieve online run identifier.")
 
