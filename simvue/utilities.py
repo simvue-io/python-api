@@ -128,7 +128,7 @@ def parse_validation_response(
 
     _table_fmt: str = "simple"
 
-    if os.environ.get("SHELL") == "bash":
+    if any(shell in os.environ.get("SHELL", "") for shell in ("zsh", "bash")):
         _table_fmt = "fancy_grid"
 
     _table = tabulate.tabulate(out, headers=headers, tablefmt=_table_fmt)

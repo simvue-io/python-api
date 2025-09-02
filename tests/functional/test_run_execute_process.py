@@ -16,7 +16,7 @@ def test_monitor_processes(create_plain_run_offline: tuple[Run, dict]):
     _run: Run
     _run, _ = create_plain_run_offline
 
-    if os.environ.get("SHELL", "") == "bash" or sys.platform != "win32":
+    if any(shell in os.environ.get("SHELL", "") for shell in ("zsh", "bash")) or sys.platform != "win32":
         _run.add_process(f"process_1_{os.environ.get('PYTEST_XDIST_WORKER', 0)}", "Hello world!", executable="echo", n=True)
         _run.add_process(f"process_2_{os.environ.get('PYTEST_XDIST_WORKER', 0)}", "bash", debug=True, c="exit 0")
         _run.add_process(f"process_3_{os.environ.get('PYTEST_XDIST_WORKER', 0)}", "ls", "-ltr")
