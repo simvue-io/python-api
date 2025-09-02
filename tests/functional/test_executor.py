@@ -165,10 +165,11 @@ def test_completion_callbacks_var_change(request: pytest.FixtureRequest) -> None
             folder=f"/simvue_unit_testing/{folder_id}",
             tags=[platform.system(), "simvue_client_tests", request.node.name]
         )
+        print(os.environ.get("SHELL"))
         run.add_process(
-            identifier=f"test_completion_callbacks_var_change_{os.environ.get('PYTEST_XDIST_WORKER', 0)}",
-            executable="bash",
+            f"test_completion_callbacks_var_change_{os.environ.get('PYTEST_XDIST_WORKER', 0)}",
             c="exit 0",
+            executable="bash" if any(shell in os.environ.get("SHELL", "") for shell in ("zsh", "bash")) else None,
             completion_callback=completion_callback
         )
 
@@ -194,8 +195,7 @@ def test_completion_trigger_set(request: pytest.FixtureRequest) -> None:
             tags=[platform.system(), "simvue_client_tests", request.node.name]
         )
         run.add_process(
-            identifier=f"test_completion_trigger_set_{os.environ.get('PYTEST_XDIST_WORKER', 0)}",
-            executable="bash",
+            f"test_completion_trigger_set_{os.environ.get('PYTEST_XDIST_WORKER', 0)}",
             c="exit 0",
             completion_trigger=trigger
         )
@@ -225,8 +225,7 @@ def test_completion_callbacks_trigger_set(request: pytest.FixtureRequest) -> Non
             tags=[platform.system(), "simvue_client_tests", request.node.name]
         )
         run.add_process(
-            identifier=f"test_completion_callbacks_trigger_set_{os.environ.get('PYTEST_XDIST_WORKER', 0)}",
-            executable="bash",
+            f"test_completion_callbacks_trigger_set_{os.environ.get('PYTEST_XDIST_WORKER', 0)}",
             c="exit 0",
             completion_callback=completion_callback
         )
