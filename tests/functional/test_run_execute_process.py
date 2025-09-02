@@ -15,9 +15,15 @@ from simvue.sender import sender
 def test_monitor_processes(create_plain_run_offline: tuple[Run, dict]):
     _run: Run
     _run, _ = create_plain_run_offline
-    _run.add_process(f"process_1_{os.environ.get('PYTEST_XDIST_WORKER', 0)}", "Hello world!", executable="echo", n=True)
-    _run.add_process(f"process_2_{os.environ.get('PYTEST_XDIST_WORKER', 0)}", "bash" if sys.platform != "win32" else "powershell", debug=True, c="exit 0")
-    _run.add_process(f"process_3_{os.environ.get('PYTEST_XDIST_WORKER', 0)}", "ls", "-ltr")
+
+    if os.environ.get("SHELL", "") == "bash" or sys.platform != "win32":
+        _run.add_process(f"process_1_{os.environ.get('PYTEST_XDIST_WORKER', 0)}", "Hello world!", executable="echo", n=True)
+        _run.add_process(f"process_2_{os.environ.get('PYTEST_XDIST_WORKER', 0)}", "bash", debug=True, c="exit 0")
+        _run.add_process(f"process_3_{os.environ.get('PYTEST_XDIST_WORKER', 0)}", "ls", "-ltr")
+    else:
+        _run.add_process(f"process_1_{os.environ.get('PYTEST_XDIST_WORKER', 0)}", "Hello World!", executable="Write-Output")
+        _run.add_process(f"process_2_{os.environ.get('PYTEST_XDIST_WORKER', 0)}", executable="Get-ChildItem")
+        _run.add_process(f"process_3_{os.environ.get('PYTEST_XDIST_WORKER', 0)}", "exit 0")
     sender(_run._sv_obj._local_staging_file.parents[1], 1, 10, ["folders", "runs", "alerts"])
 
 
