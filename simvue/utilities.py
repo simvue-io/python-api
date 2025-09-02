@@ -121,11 +121,17 @@ def parse_validation_response(
                     break
             information.append(input_arg)
 
-        msg: str = issue["msg"]
+        # Limit message to be 60 characters
+        msg: str = issue["msg"][:60]
         information.append(msg)
         out.append(information)
 
-    _table = tabulate.tabulate(out, headers=headers, tablefmt="fancy_grid")
+    _table_fmt: str = "simple"
+
+    if os.environ.get("SHELL") == "bash":
+        _table_fmt = "fancy_grid"
+
+    _table = tabulate.tabulate(out, headers=headers, tablefmt=_table_fmt)
     return str(_table)
 
 
