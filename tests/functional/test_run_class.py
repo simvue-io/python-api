@@ -159,7 +159,7 @@ def test_run_with_emissions_offline(speedy_heartbeat, mock_co2_signal, create_pl
     "visibility", ("bad_option", "tenant", "public", ["user01"], None)
 )
 @pytest.mark.parametrize("metric_type", ("regular", "tensor"))
-def test_log_metrics(
+def test_log_metrics_online(
     overload_buffer: bool,
     timestamp: str | None,
     mocker: pytest_mock.MockerFixture,
@@ -237,7 +237,6 @@ def test_log_metrics(
 
     #TODO: No client functions defined for grids yet
     if metric_type != "tensor":
-        return
 
         time.sleep(2.0 if overload_buffer else 1.0)
         client = sv_cl.Client()
@@ -248,12 +247,12 @@ def test_log_metrics(
             aggregate=False,
         )
 
-        #with contextlib.suppress(ObjectNotFoundError):
-        #    client.delete_folder(
-        #        f"/simvue_unit_testing/{unique_id}",
-        #        recursive=True,
-        #        remove_runs=True
-        #    )
+        with contextlib.suppress(ObjectNotFoundError):
+            client.delete_folder(
+                f"/simvue_unit_testing/{unique_id}",
+                recursive=True,
+                remove_runs=True
+            )
 
         assert _data
 
@@ -278,10 +277,25 @@ def test_log_metrics(
 
 @pytest.mark.run
 @pytest.mark.offline
-def test_log_metrics_offline(create_plain_run_offline: tuple[sv_run.Run, dict]) -> None:
+@pytest.mark.parametrize("metric_type", ("regular", "tensor"))
+def test_log_metrics_offline(
+    create_plain_run_offline: tuple[sv_run.Run, dict],
+    metric_type: typing.Literal["regular", "tensor"]
+) -> None:
     METRICS = {"a": 10, "b": 1.2, "c": 2}
     run, _ = create_plain_run_offline
     run_name = run.name
+    if metric_type == "tensor":
+        METRICS = {"c": numpy.identity(10), "g": numpy.ones((10, 10)) + 3 * numpy.identity(10)}
+        run.assign_metric_to_grid(
+            metric_name="c",
+            grid_name="test_log_metrics",
+            axes_ticks=numpy.vstack([
+                numpy.linspace(0, 10, 10),
+                numpy.linspace(0, 20, 10),
+            ]),
+            axes_labels=["x", "y"]
+        )
     run.log_metrics(METRICS)
     client = sv_cl.Client()
     sv_send.sender(os.environ["SIMVUE_OFFLINE_DIRECTORY"], 2, 10)

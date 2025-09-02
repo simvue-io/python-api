@@ -1435,7 +1435,12 @@ class Run:
             return False
 
         if axes_labels is not None and axes_ticks is not None:
-            _new_grid = Grid.new(name=grid_name, grid=axes_ticks, labels=axes_labels)
+            _new_grid = Grid.new(
+                name=grid_name,
+                grid=axes_ticks,
+                labels=axes_labels,
+                offline=self._user_config.run.mode == "offline",
+            )
             _new_grid.commit()
 
             # Add entry for both the grid itself and the metric
