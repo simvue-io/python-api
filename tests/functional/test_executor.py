@@ -166,8 +166,8 @@ def test_completion_callbacks_var_change(request: pytest.FixtureRequest) -> None
             tags=[platform.system(), "simvue_client_tests", request.node.name]
         )
         run.add_process(
+            f"test_completion_callbacks_var_change_{os.environ.get('PYTEST_XDIST_WORKER', 0)}",
             "exit 0",
-            identifier=f"test_completion_callbacks_var_change_{os.environ.get('PYTEST_XDIST_WORKER', 0)}",
             completion_callback=completion_callback
         )
 
