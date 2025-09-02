@@ -38,7 +38,7 @@ from simvue.utilities import prettify_pydantic
 from .config.user import SimvueConfiguration
 
 from .factory.dispatch import Dispatcher
-from .executor import Executor
+from .executor import Executor, get_current_shell
 from .metrics import SystemResourceMeasurement
 from .models import FOLDER_REGEX, NAME_REGEX, MetricKeyString
 from .system import get_system
@@ -877,10 +877,12 @@ class Run:
         if executable:
             executable_str = f"{executable}"
             cmd_list += [executable_str]
-        else:
+        elif pos_args:
             cmd_list += [pos_args[0]]
             executable = pos_args[0]
             pos_args.pop(0)
+        else:
+            executable = get_current_shell()
 
         for kwarg, val in cmd_kwargs.items():
             _quoted_val: str = f'"{val}"'

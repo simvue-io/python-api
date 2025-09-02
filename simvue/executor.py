@@ -35,6 +35,15 @@ class CompletionCallback(typing.Protocol):
     def __call__(self, *, status_code: int, std_out: str, std_err: str) -> None: ...
 
 
+def get_current_shell() -> str | None:
+    """Return the users current shell executable."""
+    try:
+        _process = psutil.Process(os.getppid())
+        return _process.exe()
+    except psutil.Error:
+        return None
+
+
 def _execute_process(
     proc_id: str,
     command: list[str],
@@ -231,9 +240,12 @@ class Executor:
 
         if executable:
             command += [f"{executable}"]
-        else:
+        elif pos_args:
             command += [pos_args[0]]
             pos_args.pop(0)
+        elif executable := get_current_shell():
+            command += [f"{executable}"]
+
         if script:
             command += [f"{script}"]
 
