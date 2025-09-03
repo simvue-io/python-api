@@ -31,68 +31,55 @@ def test_monitor_processes(create_plain_run_offline: tuple[Run, dict]):
 def test_abort_all_processes(create_plain_run: tuple[Run, dict]) -> None:
     _run, _ = create_plain_run
     _pwsh = any(shell in os.environ.get("SHELL", get_current_shell()) for shell in ("pwsh", "powershell"))
-
-    _arguments = dict(
-        extension=".sh" if not _pwsh else ".ps1",
-        lines=[
-            "echo 'Using Bash...'\n",
-            "for i in {0..20}; do\n",
-            "   echo $i\n",
-            "   sleep 1\n",
-            "done\n"
-        ] if not _pwsh else [
-            "Write-Output 'Using Powershell...'\n",
-            "for ($i = 0; $i -le 20; $i++) {\n",
-            "  Write-Output $i\n",
-            "}\n"
-        ],
-        executable="powershell" if _pwsh else "bash"
+    _command = (
+        "echo 'Using Bash...'; for i in {0..20}; do echo $i; sleep 1; done"
+    ) if not _pwsh else (
+        "Write-Output 'Using Powershell...'; for ($i = 0; $i -le 20; $i++){ Write-Output $i }"
     )
-    with tempfile.NamedTemporaryFile(delete=False, suffix=_arguments["extension"]) as temp_f:
-        with open(temp_f.name, "w") as out_f:
-            out_f.writelines(_arguments["lines"])
-
-        for i in range(1, 3):
-            _run.add_process(
-                f"process_{i}_{os.environ.get('PYTEST_XDIST_WORKER', 0)}",
-                executable=_arguments["executable"],
-                script=temp_f.name
-            )
-            assert _run.executor.get_command(
-                f"process_{i}_{os.environ.get('PYTEST_XDIST_WORKER', 0)}"
-            ) == f"{_arguments['executable']} {temp_f.name}"
 
 
-        time.sleep(3)
+    _arguments = {"Command" if _pwsh else "c": _command}
+    _executable="powershell" if _pwsh else "bash"
 
-        _run.kill_all_processes()
+    for i in range(1, 3):
+        _run.add_process(
+            f"process_{i}_{os.environ.get('PYTEST_XDIST_WORKER', 0)}",
+            executable=_executable,
+            **_arguments
+        )
+        assert _run.executor.get_command(
+            f"process_{i}_{os.environ.get('PYTEST_XDIST_WORKER', 0)}"
+        ) == f"{_executable} {'-Command' if _pwsh else '-c'} {_command}"
 
-        # Check that for when one of the processes has stopped
-        _attempts: int = 0
-        _first_out = next(pathlib.Path.cwd().glob(f"*process_*_{os.environ.get('PYTEST_XDIST_WORKER', 0)}.out"))
 
-        while _first_out.stat().st_size == 0 and _attempts < 10:
-            time.sleep(1)
-            _attempts += 1
+    time.sleep(3)
 
-        if _attempts >= 10:
-            raise AssertionError("Failed to terminate processes")
+    _run.kill_all_processes()
 
-        # Check the Python process did not error
-        _out_err = pathlib.Path.cwd().glob(f"*process_*_{os.environ.get('PYTEST_XDIST_WORKER', 0)}.err")
-        for file in _out_err:
-            with file.open() as in_f:
-                assert not in_f.readlines()
+    # Check that for when one of the processes has stopped
+    _attempts: int = 0
+    _first_out = next(pathlib.Path.cwd().glob(f"*process_*_{os.environ.get('PYTEST_XDIST_WORKER', 0)}.out"))
 
-        # Now check the counter in the process was terminated
-        # just beyond the sleep time
-        _out_files = pathlib.Path.cwd().glob(f"*process_*_{os.environ.get('PYTEST_XDIST_WORKER', 0)}.out")
-        for file in _out_files:
-            with file.open() as in_f:
-                assert (lines := in_f.readlines()[1:])
-                assert int(lines[0].strip()) < 4
-    with contextlib.suppress(FileNotFoundError):
-        os.unlink(temp_f.name)
+    while _first_out.stat().st_size == 0 and _attempts < 10:
+        time.sleep(1)
+        _attempts += 1
+
+    if _attempts >= 10:
+        raise AssertionError("Failed to terminate processes")
+
+    # Check the Python process did not error
+    _out_err = pathlib.Path.cwd().glob(f"*process_*_{os.environ.get('PYTEST_XDIST_WORKER', 0)}.err")
+    for file in _out_err:
+        with file.open() as in_f:
+            assert not in_f.readlines()
+
+    # Now check the counter in the process was terminated
+    # just beyond the sleep time
+    _out_files = pathlib.Path.cwd().glob(f"*process_*_{os.environ.get('PYTEST_XDIST_WORKER', 0)}.out")
+    for file in _out_files:
+        with file.open() as in_f:
+            assert (lines := in_f.readlines()[1:])
+            assert int(lines[0].strip()) < 4
 
 
 @pytest.mark.executor

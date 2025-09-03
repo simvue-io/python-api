@@ -172,7 +172,6 @@ def create_plain_run(request, prevent_script_exit, mocker) -> typing.Generator[t
     with sv_run.Run() as run:
         run.metric_spy = mocker.spy(run, "_get_internal_metrics")
         yield run, setup_test_run(run, False, request)
-    clear_out_files()
 
 
 @pytest.fixture
