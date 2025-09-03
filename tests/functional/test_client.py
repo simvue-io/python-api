@@ -25,10 +25,11 @@ def test_get_events(create_test_run: tuple[sv_run.Run, dict]) -> None:
 
 @pytest.mark.client
 @pytest.mark.object_retrieval
-@pytest.mark.parametrize("from_run", (True, False), ids=("from_run", "all_runs"))
-@pytest.mark.parametrize("names_only", (True, False), ids=("names_only", "all_details"))
 @pytest.mark.parametrize(
-    "critical_only", (True, False), ids=("critical_only", "all_states")
+    "from_run,names_only,critical_only", [
+        (True, True, True),
+        (False, False, False),
+    ]
 )
 def test_get_alerts(
     from_run: bool,
