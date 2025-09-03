@@ -39,7 +39,7 @@ def get_current_shell() -> str | None:
     """Return the users current shell executable."""
     try:
         _process = psutil.Process(os.getppid())
-        return _process.exe()
+        return os.environ.get("SHELL", _process.exe())
     except psutil.Error:
         return None
 
@@ -141,6 +141,30 @@ class Executor:
 
         with open(err_file) as err:
             return err.read() or None
+
+    @staticmethod
+    def _kwarg_assembly(kwargs) -> list[str]:
+        _arguments: list[str] = []
+        _shell_is_pwsh: bool = any(
+            shell in get_current_shell() for shell in ("pwsh", "powershell")
+        )
+        for arg, value in kwargs.items():
+            if arg.startswith("__"):
+                continue
+
+            arg = arg.replace("_", "-")
+
+            if len(arg) == 1 or _shell_is_pwsh:
+                _arguments += (
+                    [f"-{arg}"]
+                    if isinstance(value, bool) and value
+                    else [f"-{arg}", f"{value}"]
+                )
+            elif isinstance(value, bool) and value:
+                _arguments += [f"--{arg}"]
+            else:
+                _arguments += [f"--{arg}", f"{value}"]
+        return _arguments
 
     def add_process(
         self,
@@ -252,22 +276,7 @@ class Executor:
         if input_file:
             command += [f"{input_file}"]
 
-        for arg, value in kwargs.items():
-            if arg.startswith("__"):
-                continue
-
-            arg = arg.replace("_", "-")
-
-            if len(arg) == 1:
-                command += (
-                    [f"-{arg}"]
-                    if isinstance(value, bool) and value
-                    else [f"-{arg}", f"{value}"]
-                )
-            elif isinstance(value, bool) and value:
-                command += [f"--{arg}"]
-            else:
-                command += [f"--{arg}", f"{value}"]
+        command += self._kwarg_assembly(kwargs)
 
         command += pos_args
 
