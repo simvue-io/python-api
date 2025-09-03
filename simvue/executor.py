@@ -143,18 +143,21 @@ class Executor:
             return err.read() or None
 
     @staticmethod
-    def _kwarg_assembly(kwargs) -> list[str]:
+    def _kwarg_assembly(kwargs, executable: str | None) -> list[str]:
         _arguments: list[str] = []
         _shell_is_pwsh: bool = any(
             shell in get_current_shell() for shell in ("pwsh", "powershell")
         )
+        _exec_is_pwsh: bool = executable in ("pwsh", "powershell", None)
+        _use_pwsh: bool = _shell_is_pwsh and _exec_is_pwsh
+
         for arg, value in kwargs.items():
             if arg.startswith("__"):
                 continue
 
             arg = arg.replace("_", "-")
 
-            if len(arg) == 1 or _shell_is_pwsh:
+            if len(arg) == 1 or _use_pwsh:
                 _arguments += (
                     [f"-{arg}"]
                     if isinstance(value, bool) and value
@@ -276,7 +279,7 @@ class Executor:
         if input_file:
             command += [f"{input_file}"]
 
-        command += self._kwarg_assembly(kwargs)
+        command += self._kwarg_assembly(kwargs, executable=executable)
 
         command += pos_args
 
