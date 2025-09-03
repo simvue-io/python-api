@@ -8,6 +8,7 @@ import pytest
 import filecmp
 
 from simvue import Run, Client
+from simvue.executor import get_current_shell
 from simvue.sender import sender
 
 @pytest.mark.executor
@@ -16,32 +17,51 @@ def test_monitor_processes(create_plain_run_offline: tuple[Run, dict]):
     _run: Run
     _run, _ = create_plain_run_offline
 
-    if any(shell in os.environ.get("SHELL", "") for shell in ("zsh", "bash")) or sys.platform != "win32":
+    if any(shell in os.environ.get("SHELL", "") for shell in ("zsh", "bash")):
         _run.add_process(f"process_1_{os.environ.get('PYTEST_XDIST_WORKER', 0)}", "Hello world!", executable="echo", n=True)
         _run.add_process(f"process_2_{os.environ.get('PYTEST_XDIST_WORKER', 0)}", "bash", debug=True, c="exit 0")
         _run.add_process(f"process_3_{os.environ.get('PYTEST_XDIST_WORKER', 0)}", "ls", "-ltr")
     else:
-        _run.add_process(f"process_1_{os.environ.get('PYTEST_XDIST_WORKER', 0)}", "Hello World!", executable="Write-Output")
-        _run.add_process(f"process_2_{os.environ.get('PYTEST_XDIST_WORKER', 0)}", executable="Get-ChildItem")
-        _run.add_process(f"process_3_{os.environ.get('PYTEST_XDIST_WORKER', 0)}", "exit 0")
+        _run.add_process(f"process_1_{os.environ.get('PYTEST_XDIST_WORKER', 0)}", Command="Write-Output 'Hello World!'", executable="powershell")
+        _run.add_process(f"process_2_{os.environ.get('PYTEST_XDIST_WORKER', 0)}", Command="Get-ChildItem", executable="powershell")
+        _run.add_process(f"process_3_{os.environ.get('PYTEST_XDIST_WORKER', 0)}", Command="exit 0", executable="powershell")
     sender(_run._sv_obj._local_staging_file.parents[1], 1, 10, ["folders", "runs", "alerts"])
 
 
 @pytest.mark.executor
 def test_abort_all_processes(create_plain_run: tuple[Run, dict]) -> None:
     _run, _ = create_plain_run
-    with tempfile.NamedTemporaryFile(delete=False, suffix=".sh") as temp_f:
+    _pwsh = any(shell in os.environ.get("SHELL", get_current_shell()) for shell in ("pwsh", "powershell"))
+
+    _arguments = dict(
+        extension=".sh" if not _pwsh else ".ps1",
+        lines=[
+            "echo 'Using Bash...'\n",
+            "for i in {0..20}; do\n",
+            "   echo $i\n",
+            "   sleep 1\n",
+            "done\n"
+        ] if not _pwsh else [
+            "Write-Output 'Using Powershell...'\n",
+            "for ($i = 0; $i -le 20; $i++) {\n",
+            "  Write-Output $i\n",
+            "}\n"
+        ],
+        executable="powershell" if _pwsh else "bash"
+    )
+    with tempfile.NamedTemporaryFile(delete=False, suffix=_arguments["extension"]) as temp_f:
         with open(temp_f.name, "w") as out_f:
-            out_f.writelines([
-                "for i in {0..20}; do\n",
-                "   echo $i\n",
-                "   sleep 1\n",
-                "done\n"
-            ])
+            out_f.writelines(_arguments["lines"])
 
         for i in range(1, 3):
-            _run.add_process(f"process_{i}_{os.environ.get('PYTEST_XDIST_WORKER', 0)}", executable="bash", script=temp_f.name)
-            assert _run.executor.get_command(f"process_{i}_{os.environ.get('PYTEST_XDIST_WORKER', 0)}") == f"bash {temp_f.name}"
+            _run.add_process(
+                f"process_{i}_{os.environ.get('PYTEST_XDIST_WORKER', 0)}",
+                executable=_arguments["executable"],
+                script=temp_f.name
+            )
+            assert _run.executor.get_command(
+                f"process_{i}_{os.environ.get('PYTEST_XDIST_WORKER', 0)}"
+            ) == f"{_arguments['executable']} {temp_f.name}"
 
 
         time.sleep(3)
@@ -70,7 +90,7 @@ def test_abort_all_processes(create_plain_run: tuple[Run, dict]) -> None:
         _out_files = pathlib.Path.cwd().glob(f"*process_*_{os.environ.get('PYTEST_XDIST_WORKER', 0)}.out")
         for file in _out_files:
             with file.open() as in_f:
-                assert (lines := in_f.readlines())
+                assert (lines := in_f.readlines()[1:])
                 assert int(lines[0].strip()) < 4
     with contextlib.suppress(FileNotFoundError):
         os.unlink(temp_f.name)
