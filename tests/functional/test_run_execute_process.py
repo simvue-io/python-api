@@ -12,7 +12,6 @@ from simvue.executor import get_current_shell
 from simvue.sender import sender
 
 @pytest.mark.executor
-@pytest.mark.offline
 def test_monitor_processes(create_plain_run_offline: tuple[Run, dict]):
     _run: Run
     _run, _ = create_plain_run_offline
@@ -96,6 +95,7 @@ def test_abort_all_processes(create_plain_run: tuple[Run, dict]) -> None:
         os.unlink(temp_f.name)
 
 
+@pytest.mark.executor
 def test_processes_cwd(create_plain_run: dict[Run, dict]) -> None:
     """Check that cwd argument works correctly in add_process.
 
