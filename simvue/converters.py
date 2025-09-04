@@ -1,17 +1,19 @@
-"""
-Converter Functions
-===================
+"""Converter Functions.
 
 Contains functions for converting objects retrieved from the server between
 data types including creation of DataFrames for metrics
 """
 
-import typing
-import pandas
-import flatdict
+from __future__ import annotations
 
+import typing
+
+import flatdict
+import pandas as pd
 
 if typing.TYPE_CHECKING:
+    from collections.abc import Mapping
+
     from pandas import DataFrame
 
 
@@ -19,8 +21,8 @@ def aggregated_metrics_to_dataframe(
     request_response_data: dict[str, list[dict[str, float]]],
     xaxis: str,
     parse_to: typing.Literal["dict", "dataframe"] = "dict",
-) -> typing.Union["DataFrame", dict[str, dict[tuple[float, str], float]] | None]:
-    """Create data frame for an aggregate of metrics
+) -> DataFrame | dict[str, dict[tuple[float, str], float | None]]:
+    """Create data frame for an aggregate of metrics.
 
     Returns a dataframe with columns being metrics and sub-columns being the
     minimum, average etc.
@@ -34,14 +36,13 @@ def aggregated_metrics_to_dataframe(
     parse_to : Literal["dict", "dataframe"], optional
         form of output
             * dict - dictionary of values.
-            * dataframe - dataframe (Pandas must be installed).
+            * dataframe - dataframe (pd must be installed).
 
     Returns
     -------
     DataFrame | dict
-        a Pandas dataframe of the metric set or the data as a dictionary
+        a pd dataframe of the metric set or the data as a dictionary
     """
-
     _all_steps: list[float] = sorted(
         {
             d[xaxis]
@@ -57,7 +58,7 @@ def aggregated_metrics_to_dataframe(
     _value_types = list(_value_types)
     _value_types.remove(xaxis)
 
-    result_dict: dict[str, dict[tuple[float, str], float]] | None = {
+    result_dict: dict[str, dict[tuple[float, str], float | None]] = {
         metric_name: {} for metric_name in request_response_data
     }
 
@@ -76,13 +77,13 @@ def aggregated_metrics_to_dataframe(
                     )
 
     if parse_to == "dataframe":
-        _data_frame = pandas.DataFrame(result_dict)
+        _data_frame = pd.DataFrame(result_dict)
         _data_frame.index.name = xaxis
         return _data_frame
-    elif parse_to == "dict":
+    if parse_to == "dict":
         return result_dict
-    else:
-        raise ValueError(f"Unrecognised parse format '{parse_to}'")
+    _out_msg: str = "Unrecognised parse format '{parse_to}'"
+    raise ValueError(_out_msg)
 
 
 def parse_run_set_metrics(
@@ -90,10 +91,10 @@ def parse_run_set_metrics(
     xaxis: str,
     run_labels: list[str],
     parse_to: typing.Literal["dict", "dataframe"] = "dict",
-) -> typing.Union[dict[str, dict[tuple[float, str], float]] | None, "DataFrame"]:
-    """Parse JSON response metric data from the server into the specified form
+) -> dict[str, dict[tuple[float, str], float | None]] | None | DataFrame:
+    """Parse JSON response metric data from the server into the specified form.
 
-    Creates either a dictionary or a pandas dataframe of the data collected
+    Creates either a dictionary or a pd dataframe of the data collected
     from multiple runs and metrics
 
     Parameters
@@ -107,12 +108,12 @@ def parse_run_set_metrics(
     parse_to : Literal["dict", "dataframe"], optional
         form in which to parse data
             * dict - return a values dictionary (default).
-            * dataframe - assembled into dataframe (requires Pandas).
+            * dataframe - assembled into dataframe (requires pd).
 
     Returns
     -------
     dict[str, dict[tuple[float, str], float]] | None | DataFrame
-        either a dictionary or Pandas DataFrame containing the results
+        either a dictionary or pd DataFrame containing the results
 
     Raises
     ------
@@ -120,7 +121,7 @@ def parse_run_set_metrics(
         if an unrecognised parse format is specified
     """
     if not request_response_data:
-        return pandas.DataFrame({}) if parse_to == "dataframe" else {}
+        return pd.DataFrame({}) if parse_to == "dataframe" else {}
 
     _all_steps: list[float] = sorted(
         {
@@ -133,7 +134,7 @@ def parse_run_set_metrics(
     )
 
     _all_metrics: list[str] = sorted(
-        {key for run_data in request_response_data.values() for key in run_data.keys()}
+        {key for run_data in request_response_data.values() for key in run_data}
     )
 
     # Get the keys from the aggregate which are not the xaxis label
@@ -143,47 +144,49 @@ def parse_run_set_metrics(
     _value_types = list(_value_types)
     _value_types.remove(xaxis)
 
-    result_dict: dict[str, dict[tuple[float, str], float]] | None = {
+    _result_dict: dict[str, dict[tuple[float, str], float | None]] = {
         metric_name: {} for metric_name in _all_metrics
     }
 
-    for run_label, run_data in zip(run_labels, request_response_data.values()):
+    for run_label, run_data in zip(
+        run_labels, request_response_data.values(), strict=False
+    ):
         for metric_name in _all_metrics:
             if metric_name not in run_data:
                 for step in _all_steps:
-                    result_dict[metric_name][step, run_label] = None
+                    _result_dict[metric_name][step, run_label] = None
                 continue
             metrics = run_data[metric_name]
             metrics_iterator = iter(metrics)
             _metric_steps = (d[xaxis] for d in metrics)
             for step in _all_steps:
                 if step not in _metric_steps:
-                    result_dict[metric_name][step, run_label] = None
+                    _result_dict[metric_name][step, run_label] = None
                 else:
                     next_item = next(metrics_iterator)
-                    result_dict[metric_name][step, run_label] = next_item.get("value")
+                    _result_dict[metric_name][step, run_label] = next_item.get("value")
 
     if parse_to == "dataframe":
-        return pandas.DataFrame(
-            result_dict,
-            index=pandas.MultiIndex.from_product(
+        return pd.DataFrame(
+            _result_dict,
+            index=pd.MultiIndex.from_product(
                 [_all_steps, run_labels], names=(xaxis, "run")
             ),
         )
-    elif parse_to == "dict":
-        return result_dict
-    else:
-        raise ValueError(f"Unrecognised parse format '{parse_to}'")
+    if parse_to == "dict":
+        return _result_dict
+
+    _out_msg: str = f"Unrecognised parse format '{parse_to}'"
+    raise ValueError(_out_msg)
 
 
-def to_dataframe(data) -> pandas.DataFrame:
-    """
-    Convert runs to dataframe
-    """
-
-    metadata = []
-    system_columns = []
-    columns = {
+def to_dataframe(
+    data: list[dict[str, list[str] | dict[str, object]]],
+) -> pd.DataFrame:
+    """Convert runs to dataframe."""
+    _metadata: list[str] = []
+    _system_columns: list[str] = []
+    _columns: dict[str, list[str | float | None]] = {
         "name": [],
         "status": [],
         "folder": [],
@@ -193,39 +196,44 @@ def to_dataframe(data) -> pandas.DataFrame:
     }
 
     for run in data:
-        for item in run.get("metadata", []):
-            if item not in metadata:
-                metadata.append(item)
-        for item, value in (run.get("system", {}) or {}).items():
+        _meta: list[str] = typing.cast("list[str]", run.get("metadata", []))
+        _system: dict[str, dict[str, str] | str] = typing.cast(
+            "dict[str, dict[str, str] | str]", run.get("system", {}) or {}
+        )
+        for item in _meta:
+            if item not in _metadata:
+                _metadata.append(item)
+        for item, value in _system.items():
             if isinstance(value, dict):
-                system_columns += [
+                _system_columns += [
                     col_name
-                    for sub_item in value.keys()
-                    if (col_name := f"system.{item}.{sub_item}") not in system_columns
+                    for sub_item in value
+                    if (col_name := f"system.{item}.{sub_item}") not in _system_columns
                 ]
-            elif f"system.{item}" not in system_columns:
-                system_columns.append(f"system.{item}")
+            elif f"system.{item}" not in _system_columns:
+                _system_columns.append(f"system.{item}")
 
-    columns |= {f"metadata.{column}": [] for column in metadata} | {
-        column: [] for column in system_columns
+    _columns |= {f"metadata.{column}": [] for column in _metadata} | {
+        column: [] for column in _system_columns
     }
     for run in data:
-        run_info = flatdict.FlatDict(run, delimiter=".")
-        for column, value_ in columns.items():
+        _run_info: Mapping[str, str] = flatdict.FlatDict(run, delimiter=".")
+        for column, value_ in _columns.items():
             try:
-                value_.append(run_info.get(column))
+                _column_val = typing.cast("str", _run_info.get(column))
+                value_.append(_column_val)
             except TypeError:
                 value_.append(None)
 
-    return pandas.DataFrame(data=columns)
+    return pd.DataFrame(data=_columns)
 
 
 def metric_time_series_to_dataframe(
     data: list[dict[str, float]],
     xaxis: typing.Literal["step", "time", "timestamp"],
     name: str | None = None,
-) -> "DataFrame":
-    """Convert a single metric value set from a run into a dataframe
+) -> DataFrame:
+    """Convert a single metric value set from a run into a dataframe.
 
     Parameters
     ----------
@@ -242,12 +250,11 @@ def metric_time_series_to_dataframe(
     Returns
     -------
     DataFrame
-        a Pandas DataFrame containing values for the metric and run at each
+        a pd DataFrame containing values for the metric and run at each
     """
-
     _df_dict: dict[str, list[float]] = {
         xaxis: [v[xaxis] for v in data],
         name or "value": [v["value"] for v in data],
     }
 
-    return pandas.DataFrame(_df_dict)
+    return pd.DataFrame(_df_dict)

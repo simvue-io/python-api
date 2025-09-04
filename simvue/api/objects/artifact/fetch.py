@@ -1,16 +1,19 @@
 import http
-import typing
-import pydantic
 import json
+import typing
+from collections.abc import Generator
+
+import pydantic
 
 from simvue.api.objects.artifact.base import ArtifactBase
-from simvue.api.objects.base import Sort
-from .file import FileArtifact
 from simvue.api.objects.artifact.object import ObjectArtifact
-from simvue.api.request import get_json_from_response, get as sv_get
+from simvue.api.objects.base import Sort
+from simvue.api.request import get as sv_get
+from simvue.api.request import get_json_from_response
 from simvue.api.url import URL
 from simvue.exception import ObjectNotFoundError
 
+from .file import FileArtifact
 
 __all__ = ["Artifact"]
 
@@ -44,8 +47,7 @@ class Artifact:
         _artifact_pre = ArtifactBase(identifier=identifier, **kwargs)
         if _artifact_pre.original_path:
             return FileArtifact(identifier=identifier, **kwargs)
-        else:
-            return ObjectArtifact(identifier=identifier, **kwargs)
+        return ObjectArtifact(identifier=identifier, **kwargs)
 
     @classmethod
     def from_run(
@@ -53,7 +55,7 @@ class Artifact:
         run_id: str,
         category: typing.Literal["input", "output", "code"] | None = None,
         **kwargs,
-    ) -> typing.Generator[tuple[str, FileArtifact | ObjectArtifact], None, None]:
+    ) -> typing.Generator[tuple[str, FileArtifact | ObjectArtifact]]:
         """Return artifacts associated with a given run.
 
         Parameters
@@ -109,7 +111,7 @@ class Artifact:
     @classmethod
     def from_name(
         cls, run_id: str, name: str, **kwargs
-    ) -> typing.Union[FileArtifact | ObjectArtifact, None]:
+    ) -> FileArtifact | ObjectArtifact | None:
         """Retrieve an artifact by name.
 
         Parameters
@@ -162,7 +164,7 @@ class Artifact:
         offset: int | None = None,
         sorting: list[ArtifactSort] | None = None,
         **kwargs,
-    ) -> typing.Generator[tuple[str, FileArtifact | ObjectArtifact], None, None]:
+    ) -> Generator[tuple[str, FileArtifact | ObjectArtifact]]:
         """Returns artifacts associated with the current user.
 
         Parameters
@@ -180,7 +182,6 @@ class Artifact:
             identifier for artifact
             the artifact itself as a class instance
         """
-
         _class_instance = ArtifactBase(_local=True, _read_only=True)
         _url = f"{_class_instance._base_url}"
         _params = {"start": offset, "count": count}

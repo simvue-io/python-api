@@ -8,10 +8,10 @@ to a JSON string
 """
 
 import copy
-import json as json_module
-import typing
-import logging
 import http
+import json as json_module
+import logging
+import typing
 
 import requests
 from tenacity import (
@@ -20,6 +20,7 @@ from tenacity import (
     stop_after_attempt,
     wait_exponential,
 )
+
 from simvue.utilities import parse_validation_response
 
 DEFAULT_API_TIMEOUT = 10
@@ -239,8 +240,8 @@ def get_json_from_response(
     scenario: str,
     response: requests.Response,
     allow_parse_failure: bool = False,
-    expected_type: typing.Type[dict | list] = dict,
-) -> dict | list:
+    expected_type: type[dict[str, object] | list[object]] = dict,
+) -> dict[str, object] | list[object]:
     try:
         json_response = response.json()
         json_response = json_response or ({} if expected_type is dict else [])
@@ -284,7 +285,7 @@ def get_paginated(
     offset: int | None = None,
     count: int | None = None,
     **params,
-) -> typing.Generator[requests.Response, None, None]:
+) -> typing.Generator[requests.Response]:
     """Paginate results of a server query.
 
     Parameters

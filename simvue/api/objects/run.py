@@ -7,26 +7,33 @@ a new run given relevant arguments.
 
 """
 
-import http
-import typing
-import pydantic
 import datetime
-import time
+import http
 import json
+import time
+import typing
+from collections.abc import Generator
+
+import pydantic
 
 try:
     from typing import Self
 except ImportError:
-    from typing_extensions import Self
+    from typing import Self
 
-from .base import SimvueObject, Sort, staging_check, Visibility, write_only
 from simvue.api.request import (
     get as sv_get,
-    put as sv_put,
+)
+from simvue.api.request import (
     get_json_from_response,
 )
+from simvue.api.request import (
+    put as sv_put,
+)
 from simvue.api.url import URL
-from simvue.models import FOLDER_REGEX, NAME_REGEX, DATETIME_FORMAT
+from simvue.models import DATETIME_FORMAT, FOLDER_REGEX, NAME_REGEX
+
+from .base import SimvueObject, Sort, Visibility, staging_check, write_only
 
 Status = typing.Literal[
     "lost", "failed", "completed", "terminated", "running", "created"
@@ -103,7 +110,6 @@ class Run(SimvueObject):
 
         Examples
         --------
-
         ```python
         run = Run.new(
             folder="/",
@@ -325,7 +331,7 @@ class Run(SimvueObject):
         offset: pydantic.NonNegativeInt | None = None,
         sorting: list[RunSort] | None = None,
         **kwargs,
-    ) -> typing.Generator[tuple[str, T | None], None, None]:
+    ) -> Generator[tuple[str, Self]] | None:
         """Get runs from the server.
 
         Parameters
@@ -356,7 +362,7 @@ class Run(SimvueObject):
     def alerts(self, alerts: list[str]) -> None:
         self._staging["alerts"] = list(set(self._staging.get("alerts", []) + alerts))
 
-    def get_alert_details(self) -> typing.Generator[dict[str, typing.Any], None, None]:
+    def get_alert_details(self) -> typing.Generator[dict[str, typing.Any]]:
         """Retrieve the full details of alerts for this run.
 
         Yields
@@ -445,7 +451,7 @@ class Run(SimvueObject):
     @property
     def metrics(
         self,
-    ) -> typing.Generator[tuple[str, dict[str, int | float | bool]], None, None]:
+    ) -> typing.Generator[tuple[str, dict[str, int | float | bool]]]:
         """Retrieve metrics for this run from the server.
 
         Yields
@@ -462,7 +468,7 @@ class Run(SimvueObject):
     @property
     def events(
         self,
-    ) -> typing.Generator[tuple[str, dict[str, typing.Any]], None, None]:
+    ) -> typing.Generator[tuple[str, dict[str, typing.Any]]]:
         """Returns events information for this run from the server.
 
         Yields

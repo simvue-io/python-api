@@ -81,15 +81,23 @@ jinja2 = "^3.1.6"
 types-requests = "^2.32.0.20241016"
 interrogate = "^1.7.0"
 pytest-timeout = "^2.3.1"
+pandas-stubs = "^2.3.2.250827"
+basedpyright = "^1.31.4"
 
 [build-system]
 requires = ["poetry-core"]
 build-backend = "poetry.core.masonry.api"
 
 [tool.ruff]
-lint.extend-select = ["C901", "T201"]
-lint.mccabe.max-complexity = 11
 extend-exclude = ["tests", "examples", "notebooks"]
+target-version = "py313"
+line-length = 88
+
+[tool.ruff.lint]
+mccabe.max-complexity = 11
+select = ["ALL"]
+ignore = ["COM812", "D105", "TRY003", "EM101", "FIX002"]
+pydocstyle.convention = "numpy"
 
 [tool.pytest.ini_options]
 addopts = "-p no:warnings --no-cov -n 0"
@@ -120,6 +128,13 @@ ignore-init-method = true
 fail-under = 95
 verbose = 1
 exclude = ["docs", "tests"]
+
+[tool.basedpyright]
+reportImplicitStringConcatenation = "none"
+reportUnreachable = "none"
+reportUnknownMemberType = "none"
+reportUnknownVariableType = "none"
+reportMissingTypeStubs = "none"
 
 [tool.mypy]
 ignore_missing_imports = true
