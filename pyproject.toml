@@ -96,7 +96,7 @@ line-length = 88
 [tool.ruff.lint]
 mccabe.max-complexity = 11
 select = ["ALL"]
-ignore = ["COM812", "D105", "TRY003", "EM101", "FIX002"]
+ignore = ["COM812", "D105", "TRY003", "EM101", "FIX002", "PLR0913"]
 pydocstyle.convention = "numpy"
 
 [tool.pytest.ini_options]
@@ -135,6 +135,7 @@ reportUnreachable = "none"
 reportUnknownMemberType = "none"
 reportUnknownVariableType = "none"
 reportMissingTypeStubs = "none"
+reportPrivateUsage = "none" # ruff already does this
 
 [tool.mypy]
 ignore_missing_imports = true

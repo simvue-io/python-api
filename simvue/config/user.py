@@ -7,33 +7,38 @@ Pydantic model for the Simvue TOML configuration file
 """
 
 import functools
+import http
 import logging
 import os
-import typing
-import http
 import pathlib
+import typing
+
 import pydantic
-import toml
 import semver
+import toml
 
 import simvue.utilities as sv_util
-from simvue.config.parameters import (
-    ClientGeneralOptions,
-    DefaultRunSpecifications,
-    MetricsSpecifications,
-    ServerSpecifications,
-    OfflineSpecifications,
-)
-
+from simvue.api.request import get as sv_get
+from simvue.api.url import URL
 from simvue.config.files import (
     CONFIG_FILE_NAMES,
     CONFIG_INI_FILE_NAMES,
     DEFAULT_OFFLINE_DIRECTORY,
 )
-from simvue.version import __version__
-from simvue.api.request import get as sv_get
-from simvue.api.url import URL
+from simvue.config.parameters import (
+    ClientGeneralOptions,
+    DefaultRunSpecifications,
+    MetricsSpecifications,
+    OfflineSpecifications,
+    ServerSpecifications,
+)
 from simvue.eco.config import EcoConfig
+from simvue.version import __version__
+
+try:
+    from typing import Self
+except ImportError:
+    from typing import Self
 
 logger = logging.getLogger(__name__)
 
@@ -113,7 +118,7 @@ class SimvueConfiguration(pydantic.BaseModel):
 
         except Exception as err:
             raise AssertionError(
-                f"Exception retrieving server version:\n {str(err)}"
+                f"Exception retrieving server version:\n {err!s}"
             ) from err
 
         _version = semver.Version.parse(_version_str)
@@ -154,7 +159,7 @@ class SimvueConfiguration(pydantic.BaseModel):
         server_url: str | None = None,
         server_token: str | None = None,
         mode: typing.Literal["offline", "online", "disabled"] | None = None,
-    ) -> "SimvueConfiguration":
+    ) -> Self:
         """Retrieve the Simvue configuration from this project
 
         Will retrieve the configuration options set for this project either using

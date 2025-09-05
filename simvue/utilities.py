@@ -1,22 +1,21 @@
-import datetime
-import hashlib
-import logging
-import json
-import mimetypes
-import tabulate
-import pydantic
-import importlib.util
-import functools
 import contextlib
+import datetime
+import functools
+import hashlib
+import importlib.util
+import json
+import logging
+import mimetypes
 import os
 import pathlib
 import typing
+
 import jwt
+import pydantic
+import tabulate
 from deepmerge import Merger
 
-from datetime import timezone
 from simvue.models import DATETIME_FORMAT
-
 
 CHECKSUM_BLOCK_SIZE = 4096
 EXTRAS: tuple[str, ...] = ("plot", "torch")
@@ -135,10 +134,10 @@ def parse_validation_response(
     return str(_table)
 
 
-def check_extra(extra_name: str) -> typing.Callable:
+def check_extra(extra_name: str) -> typing.Callable[[object], object | None]:
     def decorator(
-        class_func: typing.Callable | None = None,
-    ) -> typing.Callable | None:
+        class_func: typing.Callable[[object], object | None] | None = None,
+    ) -> typing.Callable[[object], object | None] | None:
         @functools.wraps(class_func)
         def wrapper(self, *args, **kwargs) -> typing.Any:
             if extra_name == "plot" and not all(
@@ -150,7 +149,7 @@ def check_extra(extra_name: str) -> typing.Callable:
                 raise RuntimeError(
                     f"Plotting features require the '{extra_name}' extension to Simvue"
                 )
-            elif extra_name == "eco":
+            if extra_name == "eco":
                 if not importlib.util.find_spec("geocoder"):
                     raise RuntimeError(
                         f"Eco features require the '{extra_name}' extenstion to Simvue"
@@ -182,7 +181,7 @@ def parse_pydantic_error(error: pydantic.ValidationError) -> str:
         else:
             _input_str = (
                 _input_str
-                if len((_input_str := f"{_input}")) < 50
+                if len(_input_str := f"{_input}") < 50
                 else f"{_input_str[:50]}..."
             )
         _type: str = data["type"]
@@ -397,7 +396,7 @@ def simvue_timestamp(date_time: datetime.datetime | None = None) -> str:
         Datetime string valid for the Simvue server
     """
     if not date_time:
-        date_time = datetime.datetime.now(timezone.utc)
+        date_time = datetime.datetime.now(datetime.UTC)
     return date_time.strftime(DATETIME_FORMAT)
 
 

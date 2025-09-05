@@ -18,7 +18,7 @@ if typing.TYPE_CHECKING:
 
 
 def aggregated_metrics_to_dataframe(
-    request_response_data: dict[str, list[dict[str, float]]],
+    request_response_data: dict[str, object],
     xaxis: str,
     parse_to: typing.Literal["dict", "dataframe"] = "dict",
 ) -> DataFrame | dict[str, dict[tuple[float, str], float | None]]:
@@ -87,7 +87,7 @@ def aggregated_metrics_to_dataframe(
 
 
 def parse_run_set_metrics(
-    request_response_data: dict[str, dict[str, list[dict[str, float]]]],
+    request_response_data: dict[str, object],
     xaxis: str,
     run_labels: list[str],
     parse_to: typing.Literal["dict", "dataframe"] = "dict",

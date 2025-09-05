@@ -6,6 +6,7 @@ server including deletion and retrieval.
 
 import contextlib
 import http
+import itertools
 import json
 import logging
 import pathlib
@@ -17,10 +18,11 @@ import pydantic
 import requests
 from pandas import DataFrame
 
-from simvue.api.objects.alert.base import AlertBase
+from simvue.api.objects.alert.fetch import AlertSort, AlertType
 from simvue.api.objects.artifact.fetch import ArtifactSort
 from simvue.api.objects.folder import FolderSort
 from simvue.api.objects.run import RunSort
+from simvue.api.objects.tag import TagSort
 from simvue.exception import ObjectNotFoundError
 
 from .api.objects import (
@@ -85,17 +87,14 @@ class Client:
         server_url : str, optional
             specify URL, if unset this is read from the config file
         """
-        self._user_config = SimvueConfiguration.fetch(
+        self._user_config: SimvueConfiguration = SimvueConfiguration.fetch(
             server_token=server_token, server_url=server_url, mode="online"
         )
 
-        for label, value in zip(
-            ("URL", "API token"),
-            (self._user_config.server.url, self._user_config.server.url),
-            strict=False,
-        ):
-            if not value:
-                logger.warning("No %s specified", label)
+        if not self._user_config.server.url:
+            raise ValueError("No URL specified")
+        if not self._user_config.server.token:
+            raise ValueError("No API token specified")
 
         self._headers: dict[str, str] = {
             "Authorization": (
@@ -797,11 +796,13 @@ class Client:
             timeout=DEFAULT_API_TIMEOUT,
         )
 
-        return get_json_from_response(
+        _json_response = get_json_from_response(
             expected_status=[http.HTTPStatus.OK],
             scenario=f"Retrieval of metrics '{metric_names}' in runs '{run_ids}'",
             response=metrics_response,
         )
+
+        return typing.cast("dict[str, object]", _json_response)
 
     @prettify_pydantic
     @pydantic.validate_call
@@ -816,7 +817,7 @@ class Client:
         use_run_names: bool = False,
         aggregate: bool = False,
         max_points: pydantic.PositiveInt | None = None,
-    ) -> dict[str, object] | DataFrame | None:
+    ) -> dict[str, dict[tuple[float, str], float | None]] | DataFrame | None:
         """Retrieve the values for a given metric across multiple runs.
 
         Uses filters to specify which runs should be retrieved.
@@ -878,7 +879,7 @@ class Client:
         _run_data: dict[str, object] = {}
 
         if not run_ids:
-            _run_data = dict(Run.get(**_args))
+            _run_data = dict(Run.get(**_args))  # pyright: ignore[reportArgumentType]
 
         _run_metrics: dict[str, object] = self._get_run_metrics_from_server(
             metric_names=metric_names,
@@ -914,7 +915,7 @@ class Client:
         metric_names: list[
             typing.Annotated[str, pydantic.StringConstraints(pattern=NAME_REGEX)]
         ],
-        xaxis: typing.Literal["step", "time"],
+        xaxis: typing.Literal["step", "time", "timestamp"],
         *,
         max_points: int | None = None,
     ) -> object:
@@ -961,29 +962,28 @@ class Client:
 
         import matplotlib.pyplot as plt
 
-        for run in run_ids:
-            for name in metric_names:
-                label = None
-                if len(run_ids) > 1 and len(metric_names) > 1:
-                    label = f"{run}: {name}"
-                elif len(run_ids) > 1 and len(metric_names) == 1:
-                    label = run
-                elif len(run_ids) == 1 and len(metric_names) > 1:
-                    label = name
+        for run, name in itertools.product(run_ids, metric_names):
+            label = None
+            if len(run_ids) > 1 and len(metric_names) > 1:
+                label = f"{run}: {name}"
+            elif len(run_ids) > 1 and len(metric_names) == 1:
+                label = run
+            elif len(run_ids) == 1 and len(metric_names) > 1:
+                label = name
 
-                flattened_df.plot(y=name, x=xaxis, label=label)
+            _ = flattened_df.plot(y=name, x=xaxis, label=label)
 
         if xaxis == "step":
-            plt.xlabel("Steps")
+            _ = plt.xlabel("Steps")
         elif xaxis == "time":
-            plt.xlabel("Relative Time")
+            _ = plt.xlabel("Relative Time")
         if xaxis == "step":
-            plt.xlabel("steps")
+            _ = plt.xlabel("steps")
         elif xaxis == "timestamp":
-            plt.xlabel("Time")
+            _ = plt.xlabel("Time")
 
         if len(metric_names) == 1:
-            plt.ylabel(metric_names[0])
+            _ = plt.ylabel(metric_names[0])
 
         return plt.figure()
 
@@ -1020,32 +1020,35 @@ class Client:
         RuntimeError
             if there was a failure retrieving information from the server
         """
-        msg_filter: str = (
+        _msg_filter: str = (
             json.dumps([f"event.message contains {message_contains}"])
             if message_contains
             else ""
         )
 
-        params: dict[str, str | int] = {
+        _params: dict[str, str | int] = {
             "run": run_id,
-            "filters": msg_filter,
+            "filters": _msg_filter,
             "start": start_index or 0,
             "count": count_limit or 0,
         }
 
-        response = requests.get(
+        _response = requests.get(
             f"{self._user_config.server.url}/events",
             headers=self._headers,
-            params=params,
+            params=_params,
+            timeout=DEFAULT_API_TIMEOUT,
         )
 
-        json_response = get_json_from_response(
+        _json_response = get_json_from_response(
             expected_status=[http.HTTPStatus.OK],
             scenario=f"Retrieval of events for run '{run_id}'",
-            response=response,
+            response=_response,
         )
 
-        return json_response.get("data", [])
+        _json_response = typing.cast("dict[str, object]", _json_response)
+
+        return typing.cast("list[dict[str, str]]", _json_response.get("data", []))
 
     @prettify_pydantic
     @pydantic.validate_call
@@ -1058,17 +1061,19 @@ class Client:
         start_index: pydantic.NonNegativeInt | None = None,
         count_limit: pydantic.PositiveInt | None = None,
         sort_by_columns: list[tuple[str, bool]] | None = None,
-    ) -> list[AlertBase] | list[str | None]:
-        """Retrieve alerts for a given run
+    ) -> list[AlertType] | list[str | None]:
+        """Retrieve alerts for a given run.
 
         Parameters
         ----------
         run_id : str | None
             The ID of the run to find alerts for
         critical_only : bool, optional
-            If a run is specified, whether to only return details about alerts which are currently critical, by default True
+            If a run is specified, whether to only return details about alerts
+            which are currently critical, by default True
         names_only: bool, optional
-            Whether to only return the names of the alerts (otherwise return the full details of the alerts), by default True
+            Whether to only return the names of the alerts (otherwise return the
+            full details of the alerts), by default True
         start_index : typing.int, optional
             slice results returning only those above this index, by default None
         count_limit : typing.int, optional
@@ -1090,22 +1095,32 @@ class Client:
         """
         if not run_id:
             if critical_only:
-                raise RuntimeError(
-                    "critical_only is ambiguous when returning alerts with no run ID specified."
+                _out_msg: str = (
+                    "critical_only is ambiguous when returning alerts "
+                    "with no run ID specified."
                 )
+                raise RuntimeError(_out_msg)
+            _sorting = (
+                [
+                    AlertSort(column=column, descending=descending)
+                    for column, descending in sort_by_columns
+                ]
+                if sort_by_columns
+                else None
+            )
+            if names_only:
+                return [
+                    alert.name
+                    for _, alert in Alert.get(
+                        sorting=_sorting, count=count_limit, offset=start_index
+                    )
+                ]
             return [
-                alert.name if names_only else alert
+                alert
                 for _, alert in Alert.get(
-                    sorting=[
-                        dict(zip(("column", "descending"), a, strict=False))
-                        for a in sort_by_columns
-                    ]
-                    if sort_by_columns
-                    else None,
-                    count=count_limit,
-                    offset=start_index,
+                    sorting=_sorting, count=count_limit, offset=start_index
                 )
-            ]  # type: ignore
+            ]
 
         if sort_by_columns:
             logger.warning(
@@ -1113,13 +1128,23 @@ class Client:
                 " argument 'sort_by_columns' will be ignored"
             )
 
-        _alerts = [
-            Alert(identifier=alert.get("id"), **alert)
-            for alert in Run(identifier=run_id).get_alert_details()
-        ]
+        try:
+            _alerts = [
+                Alert(identifier=typing.cast("str", alert["id"]), _local=True, **alert)
+                for alert in Run(identifier=run_id).get_alert_details()
+            ]
+        except KeyError as e:
+            _out_msg = "Expected 'id' in server response for alert."
+            raise RuntimeError(_out_msg) from e
 
+        if names_only:
+            return [
+                alert.name
+                for alert in _alerts
+                if not critical_only or alert.get_status(run_id) == "critical"
+            ]
         return [
-            alert.name if names_only else alert
+            alert
             for alert in _alerts
             if not critical_only or alert.get_status(run_id) == "critical"
         ]
@@ -1132,8 +1157,8 @@ class Client:
         start_index: pydantic.NonNegativeInt | None = None,
         count_limit: pydantic.PositiveInt | None = None,
         sort_by_columns: list[tuple[str, bool]] | None = None,
-    ) -> typing.Generator[Tag]:
-        """Retrieve tags
+    ) -> Generator[tuple[str, Tag]]:
+        """Retrieve tags.
 
         Parameters
         ----------
@@ -1161,8 +1186,8 @@ class Client:
             count=count_limit,
             offset=start_index,
             sorting=[
-                dict(zip(("column", "descending"), a, strict=False))
-                for a in sort_by_columns
+                TagSort(column=column, descending=descending)
+                for column, descending in sort_by_columns
             ]
             if sort_by_columns
             else None,
@@ -1171,7 +1196,7 @@ class Client:
     @prettify_pydantic
     @pydantic.validate_call
     def delete_tag(self, tag_id: str) -> None:
-        """Delete a tag by its identifier
+        """Delete a tag by its identifier.
 
         Parameters
         ----------
@@ -1184,12 +1209,12 @@ class Client:
             if the deletion failed due to a server request error
         """
         with contextlib.suppress(ValueError):
-            Tag(identifier=tag_id).delete()
+            _ = Tag(identifier=tag_id).delete()
 
     @prettify_pydantic
     @pydantic.validate_call
     def get_tag(self, tag_id: str) -> Tag:
-        """Retrieve a single tag
+        """Retrieve a single tag.
 
         Parameters
         ----------

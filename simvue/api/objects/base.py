@@ -1,16 +1,15 @@
-"""
-Simvue RestAPI Objects
-======================
+"""Simvue RestAPI Objects.
 
 Contains base class for interacting with objects on the Simvue server
 """
+
+from __future__ import annotations
 
 import abc
 import http
 import inspect
 import json
 import logging
-import pathlib
 import types
 import typing
 import uuid
@@ -18,6 +17,9 @@ from collections.abc import Generator
 
 import msgpack
 import pydantic
+
+if typing.TYPE_CHECKING:
+    import pathlib
 
 from simvue.api.request import (
     delete as sv_delete,
@@ -48,27 +50,29 @@ try:
 except ImportError:
     from typing import Self
 
-# Need to use this inside of Generator typing to fix bug present in Python 3.10 - see issue #745
+# Need to use this inside of Generator typing to fix bug
+# present in Python 3.10 - see issue #745
 T = typing.TypeVar("T", bound="SimvueObject")
+U = typing.TypeVar("U", bound="SimvueObject | Visibility")
 
 
-def staging_check(member_func: typing.Callable) -> typing.Callable:
-    """Decorator for checking if requested attribute has uncommitted changes"""
+def staging_check(
+    member_func: typing.Callable[[U], typing.Any | None],
+) -> typing.Callable[[U], typing.Any | None]:
+    """Checki if requested attribute has uncommitted changes via decorator."""
 
-    def _wrapper(self) -> typing.Any:
-        if isinstance(self, SimvueObject):
-            _sv_obj = self
-        elif hasattr(self, "_sv_obj"):
-            _sv_obj = self._sv_obj
-        else:
-            raise RuntimeError(
+    def _wrapper(self: U) -> object:
+        _sv_obj = typing.cast("SimvueObject", getattr(self, "_sv_obj", self))
+        if not hasattr(_sv_obj, "_offline"):
+            _out_msg: str = (
                 f"Cannot use 'staging_check' decorator on type '{type(self).__name__}'"
             )
-        if _sv_obj._offline:
+            raise RuntimeError(_out_msg)
+        if _sv_obj._offline:  # noqa: SLF001
             return member_func(self)
-        if not _sv_obj._read_only and member_func.__name__ in _sv_obj._staging:
-            _sv_obj._logger.warning(
-                f"Uncommitted change found for attribute '{member_func.__name__}'"
+        if not _sv_obj._read_only and member_func.__name__ in _sv_obj._staging:  # noqa: SLF001
+            _sv_obj._logger.warning(  # noqa: SLF001
+                "Uncommitted change found for attribute '%s'", member_func.__name__
             )
         return member_func(self)
 
@@ -81,14 +85,21 @@ def staging_check(member_func: typing.Callable) -> typing.Callable:
     return _wrapper
 
 
-def write_only(attribute_func: typing.Callable) -> typing.Callable:
-    def _wrapper(self: "SimvueObject", *args, **kwargs) -> typing.Any:
-        _sv_obj = getattr(self, "_sv_obj", self)
-        if _sv_obj._read_only:
-            raise AssertionError(
+def write_only(
+    attribute_func: typing.Callable[[U, typing.Any], typing.Any | None],
+) -> typing.Callable[[U, typing.Any], typing.Any | None]:
+    """Check if function only available in write mode."""
+
+    def _wrapper(self: U, *args: object, **kwargs: object) -> object | None:
+        _sv_obj: SimvueObject = typing.cast(
+            "SimvueObject", getattr(self, "_sv_obj", self)
+        )
+        if _sv_obj._read_only:  # noqa: SLF001
+            _out_msg: str = (
                 f"Cannot set property '{attribute_func.__name__}' "
-                f"on read-only object of type '{self._label}'"
+                f"on read-only object of type '{_sv_obj._label}'"  # noqa: SLF001
             )
+            raise AssertionError(_out_msg)
         return attribute_func(self, *args, **kwargs)
 
     _wrapper.__name__ = attribute_func.__name__
@@ -101,16 +112,16 @@ def write_only(attribute_func: typing.Callable) -> typing.Callable:
 
 
 class Visibility:
-    """Interface for object visibility definition"""
+    """Interface for object visibility definition."""
 
-    def __init__(self, sv_obj: "SimvueObject") -> None:
-        """Initialise visibility with target object"""
-        self._sv_obj = sv_obj
+    def __init__(self, sv_obj: SimvueObject) -> None:
+        """Initialise visibility with target object."""
+        self._sv_obj: SimvueObject = sv_obj
 
-    def _update_visibility(self, key: str, value: typing.Any) -> None:
-        """Update the visibility configuration for this object"""
-        _visibility = self._sv_obj._get_visibility() | {key: value}
-        self._sv_obj._staging["visibility"] = _visibility
+    def _update_visibility(self, key: str, value: object) -> None:
+        """Update the visibility configuration for this object."""
+        _visibility = self._sv_obj._get_visibility() | {key: value}  # noqa: SLF001
+        self._sv_obj._staging["visibility"] = _visibility  # noqa: SLF001
 
     @property
     @staging_check
@@ -125,7 +136,11 @@ class Visibility:
         -------
         list[str]
         """
-        return self._sv_obj._get_visibility().get("users", [])
+        _users: list[str] = typing.cast(
+            "list[str]",
+            self._sv_obj._get_visibility().get("users", []),  # noqa: SLF001
+        )
+        return _users
 
     @users.setter
     @write_only
@@ -145,7 +160,11 @@ class Visibility:
         -------
         bool
         """
-        return self._sv_obj._get_visibility().get("public", False)  # type: ignore
+        _public: bool = typing.cast(
+            "bool",
+            self._sv_obj._get_visibility().get("public", False),  # noqa: SLF001
+        )
+        return _public
 
     @public.setter
     @write_only
@@ -165,7 +184,11 @@ class Visibility:
         -------
         bool
         """
-        return self._sv_obj._get_visibility().get("tenant", False)  # type: ignore
+        _tenant: bool = typing.cast(
+            "bool",
+            self._sv_obj._get_visibility().get("tenant", False),  # noqa: SLF001
+        )
+        return _tenant
 
     @tenant.setter
     @write_only
@@ -193,7 +216,12 @@ class SimvueObject(abc.ABC):
     ) -> None:
         self._logger = logging.getLogger(f"simvue.{self.__class__.__name__}")
         self._label: str = getattr(self, "_label", self.__class__.__name__.lower())
+
+        # Local blocks any remote connection completely, this prevents multiple server
+        # calls when information cannot be found locally which is important
+        # especially if the user opted to veto information
         self._local: bool = _local
+
         self._read_only: bool = _read_only
         self._is_set: bool = False
         self._endpoint: str = getattr(self, "_endpoint", f"{self._label}s")
@@ -535,6 +563,11 @@ class SimvueObject(abc.ABC):
         self._clear_staging()
 
         return _response
+
+    @property
+    def offline(self) -> bool:
+        """Return of object in offline mode."""
+        return self._offline
 
     @property
     def id(self) -> str | None:
