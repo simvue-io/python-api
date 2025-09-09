@@ -301,13 +301,12 @@ def test_log_metrics_offline(
     sv_send.sender(os.environ["SIMVUE_OFFLINE_DIRECTORY"], 2, 10)
     attempts: int = 0
 
-    while not (_data := client.get_metric_values(
+    _data = client.get_metric_values(
         run_ids=[client.get_run_id_from_name(run_name)],
         metric_names=list(METRICS.keys()),
         xaxis="step",
         aggregate=False,
-    )) and attempts < 5:
-        sv_send.sender(os.environ["SIMVUE_OFFLINE_DIRECTORY"], 2, 10)
+    )
 
     assert sorted(set(METRICS.keys())) == sorted(set(_data.keys()))
     _steps = []

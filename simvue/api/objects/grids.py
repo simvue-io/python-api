@@ -79,11 +79,14 @@ class Grid(SimvueObject):
         id_mapping : dict[str, str]
             mapping from offline identifier to new online identifier.
         """
-        for run_id, metric_name in self._staging.pop("runs", []):
+        _online_runs = [
+            (id_mapping[run_id], metric_name)
+            for run_id, metric_name in self._staging.pop("runs", [])
+        ]
+        super().commit()  # TODO this means the sender iwll commit twice - that ok?
+        for run_id, metric_name in _online_runs:
             try:
-                self.attach_metric_for_run(
-                    run_id=id_mapping[run_id], metric_name=metric_name
-                )
+                self.attach_metric_for_run(run_id=run_id, metric_name=metric_name)
             except KeyError:
                 raise RuntimeError("Failed to retrieve online run identifier.")
 
@@ -146,6 +149,7 @@ class Grid(SimvueObject):
             name=name,
             _read_only=False,
             _offline=offline,
+            **kwargs,
         )
 
     @property
