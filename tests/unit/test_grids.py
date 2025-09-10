@@ -72,7 +72,7 @@ def test_grid_creation_offline() -> None:
     with _grid._local_staging_file.open() as in_f:
         _local_data = json.load(in_f)
 
-    assert _local_data.get("runs", [None])[0] == _run.id
+    assert _local_data.get("runs", [None])[0] == [_run.id, "A"]
     npt.assert_array_equal(numpy.array(_local_data.get("grid")), _grid_def)
     _id_mapping = sender(_grid._local_staging_file.parents[1], 1, 10, ["folders", "runs", "grids"])
     time.sleep(1)
