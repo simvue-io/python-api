@@ -1460,7 +1460,10 @@ class Run:
             return False
 
         try:
-            _grid_attach = Grid(identifier=self._grids[grid_name]["id"])
+            _grid_attach = Grid(
+                identifier=self._grids[grid_name]["id"],
+                offline=self._user_config.run.mode == "offline",
+            )
             _grid_attach.read_only(False)
             _grid_attach.attach_metric_for_run(self.id, metric_name)
             self._grids[metric_name] = self._grids[grid_name]

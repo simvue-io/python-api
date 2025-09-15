@@ -236,8 +236,25 @@ def test_log_metrics_online(
     run.close()
 
     #TODO: No client functions defined for grids yet
-    if metric_type != "tensor":
-
+    # Temporary solution - use direct API endpoints
+    if metric_type == "tensor":
+        for name, values in METRICS.items():
+            if overload_buffer:
+                for i in range(run._dispatcher._max_buffer_size * 3):
+                    response = requests.get(
+                        url=f"{run._user_config.server.url}/runs/{run.id}/metrics/{name}/values?step={i}",
+                        headers=run._sv_obj._headers,
+                    )
+                    assert response.status_code == 200            
+                    numpy.testing.assert_almost_equal(numpy.array(response.json().get("array")), i * numpy.identity(10))
+            else:
+                response = requests.get(
+                    url=f"{run._user_config.server.url}/runs/{run.id}/metrics/{name}/values?step=0",
+                    headers=run._sv_obj._headers,
+                )
+                assert response.status_code == 200            
+                numpy.testing.assert_almost_equal(numpy.array(response.json().get("array")), values)
+    else:    
         time.sleep(2.0 if overload_buffer else 1.0)
         client = sv_cl.Client()
         _data = client.get_metric_values(
@@ -282,7 +299,6 @@ def test_log_metrics_offline(
     create_plain_run_offline: tuple[sv_run.Run, dict],
     metric_type: typing.Literal["regular", "tensor"]
 ) -> None:
-    METRICS = {"a": 10, "b": 1.2, "c": 2}
     run, _ = create_plain_run_offline
     run_name = run.name
     if metric_type == "tensor":
@@ -296,25 +312,43 @@ def test_log_metrics_offline(
             ]),
             axes_labels=["x", "y"]
         )
+    else:
+        METRICS = {"a": 10, "b": 1.2, "c": 2}
+        
     run.log_metrics(METRICS)
-    client = sv_cl.Client()
-    sv_send.sender(os.environ["SIMVUE_OFFLINE_DIRECTORY"], 2, 10)
-    attempts: int = 0
+    
+    time.sleep(1)
+    id_mapping = sv_send.sender(os.environ["SIMVUE_OFFLINE_DIRECTORY"], 2, 10)
+    time.sleep(1)
+    
+    if metric_type == "tensor":
+        for name, values in METRICS.items():
+            response = requests.get(
+                url=f"{run._user_config.server.url}/runs/{id_mapping[run.id]}/metrics/{name}/values?step=0",
+                headers={
+                    "Authorization": f"Bearer {run._user_config.server.token.get_secret_value()}",
+                    "User-Agent": "Simvue Python client",
+                    "Accept-Encoding": "gzip",
+                }
+            )
+            assert response.status_code == 200
+            numpy.testing.assert_almost_equal(numpy.array(response.json().get("array")), values)
+    else:
+        client = sv_cl.Client()
 
-    while not (_data := client.get_metric_values(
-        run_ids=[client.get_run_id_from_name(run_name)],
-        metric_names=list(METRICS.keys()),
-        xaxis="step",
-        aggregate=False,
-    )) and attempts < 5:
-        sv_send.sender(os.environ["SIMVUE_OFFLINE_DIRECTORY"], 2, 10)
+        _data = client.get_metric_values(
+            run_ids=[client.get_run_id_from_name(run_name)],
+            metric_names=list(METRICS.keys()),
+            xaxis="step",
+            aggregate=False,
+        )
 
-    assert sorted(set(METRICS.keys())) == sorted(set(_data.keys()))
-    _steps = []
-    for entry in _data.values():
-        _steps += [i[0] for i in entry.keys()]
-    _steps = set(_steps)
-    assert len(_steps) == 1
+        assert sorted(set(METRICS.keys())) == sorted(set(_data.keys()))
+        _steps = []
+        for entry in _data.values():
+            _steps += [i[0] for i in entry.keys()]
+        _steps = set(_steps)
+        assert len(_steps) == 1
 
 @pytest.mark.run
 @pytest.mark.parametrize(
