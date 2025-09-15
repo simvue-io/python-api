@@ -461,10 +461,22 @@ class SimvueObject(abc.ABC):
 
     @classmethod
     def _get_all_objects(
-        cls, offset: int | None, count: int | None, **kwargs
+        cls,
+        offset: int | None,
+        count: int | None,
+        endpoint: str | None = None,
+        expected_type: type = dict,
+        **kwargs,
     ) -> typing.Generator[dict, None, None]:
         _class_instance = cls(_read_only=True)
-        _url = f"{_class_instance._base_url}"
+
+        # Allow the possibility of paginating a URL that is not the
+        # main class endpoint
+        _url = (
+            f"{_class_instance._user_config.server.url}/{endpoint}"
+            if endpoint
+            else f"{_class_instance._base_url}"
+        )
 
         _label = _class_instance.__class__.__name__.lower()
         if _label.endswith("s"):
@@ -473,11 +485,17 @@ class SimvueObject(abc.ABC):
         for response in get_paginated(
             _url, headers=_class_instance._headers, offset=offset, count=count, **kwargs
         ):
-            yield get_json_from_response(
+            _generator = get_json_from_response(
                 response=response,
                 expected_status=[http.HTTPStatus.OK],
                 scenario=f"Retrieval of {_label}s",
+                expected_type=expected_type,
             )  # type: ignore
+
+            if expected_type is dict:
+                yield _generator
+            else:
+                yield from _generator
 
     def read_only(self, is_read_only: bool) -> None:
         """Set whether this object is in read only state.
@@ -552,14 +570,16 @@ class SimvueObject(abc.ABC):
         """
         return None if self._identifier is None else self._base_url / self._identifier
 
-    def _post(self, is_json: bool = True, **kwargs) -> dict[str, typing.Any]:
+    def _post(
+        self, *, is_json: bool = True, data: list | dict | None = None, **kwargs
+    ) -> dict[str, typing.Any]:
         if not is_json:
-            kwargs = msgpack.packb(kwargs, use_bin_type=True)
+            kwargs = msgpack.packb(data or kwargs, use_bin_type=True)
         _response = sv_post(
             url=f"{self._base_url}",
             headers=self._headers | {"Content-Type": "application/msgpack"},
             params=self._params,
-            data=kwargs,
+            data=data or kwargs,
             is_json=is_json,
         )
 

@@ -54,7 +54,7 @@ def test_metrics_creation_offline(offline_cache_setup) -> None:
     _uuid: str = f"{uuid.uuid4()}".split("-")[0]
     _folder_name = f"/simvue_unit_testing/{_uuid}"
     _folder = Folder.new(path=_folder_name, offline=True)
-    _run = Run.new(name="hello", folder=_folder_name, offline=True)
+    _run = Run.new(name="test_metrics_creation_offline", folder=_folder_name, offline=True)
     _folder.commit()
     _run.commit()
     
@@ -81,16 +81,16 @@ def test_metrics_creation_offline(offline_cache_setup) -> None:
     _metrics.commit()
     with _metrics._local_staging_file.open() as in_f:
         _local_data = json.load(in_f)
-        
+
     assert _local_data.get("run") == _run.id
     assert _local_data.get("metrics")[0].get("values") == _values
     assert _local_data.get("metrics")[0].get("timestamp") == _timestamp
     assert _local_data.get("metrics")[0].get("step") == _step
     assert _local_data.get("metrics")[0].get("time") == _time
-    
+
     _id_mapping = sender(_metrics._local_staging_file.parents[1], 1, 10, ["folders", "runs", "metrics"])
     time.sleep(1)
-    
+
     # Get online version of metrics
     _online_metrics = Metrics(_id_mapping.get(_metrics.id))
     _data = next(_online_metrics.get(metrics=["x", "y", "z"], runs=[_id_mapping.get(_run.id)], xaxis="step"))
