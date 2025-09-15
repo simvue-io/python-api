@@ -10,24 +10,31 @@ import datetime
 import http
 import io
 import typing
+
 import pydantic
 
 try:
     from typing import Self
 except ImportError:
-    from typing_extensions import Self  # noqa: F401
+    from typing import Self  # noqa: F401
 
-from simvue.api.url import URL
-from simvue.exception import ObjectNotFoundError
-from simvue.models import DATETIME_FORMAT
 from simvue.api.objects.base import SimvueObject, staging_check, write_only
 from simvue.api.objects.run import Run
 from simvue.api.request import (
-    put as sv_put,
-    get_json_from_response,
-    post as sv_post,
     get as sv_get,
 )
+from simvue.api.request import (
+    get_json_from_response,
+)
+from simvue.api.request import (
+    post as sv_post,
+)
+from simvue.api.request import (
+    put as sv_put,
+)
+from simvue.api.url import URL
+from simvue.exception import ObjectNotFoundError
+from simvue.models import DATETIME_FORMAT
 
 Category = typing.Literal["code", "input", "output"]
 
@@ -38,10 +45,14 @@ DOWNLOAD_CHUNK_SIZE: int = 8192
 
 
 class ArtifactBase(SimvueObject):
-    """Connect to/create an artifact locally or on the server"""
+    """Connect to/create an artifact locally or on the server."""
 
     def __init__(
-        self, identifier: str | None = None, _read_only: bool = True, **kwargs
+        self,
+        identifier: str | None = None,
+        *,
+        _read_only: bool = True,
+        **kwargs: object,
     ) -> None:
         """Initialise an artifact connection.
 
@@ -50,14 +61,18 @@ class ArtifactBase(SimvueObject):
         identifier : str, optional
             the identifier of this object on the server.
         """
-
-        self._label = "artifact"
-        self._endpoint = f"{self._label}s"
-        super().__init__(identifier=identifier, _read_only=_read_only, **kwargs)
+        self._label: str = "artifact"
+        self._endpoint: str = f"{self._label}s"
+        super().__init__(identifier=identifier, _read_only=_read_only, **kwargs)  # pyright: ignore[reportArgumentType]
 
         # If the artifact is an online instance, need a place to store the response
         # from the initial creation
-        self._init_data: dict[str, dict] = {}
+        self._init_data: dict[str, dict[str, object]] = {}
+
+    @classmethod
+    @typing.override
+    def new(cls, *_: object, **__: object) -> None:
+        raise NotImplementedError
 
     def commit(self) -> None:
         """Not applicable, cannot commit single write artifact."""
@@ -277,7 +292,7 @@ class ArtifactBase(SimvueObject):
         return self._get_attribute("url")
 
     @property
-    def runs(self) -> typing.Generator[str, None, None]:
+    def runs(self) -> typing.Generator[str]:
         """Retrieve all runs for which this artifact is related.
 
         Yields
@@ -317,7 +332,7 @@ class ArtifactBase(SimvueObject):
         return _json_response["category"]
 
     @pydantic.validate_call
-    def download_content(self) -> typing.Generator[bytes, None, None]:
+    def download_content(self) -> typing.Generator[bytes]:
         """Stream artifact content.
 
         Yields

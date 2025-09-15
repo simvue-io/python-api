@@ -13,7 +13,7 @@ import logging
 import types
 import typing
 import uuid
-from collections.abc import Generator
+from collections.abc import Generator  # noqa: TC003
 
 import msgpack
 import pydantic
@@ -59,7 +59,7 @@ U = typing.TypeVar("U", bound="SimvueObject | Visibility")
 def staging_check(
     member_func: typing.Callable[[U], typing.Any | None],
 ) -> typing.Callable[[U], typing.Any | None]:
-    """Checki if requested attribute has uncommitted changes via decorator."""
+    """Check if requested attribute has uncommitted changes via decorator."""
 
     def _wrapper(self: U) -> object:
         _sv_obj = typing.cast("SimvueObject", getattr(self, "_sv_obj", self))
@@ -197,24 +197,32 @@ class Visibility:
 
 
 class Sort(pydantic.BaseModel):
+    """Base class for performing sort during retrieval."""
+
     column: str
     descending: bool = True
 
-    def to_params(self) -> dict[str, str]:
+    def to_params(self) -> dict[str, str | bool]:
+        """Convert to RestAPI parameters."""
         return {"id": self.column, "desc": self.descending}
 
 
 class SimvueObject(abc.ABC):
+    """Base class for all RestAPI objects."""
+
     def __init__(
         self,
         identifier: str | None = None,
+        *,
         _read_only: bool = True,
         _local: bool = False,
         _user_agent: str | None = None,
         _offline: bool = False,
-        **kwargs,
+        **kwargs: object,
     ) -> None:
-        self._logger = logging.getLogger(f"simvue.{self.__class__.__name__}")
+        self._logger: logging.Logger = logging.getLogger(
+            f"simvue.{self.__class__.__name__}"
+        )
         self._label: str = getattr(self, "_label", self.__class__.__name__.lower())
 
         # Local blocks any remote connection completely, this prevents multiple server
@@ -228,7 +236,7 @@ class SimvueObject(abc.ABC):
         self._identifier: str | None = (
             identifier if identifier is not None else f"offline_{uuid.uuid1()}"
         )
-        self._properties = [
+        self._properties: list[str] = [
             name
             for name, member in inspect.getmembers(self.__class__)
             if isinstance(member, property)
@@ -243,7 +251,9 @@ class SimvueObject(abc.ABC):
             "mode": "offline" if self._offline else "online",
         }
 
-        self._user_config = SimvueConfiguration.fetch(**_config_args)
+        self._user_config: SimvueConfiguration = SimvueConfiguration.fetch(
+            **_config_args
+        )
 
         # Use a single file for each object so we can have parallelism
         # e.g. multiple runs writing at the same time
@@ -255,7 +265,9 @@ class SimvueObject(abc.ABC):
 
         self._headers: dict[str, str] = (
             {
-                "Authorization": f"Bearer {self._user_config.server.token.get_secret_value()}",
+                "Authorization": (
+                    f"Bearer {self._user_config.server.token.get_secret_value()}"
+                ),
                 "User-Agent": _user_agent or f"Simvue Python client {__version__}",
                 "Accept-Encoding": "gzip",
             }
@@ -282,20 +294,23 @@ class SimvueObject(abc.ABC):
 
         self._staging |= kwargs
 
-    def _get_local_staged(self, obj_label: str | None = None) -> dict[str, typing.Any]:
-        """Retrieve any locally staged data for this identifier"""
+    def _get_local_staged(self) -> dict[str, object]:
+        """Retrieve any locally staged data for this identifier."""
         if not self._local_staging_file.exists() or not self._identifier:
             return {}
 
         with self._local_staging_file.open() as in_f:
-            _staged_data = json.load(in_f)
+            return typing.cast("dict[str, object]", json.load(in_f))
 
-        return _staged_data
-
-    def _stage_to_other(self, obj_label: str, key: str, value: typing.Any) -> None:
-        """Stage a change to another object type"""
+    def _stage_to_other(
+        self,
+        obj_label: str,
+        key: str,
+        value: typing.Any,  # noqa: ANN401
+    ) -> None:
+        """Stage a change to another object type."""
         with self._local_staging_file.open() as in_f:
-            _staged_data = json.load(in_f)
+            _staged_data = typing.cast("dict[str, typing.Any]", json.load(in_f))
 
         if key not in _staged_data[obj_label]:
             _staged_data[key] = value
@@ -348,7 +363,7 @@ class SimvueObject(abc.ABC):
                 return self._staging[attribute]
             except KeyError as e:
                 if self._local:
-                    raise e
+                    raise
                 # If the key is not in staging, but the object is not in offline mode
                 # retrieve from the server and update cache instead
                 if not _offline_state and (
@@ -356,25 +371,32 @@ class SimvueObject(abc.ABC):
                 ):
                     self._staging[attribute] = _attribute
                     return _attribute
-                raise AttributeError(
+                _out_msg: str = (
                     f"Could not retrieve attribute '{attribute}' "
                     f"for {self._label} '{self._identifier}' from cached data"
-                ) from e
+                )
+                raise AttributeError(_out_msg) from e
 
         try:
             self._logger.debug(
-                f"Retrieving attribute '{attribute}' from {self._label} '{self._identifier}'"
+                "Retrieving attribute '%s' from %s '%s'",
+                attribute,
+                self._label,
+                self._identifier,
             )
             return self._get(url=url)[attribute]
         except KeyError as e:
             if self._offline:
-                raise AttributeError(
+                _out_msg = (
                     f"A value for attribute '{attribute}' has "
-                    f"not yet been committed for offline {self._label} '{self._identifier}'"
-                ) from e
-            raise RuntimeError(
+                    f"not yet been committed for offline {self._label}"
+                    f" {self._identifier}'"
+                )
+                raise AttributeError(_out_msg) from e
+            _out_msg = (
                 f"Expected key '{attribute}' for {self._label} '{self._identifier}'"
-            ) from e
+            )
+            raise RuntimeError(_out_msg) from e
 
     def _clear_staging(self) -> None:
         self._staging = {}
@@ -393,18 +415,21 @@ class SimvueObject(abc.ABC):
 
     def _get_visibility(self) -> dict[str, bool | list[str]]:
         try:
-            return self._get_attribute("visibility")
+            return typing.cast(
+                "dict[str, bool | list[str]]", self._get_attribute("visibility")
+            )
         except AttributeError:
             return {}
 
     @classmethod
-    def new(cls, **_) -> Self:
-        pass
+    @abc.abstractmethod
+    def new(cls, **_: object) -> Self:
+        """Define new instance of this object."""
 
     @classmethod
     def ids(
-        cls, count: int | None = None, offset: int | None = None, **kwargs
-    ) -> typing.Generator[str]:
+        cls, count: int | None = None, offset: int | None = None, **kwargs: object
+    ) -> Generator[str]:
         """Retrieve a list of all object identifiers.
 
         Parameters
@@ -422,12 +447,16 @@ class SimvueObject(abc.ABC):
         _class_instance = cls(_read_only=True, _local=True)
         _count: int = 0
         for response in cls._get_all_objects(offset, count=count, **kwargs):
-            if (_data := response.get("data")) is None:
-                raise RuntimeError(
-                    f"Expected key 'data' for retrieval of {_class_instance.__class__.__name__.lower()}s"
+            _data = typing.cast("list[dict[str, object]] | None", response.get("data"))
+            if _data is None:
+                _out_msg: str = (
+                    f"Expected key 'data' for retrieval of "
+                    f"{_class_instance.__class__.__name__.lower()}s"
                 )
+                raise RuntimeError(_out_msg)
             for entry in _data:
-                yield entry["id"]
+                _id = typing.cast("str", entry["id"])
+                yield _id
                 _count += 1
                 if count and _count > count:
                     return
@@ -436,9 +465,10 @@ class SimvueObject(abc.ABC):
     @pydantic.validate_call
     def get(
         cls,
+        *,
         count: pydantic.PositiveInt | None = None,
         offset: pydantic.NonNegativeInt | None = None,
-        **kwargs,
+        **kwargs: object,
     ) -> Generator[tuple[str, Self]]:
         """Retrieve items of this object type from the server.
 
@@ -460,25 +490,30 @@ class SimvueObject(abc.ABC):
         """
         _class_instance = cls(_read_only=True, _local=True)
         _count: int = 0
+
         for _response in cls._get_all_objects(offset, count=count, **kwargs):
             if count and _count > count:
                 return
-            if (_data := _response.get("data")) is None:
-                raise RuntimeError(
-                    f"Expected key 'data' for retrieval of {_class_instance.__class__.__name__.lower()}s"
+
+            _data = typing.cast("list[dict[str, object]] | None", _response.get("data"))
+            if _data is None:
+                _out_msg: str = (
+                    f"Expected key 'data' for retrieval of "
+                    f"{_class_instance.__class__.__name__.lower()}s"
                 )
+                raise RuntimeError(_out_msg)
 
             # If data is an empty list
             if not _data:
                 return
 
             for entry in _data:
-                _id = entry["id"]
-                yield _id, cls(_read_only=True, identifier=_id, _local=True, **entry)
+                _id = typing.cast("str", entry["id"])
+                yield _id, cls(_read_only=True, identifier=_id, _local=True, **entry)  # pyright: ignore[reportArgumentType]
                 _count += 1
 
     @classmethod
-    def count(cls, **kwargs) -> int:
+    def count(cls, **kwargs: object) -> int:
         """Return the total number of entries for this object type from the server.
 
         Returns
@@ -489,17 +524,20 @@ class SimvueObject(abc.ABC):
         _class_instance = cls(_read_only=True)
         _count_total: int = 0
         for _data in cls._get_all_objects(count=None, offset=None, **kwargs):
-            if not (_count := _data.get("count")):
-                raise RuntimeError(
-                    f"Expected key 'count' for retrieval of {_class_instance.__class__.__name__.lower()}s"
+            _count = typing.cast("int | None", _data.get("count"))
+            if not _count:
+                _out_msg: str = (
+                    "Expected key 'count' for retrieval of"
+                    f" {_class_instance.__class__.__name__.lower()}s"
                 )
+                raise RuntimeError(_out_msg)
             _count_total += _count
         return _count_total
 
     @classmethod
     def _get_all_objects(
-        cls, offset: int | None, count: int | None, **kwargs
-    ) -> typing.Generator[dict]:
+        cls, offset: int | None, count: int | None, **kwargs: object
+    ) -> Generator[dict[str, object]]:
         _class_instance = cls(_read_only=True)
         _url = f"{_class_instance._base_url}"
 
@@ -507,15 +545,22 @@ class SimvueObject(abc.ABC):
         _label = _label.removesuffix("s")
 
         for response in get_paginated(
-            _url, headers=_class_instance._headers, offset=offset, count=count, **kwargs
+            _url,
+            headers=_class_instance._headers,
+            offset=offset,
+            count=count,
+            **kwargs,  # pyright: ignore[reportArgumentType]
         ):
-            yield get_json_from_response(
-                response=response,
-                expected_status=[http.HTTPStatus.OK],
-                scenario=f"Retrieval of {_label}s",
-            )  # type: ignore
+            yield typing.cast(
+                "dict[str, object]",
+                get_json_from_response(
+                    response=response,
+                    expected_status=[http.HTTPStatus.OK],
+                    scenario=f"Retrieval of {_label}s",
+                ),
+            )
 
-    def read_only(self, is_read_only: bool) -> None:
+    def read_only(self, is_read_only: bool) -> None:  # noqa: FBT001
         """Set whether this object is in read only state.
 
         Parameters
@@ -532,30 +577,39 @@ class SimvueObject(abc.ABC):
         if not self._read_only:
             self._staging = self._get_local_staged()
 
-    def commit(self) -> dict | None:
+    def commit(self) -> dict[str, object] | None:
         """Send updates to the server, or if offline, store locally."""
         if self._read_only:
             raise AttributeError("Cannot commit object in 'read-only' mode")
 
         if self._offline:
             self._logger.debug(
-                f"Writing updates to staging file for {self._label} '{self.id}': {self._staging}"
+                "Writing updates to staging file for %s '%s': %s",
+                self._label,
+                self.id,
+                self._staging,
             )
             self._cache()
             return None
 
-        _response: dict | None = None
+        _response: dict[str, object] | None = None
 
         # Initial commit is creation of object
         # if staging is empty then we do not need to use PUT
         if not self._identifier or self._identifier.startswith("offline_"):
             self._logger.debug(
-                f"Posting from staged data for {self._label} '{self.id}': {self._staging}"
+                "Posting from staged data for %s '%s': %s",
+                self._label,
+                self.id,
+                self._staging,
             )
             _response = self._post(**self._staging)
         elif self._staging:
             self._logger.debug(
-                f"Pushing updates from staged data for {self._label} '{self.id}': {self._staging}"
+                "Pushing updates from staged data for %s '%s': %s",
+                self._label,
+                self.id,
+                self._staging,
             )
             _response = self._put(**self._staging)
 
@@ -581,7 +635,7 @@ class SimvueObject(abc.ABC):
 
     @property
     def _base_url(self) -> URL:
-        return URL(self._user_config.server.url) / self._endpoint
+        return URL(f"{self._user_config.server.url}") / self._endpoint
 
     @property
     def url(self) -> URL | None:
@@ -593,9 +647,14 @@ class SimvueObject(abc.ABC):
         """
         return None if self._identifier is None else self._base_url / self._identifier
 
-    def _post(self, is_json: bool = True, **kwargs) -> dict[str, typing.Any]:
-        if not is_json:
-            kwargs = msgpack.packb(kwargs, use_bin_type=True)
+    def _post(self, *, is_json: bool = True, **kwargs: object) -> dict[str, typing.Any]:
+        if not is_json and not (
+            kwargs := (msgpack.packb(kwargs, use_bin_type=True) or {})
+        ):
+            raise TypeError(
+                "Expected value for object data post after packing but"
+                " got empty dictionary."
+            )
         _response = sv_post(
             url=f"{self._base_url}",
             headers=self._headers | {"Content-Type": "application/msgpack"},
@@ -605,9 +664,11 @@ class SimvueObject(abc.ABC):
         )
 
         if _response.status_code == http.HTTPStatus.FORBIDDEN:
-            raise RuntimeError(
-                f"Forbidden: You do not have permission to create object of type '{self._label}'"
+            _out_msg: str = (
+                "Forbidden: You do not have permission to create "
+                f"object of type '{self._label}'"
             )
+            raise RuntimeError(_out_msg)
 
         _json_response = get_json_from_response(
             response=_response,
@@ -616,11 +677,10 @@ class SimvueObject(abc.ABC):
         )
 
         if isinstance(_json_response, list):
-            raise RuntimeError(
-                "Expected dictionary from JSON response but got type list"
-            )
+            raise TypeError("Expected dictionary from JSON response but got type list")
 
-        if _id := _json_response.get("id"):
+        _id = typing.cast("str | None", _json_response.get("id"))
+        if _id:
             self._logger.debug("'%s' created successfully", _id)
             self._identifier = _id
         elif not self._is_set:
@@ -629,31 +689,36 @@ class SimvueObject(abc.ABC):
             if not _detail:
                 _detail = "No information in JSON response."
 
-            raise RuntimeError(
-                f"Expected new ID for {self._label} but none found: {_detail}."
-            )
+            _out_msg = f"Expected new ID for {self._label} but none found: {_detail}."
+            raise RuntimeError(_out_msg)
 
         return _json_response
 
-    def _put(self, **kwargs) -> dict[str, typing.Any]:
+    def _put(self, **kwargs: object) -> dict[str, object]:
         if not self.url:
-            raise RuntimeError(f"Identifier for instance of {self._label} Unknown")
+            _out_msg: str = f"Identifier for instance of {self._label} Unknown"
+            raise RuntimeError(_out_msg)
         _response = sv_put(
             url=f"{self.url}", headers=self._headers, data=kwargs, is_json=True
         )
 
         if _response.status_code == http.HTTPStatus.FORBIDDEN:
-            raise RuntimeError(
-                f"Forbidden: You do not have permission to create object of type '{self._label}'"
+            _out_msg = (
+                "Forbidden: You do not have permission to "
+                f"create object of type '{self._label}'"
             )
+            raise RuntimeError(_out_msg)
 
-        return get_json_from_response(
-            response=_response,
-            expected_status=[http.HTTPStatus.OK, http.HTTPStatus.CONFLICT],
-            scenario=f"Creation of {self._label} '{self._identifier}",
+        return typing.cast(
+            "dict[str, object]",
+            get_json_from_response(
+                response=_response,
+                expected_status=[http.HTTPStatus.OK, http.HTTPStatus.CONFLICT],
+                scenario=f"Creation of {self._label} '{self._identifier}",
+            ),
         )
 
-    def delete(self, **kwargs) -> dict[str, typing.Any]:
+    def delete(self, **kwargs: object) -> dict[str, object]:
         """Delete the server entry for this object.
 
         Returns
@@ -668,10 +733,12 @@ class SimvueObject(abc.ABC):
             return {"id": self._identifier}
 
         if not self._identifier:
-            raise RuntimeError(f"Object of type '{self._label}' has no identifier.")
+            _out_msg: str = f"Object of type '{self._label}' has no identifier."
+            raise RuntimeError(_out_msg)
 
         if not self.url:
-            raise RuntimeError(f"Identifier for instance of {self._label} Unknown")
+            _out_msg = f"Identifier for instance of {self._label} Unknown"
+            raise RuntimeError(_out_msg)
         _response = sv_delete(url=f"{self.url}", headers=self._headers, params=kwargs)
         _json_response = get_json_from_response(
             response=_response,
@@ -680,16 +747,21 @@ class SimvueObject(abc.ABC):
         )
         self._logger.debug("'%s' deleted successfully", self._identifier)
 
-        return _json_response
+        return typing.cast("dict[str, object]", _json_response)
 
     def _get(
-        self, url: str | None = None, allow_parse_failure: bool = False, **kwargs
+        self,
+        url: str | None = None,
+        *,
+        allow_parse_failure: bool = False,
+        **kwargs: str | float | None,
     ) -> dict[str, typing.Any]:
-        if self._identifier.startswith("offline_"):
+        if (self._identifier or "").startswith("offline_"):
             return self._get_local_staged()
 
         if not self.url:
-            raise RuntimeError(f"Identifier for instance of {self._label} Unknown")
+            _out_msg: str = f"Identifier for instance of {self._label} Unknown"
+            raise RuntimeError(_out_msg)
 
         _response = sv_get(
             url=f"{url or self.url}", headers=self._headers, params=kwargs
@@ -709,10 +781,11 @@ class SimvueObject(abc.ABC):
         self._logger.debug("'%s' retrieved successfully", self._identifier)
 
         if not isinstance(_json_response, dict):
-            raise RuntimeError(
-                f"Expected dictionary from JSON response during {self._label} retrieval "
-                f"but got '{type(_json_response)}'"
+            _out_msg = (
+                f"Expected dictionary from JSON response during {self._label}"
+                f"retrieval but got '{type(_json_response)}'"
             )
+            raise TypeError(_out_msg)
         return _json_response
 
     def refresh(self) -> None:
@@ -730,7 +803,7 @@ class SimvueObject(abc.ABC):
             with self._local_staging_file.open() as in_f:
                 _local_data = json.load(in_f)
 
-        staging_merger.merge(_local_data, self._staging)
+        _ = staging_merger.merge(_local_data, self._staging)
 
         with self._local_staging_file.open("w", encoding="utf-8") as out_f:
             json.dump(_local_data, out_f, indent=2)
@@ -746,10 +819,8 @@ class SimvueObject(abc.ABC):
         return self._get() | self._staging
 
     def on_reconnect(self, id_mapping: dict[str, str]) -> None:
-        """Executed when a run switches from offline to online mode.
-
-        In this case no action is taken.
-        """
+        """Perform action when switching from offline to online mode."""
+        _ = id_mapping
 
     @property
     def staged(self) -> dict[str, typing.Any] | None:
@@ -762,24 +833,27 @@ class SimvueObject(abc.ABC):
         """
         return self._staging or None
 
+    @typing.override
     def __str__(self) -> str:
-        """String representation of Simvue object."""
+        """Represent Simvue object as string."""
         return f"{self.__class__.__name__}({self.id=})"
 
+    @typing.override
     def __repr__(self) -> str:
+        """Represent Simvue object as Python repr format."""
         _out_str = f"{self.__class__.__module__}.{self.__class__.__qualname__}("
         _property_values: list[str] = []
 
-        for property in self._properties:
+        for _property in self._properties:
             try:
-                _value = getattr(self, property)
+                _value = getattr(self, _property)
             except KeyError:
                 continue
 
             if isinstance(_value, types.GeneratorType):
                 continue
 
-            _property_values.append(f"{property}={_value!r}")
+            _property_values.append(f"{_property}={_value!r}")
 
         _out_str += ", ".join(_property_values)
         _out_str += ")"

@@ -8,28 +8,27 @@ Pydantic models for elements of the Simvue configuration file
 
 import logging
 import os
-import time
-import pydantic
-import typing
 import pathlib
+import time
+import typing
+
+import pydantic
 
 import simvue.models as sv_models
-from simvue.utilities import get_expiry
 from simvue.api.url import URL
-
+from simvue.config.files import DEFAULT_OFFLINE_DIRECTORY
+from simvue.utilities import get_expiry
 
 logger = logging.getLogger(__file__)
 
 
 class ServerSpecifications(pydantic.BaseModel):
-    url: pydantic.AnyHttpUrl | None
-    token: pydantic.SecretStr | None
+    url: pydantic.AnyHttpUrl
+    token: pydantic.SecretStr
 
     @pydantic.field_validator("url")
     @classmethod
     def url_to_api_url(cls, v: typing.Any) -> str | None:
-        if not v:
-            return
         if f"{v}".endswith("/api"):
             return f"{v}"
         _url = URL(f"{v}") / "api"
@@ -37,8 +36,6 @@ class ServerSpecifications(pydantic.BaseModel):
 
     @pydantic.field_validator("token")
     def check_token(cls, v: typing.Any) -> str | None:
-        if not v:
-            return
         value = v.get_secret_value()
         if not (expiry := get_expiry(value)):
             raise AssertionError("Failed to parse Simvue token - invalid token form")
@@ -48,7 +45,7 @@ class ServerSpecifications(pydantic.BaseModel):
 
 
 class OfflineSpecifications(pydantic.BaseModel):
-    cache: pathlib.Path | None = None
+    cache: pathlib.Path = pathlib.Path(DEFAULT_OFFLINE_DIRECTORY)
 
     @pydantic.field_validator("cache")
     @classmethod

@@ -10,10 +10,10 @@ import os
 import pathlib
 import typing
 
+import deepmerge
 import jwt
 import pydantic
 import tabulate
-from deepmerge import Merger
 
 from simvue.models import DATETIME_FORMAT
 
@@ -416,7 +416,7 @@ def get_mimetype_for_file(file_path: pathlib.Path) -> str:
 
 
 # Create a new Merge strategy for merging local file and staging attributes
-staging_merger = Merger(
+staging_merger = deepmerge.Merger(
     # pass in a list of tuple, with the
     # strategies you are looking to apply
     # to each type.

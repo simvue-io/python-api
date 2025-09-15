@@ -134,8 +134,10 @@ reportImplicitStringConcatenation = "none"
 reportUnreachable = "none"
 reportUnknownMemberType = "none"
 reportUnknownVariableType = "none"
+reportAny = "none" # ruff already does this
 reportMissingTypeStubs = "none"
 reportPrivateUsage = "none" # ruff already does this
+reportImportCycles = "none"
 
 [tool.mypy]
 ignore_missing_imports = true
