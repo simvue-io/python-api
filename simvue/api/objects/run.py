@@ -7,6 +7,7 @@ a new run given relevant arguments.
 
 """
 
+from collections.abc import Generator, Iterable
 import http
 import typing
 import pydantic
@@ -19,7 +20,15 @@ try:
 except ImportError:
     from typing_extensions import Self
 
-from .base import SimvueObject, Sort, staging_check, Visibility, write_only
+from .base import (
+    ObjectBatchArgs,
+    VisibilityBatchArgs,
+    SimvueObject,
+    Sort,
+    staging_check,
+    Visibility,
+    write_only,
+)
 from simvue.api.request import (
     get as sv_get,
     put as sv_put,
@@ -52,6 +61,18 @@ class RunSort(Sort):
             raise ValueError(f"Invalid sort column for runs '{column}'")
 
         return column
+
+
+class RunBatchArgs(ObjectBatchArgs):
+    name: str | None = None
+    description: str | None = None
+    tags: list[str] | None = None
+    metadata: dict[str, str] | None = None
+    folder: typing.Annotated[str, pydantic.Field(pattern=FOLDER_REGEX)] | None = None
+    system: dict[str, typing.Any] | None = None
+    status: typing.Literal[
+        "terminated", "created", "failed", "completed", "lost", "running"
+    ] = "created"
 
 
 class Run(SimvueObject):
@@ -122,6 +143,34 @@ class Run(SimvueObject):
             _offline=offline,
             **kwargs,
         )
+
+    @classmethod
+    @typing.override
+    @pydantic.validate_call
+    def batch_create(
+        cls,
+        entries: Iterable[RunBatchArgs],
+        *,
+        visibility: VisibilityBatchArgs | None = None,
+        folder: typing.Annotated[str, pydantic.StringConstraints(pattern=FOLDER_REGEX)]
+        | None = None,
+        metadata: dict[str, str] | None = None,
+        offline: bool = False,
+    ) -> Generator[str]:
+        _data: list[dict[str, object]] = [
+            entry.model_dump(exclude_none=True)
+            | (
+                {"visibility": visibility.model_dump(exclude_none=True)}
+                if visibility
+                else {}
+            )
+            | ({"folder": folder} if folder else {})
+            | {"metadata": (entry.metadata or {}) | (metadata or {})}
+            for entry in entries
+        ]
+        for entry in Run(batch=_data, _offline=offline, _read_only=False).commit():
+            _id: str = entry["id"]
+            yield _id
 
     @property
     @staging_check
