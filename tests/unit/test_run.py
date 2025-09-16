@@ -197,10 +197,15 @@ def test_batch_run_creation() -> None:
     _folder: Folder = Folder.new(path=f"/simvue_unit_testing/{_uuid}")
     _folder.commit()
     _runs = [
-        RunBatchArgs(name=f"run_{i}")
+        RunBatchArgs(name=f"batched_run_{i}")
         for i in range(10)
     ]
-    for _id in Run.batch_create(entries=_runs, folder=f"/simvue_unit_testing/{_uuid}", metadata={"batch_id": "0"}):
-        assert Run(identifier=_id).name
+    _counter: int = 0
+    for i, _id in enumerate(Run.batch_create(entries=_runs, folder=f"/simvue_unit_testing/{_uuid}", metadata={"batch_id": 0})):
+        _run = Run(identifier=_id)
+        assert _run.name == f"batched_run_{i}"
+        assert _run.metadata["batch_id"] == 0
+        _counter +=1
+    assert _counter == 10
     with contextlib.suppress(Exception):
         _folder.delete(recursive=True, delete_runs=True)

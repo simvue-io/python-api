@@ -67,7 +67,7 @@ class RunBatchArgs(ObjectBatchArgs):
     name: str | None = None
     description: str | None = None
     tags: list[str] | None = None
-    metadata: dict[str, str] | None = None
+    metadata: dict[str, str | int | float | bool] | None = None
     folder: typing.Annotated[str, pydantic.Field(pattern=FOLDER_REGEX)] | None = None
     system: dict[str, typing.Any] | None = None
     status: typing.Literal[
@@ -145,7 +145,6 @@ class Run(SimvueObject):
         )
 
     @classmethod
-    @typing.override
     @pydantic.validate_call
     def batch_create(
         cls,
@@ -154,9 +153,26 @@ class Run(SimvueObject):
         visibility: VisibilityBatchArgs | None = None,
         folder: typing.Annotated[str, pydantic.StringConstraints(pattern=FOLDER_REGEX)]
         | None = None,
-        metadata: dict[str, str] | None = None,
-        offline: bool = False,
+        metadata: dict[str, str | int | float | bool] | None = None,
     ) -> Generator[str]:
+        """Create a batch of Runs as a single request.
+
+        Parameters
+        ----------
+        entries : Iterable[RunBatchArgs]
+            define the runs to be created.
+        visibility : VisibilityBatchArgs | None, optional
+            specify visibility options for these runs, default is None.
+        folder : str, optional
+            override folder specification for these runs to be a single folder, default None.
+        metadata : dict[str, int | str | float | bool], optional
+            override metadata specification for these runs, default None.
+
+        Yields
+        ------
+        str
+            identifiers for created runs
+        """
         _data: list[dict[str, object]] = [
             entry.model_dump(exclude_none=True)
             | (
@@ -168,7 +184,7 @@ class Run(SimvueObject):
             | {"metadata": (entry.metadata or {}) | (metadata or {})}
             for entry in entries
         ]
-        for entry in Run(batch=_data, _offline=offline, _read_only=False).commit():
+        for entry in Run(batch=_data, _read_only=False).commit() or []:
             _id: str = entry["id"]
             yield _id
 
@@ -567,6 +583,14 @@ class Run(SimvueObject):
         return _url
 
     @property
+    def _grid_url(self) -> URL | None:
+        if not self._identifier or not self.url:
+            return None
+        _url = self.url
+        _url /= "grids"
+        return _url
+
+    @property
     def abort_trigger(self) -> bool:
         """Returns the state of the abort run endpoint from the server.
 
@@ -604,6 +628,27 @@ class Run(SimvueObject):
             response=_response,
             expected_status=[http.HTTPStatus.OK],
             scenario=f"Retrieving artifacts for run '{self.id}'",
+            expected_type=list,
+        )
+
+    @property
+    def grids(self) -> list[dict[str, str]]:
+        """Retrieve the grids for this run.
+
+        Returns
+        -------
+        list[dict[str, str]]
+            the grids associated with this run
+        """
+        if self._offline or not self._grid_url:
+            return []
+
+        _response = sv_get(url=self._grid_url, headers=self._headers)
+
+        return get_json_from_response(
+            response=_response,
+            expected_status=[http.HTTPStatus.OK],
+            scenario=f"Retrieving grids for run '{self.id}'",
             expected_type=list,
         )
 

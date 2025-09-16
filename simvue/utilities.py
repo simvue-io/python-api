@@ -94,15 +94,16 @@ def parse_validation_response(
 
     if isinstance(issues, str):
         return tabulate.tabulate(
-            ["Unknown", "N/A", issues],
+            [["Unknown", "N/A", issues]],
             headers=["Type", "Location", "Message"],
             tablefmt="fancy_grid",
-        )
+        ).__str__()
 
     for issue in issues:
         obj_type: str = issue["type"]
         location: list[str] = issue["loc"]
-        location.remove("body")
+        with contextlib.suppress(ValueError):
+            location.remove("body")
         location_addr: str = "".join(
             (f"[{loc}]" if isinstance(loc, int) else f"{'.' if i > 0 else ''}{loc}")
             for i, loc in enumerate(location)

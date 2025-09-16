@@ -5,6 +5,7 @@
 - Improves handling of Conda based environments in metadata collection.
 - Adds additional options to `Client.get_runs`.
 - Added ability to include environment variables within metadata for runs.
+- Added new feature allowing users to log tensors as multidimensional metrics after defining a grid.
 - Improves checks on `offline.cache` directory specification in config file.
 - Added ability to upload multiple runs as a batch via the low level API.
 

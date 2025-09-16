@@ -27,8 +27,10 @@ UPLOAD_ORDER: list[str] = [
     "tags",
     "alerts",
     "runs",
+    "grids",
     "artifacts",
     "metrics",
+    "grid_metrics",
     "events",
 ]
 
