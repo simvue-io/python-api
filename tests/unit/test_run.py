@@ -4,6 +4,7 @@ import pytest
 import time
 import datetime
 import uuid
+from simvue.api.objects.run import RunBatchArgs
 from simvue.sender import sender
 from simvue.api.objects import Run, Folder
 from simvue.client import Client
@@ -187,3 +188,24 @@ def test_run_get_properties() -> None:
 
     if _failed:
         raise AssertionError("\n" + "\n\t- ".join(": ".join(i) for i in _failed))
+
+
+@pytest.mark.api
+@pytest.mark.online
+def test_batch_run_creation() -> None:
+    _uuid: str = f"{uuid.uuid4()}".split("-")[0]
+    _folder: Folder = Folder.new(path=f"/simvue_unit_testing/{_uuid}")
+    _folder.commit()
+    _runs = [
+        RunBatchArgs(name=f"batched_run_{i}")
+        for i in range(10)
+    ]
+    _counter: int = 0
+    for i, _id in enumerate(Run.batch_create(entries=_runs, folder=f"/simvue_unit_testing/{_uuid}", metadata={"batch_id": 0})):
+        _run = Run(identifier=_id)
+        assert _run.name == f"batched_run_{i}"
+        assert _run.metadata["batch_id"] == 0
+        _counter +=1
+    assert _counter == 10
+    with contextlib.suppress(Exception):
+        _folder.delete(recursive=True, delete_runs=True)

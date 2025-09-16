@@ -78,8 +78,8 @@ class Events(SimvueObject):
             **kwargs,
         )
 
-    def _post(self, **kwargs) -> dict[str, typing.Any]:
-        return super()._post(is_json=False, **kwargs)
+    def _post_single(self, **kwargs) -> dict[str, typing.Any]:
+        return super()._post_single(is_json=False, **kwargs)
 
     def _put(self, **kwargs) -> dict[str, typing.Any]:
         raise NotImplementedError("Method 'put' is not available for type Events")
