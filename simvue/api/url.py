@@ -1,6 +1,4 @@
-"""
-URL Library
-===========
+"""URL Library.
 
 Module contains classes for easier handling of URLs.
 
@@ -9,9 +7,9 @@ Module contains classes for easier handling of URLs.
 try:
     from typing import Self
 except ImportError:
-    from typing_extensions import Self
-import urllib.parse
+    from typing import Self
 import copy
+import urllib.parse
 
 import pydantic
 
@@ -20,19 +18,20 @@ class URL:
     """URL class for ease of construction and use of server endpoints."""
 
     @pydantic.validate_call
-    def __init__(self, url: str) -> None:
-        """Initialise a url from string form"""
-        url = url[:-1] if url.endswith("/") else url
+    def __init__(self, url: str | pydantic.AnyHttpUrl) -> None:
+        """Initialise a url from string form."""
+        _url: str = f"{url}"
+        _url = _url.removesuffix("/")
 
-        _url = urllib.parse.urlparse(url)
-        self._scheme: str = _url.scheme
-        self._path: str = _url.path
-        self._host: str | None = _url.hostname
-        self._port: int | None = _url.port
-        self._fragment: str = _url.fragment
+        _parsed_url = urllib.parse.urlparse(_url)
+        self._scheme: str = _parsed_url.scheme
+        self._path: str = _parsed_url.path
+        self._host: str | None = _parsed_url.hostname
+        self._port: int | None = _parsed_url.port
+        self._fragment: str = _parsed_url.fragment
 
     def __truediv__(self, other: str) -> Self:
-        """Define URL extension through use of '/'"""
+        """Define URL extension through use of '/'."""
         _new = copy.deepcopy(self)
         _new /= other
         return _new
@@ -45,8 +44,8 @@ class URL:
     @pydantic.validate_call
     def __itruediv__(self, other: str) -> Self:
         """Define URL extension through use of '/'"""
-        other = other[1:] if other.startswith("/") else other
-        other = other[:-1] if other.endswith("/") else other
+        other = other.removeprefix("/")
+        other = other.removesuffix("/")
 
         self._path = f"{self._path}/{other}" if other else self._path
         return self

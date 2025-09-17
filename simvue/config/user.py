@@ -258,3 +258,11 @@ class SimvueConfiguration(pydantic.BaseModel):
             raise FileNotFoundError("Failed to find Simvue configuration file")
 
         return _config_file
+
+    @property
+    def headers(self) -> dict[str, str]:
+        """Return online API call headers."""
+        return {
+            "Authorization": f"Bearer {self.server.token.get_secret_value()}",
+            "Accept-Encoding": "gzip",
+        }

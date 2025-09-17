@@ -1,23 +1,36 @@
-from .base import ArtifactBase
+"""File type artifact handling."""
 
-import typing
-import pydantic
 import os
 import pathlib
+import typing
+
+import pydantic
+
 from simvue.models import NAME_REGEX
-from simvue.utilities import get_mimetype_for_file, get_mimetypes, calculate_sha256
+from simvue.utilities import calculate_sha256, get_mimetype_for_file, get_mimetypes
+
+from .base import ArtifactBase
 
 try:
     from typing import Self
 except ImportError:
-    from typing_extensions import Self
+    from typing_extensions import Self  # noqa: UP035
+
+try:
+    from typing import override
+except ImportError:
+    from typing_extensions import override  # noqa: UP035
 
 
 class FileArtifact(ArtifactBase):
     """File based artifact modification and creation class."""
 
     def __init__(
-        self, identifier: str | None = None, _read_only: bool = True, **kwargs
+        self,
+        identifier: str | None = None,
+        *,
+        _read_only: bool = True,
+        **kwargs: object,
     ) -> None:
         """Initialise a new file artifact connection.
 
@@ -29,6 +42,7 @@ class FileArtifact(ArtifactBase):
         super().__init__(identifier=identifier, _read_only=_read_only, **kwargs)
 
     @classmethod
+    @override
     def new(
         cls,
         *,
@@ -39,9 +53,9 @@ class FileArtifact(ArtifactBase):
         metadata: dict[str, typing.Any] | None,
         upload_timeout: int | None = None,
         offline: bool = False,
-        **kwargs,
+        **kwargs: object,
     ) -> Self:
-        """Create a new artifact either locally or on the server
+        """Create a new artifact either locally or on the server.
 
         Note all arguments are keyword arguments
 
@@ -66,18 +80,20 @@ class FileArtifact(ArtifactBase):
         _mime_type = mime_type or get_mimetype_for_file(file_path)
 
         if _mime_type not in get_mimetypes():
-            raise ValueError(f"Invalid MIME type '{mime_type}' specified")
+            _out_msg: str = f"Invalid MIME type '{mime_type}' specified"
+            raise ValueError(_out_msg)
 
-        if _file_orig_path := kwargs.pop("original_path", None):
-            _file_size = kwargs.pop("size")
-            _file_checksum = kwargs.pop("checksum")
+        _file_orig_path = typing.cast("str | None", kwargs.pop("original_path", None))
+        if _file_orig_path:
+            _file_size = typing.cast("int", kwargs.pop("size"))
+            _file_checksum = typing.cast("str", kwargs.pop("checksum"))
         else:
             file_path = pathlib.Path(file_path)
             _file_size = file_path.stat().st_size
             _file_orig_path = file_path.expanduser().absolute()
             _file_checksum = calculate_sha256(f"{file_path}", is_file=True)
 
-        _artifact = FileArtifact(
+        _artifact = cls(
             name=name,
             storage=storage,
             original_path=os.path.expandvars(_file_orig_path),
@@ -87,22 +103,27 @@ class FileArtifact(ArtifactBase):
             _offline=offline,
             _read_only=False,
             metadata=metadata,
-            **kwargs,
+            **kwargs,  # pyright: ignore[reportArgumentType]
         )
         _artifact._staging["file_path"] = str(file_path)
         if offline:
             _artifact._init_data = {}
 
         else:
-            _artifact._init_data = _artifact._post_single(**_artifact._staging)
+            _artifact._init_data = typing.cast(
+                "dict[str, dict[str, object]]",
+                _artifact._post_single(**_artifact._staging),
+            )
             _artifact._staging["url"] = _artifact._init_data["url"]
 
-        _artifact._init_data["runs"] = kwargs.get("runs") or {}
+        _artifact._init_data["runs"] = typing.cast(
+            "dict[str, object]", kwargs.get("runs", {})
+        )
 
         if offline:
             return _artifact
 
-        with open(_file_orig_path, "rb") as out_f:
+        with pathlib.Path(_file_orig_path).open("rb") as out_f:
             _artifact._upload(file=out_f, timeout=upload_timeout, file_size=_file_size)
 
         return _artifact

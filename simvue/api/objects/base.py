@@ -10,7 +10,6 @@ import http
 import inspect
 import json
 import logging
-import pathlib
 import types
 import typing
 import uuid
@@ -19,6 +18,7 @@ from collections.abc import Generator  # noqa: TC003
 import msgpack
 import pydantic
 
+from simvue.api.request import delete as sv_delete
 from simvue.api.request import (
     get as sv_get,
 )
@@ -43,7 +43,15 @@ logging.basicConfig(level=logging.INFO)
 try:
     from typing import Self
 except ImportError:
-    from typing import Self
+    from typing_extensions import Self  # noqa: UP035
+
+try:
+    from typing import override
+except ImportError:
+    from typing_extensions import override  # noqa: UP035
+
+if typing.TYPE_CHECKING:
+    import pathlib
 
 # Need to use this inside of Generator typing to fix bug
 # present in Python 3.10 - see issue #745
@@ -203,13 +211,15 @@ class Sort(pydantic.BaseModel):
 
 
 class VisibilityBatchArgs(pydantic.BaseModel):
+    """Class defining visibility arguments for batch upload."""
+
     tenant: bool | None = None
     user: list[str] | None = None
     public: bool | None = None
 
 
 class ObjectBatchArgs(pydantic.BaseModel):
-    pass
+    """Base class for object batch upload arguments."""
 
 
 class SimvueObject(abc.ABC):
@@ -244,7 +254,7 @@ class SimvueObject(abc.ABC):
         self._properties: list[str] = [
             name
             for name, member in inspect.getmembers(self.__class__)
-            if isinstance(member, property)
+            if isinstance(member, property) and name not in ("label", "base_url")
         ]
         self._offline: bool = _offline or (
             identifier is not None and identifier.startswith("offline_")
@@ -428,13 +438,14 @@ class SimvueObject(abc.ABC):
 
     @classmethod
     @abc.abstractmethod
-    def new(cls, **_) -> Self:
+    def new(cls, **_: object) -> Self:
         """Define new instance of this object."""
 
     @classmethod
     def batch_create(
         cls, obj_args: ObjectBatchArgs, visibility: VisibilityBatchArgs
     ) -> Generator[str]:
+        """Upload a set of objects."""
         _, __ = obj_args, visibility
         raise NotImplementedError
 
@@ -458,7 +469,7 @@ class SimvueObject(abc.ABC):
         """
         _class_instance = cls(_read_only=True, _local=True)
         _count: int = 0
-        for response in cls._get_all_objects(offset, count=count, **kwargs):
+        for response in cls._get_all_objects(offset, count=count, **kwargs):  # pyright: ignore[reportArgumentType]
             _data = typing.cast("list[dict[str, object]] | None", response.get("data"))
             if _data is None:
                 _out_msg: str = (
@@ -503,7 +514,7 @@ class SimvueObject(abc.ABC):
         _class_instance = cls(_read_only=True, _local=True)
         _count: int = 0
 
-        for _response in cls._get_all_objects(offset, count=count, **kwargs):
+        for _response in cls._get_all_objects(offset, count=count, **kwargs):  # pyright: ignore[reportArgumentType]
             if count and _count > count:
                 return
 
@@ -535,7 +546,7 @@ class SimvueObject(abc.ABC):
         """
         _class_instance = cls(_read_only=True)
         _count_total: int = 0
-        for _data in cls._get_all_objects(count=None, offset=None, **kwargs):
+        for _data in cls._get_all_objects(count=None, offset=None, **kwargs):  # pyright: ignore[reportArgumentType]
             _count = typing.cast("int | None", _data.get("count"))
             if not _count:
                 _out_msg: str = (
@@ -553,7 +564,7 @@ class SimvueObject(abc.ABC):
         count: int | None,
         endpoint: str | None = None,
         expected_type: type = dict,
-        **kwargs,
+        **kwargs: object,
     ) -> Generator[dict[str, object]]:
         _class_instance = cls(_read_only=True)
 
@@ -562,7 +573,7 @@ class SimvueObject(abc.ABC):
         _url = (
             f"{_class_instance._user_config.server.url}/{endpoint}"
             if endpoint
-            else f"{_class_instance._base_url}"
+            else f"{_class_instance.base_url}"
         )
 
         _label = _class_instance.__class__.__name__.lower()
@@ -583,11 +594,11 @@ class SimvueObject(abc.ABC):
             )
 
             if expected_type is dict:
-                yield _generator
+                yield typing.cast("dict[str, object]", _generator)
             else:
-                yield from _generator
+                yield from typing.cast("list[dict[str, object]]", _generator)
 
-    def read_only(self, is_read_only: bool) -> None:
+    def read_only(self, is_read_only: bool) -> None:  # noqa: FBT001
         """Set whether this object is in read only state.
 
         Parameters
@@ -626,7 +637,7 @@ class SimvueObject(abc.ABC):
         if not self._identifier or self._identifier.startswith("offline_"):
             # If batch upload send as list, else send as dictionary of params
             _batch_commit = typing.cast(
-                "list[dict[str, object]] | None", self._staging.get("batch")
+                "list[ObjectBatchArgs] | None", self._staging.get("batch")
             )
             if _batch_commit is not None:
                 self._logger.debug(
@@ -634,9 +645,7 @@ class SimvueObject(abc.ABC):
                     len(_batch_commit),
                     self._label,
                 )
-                _response = typing.cast(
-                    "list[dict[str, str]]", self._post_batch(batch_data=_batch_commit)
-                )
+                _response = self._post_batch(batch_data=_batch_commit)
             else:
                 self._logger.debug(
                     "Posting from staged data for %s '%s': %s",
@@ -677,7 +686,8 @@ class SimvueObject(abc.ABC):
         return self._identifier
 
     @property
-    def _base_url(self) -> URL:
+    def base_url(self) -> URL:
+        """Retrieve the base URL for this object."""
         return URL(f"{self._user_config.server.url}") / self._endpoint
 
     @property
@@ -688,14 +698,14 @@ class SimvueObject(abc.ABC):
         -------
         simvue.api.url.URL | None
         """
-        return None if self._identifier is None else self._base_url / self._identifier
+        return None if self._identifier is None else self.base_url / self._identifier
 
     def _post_batch(
         self,
         batch_data: list[ObjectBatchArgs],
     ) -> list[dict[str, str]]:
         _response = sv_post(
-            url=f"{self._base_url}",
+            url=f"{self.base_url}",
             headers=self._headers | {"Content-Type": "application/msgpack"},
             params=self._params,
             data=batch_data,
@@ -703,9 +713,11 @@ class SimvueObject(abc.ABC):
         )
 
         if _response.status_code == http.HTTPStatus.FORBIDDEN:
-            raise RuntimeError(
-                f"Forbidden: You do not have permission to create object of type '{self._label}'"
+            _out_msg: str = (
+                "Forbidden: You do not have permission to create object "
+                f"of type '{self._label}'"
             )
+            raise RuntimeError(_out_msg)
 
         _json_response = get_json_from_response(
             response=_response,
@@ -714,26 +726,31 @@ class SimvueObject(abc.ABC):
             expected_type=list,
         )
 
-        if not len(batch_data) == (_n_created := len(_json_response)):
-            raise RuntimeError(
-                f"Expected {len(batch_data)} to be created, but only {_n_created} found."
+        if len(batch_data) != (_n_created := len(_json_response)):
+            _out_msg = (
+                f"Expected {len(batch_data)} to be created, "
+                f"but only {_n_created} found."
             )
+            raise RuntimeError(_out_msg)
 
-        self._logger.debug(f"successfully created {_n_created} {self._label}s")
+        self._logger.debug("Successfully created %s %ss", _n_created, self._label)
 
-        return _json_response
+        return typing.cast("list[dict[str, str]]", _json_response)
 
     def _post_single(
-        self, *, is_json: bool = True, data: list | dict | None = None, **kwargs
+        self,
+        *,
+        is_json: bool = True,
+        data: list[dict[str, object]] | dict[str, object] | None = None,
+        **kwargs: object,
     ) -> dict[str, typing.Any] | list[dict[str, typing.Any]]:
-        if not is_json:
-            kwargs = msgpack.packb(data or kwargs, use_bin_type=True)
+        _data = kwargs if is_json else msgpack.packb(data or kwargs, use_bin_type=True)
 
         _response = sv_post(
-            url=f"{self._base_url}",
+            url=f"{self.base_url}",
             headers=self._headers | {"Content-Type": "application/msgpack"},
             params=self._params,
-            data=data or kwargs,
+            data=_data or kwargs,
             is_json=is_json,
         )
 
@@ -838,7 +855,9 @@ class SimvueObject(abc.ABC):
             raise RuntimeError(_out_msg)
 
         _response = sv_get(
-            url=f"{url or self.url}", headers=self._headers, params=kwargs
+            url=f"{url or self.url}",
+            headers=self._headers,
+            params=kwargs,  # pyright: ignore[reportArgumentType]
         )
 
         if _response.status_code == http.HTTPStatus.NOT_FOUND:
@@ -907,12 +926,17 @@ class SimvueObject(abc.ABC):
         """
         return self._staging or None
 
-    @typing.override
+    @override
     def __str__(self) -> str:
         """Represent Simvue object as string."""
         return f"{self.__class__.__name__}({self.id=})"
 
-    @typing.override
+    @property
+    def label(self) -> str:
+        """Return label for this object type."""
+        return self._label
+
+    @override
     def __repr__(self) -> str:
         """Represent Simvue object as Python repr format."""
         _out_str = f"{self.__class__.__module__}.{self.__class__.__qualname__}("

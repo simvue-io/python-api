@@ -7,28 +7,29 @@ This forms the central API for users.
 """
 
 import contextlib
+import functools
 import logging
-import pathlib
 import mimetypes
-import multiprocessing.synchronize
-import threading
-import humanfriendly
-import os
 import multiprocessing
-import pydantic
+import multiprocessing.synchronize
+import os
+import pathlib
+import platform
 import re
 import sys
-import traceback as tb
+import threading
 import time
-import functools
-import platform
+import traceback as tb
 import typing
-import warnings
 import uuid
-import numpy
-import randomname
+import warnings
+
 import click
+import humanfriendly
+import numpy
 import psutil
+import pydantic
+import randomname
 
 from simvue.api.objects.alert.fetch import Alert
 from simvue.api.objects.folder import Folder
@@ -36,38 +37,38 @@ from simvue.api.objects.grids import GridMetrics
 from simvue.exception import ObjectNotFoundError, SimvueRunError
 from simvue.utilities import prettify_pydantic
 
-
-from .config.user import SimvueConfiguration
-
-from .factory.dispatch import Dispatcher
-from .executor import Executor, get_current_shell
-from .metrics import SystemResourceMeasurement
-from .models import FOLDER_REGEX, NAME_REGEX, MetricKeyString
-from .system import get_system
-from .metadata import git_info, environment
-from .eco import CO2Monitor
-from .utilities import (
-    skip_if_failed,
-    validate_timestamp,
-    simvue_timestamp,
+from .api.objects import (
+    Events,
+    EventsAlert,
+    FileArtifact,
+    Grid,
+    Metrics,
+    MetricsRangeAlert,
+    MetricsThresholdAlert,
+    ObjectArtifact,
+    UserAlert,
 )
 from .api.objects import (
     Run as RunObject,
-    FileArtifact,
-    ObjectArtifact,
-    MetricsThresholdAlert,
-    MetricsRangeAlert,
-    UserAlert,
-    EventsAlert,
-    Events,
-    Metrics,
-    Grid,
+)
+from .config.user import SimvueConfiguration
+from .eco import CO2Monitor
+from .executor import Executor, get_current_shell
+from .factory.dispatch import Dispatcher
+from .metadata import environment, git_info
+from .metrics import SystemResourceMeasurement
+from .models import FOLDER_REGEX, NAME_REGEX, MetricKeyString
+from .system import get_system
+from .utilities import (
+    simvue_timestamp,
+    skip_if_failed,
+    validate_timestamp,
 )
 
 try:
     from typing import Self
 except ImportError:
-    from typing_extensions import Self  # noqa: F401
+    from typing import Self
 
 
 if typing.TYPE_CHECKING:
@@ -142,7 +143,6 @@ class Run:
 
         Examples
         --------
-
         ```python
         with simvue.Run() as run:
             ...
@@ -198,12 +198,7 @@ class Run:
             else self._user_config.metrics.system_metrics_interval
         )
         self._headers: dict[str, str] = (
-            {
-                "Authorization": f"Bearer {self._user_config.server.token.get_secret_value()}",
-                "Accept-Encoding": "gzip",
-            }
-            if mode != "offline"
-            else {}
+            self._user_config.headers if mode != "offline" else {}
         )
         self._sv_obj: RunObject | None = None
         self._pid: int | None = 0
@@ -222,9 +217,9 @@ class Run:
 
     def _handle_exception_throw(
         self,
-        exc_type: typing.Type[BaseException] | None,
+        exc_type: type[BaseException] | None,
         value: BaseException,
-        traceback: typing.Type[BaseException] | BaseException | None,
+        traceback: type[BaseException] | BaseException | None,
     ) -> None:
         _exception_thrown: str | None = exc_type.__name__ if exc_type else None
         _is_running: bool = self._status == "running"
@@ -260,9 +255,9 @@ class Run:
 
     def __exit__(
         self,
-        exc_type: typing.Type[BaseException] | None,
+        exc_type: type[BaseException] | None,
         value: BaseException,
-        traceback: typing.Type[BaseException] | BaseException | None,
+        traceback: type[BaseException] | BaseException | None,
     ) -> None:
         logger.debug(
             "Automatically closing run '%s' in status %s",
@@ -290,7 +285,6 @@ class Run:
     @property
     def processes(self) -> list[psutil.Process]:
         """Create an array containing a list of processes"""
-
         process_list = self._executor.processes
 
         if not self._parent_process:
@@ -360,7 +354,6 @@ class Run:
             new resource metric measure time
             new emissions metric measure time
         """
-
         # In order to get a resource metric reading at t=0
         # because there is no previous CPU reading yet we cannot
         # use the default of None for the interval here, so we measure
@@ -468,7 +461,6 @@ class Run:
         The generated callback is assigned to the dispatcher instance and is
         executed on metrics and events objects held in a buffer.
         """
-
         if self._user_config.run.mode == "online" and not self.id:
             raise RuntimeError("Expected identifier for run")
 
@@ -488,20 +480,19 @@ class Run:
                     events=buffer,
                 )
                 return _events.commit()
-            elif category == "metrics_tensor":
+            if category == "metrics_tensor":
                 _grid_metrics = GridMetrics.new(
                     run=self.id,
                     data=buffer,
                     offline=self._user_config.run.mode == "offline",
                 )
                 return _grid_metrics.commit()
-            else:
-                _metrics = Metrics.new(
-                    run=self.id,
-                    offline=self._user_config.run.mode == "offline",
-                    metrics=buffer,
-                )
-                return _metrics.commit()
+            _metrics = Metrics.new(
+                run=self.id,
+                offline=self._user_config.run.mode == "offline",
+                metrics=buffer,
+            )
+            return _metrics.commit()
 
         return _dispatch_callback
 
@@ -721,7 +712,7 @@ class Run:
         if name and not re.match(r"^[a-zA-Z0-9\-\_\s\/\.:]+$", name):
             self._error("specified name is invalid")
             return False
-        elif not name and self._user_config.run.mode == "offline":
+        if not name and self._user_config.run.mode == "offline":
             name = randomname.get_name()
 
         self._status = "running" if running else "created"
@@ -804,9 +795,7 @@ class Run:
         executable: str | pathlib.Path | None = None,
         script: pydantic.FilePath | None = None,
         input_file: pydantic.FilePath | None = None,
-        completion_callback: typing.Optional[
-            typing.Callable[[int, str, str], None]
-        ] = None,
+        completion_callback: typing.Callable[[int, str, str], None] | None = None,
         completion_trigger: multiprocessing.synchronize.Event | None = None,
         env: dict[str, str] | None = None,
         cwd: pathlib.Path | None = None,
@@ -1095,7 +1084,6 @@ class Run:
         bool
             if configuration was successful
         """
-
         with self._configuration_lock:
             if suppress_errors is not None:
                 self._suppress_errors = suppress_errors
@@ -1572,9 +1560,7 @@ class Run:
         self,
         obj: typing.Any,
         category: typing.Literal["input", "output", "code"],
-        name: typing.Optional[
-            typing.Annotated[str, pydantic.Field(pattern=NAME_REGEX)]
-        ] = None,
+        name: typing.Annotated[str, pydantic.Field(pattern=NAME_REGEX)] | None = None,
         allow_pickle: bool = False,
         metadata: dict[str, typing.Any] = None,
     ) -> bool:
@@ -1632,9 +1618,7 @@ class Run:
         category: typing.Literal["input", "output", "code"],
         file_type: str | None = None,
         preserve_path: bool = False,
-        name: typing.Optional[
-            typing.Annotated[str, pydantic.Field(pattern=NAME_REGEX)]
-        ] = None,
+        name: typing.Annotated[str, pydantic.Field(pattern=NAME_REGEX)] | None = None,
         metadata: dict[str, typing.Any] = None,
     ) -> bool:
         """Upload file to the server
@@ -1880,7 +1864,7 @@ class Run:
         """
         if self._context_manager_called:
             self._error("Cannot call close method in context manager.")
-            return
+            return None
 
         self._executor.wait_for_completion()
 
