@@ -81,6 +81,21 @@
           "default": null,
           "title": "Name"
         },
+        "record_shell_vars": {
+          "anyOf": [
+            {
+              "items": {
+                "type": "string"
+              },
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Record Shell Vars"
+        },
         "tags": {
           "anyOf": [
             {
@@ -312,6 +327,7 @@
         "metadata": null,
         "mode": "online",
         "name": null,
+        "record_shell_vars": null,
         "tags": null
       }
     },

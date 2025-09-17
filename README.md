@@ -22,11 +22,6 @@ Collect metadata, metrics and artifacts from simulations, processing and AI/ML t
 <a href="https://github.com/astral-sh/ruff"><img src="https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/astral-sh/ruff/main/assets/badge/v2.json"></a>
 </div>
 
-<h3 align="center">
- <a href="https://simvue.io"><b>Website</b></a>
-  •
-  <a href="https://docs.simvue.io"><b>Documentation</b></a>
-</h3>
 
 ## Configuration
 The service URL and token can be defined as environment variables:

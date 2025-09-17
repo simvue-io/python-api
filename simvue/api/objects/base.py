@@ -10,6 +10,7 @@ import http
 import inspect
 import json
 import logging
+import pathlib
 import types
 import typing
 import uuid
@@ -18,12 +19,6 @@ from collections.abc import Generator  # noqa: TC003
 import msgpack
 import pydantic
 
-if typing.TYPE_CHECKING:
-    import pathlib
-
-from simvue.api.request import (
-    delete as sv_delete,
-)
 from simvue.api.request import (
     get as sv_get,
 )
@@ -205,6 +200,16 @@ class Sort(pydantic.BaseModel):
     def to_params(self) -> dict[str, str | bool]:
         """Convert to RestAPI parameters."""
         return {"id": self.column, "desc": self.descending}
+
+
+class VisibilityBatchArgs(pydantic.BaseModel):
+    tenant: bool | None = None
+    user: list[str] | None = None
+    public: bool | None = None
+
+
+class ObjectBatchArgs(pydantic.BaseModel):
+    pass
 
 
 class SimvueObject(abc.ABC):
@@ -423,8 +428,15 @@ class SimvueObject(abc.ABC):
 
     @classmethod
     @abc.abstractmethod
-    def new(cls, **_: object) -> Self:
+    def new(cls, **_) -> Self:
         """Define new instance of this object."""
+
+    @classmethod
+    def batch_create(
+        cls, obj_args: ObjectBatchArgs, visibility: VisibilityBatchArgs
+    ) -> Generator[str]:
+        _, __ = obj_args, visibility
+        raise NotImplementedError
 
     @classmethod
     def ids(
@@ -536,10 +548,22 @@ class SimvueObject(abc.ABC):
 
     @classmethod
     def _get_all_objects(
-        cls, offset: int | None, count: int | None, **kwargs: object
+        cls,
+        offset: int | None,
+        count: int | None,
+        endpoint: str | None = None,
+        expected_type: type = dict,
+        **kwargs,
     ) -> Generator[dict[str, object]]:
         _class_instance = cls(_read_only=True)
-        _url = f"{_class_instance._base_url}"
+
+        # Allow the possibility of paginating a URL that is not the
+        # main class endpoint
+        _url = (
+            f"{_class_instance._user_config.server.url}/{endpoint}"
+            if endpoint
+            else f"{_class_instance._base_url}"
+        )
 
         _label = _class_instance.__class__.__name__.lower()
         _label = _label.removesuffix("s")
@@ -551,16 +575,19 @@ class SimvueObject(abc.ABC):
             count=count,
             **kwargs,  # pyright: ignore[reportArgumentType]
         ):
-            yield typing.cast(
-                "dict[str, object]",
-                get_json_from_response(
-                    response=response,
-                    expected_status=[http.HTTPStatus.OK],
-                    scenario=f"Retrieval of {_label}s",
-                ),
+            _generator = get_json_from_response(
+                response=response,
+                expected_status=[http.HTTPStatus.OK],
+                scenario=f"Retrieval of {_label}s",
+                expected_type=expected_type,
             )
 
-    def read_only(self, is_read_only: bool) -> None:  # noqa: FBT001
+            if expected_type is dict:
+                yield _generator
+            else:
+                yield from _generator
+
+    def read_only(self, is_read_only: bool) -> None:
         """Set whether this object is in read only state.
 
         Parameters
@@ -577,7 +604,7 @@ class SimvueObject(abc.ABC):
         if not self._read_only:
             self._staging = self._get_local_staged()
 
-    def commit(self) -> dict[str, object] | None:
+    def commit(self) -> list[dict[str, str]] | dict[str, str] | None:
         """Send updates to the server, or if offline, store locally."""
         if self._read_only:
             raise AttributeError("Cannot commit object in 'read-only' mode")
@@ -592,18 +619,34 @@ class SimvueObject(abc.ABC):
             self._cache()
             return None
 
-        _response: dict[str, object] | None = None
+        _response: dict[str, str] | list[dict[str, str]] | None = None
 
         # Initial commit is creation of object
         # if staging is empty then we do not need to use PUT
         if not self._identifier or self._identifier.startswith("offline_"):
-            self._logger.debug(
-                "Posting from staged data for %s '%s': %s",
-                self._label,
-                self.id,
-                self._staging,
+            # If batch upload send as list, else send as dictionary of params
+            _batch_commit = typing.cast(
+                "list[dict[str, object]] | None", self._staging.get("batch")
             )
-            _response = self._post(**self._staging)
+            if _batch_commit is not None:
+                self._logger.debug(
+                    "Posting batched data to server: %s %ss",
+                    len(_batch_commit),
+                    self._label,
+                )
+                _response = typing.cast(
+                    "list[dict[str, str]]", self._post_batch(batch_data=_batch_commit)
+                )
+            else:
+                self._logger.debug(
+                    "Posting from staged data for %s '%s': %s",
+                    self._label,
+                    self.id,
+                    self._staging,
+                )
+                _response = typing.cast(
+                    "dict[str, str]", self._post_single(**self._staging)
+                )
         elif self._staging:
             self._logger.debug(
                 "Pushing updates from staged data for %s '%s': %s",
@@ -611,7 +654,7 @@ class SimvueObject(abc.ABC):
                 self.id,
                 self._staging,
             )
-            _response = self._put(**self._staging)
+            _response = typing.cast("dict[str, str]", self._put(**self._staging))
 
         # Clear staged changes
         self._clear_staging()
@@ -647,19 +690,50 @@ class SimvueObject(abc.ABC):
         """
         return None if self._identifier is None else self._base_url / self._identifier
 
-    def _post(self, *, is_json: bool = True, **kwargs: object) -> dict[str, typing.Any]:
-        if not is_json and not (
-            kwargs := (msgpack.packb(kwargs, use_bin_type=True) or {})
-        ):
-            raise TypeError(
-                "Expected value for object data post after packing but"
-                " got empty dictionary."
-            )
+    def _post_batch(
+        self,
+        batch_data: list[ObjectBatchArgs],
+    ) -> list[dict[str, str]]:
         _response = sv_post(
             url=f"{self._base_url}",
             headers=self._headers | {"Content-Type": "application/msgpack"},
             params=self._params,
-            data=kwargs,
+            data=batch_data,
+            is_json=True,
+        )
+
+        if _response.status_code == http.HTTPStatus.FORBIDDEN:
+            raise RuntimeError(
+                f"Forbidden: You do not have permission to create object of type '{self._label}'"
+            )
+
+        _json_response = get_json_from_response(
+            response=_response,
+            expected_status=[http.HTTPStatus.OK, http.HTTPStatus.CONFLICT],
+            scenario=f"Creation of multiple {self._label}s",
+            expected_type=list,
+        )
+
+        if not len(batch_data) == (_n_created := len(_json_response)):
+            raise RuntimeError(
+                f"Expected {len(batch_data)} to be created, but only {_n_created} found."
+            )
+
+        self._logger.debug(f"successfully created {_n_created} {self._label}s")
+
+        return _json_response
+
+    def _post_single(
+        self, *, is_json: bool = True, data: list | dict | None = None, **kwargs
+    ) -> dict[str, typing.Any] | list[dict[str, typing.Any]]:
+        if not is_json:
+            kwargs = msgpack.packb(data or kwargs, use_bin_type=True)
+
+        _response = sv_post(
+            url=f"{self._base_url}",
+            headers=self._headers | {"Content-Type": "application/msgpack"},
+            params=self._params,
+            data=data or kwargs,
             is_json=is_json,
         )
 

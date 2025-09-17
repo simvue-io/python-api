@@ -96,9 +96,8 @@ class Events(SimvueObject):
             **kwargs,  # pyright: ignore[reportArgumentType]
         )
 
-    @typing.override
-    def _post(self, **kwargs: object) -> dict[str, typing.Any]:
-        return super()._post(is_json=False, **kwargs)
+    def _post_single(self, **kwargs: object) -> dict[str, typing.Any]:
+        return super()._post_single(is_json=False, **kwargs)
 
     @typing.override
     def _put(self, **kwargs: object) -> dict[str, typing.Any]:

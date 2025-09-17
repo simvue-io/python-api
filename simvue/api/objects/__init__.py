@@ -14,13 +14,22 @@ from .alert import (
     MetricsThresholdAlert,
     UserAlert,
 )
-from .artifact import Artifact, FileArtifact, ObjectArtifact
+from .artifact import (
+    Artifact,
+    FileArtifact,
+    ObjectArtifact,
+)
 from .events import Events
 from .folder import Folder, get_folder_from_path
+from .grids import Grid, GridMetrics
 from .metrics import Metrics
 from .run import Run
 from .stats import Stats
-from .storage import FileStorage, S3Storage, Storage
+from .storage import (
+    FileStorage,
+    S3Storage,
+    Storage,
+)
 from .tag import Tag
 
 __all__ = [
@@ -31,6 +40,8 @@ __all__ = [
     "FileArtifact",
     "FileStorage",
     "Folder",
+    "Grid",
+    "GridMetrics",
     "Metrics",
     "MetricsRangeAlert",
     "MetricsThresholdAlert",

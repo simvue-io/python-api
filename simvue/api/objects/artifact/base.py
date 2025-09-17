@@ -16,7 +16,7 @@ import pydantic
 try:
     from typing import Self
 except ImportError:
-    from typing import Self  # noqa: F401
+    from typing import Self
 
 from simvue.api.objects.base import SimvueObject, staging_check, write_only
 from simvue.api.objects.run import Run
@@ -72,6 +72,10 @@ class ArtifactBase(SimvueObject):
     @classmethod
     @typing.override
     def new(cls, *_: object, **__: object) -> None:
+        raise NotImplementedError
+
+    @classmethod
+    def new(cls, *_, **__) -> Self:
         raise NotImplementedError
 
     def commit(self) -> None:
