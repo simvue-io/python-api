@@ -185,7 +185,6 @@ class Client:
         self,
         filters: list[str] | None,
         *,
-        system: bool = False,
         attributes: list[str] | None = None,
         metadata: bool = False,
         metrics: bool = False,
