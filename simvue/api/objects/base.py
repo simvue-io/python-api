@@ -438,7 +438,7 @@ class SimvueObject(abc.ABC):
 
     @classmethod
     @abc.abstractmethod
-    def new(cls, **_: object) -> Self:
+    def new(cls, **_: object | str | float | bool) -> Self:
         """Define new instance of this object."""
 
     @classmethod

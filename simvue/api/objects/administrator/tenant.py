@@ -1,6 +1,4 @@
-"""
-Simvue Tenants
-==============
+"""Simvue Tenants.
 
 Contains a class for remotely connecting to Simvue tenants, or defining
 a new tenant given relevant arguments.
@@ -10,10 +8,18 @@ a new tenant given relevant arguments.
 try:
     from typing import Self
 except ImportError:
-    from typing_extensions import Self
+    from typing_extensions import Self  # noqa: UP035
+
+try:
+    from typing import override
+except ImportError:
+    from typing_extensions import override  # noqa: UP035
+
+import typing
+
 import pydantic
 
-from simvue.api.objects.base import write_only, SimvueObject, staging_check
+from simvue.api.objects.base import SimvueObject, staging_check, write_only
 
 
 class Tenant(SimvueObject):
@@ -21,6 +27,7 @@ class Tenant(SimvueObject):
 
     @classmethod
     @pydantic.validate_call
+    @override
     def new(
         cls,
         *,
@@ -56,7 +63,7 @@ class Tenant(SimvueObject):
             a tenant instance with staged changes
 
         """
-        return Tenant(
+        return cls(
             name=name,
             is_enabled=is_enabled,
             max_request_rate=max_request_rate,
@@ -68,64 +75,64 @@ class Tenant(SimvueObject):
 
     @property
     def name(self) -> str:
-        """Retrieve the name of the tenant"""
-        return self._get_attribute("name")
+        """Retrieve the name of the tenant."""
+        return typing.cast("str", self._get_attribute("name"))
 
     @name.setter
     @write_only
     @pydantic.validate_call
     def name(self, name: str) -> None:
-        """Change name of tenant"""
+        """Change name of tenant."""
         self._staging["name"] = name
 
     @property
     @staging_check
     def is_enabled(self) -> bool:
-        """Retrieve if tenant is enabled"""
-        return self._get_attribute("is_enabled")
+        """Retrieve if tenant is enabled."""
+        return typing.cast("bool", self._get_attribute("is_enabled"))
 
     @is_enabled.setter
     @write_only
     @pydantic.validate_call
     def is_enabled(self, is_enabled: bool) -> None:
-        """Enable/disable tenant"""
+        """Enable/disable tenant."""
         self._staging["is_enabled"] = is_enabled
 
     @property
     @staging_check
     def max_request_rate(self) -> int:
-        """Retrieve the tenant's maximum request rate"""
-        return self._get_attribute("max_request_rate")
+        """Retrieve the tenant's maximum request rate."""
+        return typing.cast("int", self._get_attribute("max_request_rate"))
 
     @max_request_rate.setter
     @write_only
     @pydantic.validate_call
     def max_request_rate(self, max_request_rate: int) -> None:
-        """Update tenant's maximum request rate"""
+        """Update tenant's maximum request rate."""
         self._staging["max_request_rate"] = max_request_rate
 
     @property
     @staging_check
     def max_runs(self) -> int:
-        """Retrieve the tenant's maximum runs"""
-        return self._get_attribute("max_runs")
+        """Retrieve the tenant's maximum runs."""
+        return typing.cast("int", self._get_attribute("max_runs"))
 
     @max_runs.setter
     @write_only
     @pydantic.validate_call
     def max_runs(self, max_runs: int) -> None:
-        """Update tenant's maximum runs"""
+        """Update tenant's maximum runs."""
         self._staging["max_runs"] = max_runs
 
     @property
     @staging_check
     def max_data_volume(self) -> int:
-        """Retrieve the tenant's maximum data volume"""
-        return self._get_attribute("max_data_volume")
+        """Retrieve the tenant's maximum data volume."""
+        return typing.cast("int", self._get_attribute("max_data_volume"))
 
     @max_data_volume.setter
     @write_only
     @pydantic.validate_call
     def max_data_volume(self, max_data_volume: int) -> None:
-        """Update tenant's maximum data volume"""
+        """Update tenant's maximum data volume."""
         self._staging["max_data_volume"] = max_data_volume
