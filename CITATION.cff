@@ -42,6 +42,6 @@ keywords:
   - alerting
   - simulation
 license: Apache-2.0
-commit: 3788429b3c49fd0e99563a59bb3a90352b9d5e0e
+commit: a74d89eba2aa023a6abdce729d0c2e020f26d5de
 version: 2.2.0
 date-released: '2025-09-22'
