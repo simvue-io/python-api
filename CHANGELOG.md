@@ -1,6 +1,6 @@
 # Change Log
 
-## Unreleased
+## [v2.2.0](https://github.com/simvue-io/client/releases/tag/v2.2.0) - 2025-09-22
 
 - Improves handling of Conda based environments in metadata collection.
 - Adds additional options to `Client.get_runs`.
