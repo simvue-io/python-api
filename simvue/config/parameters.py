@@ -7,7 +7,7 @@ Pydantic models for elements of the Simvue configuration file
 """
 
 import logging
-import re
+import os
 import time
 import pydantic
 import typing
@@ -53,10 +53,12 @@ class OfflineSpecifications(pydantic.BaseModel):
     @pydantic.field_validator("cache")
     @classmethod
     def check_valid_cache_path(cls, cache: pathlib.Path) -> pathlib.Path:
-        if not re.fullmatch(
-            r"^(\/|([a-zA-Z]:\\))?([\w\s.-]+[\\/])*[\w\s.-]*$", f"{cache}"
-        ):
-            raise AssertionError(f"Value '{cache}' is not a valid cache path.")
+        if not cache.parent.exists():
+            raise FileNotFoundError(f"No such directory '{cache.parent}'.")
+        if not cache.parent.is_dir():
+            raise FileNotFoundError(f"'{cache.parent}' is not a directory.")
+        if not os.access(cache.parent, os.W_OK):
+            raise AssertionError(f"'{cache.parent}' is not a writable location.")
         return cache
 
 
@@ -72,6 +74,7 @@ class DefaultRunSpecifications(pydantic.BaseModel):
     folder: str = pydantic.Field("/", pattern=sv_models.FOLDER_REGEX)
     metadata: dict[str, str | int | float | bool] | None = None
     mode: typing.Literal["offline", "disabled", "online"] = "online"
+    record_shell_vars: list[str] | None = None
 
 
 class ClientGeneralOptions(pydantic.BaseModel):

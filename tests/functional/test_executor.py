@@ -1,5 +1,6 @@
 import contextlib
 import typing
+import platform
 import uuid
 import pytest
 import simvue
@@ -33,12 +34,12 @@ def test_executor_add_process(
     run = simvue.Run()
     run.init(
         f"test_executor_{'success' if successful else 'fail'}",
-        tags=["simvue_client_unit_tests", request.node.name.replace("[", "_").replace("]", "_")],
+        tags=[platform.system(), "simvue_client_unit_tests", request.node.name.replace("[", "_").replace("]", "_")],
         folder=f"/simvue_unit_testing/{folder_id}",
         retention_period="2 mins"
     )
     run.add_process(
-        identifier=f"test_add_process_{'success' if successful else 'fail'}",
+        identifier=f"test_add_process_{'success' if successful else 'fail'}_{os.environ.get('PYTEST_XDIST_WORKER', 0)}",
         c=f"exit {0 if successful else 1}",
         executable="bash" if sys.platform != "win32" else "powershell",
         completion_callback=completion_callback
@@ -71,7 +72,7 @@ def test_executor_multiprocess(request: pytest.FixtureRequest) -> None:
             run.init(
                 "test_executor_multiprocess",
                 folder=f"/simvue_unit_testing/{folder_id}",
-                tags=["simvue_client_tests", request.node.name]
+                tags=[platform.system(), "simvue_client_tests", request.node.name]
             )
 
             for i in range(10):
@@ -82,7 +83,7 @@ def test_executor_multiprocess(request: pytest.FixtureRequest) -> None:
                 callbacks[i] = callback
                 out_file = pathlib.Path(tempd).joinpath(f"out_file_{i}.dat")
                 run.add_process(
-                    f"cmd_{i}",
+                    f"cmd_{i}_{os.environ.get('PYTEST_XDIST_WORKER', 0)}",
                     executable="bash",
                     c="for i in {0..10}; do sleep 0.5; echo $i >> "+ f"{out_file}; done",
                     completion_trigger=triggers[i],
@@ -95,8 +96,8 @@ def test_executor_multiprocess(request: pytest.FixtureRequest) -> None:
             assert out_file.exists()
             assert triggers[i].is_set()
     for i in range(10):
-        os.remove(f"test_executor_multiprocess_cmd_{i}.err")
-        os.remove(f"test_executor_multiprocess_cmd_{i}.out")
+        os.remove(f"test_executor_multiprocess_cmd_{i}_{os.environ.get('PYTEST_XDIST_WORKER', 0)}.err")
+        os.remove(f"test_executor_multiprocess_cmd_{i}_{os.environ.get('PYTEST_XDIST_WORKER', 0)}.out")
     with contextlib.suppress(ObjectNotFoundError):
         folder.delete(recursive=True, delete_runs=True)
 
@@ -136,10 +137,10 @@ with open(args.output_file, 'w') as out_f:
             run.init(
                 "test_advanced_executor",
                 folder=f"/simvue_unit_testing/{folder_id}",
-                tags=["simvue_client_tests", request.node.name]
+                tags=[platform.system(), "simvue_client_tests", request.node.name]
             )
             run.add_process(
-                identifier=(exe_id := "advanced_run"),
+                identifier=(exe_id := f"advanced_run_{os.environ.get('PYTEST_XDIST_WORKER', 0)}"),
                 executable="python",
                 script=f"{code_file}",
                 input_file=f"{in_file}",
@@ -162,12 +163,13 @@ def test_completion_callbacks_var_change(request: pytest.FixtureRequest) -> None
         run.init(
             "test_completion_callbacks_var_change",
             folder=f"/simvue_unit_testing/{folder_id}",
-            tags=["simvue_client_tests", request.node.name]
+            tags=[platform.system(), "simvue_client_tests", request.node.name]
         )
+        print(os.environ.get("SHELL"))
         run.add_process(
-            identifier="test_completion_callbacks_var_change",
-            executable="bash",
+            f"test_completion_callbacks_var_change_{os.environ.get('PYTEST_XDIST_WORKER', 0)}",
             c="exit 0",
+            executable="bash" if any(shell in os.environ.get("SHELL", "") for shell in ("zsh", "bash")) else None,
             completion_callback=completion_callback
         )
 
@@ -190,11 +192,10 @@ def test_completion_trigger_set(request: pytest.FixtureRequest) -> None:
         run.init(
             "test_completion_trigger_set",
             folder=f"/simvue_unit_testing/{folder_id}",
-            tags=["simvue_client_tests", request.node.name]
+            tags=[platform.system(), "simvue_client_tests", request.node.name]
         )
         run.add_process(
-            identifier="test_completion_trigger_set",
-            executable="bash",
+            f"test_completion_trigger_set_{os.environ.get('PYTEST_XDIST_WORKER', 0)}",
             c="exit 0",
             completion_trigger=trigger
         )
@@ -221,11 +222,10 @@ def test_completion_callbacks_trigger_set(request: pytest.FixtureRequest) -> Non
         run.init(
             "test_completion_callbacks_trigger_set",
             folder="/simvue_unit_testing",
-            tags=["simvue_client_tests", request.node.name]
+            tags=[platform.system(), "simvue_client_tests", request.node.name]
         )
         run.add_process(
-            identifier="test_completion_callbacks_trigger_set",
-            executable="bash",
+            f"test_completion_callbacks_trigger_set_{os.environ.get('PYTEST_XDIST_WORKER', 0)}",
             c="exit 0",
             completion_callback=completion_callback
         )

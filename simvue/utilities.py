@@ -94,15 +94,16 @@ def parse_validation_response(
 
     if isinstance(issues, str):
         return tabulate.tabulate(
-            ["Unknown", "N/A", issues],
+            [["Unknown", "N/A", issues]],
             headers=["Type", "Location", "Message"],
             tablefmt="fancy_grid",
-        )
+        ).__str__()
 
     for issue in issues:
         obj_type: str = issue["type"]
         location: list[str] = issue["loc"]
-        location.remove("body")
+        with contextlib.suppress(ValueError):
+            location.remove("body")
         location_addr: str = "".join(
             (f"[{loc}]" if isinstance(loc, int) else f"{'.' if i > 0 else ''}{loc}")
             for i, loc in enumerate(location)
@@ -121,11 +122,17 @@ def parse_validation_response(
                     break
             information.append(input_arg)
 
-        msg: str = issue["msg"]
+        # Limit message to be 60 characters
+        msg: str = issue["msg"][:60]
         information.append(msg)
         out.append(information)
 
-    _table = tabulate.tabulate(out, headers=headers, tablefmt="fancy_grid")
+    _table_fmt: str = "simple"
+
+    if any(shell in os.environ.get("SHELL", "") for shell in ("zsh", "bash")):
+        _table_fmt = "fancy_grid"
+
+    _table = tabulate.tabulate(out, headers=headers, tablefmt=_table_fmt)
     return str(_table)
 
 

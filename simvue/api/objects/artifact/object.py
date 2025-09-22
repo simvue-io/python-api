@@ -114,7 +114,7 @@ class ObjectArtifact(ArtifactBase):
                 file.write(_serialized)
 
         else:
-            _artifact._init_data = _artifact._post(**_artifact._staging)
+            _artifact._init_data = _artifact._post_single(**_artifact._staging)
             _artifact._staging["url"] = _artifact._init_data["url"]
 
         _artifact._init_data["runs"] = kwargs.get("runs") or {}

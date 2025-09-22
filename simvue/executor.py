@@ -35,6 +35,15 @@ class CompletionCallback(typing.Protocol):
     def __call__(self, *, status_code: int, std_out: str, std_err: str) -> None: ...
 
 
+def get_current_shell() -> str | None:
+    """Return the users current shell executable."""
+    try:
+        _process = psutil.Process(os.getppid())
+        return os.environ.get("SHELL", _process.exe())
+    except psutil.Error:
+        return None
+
+
 def _execute_process(
     proc_id: str,
     command: list[str],
@@ -132,6 +141,33 @@ class Executor:
 
         with open(err_file) as err:
             return err.read() or None
+
+    @staticmethod
+    def _kwarg_assembly(kwargs, executable: str | None) -> list[str]:
+        _arguments: list[str] = []
+        _shell_is_pwsh: bool = any(
+            shell in get_current_shell() for shell in ("pwsh", "powershell")
+        )
+        _exec_is_pwsh: bool = executable in ("pwsh", "powershell", None)
+        _use_pwsh: bool = _shell_is_pwsh and _exec_is_pwsh
+
+        for arg, value in kwargs.items():
+            if arg.startswith("__"):
+                continue
+
+            arg = arg.replace("_", "-")
+
+            if len(arg) == 1 or _use_pwsh:
+                _arguments += (
+                    [f"-{arg}"]
+                    if isinstance(value, bool) and value
+                    else [f"-{arg}", f"{value}"]
+                )
+            elif isinstance(value, bool) and value:
+                _arguments += [f"--{arg}"]
+            else:
+                _arguments += [f"--{arg}", f"{value}"]
+        return _arguments
 
     def add_process(
         self,
@@ -231,31 +267,19 @@ class Executor:
 
         if executable:
             command += [f"{executable}"]
-        else:
+        elif pos_args:
             command += [pos_args[0]]
             pos_args.pop(0)
+        elif executable := get_current_shell():
+            command += [f"{executable}"]
+
         if script:
             command += [f"{script}"]
 
         if input_file:
             command += [f"{input_file}"]
 
-        for arg, value in kwargs.items():
-            if arg.startswith("__"):
-                continue
-
-            arg = arg.replace("_", "-")
-
-            if len(arg) == 1:
-                command += (
-                    [f"-{arg}"]
-                    if isinstance(value, bool) and value
-                    else [f"-{arg}", f"{value}"]
-                )
-            elif isinstance(value, bool) and value:
-                command += [f"--{arg}"]
-            else:
-                command += [f"--{arg}", f"{value}"]
+        command += self._kwarg_assembly(kwargs, executable=executable)
 
         command += pos_args
 

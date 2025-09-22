@@ -25,20 +25,22 @@ import platform
 import typing
 import warnings
 import uuid
+import numpy
 import randomname
 import click
 import psutil
 
 from simvue.api.objects.alert.fetch import Alert
 from simvue.api.objects.folder import Folder
-from simvue.exception import SimvueRunError
+from simvue.api.objects.grids import GridMetrics
+from simvue.exception import ObjectNotFoundError, SimvueRunError
 from simvue.utilities import prettify_pydantic
 
 
 from .config.user import SimvueConfiguration
 
 from .factory.dispatch import Dispatcher
-from .executor import Executor
+from .executor import Executor, get_current_shell
 from .metrics import SystemResourceMeasurement
 from .models import FOLDER_REGEX, NAME_REGEX, MetricKeyString
 from .system import get_system
@@ -59,6 +61,7 @@ from .api.objects import (
     EventsAlert,
     Events,
     Metrics,
+    Grid,
 )
 
 try:
@@ -165,6 +168,7 @@ class Run:
 
         self._folder: Folder | None = None
         self._term_color: bool = True
+        self._grids: dict[str, str] = {}
         self._suppress_errors: bool = False
         self._queue_blocking: bool = False
         self._status: (
@@ -475,7 +479,7 @@ class Run:
 
         def _dispatch_callback(
             buffer: list[typing.Any],
-            category: typing.Literal["events", "metrics"],
+            category: typing.Literal["events", "metrics_tensor", "metrics_regular"],
         ) -> None:
             if category == "events":
                 _events = Events.new(
@@ -484,6 +488,13 @@ class Run:
                     events=buffer,
                 )
                 return _events.commit()
+            elif category == "metrics_tensor":
+                _grid_metrics = GridMetrics.new(
+                    run=self.id,
+                    data=buffer,
+                    offline=self._user_config.run.mode == "offline",
+                )
+                return _grid_metrics.commit()
             else:
                 _metrics = Metrics.new(
                     run=self.id,
@@ -539,7 +550,7 @@ class Run:
             self._dispatcher = Dispatcher(
                 mode=self._dispatch_mode,
                 termination_trigger=self._shutdown_event,
-                object_types=["events", "metrics"],
+                object_types=["events", "metrics_regular", "metrics_tensor"],
                 callback=self._create_dispatch_callback(),
             )
 
@@ -623,6 +634,7 @@ class Run:
         timeout: int | None = 180,
         visibility: typing.Literal["public", "tenant"] | list[str] | None = None,
         no_color: bool = False,
+        record_shell_vars: set[str] | None = None,
     ) -> bool:
         """Initialise a Simvue run
 
@@ -660,6 +672,9 @@ class Run:
                 * A list of usernames with which to share this run
         no_color : bool, optional
             disable terminal colors. Default False.
+        record_shell_vars : list[str] | None,
+            list of environment variables to store as metadata, these can
+            either be defined as literal strings or globular expressions
 
         Returns
         -------
@@ -677,6 +692,7 @@ class Run:
         folder = folder or self._user_config.run.folder
         name = name or self._user_config.run.name
         metadata = (metadata or {}) | (self._user_config.run.metadata or {})
+        record_shell_vars = record_shell_vars or self._user_config.run.record_shell_vars
 
         self._term_color = not no_color
 
@@ -742,7 +758,11 @@ class Run:
         self._sv_obj.ttl = self._retention
         self._sv_obj.status = self._status
         self._sv_obj.tags = tags
-        self._sv_obj.metadata = (metadata or {}) | git_info(os.getcwd()) | environment()
+        self._sv_obj.metadata = (
+            (metadata or {})
+            | git_info(os.getcwd())
+            | environment(env_var_glob_exprs=record_shell_vars)
+        )
         self._sv_obj.heartbeat_timeout = timeout
         self._sv_obj.alerts = []
         self._sv_obj.created = time.time()
@@ -868,10 +888,12 @@ class Run:
         if executable:
             executable_str = f"{executable}"
             cmd_list += [executable_str]
-        else:
+        elif pos_args:
             cmd_list += [pos_args[0]]
             executable = pos_args[0]
             pos_args.pop(0)
+        else:
+            executable = get_current_shell()
 
         for kwarg, val in cmd_kwargs.items():
             _quoted_val: str = f'"{val}"'
@@ -1277,6 +1299,7 @@ class Run:
     def _add_metrics_to_dispatch(
         self,
         metrics: dict[str, int | float],
+        *,
         step: int | None = None,
         time: float | None = None,
         timestamp: str | None = None,
@@ -1313,25 +1336,158 @@ class Run:
             "timestamp": timestamp if timestamp is not None else self.time_stamp,
             "step": step if step is not None else self._step,
         }
-        self._dispatcher.add_item(_data, "metrics", self._queue_blocking)
+        self._dispatcher.add_item(_data, "metrics_regular", self._queue_blocking)
 
+        return True
+
+    def _add_tensors_to_dispatch(
+        self,
+        tensors: dict[str, int | float],
+        *,
+        step: int | None = None,
+        time: float | None = None,
+        timestamp: str | None = None,
+        join_on_fail: bool = True,
+    ) -> bool:
+        for tensor, array in tensors.items():
+            _data: dict[str, typing.Any] = {
+                "array": array,
+                "time": time if time is not None else self.duration,
+                "timestamp": timestamp if timestamp is not None else self.time_stamp,
+                "step": step if step is not None else self._step,
+                "grid": self._grids[tensor]["id"],
+                "metric": tensor,
+            }
+
+            self._dispatcher.add_item(_data, "metrics_tensor", self._queue_blocking)
+
+        return True
+
+    def _add_values_to_dispatch(
+        self,
+        values: dict[str, int | float | numpy.ndarray],
+        *,
+        step: int | None = None,
+        time: float | None = None,
+        timestamp: str | None = None,
+        join_on_fail: bool = True,
+    ) -> bool:
+        # If there are no metrics to log just ignore
+        if self._user_config.run.mode == "disabled":
+            return True
+
+        if not values:
+            return True
+
+        if not self._active:
+            self._error("Run is not active", join_on_fail)
+            return False
+
+        if self._status != "running":
+            self._error(
+                "Cannot log metrics when not in the running state", join_on_fail
+            )
+            return False
+
+        if timestamp and not validate_timestamp(timestamp):
+            self._error("Invalid timestamp format", join_on_fail)
+            return False
+
+    @skip_if_failed("_aborted", "_suppress_errors", False)
+    @check_run_initialised
+    @pydantic.validate_call(config={"arbitrary_types_allowed": True})
+    def assign_metric_to_grid(
+        self,
+        *,
+        metric_name: str,
+        grid_name: str | None = None,
+        axes_ticks: numpy.ndarray | list[list[float]] | None = None,
+        axes_labels: list[str] | None = None,
+    ) -> bool:
+        """Assign a metric to a new/existing tensor-based metric grid.
+
+        Method assigns metric to a grid, if the grid does not
+        exist the additional arguments specify the grid definitions,
+        and that grid is created. If the arguments are specified when
+        the grid does exist, they are ignored and the original is used.
+
+        Parameters
+        ----------
+        metric_name : str
+            name of the metric to assign.
+        grid_name : str | None, optional
+            a unique name for this grid, if not specified the metric name is used.
+        axes_ticks : list[list[float]] | NDArray, optional
+            the tick positions for each axis.
+        axes_labels : list[str], optional
+            the name for each axis
+
+        Returns
+        -------
+        bool
+            if the assignment was successful.
+        """
+        if isinstance(axes_ticks, numpy.ndarray):
+            axes_ticks = axes_ticks.tolist()
+
+        grid_name = grid_name or metric_name
+
+        if grid_name not in self._grids and (axes_labels is None or axes_ticks is None):
+            self._error(f"Grid '{grid_name}' is not defined.")
+            return False
+
+        if axes_labels is not None and axes_ticks is not None:
+            _new_grid = Grid.new(
+                name=grid_name,
+                grid=axes_ticks,
+                labels=axes_labels,
+                offline=self._user_config.run.mode == "offline",
+            )
+            _new_grid.commit()
+
+            # Add entry for both the grid itself and the metric
+            self._grids[grid_name] = {
+                "id": _new_grid.id,
+                "dimensionality": len(axes_labels),
+            }
+            self._grids[metric_name] = {
+                "id": _new_grid.id,
+                "dimensionality": len(axes_labels),
+            }
+
+        if grid_name not in self._grids:
+            self._error(f"Expected grid for '{grid_name}' but none defined.")
+            return False
+
+        try:
+            _grid_attach = Grid(
+                identifier=self._grids[grid_name]["id"],
+                offline=self._user_config.run.mode == "offline",
+            )
+            _grid_attach.read_only(False)
+            _grid_attach.attach_metric_for_run(self.id, metric_name)
+            self._grids[metric_name] = self._grids[grid_name]
+        except (RuntimeError, ObjectNotFoundError) as e:
+            self._error(
+                f"Failed to attach run '{self.id}' to grid '{grid_name}': {e.args[0]}"
+            )
         return True
 
     @skip_if_failed("_aborted", "_suppress_errors", False)
     @check_run_initialised
-    @pydantic.validate_call
+    @pydantic.validate_call(config={"arbitrary_types_allowed": True})
     def log_metrics(
         self,
-        metrics: dict[MetricKeyString, int | float],
+        metrics: dict[MetricKeyString, int | float | numpy.ndarray],
         step: int | None = None,
         time: float | None = None,
         timestamp: str | None = None,
     ) -> bool:
-        """Log metrics to Simvue server
+        """Log metrics to Simvue server.
 
         Parameters
         ----------
-        metrics : dict[str, int | float]
+        metrics : dict[str, int | float | numpy.ndarray]
             set of metrics to upload to server for this run
         step : int, optional
             manually specify the step index for this log, by default None
@@ -1343,13 +1499,71 @@ class Run:
         Returns
         -------
         bool
-            if the metric log was succcessful
+            if the metric log was successful
         """
-        add_dispatch = self._add_metrics_to_dispatch(
-            metrics, step=step, time=time, timestamp=timestamp
+        # TODO: When metrics and grids are combined into a single entity
+        # this can be removed. For now need to separate tensor based metrics
+        # from regular
+        _tensor_metrics: list[numpy.ndarray] = {}
+        _regular_metrics: list[numpy.ndarray] = {}
+
+        # Classify metrics into regular and tensor based
+        for label, metric in metrics.items():
+            if isinstance(metric, numpy.ndarray):
+                if label not in self._grids:
+                    logger.warning(
+                        f"Metric '{label}' is not assigned to a grid, "
+                        "using default axis range [0, 1] for all axes "
+                        "and assuming constant interval."
+                    )
+                    _axes_ticks = [numpy.linspace(0, 1, n) for n in metric.shape]
+                    self.assign_metric_to_grid(
+                        metric_name=label,
+                        grid_name=label,
+                        axes_ticks=_axes_ticks,
+                        axes_labels=[f"axis_{i}" for i in range(metric.ndim)],
+                    )
+                if metric.ndim != (_ndims := self._grids[label]["dimensionality"]):
+                    self._error(
+                        f"Cannot log tensor '{label}', "
+                        f"dimensionality incompatibility: {metric.ndim} != {_ndims}"
+                    )
+                _tensor_metrics[label] = metric
+            else:
+                _regular_metrics[label] = metric
+
+        # If there are no metrics to log just ignore
+        if self._user_config.run.mode == "disabled":
+            return True
+
+        if not (_tensor_metrics or _regular_metrics):
+            return True
+
+        if not self._active:
+            self._error("Run is not active", join_threads=True)
+            return False
+
+        if self._status != "running":
+            self._error(
+                "Cannot log metrics when not in the running state", join_threads=True
+            )
+            return False
+
+        if timestamp and not validate_timestamp(timestamp):
+            self._error("Invalid timestamp format", timestamp)
+            return False
+
+        _tensor_add_dispatch = self._add_tensors_to_dispatch(
+            tensors=_tensor_metrics,
+            step=step,
+            time=time,
+            timestamp=timestamp,
+        )
+        _regular_dispatch = self._add_metrics_to_dispatch(
+            metrics=_regular_metrics, step=step, time=time, timestamp=timestamp
         )
         self._step += 1
-        return add_dispatch
+        return _tensor_add_dispatch and _regular_dispatch
 
     @skip_if_failed("_aborted", "_suppress_errors", False)
     @check_run_initialised
@@ -1795,7 +2009,7 @@ class Run:
         rule: typing.Literal["is inside range", "is outside range"],
         *,
         description: str | None = None,
-        window: pydantic.PositiveInt = 5,
+        window: pydantic.PositiveInt | None = None,
         frequency: pydantic.PositiveInt = 1,
         aggregation: typing.Literal[
             "average", "sum", "at least one", "all"
@@ -1823,8 +2037,9 @@ class Run:
             * is outside range - metric value falls outside of value range.
         description : str, optional
             description for this alert, default None
-        window : PositiveInt, optional
-            time period in seconds over which metrics are averaged, by default 5
+        window : PositiveInt | None, optional
+            time period in seconds over which metrics are averaged,
+            default of None sets this to be the same as frequency.
         frequency : PositiveInt, optional
             frequency at which to check alert condition in seconds, by default 1
         aggregation : Literal['average', 'sum', 'at least one', 'all'], optional
@@ -1852,7 +2067,7 @@ class Run:
             name=name,
             description=description,
             metric=metric,
-            window=window,
+            window=window or frequency,
             aggregation=aggregation,
             notification=notification,
             rule=rule,
@@ -1877,7 +2092,7 @@ class Run:
         rule: typing.Literal["is above", "is below"],
         *,
         description: str | None = None,
-        window: pydantic.PositiveInt = 5,
+        window: pydantic.PositiveInt | None = None,
         frequency: pydantic.PositiveInt = 1,
         aggregation: typing.Literal[
             "average", "sum", "at least one", "all"
@@ -1904,8 +2119,9 @@ class Run:
                 * is below - value is below threshold.
         description : str, optional
             description for this alert, default None
-        window : PositiveInt, optional
-            time period in seconds over which metrics are averaged, by default 5
+        window : PositiveInt | None, optional
+            time period in seconds over which metrics are averaged,
+            default of None sets this to be the same as frequency.
         frequency : PositiveInt, optional
             frequency at which to check alert condition in seconds, by default 1
         aggregation : Literal['average', 'sum', 'at least one', 'all'], optional
@@ -1935,7 +2151,7 @@ class Run:
             description=description,
             threshold=threshold,
             rule=rule,
-            window=window,
+            window=window or frequency,
             frequency=frequency,
             aggregation=aggregation,
             notification=notification,

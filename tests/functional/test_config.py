@@ -69,13 +69,14 @@ def test_config_setup(
                 with open((_ppt_file := pathlib.Path(temp_d).joinpath("pyproject.toml")), "w") as out_f:
                     out_f.write(_lines_ppt)
             with open(_config_file := pathlib.Path(temp_d).joinpath("simvue.toml"), "w") as out_f:
+                _windows_safe = temp_d.replace("\\", "\\\\")
                 _lines: str = f"""
                     [server]
                     url = "{_url}"
                     token = "{_token}"
 
                     [offline]
-                    cache = "{temp_d}"
+                    cache = "{_windows_safe}"
                     """
 
                 if use_file == "extended":

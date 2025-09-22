@@ -59,6 +59,10 @@ class ArtifactBase(SimvueObject):
         # from the initial creation
         self._init_data: dict[str, dict] = {}
 
+    @classmethod
+    def new(cls, *_, **__) -> Self:
+        raise NotImplementedError
+
     def commit(self) -> None:
         """Not applicable, cannot commit single write artifact."""
         self._logger.info("Cannot call method 'commit' on write-once type 'Artifact'")

@@ -7,6 +7,7 @@ a new run given relevant arguments.
 
 """
 
+from collections.abc import Generator, Iterable
 import http
 import typing
 import pydantic
@@ -19,7 +20,15 @@ try:
 except ImportError:
     from typing_extensions import Self
 
-from .base import SimvueObject, Sort, staging_check, Visibility, write_only
+from .base import (
+    ObjectBatchArgs,
+    VisibilityBatchArgs,
+    SimvueObject,
+    Sort,
+    staging_check,
+    Visibility,
+    write_only,
+)
 from simvue.api.request import (
     get as sv_get,
     put as sv_put,
@@ -52,6 +61,18 @@ class RunSort(Sort):
             raise ValueError(f"Invalid sort column for runs '{column}'")
 
         return column
+
+
+class RunBatchArgs(ObjectBatchArgs):
+    name: str | None = None
+    description: str | None = None
+    tags: list[str] | None = None
+    metadata: dict[str, str | int | float | bool] | None = None
+    folder: typing.Annotated[str, pydantic.Field(pattern=FOLDER_REGEX)] | None = None
+    system: dict[str, typing.Any] | None = None
+    status: typing.Literal[
+        "terminated", "created", "failed", "completed", "lost", "running"
+    ] = "created"
 
 
 class Run(SimvueObject):
@@ -122,6 +143,50 @@ class Run(SimvueObject):
             _offline=offline,
             **kwargs,
         )
+
+    @classmethod
+    @pydantic.validate_call
+    def batch_create(
+        cls,
+        entries: Iterable[RunBatchArgs],
+        *,
+        visibility: VisibilityBatchArgs | None = None,
+        folder: typing.Annotated[str, pydantic.StringConstraints(pattern=FOLDER_REGEX)]
+        | None = None,
+        metadata: dict[str, str | int | float | bool] | None = None,
+    ) -> Generator[str]:
+        """Create a batch of Runs as a single request.
+
+        Parameters
+        ----------
+        entries : Iterable[RunBatchArgs]
+            define the runs to be created.
+        visibility : VisibilityBatchArgs | None, optional
+            specify visibility options for these runs, default is None.
+        folder : str, optional
+            override folder specification for these runs to be a single folder, default None.
+        metadata : dict[str, int | str | float | bool], optional
+            override metadata specification for these runs, default None.
+
+        Yields
+        ------
+        str
+            identifiers for created runs
+        """
+        _data: list[dict[str, object]] = [
+            entry.model_dump(exclude_none=True)
+            | (
+                {"visibility": visibility.model_dump(exclude_none=True)}
+                if visibility
+                else {}
+            )
+            | ({"folder": folder} if folder else {})
+            | {"metadata": (entry.metadata or {}) | (metadata or {})}
+            for entry in entries
+        ]
+        for entry in Run(batch=_data, _read_only=False).commit() or []:
+            _id: str = entry["id"]
+            yield _id
 
     @property
     @staging_check
@@ -518,6 +583,14 @@ class Run(SimvueObject):
         return _url
 
     @property
+    def _grid_url(self) -> URL | None:
+        if not self._identifier or not self.url:
+            return None
+        _url = self.url
+        _url /= "grids"
+        return _url
+
+    @property
     def abort_trigger(self) -> bool:
         """Returns the state of the abort run endpoint from the server.
 
@@ -555,6 +628,27 @@ class Run(SimvueObject):
             response=_response,
             expected_status=[http.HTTPStatus.OK],
             scenario=f"Retrieving artifacts for run '{self.id}'",
+            expected_type=list,
+        )
+
+    @property
+    def grids(self) -> list[dict[str, str]]:
+        """Retrieve the grids for this run.
+
+        Returns
+        -------
+        list[dict[str, str]]
+            the grids associated with this run
+        """
+        if self._offline or not self._grid_url:
+            return []
+
+        _response = sv_get(url=self._grid_url, headers=self._headers)
+
+        return get_json_from_response(
+            response=_response,
+            expected_status=[http.HTTPStatus.OK],
+            scenario=f"Retrieving grids for run '{self.id}'",
             expected_type=list,
         )
 

@@ -39,6 +39,7 @@ class Metrics(SimvueObject):
         self._label = "metric"
         super().__init__(_read_only=_read_only, _local=_local, **kwargs)
         self._run_id = self._staging.get("run")
+        self._is_set = True
 
     @classmethod
     @pydantic.validate_call
@@ -104,7 +105,7 @@ class Metrics(SimvueObject):
             metric set object containing metrics for run.
         """
         yield from cls._get_all_objects(
-            offset,
+            offset=offset,
             metrics=json.dumps(metrics),
             runs=json.dumps(runs),
             xaxis=xaxis,
@@ -137,8 +138,8 @@ class Metrics(SimvueObject):
             expected_type=list,
         )
 
-    def _post(self, **kwargs) -> dict[str, typing.Any]:
-        return super()._post(is_json=False, **kwargs)
+    def _post_single(self, **kwargs) -> dict[str, typing.Any]:
+        return super()._post_single(is_json=False, **kwargs)
 
     def delete(self, **kwargs) -> dict[str, typing.Any]:
         """Metrics cannot be deleted"""

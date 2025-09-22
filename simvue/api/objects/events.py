@@ -37,6 +37,7 @@ class Events(SimvueObject):
         self._label = "event"
         super().__init__(_read_only=_read_only, _local=_local, **kwargs)
         self._run_id = self._staging.get("run")
+        self._is_set = True
 
     @classmethod
     @pydantic.validate_call
@@ -77,8 +78,8 @@ class Events(SimvueObject):
             **kwargs,
         )
 
-    def _post(self, **kwargs) -> dict[str, typing.Any]:
-        return super()._post(is_json=False, **kwargs)
+    def _post_single(self, **kwargs) -> dict[str, typing.Any]:
+        return super()._post_single(is_json=False, **kwargs)
 
     def _put(self, **kwargs) -> dict[str, typing.Any]:
         raise NotImplementedError("Method 'put' is not available for type Events")

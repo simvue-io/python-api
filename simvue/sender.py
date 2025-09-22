@@ -15,6 +15,7 @@ import psutil
 from simvue.config.user import SimvueConfiguration
 
 import simvue.api.objects
+from simvue.api.objects.artifact.base import ArtifactBase
 from simvue.eco.emissions_monitor import CO2Monitor
 from simvue.version import __version__
 
@@ -26,8 +27,10 @@ UPLOAD_ORDER: list[str] = [
     "tags",
     "alerts",
     "runs",
+    "grids",
     "artifacts",
     "metrics",
+    "grid_metrics",
     "events",
 ]
 
@@ -81,7 +84,8 @@ def upload_cached_file(
         obj_for_upload.on_reconnect(id_mapping)
 
     try:
-        obj_for_upload.commit()
+        if not issubclass(_instance_class, ArtifactBase):
+            obj_for_upload.commit()
         _new_id = obj_for_upload.id
     except RuntimeError as error:
         if "status 409" in error.args[0]:
