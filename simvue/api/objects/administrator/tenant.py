@@ -37,6 +37,7 @@ class Tenant(SimvueObject):
         max_runs: int = 0,
         max_data_volume: int = 0,
         offline: bool = False,
+        **_: typing.Any,
     ) -> Self:
         """Create a new tenant on the Simvue server.
 

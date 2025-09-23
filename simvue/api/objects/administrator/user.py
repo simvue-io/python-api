@@ -1,18 +1,25 @@
-"""
-Simvue Users
-============
+"""Simvue Users.
 
 Contains a class for remotely connecting to Simvue users, or defining
 a new user given relevant arguments.
 
 """
 
+import typing
+from collections.abc import Generator
+
 import pydantic
 
 try:
     from typing import Self
 except ImportError:
-    from typing_extensions import Self
+    from typing_extensions import Self  # noqa: UP035
+
+try:
+    from typing import override
+except ImportError:
+    from typing_extensions import override  # noqa: UP035
+
 from simvue.api.objects.base import SimvueObject, staging_check, write_only
 
 
@@ -21,6 +28,7 @@ class User(SimvueObject):
 
     @classmethod
     @pydantic.validate_call
+    @override
     def new(
         cls,
         *,
@@ -34,7 +42,7 @@ class User(SimvueObject):
         tenant: str,
         enabled: bool = True,
         offline: bool = False,
-        **_,
+        **_: typing.Any,
     ) -> Self:
         """Create a new user on the Simvue server.
 
@@ -79,7 +87,7 @@ class User(SimvueObject):
             "is_admin": is_admin,
             "is_enabled": enabled,
         }
-        _user = User(
+        _user = cls(
             user=_user_info,
             tenant=tenant,
             offline=offline,
@@ -90,9 +98,14 @@ class User(SimvueObject):
         return _user
 
     @classmethod
+    @override
     def get(
-        cls, *, count: int | None = None, offset: int | None = None, **kwargs
-    ) -> dict[str, "User"]:
+        cls,
+        *,
+        count: pydantic.PositiveInt | None = None,
+        offset: pydantic.PositiveInt | None = None,
+        **kwargs: object,
+    ) -> Generator[tuple[str, Self]]:
         """Retrieve users from the Simvue server.
 
         Parameters
@@ -108,117 +121,125 @@ class User(SimvueObject):
             user instance representing user on server
         """
         # Currently no user filters
-        kwargs.pop("filters", None)
+        _ = kwargs.pop("filters", None)
         return super().get(count=count, offset=offset, **kwargs)
 
     @property
     @staging_check
     def username(self) -> str:
-        """Retrieve the username for the user"""
+        """Retrieve the username for the user."""
         if self.id and self.id.startswith("offline_"):
-            return self._get_attribute("user")["username"]
-        return self._get_attribute("username")
+            _user_dict = typing.cast("dict[str, str]", self._get_attribute("user"))
+            return _user_dict["username"]
+        return typing.cast("str", self._get_attribute("username"))
 
     @username.setter
     @write_only
     @pydantic.validate_call
     def username(self, username: str) -> None:
-        """Set the username for the user"""
+        """Set the username for the user."""
         self._staging["username"] = username
 
     @property
     @staging_check
     def fullname(self) -> str:
-        """Retrieve the full name for the user"""
+        """Retrieve the full name for the user."""
         if self.id and self.id.startswith("offline_"):
-            return self._get_attribute("user")["fullname"]
-        return self._get_attribute("fullname")
+            _user_dict = typing.cast("dict[str, str]", self._get_attribute("user"))
+            return _user_dict["fullname"]
+        return typing.cast("str", self._get_attribute("fullname"))
 
     @fullname.setter
     @write_only
     @pydantic.validate_call
     def fullname(self, fullname: str) -> None:
-        """Set the full name for the user"""
+        """Set the full name for the user."""
         self._staging["fullname"] = fullname
 
     @property
     @staging_check
     def is_manager(self) -> bool:
-        """Retrieve if the user has manager privileges"""
+        """Retrieve if the user has manager privileges."""
         if self.id and self.id.startswith("offline_"):
-            return self._get_attribute("user")["is_manager"]
-        return self._get_attribute("is_manager")
+            _user_dict = typing.cast("dict[str, bool]", self._get_attribute("user"))
+            return _user_dict["is_manager"]
+        return typing.cast("bool", self._get_attribute("is_manager"))
 
     @is_manager.setter
     @write_only
     @pydantic.validate_call
     def is_manager(self, is_manager: bool) -> None:
-        """Set if the user has manager privileges"""
+        """Set if the user has manager privileges."""
         self._staging["is_manager"] = is_manager
 
     @property
     @staging_check
     def is_admin(self) -> bool:
-        """Retrieve if the user has admin privileges"""
+        """Retrieve if the user has admin privileges."""
         if self.id and self.id.startswith("offline_"):
-            return self._get_attribute("user")["is_admin"]
-        return self._get_attribute("is_admin")
+            _user_dict = typing.cast("dict[str, bool]", self._get_attribute("user"))
+            return _user_dict["is_admin"]
+        return typing.cast("bool", self._get_attribute("is_admin"))
 
     @is_admin.setter
     @write_only
     @pydantic.validate_call
     def is_admin(self, is_admin: bool) -> None:
-        """Set if the user has admin privileges"""
+        """Set if the user has admin privileges."""
         self._staging["is_admin"] = is_admin
 
     @property
     def deleted(self) -> bool:
-        """Retrieve if the user is pending deletion"""
+        """Retrieve if the user is pending deletion."""
         if self.id and self.id.startswith("offline_"):
-            return self._get_attribute("user")["is_deleted"]
-        return self._get_attribute("is_deleted")
+            _user_dict = typing.cast("dict[str, bool]", self._get_attribute("user"))
+            return _user_dict["is_deleted"]
+        return typing.cast("bool", self._get_attribute("is_deleted"))
 
     @property
     @staging_check
     def is_readonly(self) -> bool:
-        """Retrieve if the user has read-only access"""
+        """Retrieve if the user has read-only access."""
         if self.id and self.id.startswith("offline_"):
-            return self._get_attribute("user")["is_readonly"]
-        return self._get_attribute("is_readonly")
+            _user_dict = typing.cast("dict[str, bool]", self._get_attribute("user"))
+            return _user_dict["is_readonly"]
+        return typing.cast("bool", self._get_attribute("is_readonly"))
 
     @is_readonly.setter
     @write_only
     @pydantic.validate_call
     def is_readonly(self, is_readonly: bool) -> None:
-        """Set if the user has read-only access"""
+        """Set if the user has read-only access."""
         self._staging["is_readonly"] = is_readonly
 
     @property
     @staging_check
     def enabled(self) -> bool:
-        """Retrieve if the user is enabled"""
+        """Retrieve if the user is enabled."""
         if self.id and self.id.startswith("offline_"):
-            return self._get_attribute("user")["is_enabled"]
-        return self._get_attribute("is_enabled")
+            _user_dict = typing.cast("dict[str, bool]", self._get_attribute("user"))
+            return _user_dict["is_enabled"]
+        return typing.cast("bool", self._get_attribute("is_enabled"))
 
     @enabled.setter
     @write_only
     @pydantic.validate_call
     def enabled(self, is_enabled: bool) -> None:
-        """Set if the user is enabled"""
+        """Set if the user is enabled."""
         self._staging["is_enabled"] = is_enabled
 
     @property
     @staging_check
     def email(self) -> str:
-        """Retrieve the user email"""
+        """Retrieve the user email."""
         if self.id and self.id.startswith("offline_"):
-            return self._get_attribute("user")["email"]
-        return self._get_attribute("email")
+            _user_dict = typing.cast("dict[str, str]", self._get_attribute("user"))
+            return _user_dict["email"]
+        return typing.cast("str", self._get_attribute("email"))
 
     @email.setter
     @write_only
     @pydantic.validate_call
     def email(self, email: str) -> None:
-        """Set the user email"""
+        """Set the user email."""
         self._staging["email"] = email
