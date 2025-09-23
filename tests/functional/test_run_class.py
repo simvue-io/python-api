@@ -167,7 +167,7 @@ def test_log_metrics_online(
     visibility: typing.Literal["public", "tenant"] | list[str] | None,
     metric_type: typing.Literal["regular", "tensor"],
 ) -> None:
-    METRICS = {"a": 10, "b": 1.2}
+    METRICS = {"a": 10, "aB0-_/.:=><+()": 1.2}
 
     # Have to create the run outside of fixtures because the resources dispatch
     # occurs immediately and is not captured by the handler when using the fixture
@@ -313,7 +313,7 @@ def test_log_metrics_offline(
             axes_labels=["x", "y"]
         )
     else:
-        METRICS = {"a": 10, "b": 1.2, "c": 2}
+        METRICS = {"a": 10, "aB0-_/.:=><+()": 1.2, "c": 2}
         
     run.log_metrics(METRICS)
     
