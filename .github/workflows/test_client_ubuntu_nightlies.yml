@@ -19,7 +19,6 @@ jobs:
   object_retrieval:
     runs-on: ubuntu-latest
     timeout-minutes: 30
-    name: Ubuntu Nightly
     steps:
     - uses: actions/checkout@v4
     - name: Set up Python 3.13
