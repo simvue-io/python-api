@@ -147,3 +147,19 @@ def test_folder_get_properties() -> None:
 
     if _failed:
         raise AssertionError("\n" + "\n\t- ".join(": ".join(i) for i in _failed))
+
+
+@pytest.mark.api
+@pytest.mark.online
+def test_folder_tree() -> None:
+    N_FOLDERS: int = 10
+    _uuid: str = f"{uuid.uuid4()}".split("-")[0]
+    _root_folder_path: str = f"/simvue_unit_testing/objects/folder/{_uuid}"
+    for i in range(N_FOLDERS):
+        _path = f"{_root_folder_path}/test_folder_tree_{i}"
+        _folder = Folder.new(path=_path)
+        _folder.commit()
+    _, _root_folder = next(Folder.get(filters=json.dumps([f"path == {_root_folder_path}"])))
+    assert len(_root_folder.tree["simvue_unit_testing"]["objects"]["folder"][_uuid]) == N_FOLDERS
+    _root_folder.delete(recursive=True)
+
