@@ -1,32 +1,35 @@
-"""
-Simvue Metric Alerts
-====================
+"""Simvue Metric Alerts.
 
 Classes for interacting with metric-based alerts either defined
 locally or on a Simvue server
 
 """
 
-import pydantic
 import typing
+
+import pydantic
 
 try:
     from typing import Self
 except ImportError:
-    from typing_extensions import Self
+    from typing import Self
 
 from simvue.api.objects.base import write_only
-from .base import AlertBase, staging_check
 from simvue.models import NAME_REGEX
+
+from .base import AlertBase, staging_check
 
 Aggregate = typing.Literal["average", "sum", "at least one", "all"]
 Rule = typing.Literal["is above", "is below", "is inside range", "is outside range"]
 
 
 class MetricsThresholdAlert(AlertBase):
-    """Class for connecting to/creating a local or remotely defined metric threshold alert"""
+    """Class for interacting with metrics on the server.
 
-    def __init__(self, identifier: str | None = None, **kwargs) -> None:
+    For connecting to/creating a local or remotely defined metric threshold alert.
+    """
+
+    def __init__(self, identifier: str | None = None, **kwargs: object) -> None:
         """Connect to a local or remote threshold alert by identifier"""
         self.alert = MetricThresholdAlertDefinition(self)
         super().__init__(identifier, **kwargs)
@@ -50,7 +53,7 @@ class MetricsThresholdAlert(AlertBase):
         aggregation: Aggregate,
         rule: typing.Literal["is above", "is below"],
         window: pydantic.PositiveInt,
-        threshold: float | int,
+        threshold: float,
         frequency: pydantic.PositiveInt,
         enabled: bool = True,
         offline: bool = False,

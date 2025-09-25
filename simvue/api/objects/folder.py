@@ -69,7 +69,8 @@ class Folder(SimvueObject):
         **kwargs : dict
             any additional arguments to be passed to the object initialiser
         """
-        super().__init__(identifier, **kwargs)  # pyright: ignore[reportArgumentType]
+        super().__init__(identifier, **kwargs)
+        self._properties.remove("tree")
 
     @classmethod
     @pydantic.validate_call
@@ -101,6 +102,32 @@ class Folder(SimvueObject):
             _params["sorting"] = json.dumps([i.to_params() for i in sorting])
 
         return super().get(count=count, offset=offset, **_params)
+
+    @property
+    def tree(self) -> dict[str, object]:
+        """Return hierarchy for this folder.
+
+        Returns
+        -------
+        dict
+            a nested dictionary describing the hierarchy
+        """
+        _level: int = len(self.path.split("/"))
+        _folders = self.__class__.get(
+            filters=json.dumps([f"path contains {self.path}"])
+        )
+        _paths = [folder.path.split("/") for _, folder in _folders]
+        _paths = sorted(_paths, key=len)
+        _out_dict: dict[str, object] = {}
+        _modifier = None
+        for path in _paths:
+            if len(path) <= _level:
+                continue
+            _modifier = _out_dict
+            for element in path[1:]:
+                _modifier.setdefault(element, {})
+                _modifier = _modifier[element]
+        return _out_dict
 
     @property
     @staging_check

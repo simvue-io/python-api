@@ -172,7 +172,7 @@ class EventAlertDefinition:
     @pydantic.validate_call
     def frequency(self, frequency: int) -> None:
         """Set the update frequency for this alert."""
-        _alert = self._sv_obj.get_alert()
+        _alert: dict[str, object] = self._sv_obj.get_alert()
         if not _alert:
             _out_msg: str = f"{self.__class__.__name__} object has no alert definition."
             raise RuntimeError(_out_msg)

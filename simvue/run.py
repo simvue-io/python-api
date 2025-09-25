@@ -22,7 +22,6 @@ import time
 import traceback as tb
 import typing
 import uuid
-import warnings
 
 import click
 import humanfriendly
@@ -1054,7 +1053,7 @@ class Run:
         enable_emission_metrics: bool | None = None,
         disable_resources_metrics: bool | None = None,
         storage_id: str | None = None,
-        abort_on_alert: typing.Literal["run", "all", "ignore"] | bool | None = None,
+        abort_on_alert: typing.Literal["run", "terminate", "ignore"] | None = None,
     ) -> bool:
         """Optional configuration
 
@@ -1073,10 +1072,10 @@ class Run:
             disable monitoring of resource metrics
         storage_id : str, optional
             identifier of storage to use, by default None
-        abort_on_alert : Literal['ignore', run', 'terminate'], optional
+        abort_on_alert : Literal['ignore', 'terminate', 'ignore'], optional
             whether to abort when an alert is triggered.
                 * run - current run is aborted.
-                * terminate - script itself is terminated.
+                * terminate - (default) script itself is terminated.
                 * ignore - alerts do not affect this run.
 
         Returns
@@ -1141,11 +1140,12 @@ class Run:
 
             if abort_on_alert is not None:
                 if isinstance(abort_on_alert, bool):
-                    warnings.warn(
-                        "Use of type bool for argument 'abort_on_alert' will be deprecated from v1.2, "
-                        "please use either 'run', 'all' or 'ignore'"
+                    raise (
+                        TypeError(
+                            "Use of type bool for argument 'abort_on_alert' has been removed, "
+                            "please use either 'run', 'all' or 'ignore'"
+                        )
                     )
-                    abort_on_alert = "run" if self._abort_on_alert else "ignore"
                 self._abort_on_alert = abort_on_alert
 
             if storage_id:
