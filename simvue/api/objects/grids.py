@@ -40,8 +40,6 @@ def check_ordered_array(
     if isinstance(axis_ticks, numpy.ndarray):
         axis_ticks = axis_ticks.tolist()
     for i, _array in enumerate(axis_ticks):
-        if not isinstance(_array[0], float):
-            raise ValueError("Ordering can only be checked on a 1D array")
         _array = numpy.array(_array)
         if not numpy.all(numpy.sort(_array) == _array) or numpy.all(
             reversed(numpy.sort(_array)) == _array
