@@ -37,11 +37,20 @@ UPLOAD_ORDER: list[str] = [
 _logger = logging.getLogger(__name__)
 
 
+def _log_upload_failed(file_path):
+    with open(file_path, "r") as file:
+        _data = json.load(file)
+    _data["upload_failed"] = True
+    with open(file_path, "w") as file:
+        json.dump(_data, file)
+
+
 def upload_cached_file(
     cache_dir: pydantic.DirectoryPath,
     obj_type: str,
     file_path: pydantic.FilePath,
     id_mapping: dict[str, str],
+    retry_failed_uploads: bool,
     lock: threading.Lock,
 ):
     """Upload data stored in a cached file to the Simvue server.
@@ -62,10 +71,16 @@ def upload_cached_file(
     _current_id = file_path.name.split(".")[0]
     _data = json.load(file_path.open())
     _exact_type: str = _data.pop("obj_type")
+
+    if _data.pop("upload_failed", False) and not retry_failed_uploads:
+        return
+
     try:
         _instance_class = getattr(simvue.api.objects, _exact_type)
-    except AttributeError as e:
-        raise RuntimeError(f"Attempt to initialise unknown type '{_exact_type}'") from e
+    except AttributeError:
+        _logger.error(f"Attempt to initialise unknown type '{_exact_type}'")
+        _log_upload_failed(file_path)
+        return
 
     # If it is an ObjectArtifact, need to load the object as bytes from a different file
     if issubclass(_instance_class, simvue.api.objects.ObjectArtifact):
@@ -87,14 +102,21 @@ def upload_cached_file(
         if not issubclass(_instance_class, ArtifactBase):
             obj_for_upload.commit()
         _new_id = obj_for_upload.id
-    except RuntimeError as error:
+    except Exception as error:
         if "status 409" in error.args[0]:
             return
-        raise error
+        _logger.error(
+            f"Error while committing '{obj_for_upload.__class__.__name__}': {error.args[0]}"
+        )
+        _log_upload_failed(file_path)
+        return
     if not _new_id:
-        raise RuntimeError(
+        _logger.error(
             f"Object of type '{obj_for_upload.__class__.__name__}' has no identifier"
         )
+        _log_upload_failed(file_path)
+        return
+
     _logger.info(
         f"{'Updated' if id_mapping.get(_current_id) else 'Created'} {obj_for_upload.__class__.__name__} '{_new_id}'"
     )
@@ -155,6 +177,7 @@ def sender(
     max_workers: int = 5,
     threading_threshold: int = 10,
     objects_to_upload: list[str] = UPLOAD_ORDER,
+    retry_failed_uploads: bool = False,
 ) -> dict[str, str]:
     """Send data from a local cache directory to the Simvue server.
 
@@ -168,6 +191,8 @@ def sender(
         The number of cached files above which threading will be used
     objects_to_upload : list[str]
         Types of objects to upload, by default uploads all types of objects present in cache
+    retry_failed_uploads : bool, optional
+        Whether to retry sending objects which previously failed, by default False
 
     Returns
     -------
@@ -203,7 +228,14 @@ def sender(
         _offline_files = _all_offline_files[_obj_type]
         if len(_offline_files) < threading_threshold:
             for file_path in _offline_files:
-                upload_cached_file(cache_dir, _obj_type, file_path, _id_mapping, _lock)
+                upload_cached_file(
+                    cache_dir,
+                    _obj_type,
+                    file_path,
+                    _id_mapping,
+                    retry_failed_uploads,
+                    _lock,
+                )
         else:
             with ThreadPoolExecutor(
                 max_workers=max_workers, thread_name_prefix="sender_session_upload"
@@ -214,6 +246,7 @@ def sender(
                         obj_type=_obj_type,
                         file_path=file_path,
                         id_mapping=_id_mapping,
+                        retry_failed_uploads=retry_failed_uploads,
                         lock=_lock,
                     ),
                     _offline_files,
