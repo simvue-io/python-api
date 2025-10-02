@@ -1,6 +1,4 @@
-"""
-Simvue API Connection
-=====================
+"""Simvue API Connection.
 
 Provides methods for interacting with a Simvue server which include retry
 policies. In cases where JSON is the expected form the data is firstly converted
@@ -23,6 +21,8 @@ from tenacity import (
 
 from simvue.utilities import parse_validation_response
 
+logger = logging.getLogger(__name__)
+
 DEFAULT_API_TIMEOUT = 10
 RETRY_MULTIPLIER = 1
 RETRY_MIN = 4
@@ -40,17 +40,14 @@ RETRY_EXCEPTION_TYPES = (RuntimeError, requests.exceptions.ConnectionError)
 
 
 def set_json_header(headers: dict[str, str]) -> dict[str, str]:
-    """
-    Return a copy of the headers with Content-Type set to
-    application/json
-    """
+    """Return a copy of the headers with Content-Type set to application/json."""
     headers = copy.deepcopy(headers)
     headers["Content-Type"] = "application/json"
     return headers
 
 
-def is_retryable_exception(exception: Exception) -> bool:
-    """Returns if the given exception should lead to a retry being called"""
+def is_retryable_exception(exception: BaseException) -> bool:
+    """Return if the given exception should lead to a retry being called."""
     if isinstance(exception, requests.HTTPError):
         return exception.response.status_code in RETRY_STATUS_CODES
 
@@ -67,12 +64,13 @@ def post(
     url: str,
     headers: dict[str, str],
     params: dict[str, str],
-    data: typing.Any,
+    data: object,
+    *,
     is_json: bool = True,
     timeout: int | None = None,
     files: dict[str, typing.Any] | None = None,
 ) -> requests.Response:
-    """HTTP POST with retries
+    """HTTP POST with retries.
 
     Parameters
     ----------
@@ -94,7 +92,7 @@ def post(
 
     """
     if is_json:
-        data_sent: str | dict[str, typing.Any] = json_module.dumps(data)
+        data_sent: str | dict[str, typing.Any] | object = json_module.dumps(data)
         headers = set_json_header(headers)
     else:
         data_sent = data
@@ -110,9 +108,11 @@ def post(
 
     if response.status_code == http.HTTPStatus.UNPROCESSABLE_ENTITY:
         _parsed_response = parse_validation_response(response.json())
-        raise ValueError(
-            f"Validation error for '{url}' [{response.status_code}]:\n{_parsed_response}"
+        _out_msg: str = (
+            f"Validation error for '{url}' [{response.status_code}]:"
+            f"\n{_parsed_response}"
         )
+        raise ValueError(_out_msg)
 
     return response
 
@@ -128,10 +128,11 @@ def put(
     headers: dict[str, str],
     data: dict[str, typing.Any] | None = None,
     json: dict[str, typing.Any] | None = None,
+    *,
     is_json: bool = True,
     timeout: int = DEFAULT_API_TIMEOUT,
 ) -> requests.Response:
-    """HTTP PUT with retries
+    """HTTP PUT with retries.
 
     Parameters
     ----------
@@ -154,12 +155,12 @@ def put(
         response from executing PUT
     """
     if is_json and data:
-        data_sent: str | dict[str, typing.Any] = json_module.dumps(data)
+        data_sent: str | dict[str, typing.Any] | object = json_module.dumps(data)
         headers = set_json_header(headers)
     else:
         data_sent = data
 
-    logging.debug(f"PUT: {url}\n\tdata={data_sent}\n\tjson={json}")
+    logger.debug("PUT: %s\n\tdata=%s\n\tjson=%s", url, data_sent, json)
 
     return requests.put(
         url, headers=headers, data=data_sent, timeout=timeout, json=json
@@ -179,7 +180,7 @@ def get(
     timeout: int = DEFAULT_API_TIMEOUT,
     json: dict[str, typing.Any] | None = None,
 ) -> requests.Response:
-    """HTTP GET
+    """HTTP GET.
 
     Parameters
     ----------
@@ -197,7 +198,7 @@ def get(
     requests.Response
         response from executing GET
     """
-    logging.debug(f"GET: {url}\n\tparams={params}")
+    logger.debug("GET: %s\n\tparams=%s", url, params)
     return requests.get(url, headers=headers, timeout=timeout, params=params, json=json)
 
 
@@ -213,7 +214,7 @@ def delete(
     timeout: int = DEFAULT_API_TIMEOUT,
     params: dict[str, typing.Any] | None = None,
 ) -> requests.Response:
-    """HTTP DELETE
+    """HTTP DELETE.
 
     Parameters
     ----------
@@ -231,19 +232,43 @@ def delete(
     requests.Response
         response from executing DELETE
     """
-    logging.debug(f"DELETE: {url}\n\tparams={params}")
+    logger.debug("DELETE: %s\n\tparams=%s", url, params)
     return requests.delete(url, headers=headers, timeout=timeout, params=params)
 
 
 def get_json_from_response(
-    expected_status: list[int],
+    expected_status: list[http.HTTPStatus],
     scenario: str,
     response: requests.Response,
+    *,
     allow_parse_failure: bool = False,
     expected_type: type[dict[str, object] | list[object]] = dict,
 ) -> dict[str, object] | list[object]:
+    """Retrieve the JSON data from a server response.
+
+    Parameters
+    ----------
+    expected_status : list[http.HTTPStatus]
+        list of valid response status codes.
+    scenario : str
+        description of the scenario.
+    response : requests.Response
+        the response object to process
+    allow_parse_failure : bool, optional
+        whether the attempt to parse failure response
+        is allowed to itself fail, default False.
+    expected_type : type[dict | list], optional
+        the expected response type, default dict.
+
+    Returns
+    -------
+    list | dict
+        the response information.
+    """
     try:
-        json_response = response.json()
+        json_response: list[dict[str, object]] | dict[str, object] | None = (
+            response.json()
+        )
         json_response = json_response or ({} if expected_type is dict else [])
         decode_error = ""
     except json_module.JSONDecodeError as e:
@@ -254,12 +279,13 @@ def get_json_from_response(
     details: str | None = None
 
     if (_status_code := response.status_code) in expected_status:
-        if not isinstance(json_response, expected_type):
+        if json_response is None:
+            details = f"could not request JSON response: {decode_error}"
+        elif not isinstance(json_response, expected_type):
             details = f"expected type '{expected_type.__name__}' but got '{type(json_response).__name__}'"
-        elif json_response is not None:
+        else:
             return json_response
         else:
-            details = f"could not request JSON response: {decode_error}"
     elif isinstance(json_response, dict):
         error_str += f" with status {_status_code}"
         details = (json_response or {}).get("detail")
