@@ -41,7 +41,7 @@ class MetricSet(pydantic.BaseModel):
     @classmethod
     def timestamp_str(cls, value: str) -> str:
         try:
-            datetime.datetime.strptime(value, DATETIME_FORMAT)
+            _ = datetime.datetime.strptime(value, DATETIME_FORMAT)
         except ValueError as e:
             raise AssertionError(
                 f"Invalid timestamp, expected form '{DATETIME_FORMAT}'"
