@@ -86,39 +86,38 @@ def upload_cached_file(
     if issubclass(_instance_class, simvue.api.objects.ObjectArtifact):
         with open(file_path.parent.joinpath(f"{_current_id}.object"), "rb") as file:
             _data["serialized"] = file.read()
-
-    # We want to reconnect if there is an online ID stored for this file
-    if _online_id := id_mapping.get(_current_id):
-        obj_for_upload = _instance_class(
-            identifier=_online_id, _read_only=False, **_data
-        )
-    else:
-        obj_for_upload = _instance_class.new(**_data)
-
-    with lock:
-        obj_for_upload.on_reconnect(id_mapping)
-
     try:
+        # We want to reconnect if there is an online ID stored for this file
+        if _online_id := id_mapping.get(_current_id):
+            obj_for_upload = _instance_class(
+                identifier=_online_id, _read_only=False, **_data
+            )
+        else:
+            obj_for_upload = _instance_class.new(**_data)
+
+        with lock:
+            obj_for_upload.on_reconnect(id_mapping)
+
         if not issubclass(_instance_class, ArtifactBase):
             obj_for_upload.commit()
         _new_id = obj_for_upload.id
+
     except Exception as error:
         if "status 409" in error.args[0]:
             return
+
         _logger.error(
-            f"Error while committing '{obj_for_upload.__class__.__name__}': {error.args[0]}"
+            f"Error while committing '{_instance_class.__name__}': {error.args[0]}"
         )
         _log_upload_failed(file_path)
         return
     if not _new_id:
-        _logger.error(
-            f"Object of type '{obj_for_upload.__class__.__name__}' has no identifier"
-        )
+        _logger.error(f"Object of type '{_instance_class.__name__}' has no identifier")
         _log_upload_failed(file_path)
         return
 
     _logger.info(
-        f"{'Updated' if id_mapping.get(_current_id) else 'Created'} {obj_for_upload.__class__.__name__} '{_new_id}'"
+        f"{'Updated' if id_mapping.get(_current_id) else 'Created'} {_instance_class.__name__} '{_new_id}'"
     )
 
     file_path.unlink(missing_ok=True)

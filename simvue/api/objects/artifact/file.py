@@ -124,4 +124,8 @@ class FileArtifact(ArtifactBase):
         with open(_file_orig_path, "rb") as out_f:
             _artifact._upload(file=out_f, timeout=upload_timeout, file_size=_file_size)
 
+        # If snapshot created, delete it after uploading
+        if pathlib.Path(_file_orig_path).parent == _artifact._local_staging_file.parent:
+            pathlib.Path(_file_orig_path).unlink()
+
         return _artifact
