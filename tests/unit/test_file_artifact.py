@@ -93,4 +93,61 @@ def test_file_artifact_creation_offline(offline_cache_setup) -> None:
     assert _content == f"Hello World! {_uuid}"
     _run.delete()
     _folder.delete()
+    
+    
+@pytest.mark.api
+@pytest.mark.offline
+@pytest.mark.parametrize(
+    "snapshot",
+    (True, False)
+)
+def test_file_artifact_creation_offline_snapshot(offline_cache_setup, snapshot) -> None:
+    _uuid: str = f"{uuid.uuid4()}".split("-")[0]
+    _folder_name = f"/simvue_unit_testing/{_uuid}"
+    _folder = Folder.new(path=_folder_name, offline=True)
+    _run = Run.new(name=f"test_file_artifact_creation_offline_snapshot_{_uuid}",folder=_folder_name, offline=True) 
+
+    _path = pathlib.Path(offline_cache_setup.name).joinpath("hello_world.txt")
+
+    with _path.open("w") as out_f:
+        out_f.write(f"Hello World! {_uuid}")
+
+    _folder.commit()
+    _run.commit()
+    _artifact = FileArtifact.new(
+        name=f"test_file_artifact_{_uuid}",
+        file_path=_path,
+        storage=None,
+        mime_type=None,
+        offline=True,
+        metadata=None,
+        snapshot=snapshot
+    )
+    _artifact.attach_to_run(_run._identifier, category="input")
+    
+    with _artifact._local_staging_file.open() as in_f:
+        _local_data = json.load(in_f)
+        
+    assert _local_data.get("name") == f"test_file_artifact_{_uuid}"
+    assert _local_data.get("runs") == {_run._identifier: "input"}
+    
+    # Change the file after the artifact is created, but before it is sent
+    with _path.open("w") as out_f:
+        out_f.write("File changed!")
+    
+    if not snapshot:
+        with pytest.raises(RuntimeError): # TODO: Make sender be resilient to this?
+            _id_mapping = sender(pathlib.Path(offline_cache_setup.name), 1, 10)
+        return
+    else:
+        _id_mapping = sender(pathlib.Path(offline_cache_setup.name), 1, 10)
+    time.sleep(1)
+    
+    _online_artifact = Artifact(_id_mapping[_artifact.id])
+    assert _online_artifact.name == _artifact.name
+    _content = b"".join(_online_artifact.download_content()).decode("UTF-8")
+    # Since it was snapshotted, should be the state of the file before it was changed
+    assert _content == f"Hello World! {_uuid}"
+    _run.delete()
+    _folder.delete()
 

@@ -810,6 +810,9 @@ def test_set_folder_details(request: pytest.FixtureRequest) -> None:
 
 @pytest.mark.run
 @pytest.mark.parametrize(
+    "snapshot", (True, False)
+)
+@pytest.mark.parametrize(
     "valid_mimetype,preserve_path,name,allow_pickle,empty_file,category",
     [
         (True, False, None, False, False, "input"),
@@ -827,6 +830,7 @@ def test_save_file_online(
     allow_pickle: bool,
     empty_file: bool,
     category: typing.Literal["input", "output", "code"],
+    snapshot: bool,
     capfd,
     request,
 ) -> None:
@@ -860,6 +864,7 @@ def test_save_file_online(
                     file_type=file_type,
                     preserve_path=preserve_path,
                     name=name,
+                    snapshot=snapshot
                 )
             else:
                 with pytest.raises(RuntimeError):
@@ -892,6 +897,9 @@ def test_save_file_online(
 @pytest.mark.run
 @pytest.mark.offline
 @pytest.mark.parametrize(
+    "snapshot", (True, False)
+)
+@pytest.mark.parametrize(
     "preserve_path,name,allow_pickle,empty_file,category",
     [
         (False, None, False, False, "input"),
@@ -908,6 +916,7 @@ def test_save_file_offline(
     name: str | None,
     allow_pickle: bool,
     empty_file: bool,
+    snapshot: bool,
     category: typing.Literal["input", "output", "code"],
     capfd,
 ) -> None:
@@ -927,7 +936,15 @@ def test_save_file_offline(
             file_type=file_type,
             preserve_path=preserve_path,
             name=name,
+            snapshot=snapshot
         )
+        # if snapshotting, check file can be updated, but previous contents set
+        if snapshot:
+            with open(
+                (out_name := pathlib.Path(tempd).joinpath("test_file.txt")),
+                "w",
+            ) as out_f:
+                out_f.write("updated file!")
         sv_send.sender(os.environ["SIMVUE_OFFLINE_DIRECTORY"], 2, 10)
         os.remove(out_name)
         client = sv_cl.Client()
@@ -944,8 +961,11 @@ def test_save_file_offline(
             name=f"{name or stored_name}",
             output_dir=tempd,
         )
-        assert out_loc.joinpath(name or out_name.name).exists()
-
+        assert out_file.exists()
+        with open(
+            out_file, "r") as out_f:
+            content = out_f.read()
+        assert content == "test data entry"
 
 @pytest.mark.run
 def test_update_tags_running(
