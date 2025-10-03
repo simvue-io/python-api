@@ -13,7 +13,6 @@ import threading
 import requests
 import psutil
 from simvue.config.user import SimvueConfiguration
-
 import simvue.api.objects
 from simvue.api.objects.artifact.base import ArtifactBase
 from simvue.eco.emissions_monitor import CO2Monitor
@@ -37,11 +36,18 @@ UPLOAD_ORDER: list[str] = [
 _logger = logging.getLogger(__name__)
 
 
-def _log_upload_failed(file_path):
-    with open(file_path, "r") as file:
+def _log_upload_failed(file_path: pydantic.FilePath) -> None:
+    """Record that an object failed to upload in the object offline cache file.
+
+    Parameters
+    ----------
+    file_path : pydantic.FilePath
+        The path to the offline cache file for the object
+    """
+    with file_path.open("r") as file:
         _data = json.load(file)
     _data["upload_failed"] = True
-    with open(file_path, "w") as file:
+    with file_path.open("w") as file:
         json.dump(_data, file)
 
 
@@ -52,7 +58,7 @@ def upload_cached_file(
     id_mapping: dict[str, str],
     retry_failed_uploads: bool,
     lock: threading.Lock,
-):
+) -> None:
     """Upload data stored in a cached file to the Simvue server.
 
     Parameters
@@ -228,12 +234,12 @@ def sender(
         if len(_offline_files) < threading_threshold:
             for file_path in _offline_files:
                 upload_cached_file(
-                    cache_dir,
-                    _obj_type,
-                    file_path,
-                    _id_mapping,
-                    retry_failed_uploads,
-                    _lock,
+                    cache_dir=cache_dir,
+                    obj_type=_obj_type,
+                    file_path=file_path,
+                    id_mapping=_id_mapping,
+                    retry_failed_uploads=retry_failed_uploads,
+                    lock=_lock,
                 )
         else:
             with ThreadPoolExecutor(

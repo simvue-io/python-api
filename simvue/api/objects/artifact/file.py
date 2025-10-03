@@ -6,7 +6,7 @@ import os
 import pathlib
 import shutil
 from simvue.config.user import SimvueConfiguration
-import uuid
+from datetime import datetime
 from simvue.models import NAME_REGEX
 from simvue.utilities import get_mimetype_for_file, get_mimetypes, calculate_sha256
 
@@ -87,7 +87,7 @@ class FileArtifact(ArtifactBase):
                 )
                 _local_staging_dir.mkdir(parents=True, exist_ok=True)
                 _local_staging_file = _local_staging_dir.joinpath(
-                    f"{uuid.uuid4()}.file"
+                    f"{file_path.stem}_{datetime.now().strftime('%Y-%m-%d_%H-%M-%S_%f')[:-3]}.file"
                 )
                 shutil.copy(file_path, _local_staging_file)
                 file_path = _local_staging_file
