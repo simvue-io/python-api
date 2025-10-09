@@ -35,7 +35,7 @@ jobs:
         python -m pip install poetry
         poetry self add poetry-plugin-export
         poetry export -f requirements.txt --with dev -o requirements.txt --all-extras
-        python -m pip install torch --index-url https://download.pytorch.org/whl/cpu
+        python -m pip install torch --index-url https://download.pytorch.org/whl/cpu || true
         python -m pip install -r requirements.txt
         python -m pip install .
     - name: Test with pytest
@@ -65,7 +65,7 @@ jobs:
         python -m pip install poetry
         poetry self add poetry-plugin-export
         poetry export -f requirements.txt --with dev -o requirements.txt --all-extras
-        python -m pip install torch --index-url https://download.pytorch.org/whl/cpu
+        python -m pip install torch --index-url https://download.pytorch.org/whl/cpu || true
         python -m pip install -r requirements.txt
         python -m pip install .
     - name: Test with pytest
@@ -124,7 +124,7 @@ jobs:
         python -m pip install poetry
         poetry self add poetry-plugin-export
         poetry export -f requirements.txt --with dev -o requirements.txt --all-extras
-        python -m pip install torch --index-url https://download.pytorch.org/whl/cpu
+        python -m pip install torch --index-url https://download.pytorch.org/whl/cpu || true
         python -m pip install -r requirements.txt
         python -m pip install .
     - name: Test with pytest
@@ -154,7 +154,7 @@ jobs:
         python -m pip install poetry
         poetry self add poetry-plugin-export
         poetry export -f requirements.txt --with dev -o requirements.txt --all-extras
-        python -m pip install torch --index-url https://download.pytorch.org/whl/cpu
+        python -m pip install torch --index-url https://download.pytorch.org/whl/cpu || true
         python -m pip install -r requirements.txt
         python -m pip install .
     - name: Test with pytest
