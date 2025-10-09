@@ -75,7 +75,7 @@ class ArtifactBase(SimvueObject):
 
     @classmethod
     @override
-    def new(cls, *_: object, **__: object) -> Self:
+    def new(cls, **kwargs: typing.Any) -> Self:
         raise NotImplementedError
 
     @override

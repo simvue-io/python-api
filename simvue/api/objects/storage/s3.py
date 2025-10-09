@@ -1,34 +1,57 @@
-"""
-Simvue S3 Storage
-=================
+"""Simvue S3 Storage.
 
 Class for interacting with an S3 based storage on the server.
 
 """
+
+from __future__ import annotations
 
 import typing
 
 try:
     from typing import Self
 except ImportError:
-    from typing_extensions import Self
+    from typing import Self
+
+try:
+    from typing import override
+except ImportError:
+    from typing_extensions import override  # noqa: UP035
+
 import pydantic
 
-from simvue.api.objects.base import write_only
-
-from .base import StorageBase, staging_check
+from simvue.api.objects.base import staging_check, write_only
 from simvue.models import NAME_REGEX
+
+from .base import StorageBase
 
 
 class S3Storage(StorageBase):
     """Class for defining/accessing an S3 based storage system on the server."""
 
-    def __init__(self, identifier: str | None = None, **kwargs) -> None:
-        """Initialise an S3Storage instance attaching a configuration"""
-        self.config = Config(self)
-        super().__init__(identifier, **kwargs)
+    def __init__(
+        self,
+        identifier: str | None = None,
+        *,
+        _read_only: bool = False,
+        _offline: bool = False,
+        _user_agent: str | None = None,
+        _local: bool = False,
+        **kwargs: object,
+    ) -> None:
+        """Initialise an S3Storage instance attaching a configuration."""
+        self.config: Config = Config(self)
+        super().__init__(
+            identifier,
+            _local=_local,
+            _read_only=_read_only,
+            _offline=_offline,
+            _user_agent=_user_agent,
+            **kwargs,
+        )
 
     @classmethod
+    @override
     @pydantic.validate_call
     def new(
         cls,
@@ -44,7 +67,7 @@ class S3Storage(StorageBase):
         is_default: bool,
         is_enabled: bool,
         offline: bool = False,
-        **__,
+        **__: object,
     ) -> Self:
         """Create a new S3 storage object.
 
@@ -86,7 +109,7 @@ class S3Storage(StorageBase):
             "secret_access_key": secret_access_key.get_secret_value(),
             "bucket": bucket,
         }
-        _storage = S3Storage(
+        _storage = cls(
             name=name,
             backend="S3",
             config=_config,
@@ -101,20 +124,23 @@ class S3Storage(StorageBase):
         return _storage
 
     @staging_check
-    def get_config(self) -> dict[str, typing.Any]:
-        """Retrieve configuration"""
+    def get_config(self) -> dict[str, float | None | str]:
+        """Retrieve configuration."""
         try:
-            return self._get_attribute("config")
+            _config: dict[str, float | None | str] = typing.cast(
+                "dict[str, float | None | str]", self._get_attribute("config")
+            )
         except AttributeError:
             return {}
+        return _config
 
 
 class Config:
-    """S3 Configuration interface"""
+    """S3 Configuration interface."""
 
     def __init__(self, storage: S3Storage) -> None:
-        """Initialise a new configuration using an S3Storage object"""
-        self._sv_obj = storage
+        """Initialise a new configuration using an S3Storage object."""
+        self._sv_obj: S3Storage = storage
 
     @property
     @staging_check
@@ -126,6 +152,9 @@ class Config:
         str
             the endpoint for this storage object
         """
+        if not self._sv_obj:
+            raise RuntimeError("Expected S3Storage instance but none found.")
+
         try:
             return self._sv_obj.get_config()["endpoint_url"]
         except KeyError as e:

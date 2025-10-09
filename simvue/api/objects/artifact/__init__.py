@@ -1,5 +1,7 @@
-from .fetch import Artifact as Artifact
-from .file import FileArtifact as FileArtifact
-from .object import ObjectArtifact as ObjectArtifact
+"""Simvue Artifact Object types."""
+
+from .fetch import Artifact
+from .file import FileArtifact
+from .object import ObjectArtifact
 
 __all__ = ["Artifact", "FileArtifact", "ObjectArtifact"]

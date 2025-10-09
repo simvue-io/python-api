@@ -1,6 +1,4 @@
-"""
-Simvue File Storage
-===================
+"""Simvue File Storage.
 
 Class for interacting with a file based storage on the server.
 
@@ -11,11 +9,18 @@ import typing
 try:
     from typing import Self
 except ImportError:
-    from typing_extensions import Self
+    from typing_extensions import Self  # noqa: UP035
+
 import pydantic
 
-from .base import StorageBase
 from simvue.models import NAME_REGEX
+
+from .base import StorageBase
+
+try:
+    from typing import override
+except ImportError:
+    from typing_extensions import override  # noqa: UP035
 
 
 class FileStorage(StorageBase):
@@ -23,6 +28,7 @@ class FileStorage(StorageBase):
 
     @classmethod
     @pydantic.validate_call
+    @override
     def new(
         cls,
         *,
@@ -32,7 +38,7 @@ class FileStorage(StorageBase):
         is_enabled: bool,
         is_default: bool,
         offline: bool = False,
-        **_,
+        **_: object,
     ) -> Self:
         """Create a new file storage object.
 
@@ -56,7 +62,7 @@ class FileStorage(StorageBase):
         FileStorage
             instance of storage system with staged changes
         """
-        return FileStorage(
+        return cls(
             name=name,
             backend="File",
             disable_check=disable_check,

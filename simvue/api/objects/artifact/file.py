@@ -1,10 +1,10 @@
 """File type artifact handling."""
 
+import datetime
 import os
 import pathlib
 import shutil
 import typing
-from datetime import datetime
 
 import pydantic
 
@@ -23,6 +23,12 @@ try:
     from typing import override
 except ImportError:
     from typing_extensions import override  # noqa: UP035
+
+
+try:
+    tz_utc = datetime.UTC
+except AttributeError:
+    tz_utc = datetime.timezone.utc  # noqa: UP017
 
 
 class FileArtifact(ArtifactBase):
@@ -102,11 +108,15 @@ class FileArtifact(ArtifactBase):
                 _local_staging_dir: pathlib.Path = _user_config.offline.cache.joinpath(
                     "artifacts"
                 )
-                _local_staging_dir.mkdir(parents=True, exist_ok=True)
-                _local_staging_file = _local_staging_dir.joinpath(
-                    f"{file_path.stem}_{datetime.now().strftime('%Y-%m-%d_%H-%M-%S_%f')[:-3]}.file"
+                _local_staging_dir.mkdir(parents=True, exist_ok=True)  # pyright: ignore[reportUnusedCallResult]
+                _time_stamp: str = datetime.datetime.now(tz=datetime.UTC).strftime(
+                    "%Y-%m-%d_%H-%M-%S_%f"
                 )
-                shutil.copy(file_path, _local_staging_file)
+                _local_staging_file = _local_staging_dir.joinpath(
+                    f"{file_path.stem}_{_time_stamp[:-3]}.file"
+                )
+                _local_staging_file = typing.cast("pathlib.Path", _local_staging_file)
+                _ = shutil.copy(file_path, _local_staging_file)
                 file_path = _local_staging_file
 
             _file_size = file_path.stat().st_size

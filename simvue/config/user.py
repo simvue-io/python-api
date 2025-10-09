@@ -12,6 +12,7 @@ import logging
 import os
 import pathlib
 import typing
+from collections.abc import Mapping
 
 import pydantic
 import semver
@@ -61,8 +62,8 @@ class SimvueConfiguration(pydantic.BaseModel):
     eco: EcoConfig = EcoConfig()
 
     @classmethod
-    def _load_pyproject_configs(cls) -> dict | None:
-        """Recover any Simvue non-authentication configurations from pyproject.toml"""
+    def _load_pyproject_configs(cls) -> Mapping[str, object] | None:
+        """Recover any Simvue non-authentication configurations from pyproject.toml."""
         _pyproject_toml = sv_util.find_first_instance_of_file(
             file_names=["pyproject.toml"], check_user_space=False
         )
