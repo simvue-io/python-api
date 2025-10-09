@@ -2,10 +2,13 @@
 
 import os
 import pathlib
+import shutil
 import typing
+from datetime import datetime
 
 import pydantic
 
+from simvue.config.user import SimvueConfiguration
 from simvue.models import NAME_REGEX
 from simvue.utilities import calculate_sha256, get_mimetype_for_file, get_mimetypes
 
@@ -53,6 +56,7 @@ class FileArtifact(ArtifactBase):
         metadata: dict[str, typing.Any] | None,
         upload_timeout: int | None = None,
         offline: bool = False,
+        snapshot: bool = False,
         **kwargs: object,
     ) -> Self:
         """Create a new artifact either locally or on the server.
@@ -75,6 +79,9 @@ class FileArtifact(ArtifactBase):
             specify the timeout in seconds for upload
         offline : bool, optional
             whether to define this artifact locally, default is False
+        snapshot : bool, optional
+            whether to create a snapshot of this file before uploading it,
+            default is False
 
         """
         _mime_type = mime_type or get_mimetype_for_file(file_path)
@@ -89,6 +96,19 @@ class FileArtifact(ArtifactBase):
             _file_checksum = typing.cast("str", kwargs.pop("checksum"))
         else:
             file_path = pathlib.Path(file_path)
+            if snapshot:
+                _user_config = SimvueConfiguration.fetch()
+
+                _local_staging_dir: pathlib.Path = _user_config.offline.cache.joinpath(
+                    "artifacts"
+                )
+                _local_staging_dir.mkdir(parents=True, exist_ok=True)
+                _local_staging_file = _local_staging_dir.joinpath(
+                    f"{file_path.stem}_{datetime.now().strftime('%Y-%m-%d_%H-%M-%S_%f')[:-3]}.file"
+                )
+                shutil.copy(file_path, _local_staging_file)
+                file_path = _local_staging_file
+
             _file_size = file_path.stat().st_size
             _file_orig_path = file_path.expanduser().absolute()
             _file_checksum = calculate_sha256(f"{file_path}", is_file=True)
@@ -125,5 +145,9 @@ class FileArtifact(ArtifactBase):
 
         with pathlib.Path(_file_orig_path).open("rb") as out_f:
             _artifact._upload(file=out_f, timeout=upload_timeout, file_size=_file_size)
+
+        # If snapshot created, delete it after uploading
+        if pathlib.Path(_file_orig_path).parent == _artifact._local_staging_file.parent:
+            pathlib.Path(_file_orig_path).unlink()
 
         return _artifact

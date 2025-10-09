@@ -33,14 +33,19 @@ except ImportError:
 __all__ = ["Grid"]
 
 
-def check_ordered_array(axis_ticks: list[float]) -> bool:
+def check_ordered_array(
+    axis_ticks: list[list[float]] | numpy.ndarray,
+) -> list[list[float]]:
     """Returns if array is ordered or reverse ordered."""
-    if not isinstance(axis_ticks[0], float):
-        raise ValueError("Ordering can only be checked on a 1D array")
-    _array = numpy.array(axis_ticks)
-    return numpy.all(numpy.sort(_array) == _array) or numpy.all(
-        numpy.reversed(numpy.sort(_array)) == _array
-    )
+    if isinstance(axis_ticks, numpy.ndarray):
+        axis_ticks = axis_ticks.tolist()
+    for i, _array in enumerate(axis_ticks):
+        _array = numpy.array(_array)
+        if not numpy.all(numpy.sort(_array) == _array) or numpy.all(
+            reversed(numpy.sort(_array)) == _array
+        ):
+            raise ValueError(f"Axis {i} has unordered values.")
+    return axis_ticks
 
 
 class Grid(SimvueObject):
@@ -104,7 +109,13 @@ class Grid(SimvueObject):
         cls,
         *,
         name: str,
-        grid: list[list[float]],
+        grid: typing.Annotated[
+            list[list[float]],
+            pydantic.conlist(
+                pydantic.conlist(float, min_length=1), min_length=1, max_length=2
+            ),
+            pydantic.AfterValidator(check_ordered_array),
+        ],
         labels: list[str],
         offline: bool = False,
         **kwargs,
@@ -116,7 +127,8 @@ class Grid(SimvueObject):
         name : str
             name for this grid.
         grid : list[list[float]]
-            define a grid as a list of axes containing tick values.
+            define a grid as a list of axes containing tick values
+            number of axes must be 1 or 2
         labels : list[str]
             label each of the axes defined.
         offline: bool, optional
@@ -127,21 +139,12 @@ class Grid(SimvueObject):
         Metrics
             metrics object
         """
-        if len(grid) < 1:
-            raise ValueError("Invalid argument for 'grid'")
-
-        if len(labels) != len(set(labels)):
-            raise ValueError("Labels must be unique.")
 
         if len(labels) != len(grid):
             raise AssertionError(
                 "Length of argument 'labels' must match first "
                 f"grid dimension {len(grid)}."
             )
-
-        for i, axis in enumerate(grid):
-            if not check_ordered_array(axis):
-                raise ValueError(f"Axis {i} has unordered values.")
 
         return Grid(
             grid=grid,

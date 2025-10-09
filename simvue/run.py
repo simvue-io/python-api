@@ -1618,8 +1618,9 @@ class Run:
         category: typing.Literal["input", "output", "code"],
         file_type: str | None = None,
         preserve_path: bool = False,
+        snapshot: bool = False,
         name: typing.Annotated[str, pydantic.Field(pattern=NAME_REGEX)] | None = None,
-        metadata: dict[str, typing.Any] = None,
+        metadata: dict[str, typing.Any] | None = None,
     ) -> bool:
         """Upload file to the server
 
@@ -1636,6 +1637,8 @@ class Run:
             the MIME file type else this is deduced, by default None
         preserve_path : bool, optional
             whether to preserve the path during storage, by default False
+        snapshot : bool, optional
+            whether to take a snapshot of the file before uploading, by default False
         name : str, optional
             name to associate with this file, by default None
         metadata : str | None, optional
@@ -1670,6 +1673,7 @@ class Run:
                 offline=self._user_config.run.mode == "offline",
                 mime_type=file_type,
                 metadata=metadata,
+                snapshot=snapshot,
             )
             _artifact.attach_to_run(self.id, category)
         except (ValueError, RuntimeError) as e:
