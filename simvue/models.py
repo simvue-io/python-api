@@ -43,8 +43,10 @@ def simvue_timestamp(
 
     Parameters
     ----------
-    date_time: datetime.datetime, optional
-        if provided, the datetime object to convert, else use current date and time
+    date_time: datetime.datetime | str, optional
+        if provided, the datetime object to convert,
+        else use current date and time
+        if a string assume to be local time.
 
     Returns
     -------

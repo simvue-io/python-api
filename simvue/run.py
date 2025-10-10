@@ -1270,8 +1270,9 @@ class Run:
         ----------
         message : str
             event message to log
-        timestamp : datetime, optional
+        timestamp : datetime.datetime | str, optional
             manually specify the time stamp for this log, by default None
+            if a string is provided, local time
 
         Returns
         -------
@@ -1494,8 +1495,9 @@ class Run:
             manually specify the step index for this log, by default None
         time : int, optional
             manually specify the time for this log, by default None
-        timestamp : str, optional
-            manually specify the timestamp for this log, by default None
+        timestamp : datetime.datetime | str, optional
+            manually specify the time stamp for this log, by default None
+            if a string is provided, local time
 
         Returns
         -------
