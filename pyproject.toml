@@ -1,12 +1,12 @@
 [project]
 name = "simvue"
-version = "2.2.0"
+version = "2.2.1"
 description = "Simulation tracking and monitoring"
 authors = [
   {name = "Simvue Development Team", email = "info@simvue.io"}
 ]
 license = "Apache v2"
-requires-python = ">=3.10,<3.14"
+requires-python = ">=3.10,<3.15"
 readme = "README.md"
 classifiers = [
     "Development Status :: 5 - Production/Stable",
@@ -20,6 +20,7 @@ classifiers = [
     "Programming Language :: Python :: 3.11",
     "Programming Language :: Python :: 3.12",
     "Programming Language :: Python :: 3.13",
+    "Programming Language :: Python :: 3.14",
     "Topic :: Scientific/Engineering",
     "Topic :: System :: Monitoring",
     "Topic :: Utilities",

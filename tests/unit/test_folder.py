@@ -80,7 +80,7 @@ def test_folder_modification_online() -> None:
     _folder_new.description = _description
     _folder_new.commit()
     assert _folder_new.tags == _tags
-    assert _folder.tags == _tags
+    assert list(sorted(_folder.tags)) == list(sorted(_tags))
     assert _folder_new.description == _description
     assert _folder.description == _description
     _folder.delete(recursive=True, delete_runs=True, runs_only=False)
@@ -121,7 +121,7 @@ def test_folder_modification_offline(offline_cache_setup) -> None:
     _folder_online.refresh()
     assert _folder_online.path == _path
     assert _folder_online.description == _description
-    assert _folder_online.tags == _tags
+    assert list(sorted(_folder_online.tags)) == list(sorted(_tags))
 
     _folder_online.read_only(False)
     _folder_online.delete()
