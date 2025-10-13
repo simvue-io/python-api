@@ -42,7 +42,7 @@ def test_folder_creation_offline(offline_cache_setup) -> None:
     assert  _folder._local_staging_file.name.split(".")[0] == _folder.id
     assert _local_data.get("path", None) == _path
 
-    sender(_folder._local_staging_file.parents[1], 2, 10, ["folders"])
+    sender(_folder._local_staging_file.parents[1], 2, 10, ["folders"], throw_exceptions=True)
     time.sleep(1)
     client = Client()
 
@@ -96,7 +96,7 @@ def test_folder_modification_offline(offline_cache_setup) -> None:
     _folder = Folder.new(path=_path, offline=True)
     _folder.commit()
 
-    sender(_folder._local_staging_file.parents[1], 2, 10, ["folders"])
+    sender(_folder._local_staging_file.parents[1], 2, 10, ["folders"], throw_exceptions=True)
     time.sleep(1)
 
     client = Client()
@@ -115,7 +115,7 @@ def test_folder_modification_offline(offline_cache_setup) -> None:
     assert _local_data.get("description", None) == _description
     assert _local_data.get("tags", None) == _tags
 
-    sender(_folder._local_staging_file.parents[1], 2, 10, ["folders"])
+    sender(_folder._local_staging_file.parents[1], 2, 10, ["folders"], throw_exceptions=True)
     time.sleep(1)
 
     _folder_online.refresh()

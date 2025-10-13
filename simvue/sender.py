@@ -56,6 +56,7 @@ def upload_cached_file(
     obj_type: str,
     file_path: pydantic.FilePath,
     id_mapping: dict[str, str],
+    throw_exceptions: bool,
     retry_failed_uploads: bool,
     lock: threading.Lock,
 ) -> None:
@@ -71,6 +72,10 @@ def upload_cached_file(
         The path to the cached file to upload
     id_mapping : dict[str, str]
         A mapping of offline to online object IDs
+    throw_exceptions : bool
+        Whether to throw exceptions, or just log them
+    retry_failed_uploads : bool
+        Whether to retry failed uploads or ignore them
     lock : threading.Lock
         A lock to prevent multiple threads accessing the id mapping directory at once
     """
@@ -83,7 +88,10 @@ def upload_cached_file(
 
     try:
         _instance_class = getattr(simvue.api.objects, _exact_type)
-    except AttributeError:
+    except AttributeError as error:
+        if throw_exceptions:
+            raise error
+
         _logger.error(f"Attempt to initialise unknown type '{_exact_type}'")
         _log_upload_failed(file_path)
         return
@@ -109,11 +117,13 @@ def upload_cached_file(
         _new_id = obj_for_upload.id
 
     except Exception as error:
-        if "status 409" in error.args[0]:
+        if "status 409" in str(error):
             return
+        if throw_exceptions:
+            raise error
 
         _logger.error(
-            f"Error while committing '{_instance_class.__name__}': {error.args[0]}"
+            f"Error while committing '{_instance_class.__name__}': {str(error)}"
         )
         _log_upload_failed(file_path)
         return
@@ -182,6 +192,7 @@ def sender(
     max_workers: int = 5,
     threading_threshold: int = 10,
     objects_to_upload: list[str] = UPLOAD_ORDER,
+    throw_exceptions: bool = False,
     retry_failed_uploads: bool = False,
 ) -> dict[str, str]:
     """Send data from a local cache directory to the Simvue server.
@@ -196,6 +207,8 @@ def sender(
         The number of cached files above which threading will be used
     objects_to_upload : list[str]
         Types of objects to upload, by default uploads all types of objects present in cache
+    throw_exceptions : bool, optional
+        Whether to throw exceptions as they are encountered in the sender, default is False (exceptions will be logged)
     retry_failed_uploads : bool, optional
         Whether to retry sending objects which previously failed, by default False
 
@@ -238,6 +251,7 @@ def sender(
                     obj_type=_obj_type,
                     file_path=file_path,
                     id_mapping=_id_mapping,
+                    throw_exceptions=throw_exceptions,
                     retry_failed_uploads=retry_failed_uploads,
                     lock=_lock,
                 )
@@ -251,11 +265,15 @@ def sender(
                         obj_type=_obj_type,
                         file_path=file_path,
                         id_mapping=_id_mapping,
+                        throw_exceptions=throw_exceptions,
                         retry_failed_uploads=retry_failed_uploads,
                         lock=_lock,
                     ),
                     _offline_files,
                 )
+                # This will raise any exceptions encountered during sending
+                for result in _results:
+                    pass
 
     # Send heartbeats
     _headers: dict[str, str] = {

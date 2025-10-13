@@ -46,7 +46,7 @@ def test_user_alert_creation_offline(offline_cache_setup) -> None:
     assert _local_data.get("name") == f"users_alert_{_uuid}"
     assert _local_data.get("notification") == "none"
 
-    _id_mapping = sender(_alert._local_staging_file.parents[1], 1, 10, ["alerts"])
+    _id_mapping = sender(_alert._local_staging_file.parents[1], 1, 10, ["alerts"], throw_exceptions=True)
     time.sleep(1)
     
     _online_id = _alert._local_staging_file.parents[1].joinpath("server_ids", f"{_alert._local_staging_file.name.split('.')[0]}.txt").read_text()
@@ -94,7 +94,7 @@ def test_user_alert_modification_offline(offline_cache_setup) -> None:
     )
     _alert.commit()
     
-    sender(_alert._local_staging_file.parents[1], 1, 10, ["alerts"])
+    sender(_alert._local_staging_file.parents[1], 1, 10, ["alerts"], throw_exceptions=True)
     time.sleep(1) 
     
     # Get online ID and retrieve alert
@@ -117,7 +117,7 @@ def test_user_alert_modification_offline(offline_cache_setup) -> None:
     with _alert._local_staging_file.open() as in_f:
         _local_data = json.load(in_f)
     assert _local_data.get("description") == "updated!"
-    sender(_alert._local_staging_file.parents[1], 1, 10, ["alerts"])
+    sender(_alert._local_staging_file.parents[1], 1, 10, ["alerts"], throw_exceptions=True)
     time.sleep(1) 
     
     _online_alert.refresh()
@@ -191,7 +191,7 @@ def test_user_alert_status_offline(offline_cache_setup) -> None:
     _run.alerts = [_alert.id]
     _run.commit()
 
-    _id_mapping = sender(_alert._local_staging_file.parents[1], 1, 10, ["folders", "runs", "alerts"])
+    _id_mapping = sender(_alert._local_staging_file.parents[1], 1, 10, ["folders", "runs", "alerts"], throw_exceptions=True)
     time.sleep(1) 
     
     # Get online aler, check status is not set
@@ -206,7 +206,7 @@ def test_user_alert_status_offline(offline_cache_setup) -> None:
     _online_alert.refresh()
     assert not _online_alert.get_status(run_id=_id_mapping.get(_run.id))
     
-    sender(_alert._local_staging_file.parents[1], 1, 10, ["alerts"])
+    sender(_alert._local_staging_file.parents[1], 1, 10, ["alerts"], throw_exceptions=True)
     time.sleep(1)
     
     # Check online status has been updated

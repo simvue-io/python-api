@@ -13,11 +13,12 @@ import logging
 import pathlib
 import requests
 
+@pytest.mark.parametrize("throw_exceptions", (True, False))
 @pytest.mark.parametrize("retry_failed_uploads", (True, False))
 @pytest.mark.parametrize("parallel", (True, False))
 
 @pytest.mark.offline
-def test_sender_exception_handling(offline_cache_setup, caplog, retry_failed_uploads, parallel):
+def test_sender_exception_handling(offline_cache_setup, caplog, throw_exceptions, retry_failed_uploads, parallel):
     # Create something which will produce an error when sent, eg a metric with invalid run ID
     for i in range(5):
         _metrics = Metrics.new(
@@ -33,6 +34,11 @@ def test_sender_exception_handling(offline_cache_setup, caplog, retry_failed_upl
             offline=True
         )
         _metrics.commit()
+        
+    if throw_exceptions:
+        with pytest.raises(ValueError):
+            sender(throw_exceptions=True, threading_threshold=1 if parallel else 10)
+        return
     
     with caplog.at_level(logging.ERROR):
         sender(threading_threshold=1 if parallel else 10)

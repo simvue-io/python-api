@@ -61,7 +61,7 @@ def test_metric_threshold_alert_creation_offline(offline_cache_setup) -> None:
     assert _local_data.get("notification") == "none"
     assert _local_data.get("alert").get("threshold") == 10
     
-    sender(_alert._local_staging_file.parents[1], 1, 10, ["alerts"])
+    sender(_alert._local_staging_file.parents[1], 1, 10, ["alerts"], throw_exceptions=True)
     time.sleep(1)
     
     # Get online ID and retrieve alert
@@ -123,7 +123,7 @@ def test_metric_threshold_alert_modification_offline(offline_cache_setup) -> Non
     )
     _alert.commit()
     
-    sender(_alert._local_staging_file.parents[1], 1, 10, ["alerts"])
+    sender(_alert._local_staging_file.parents[1], 1, 10, ["alerts"], throw_exceptions=True)
     time.sleep(1) 
     
     # Get online ID and retrieve alert
@@ -149,7 +149,7 @@ def test_metric_threshold_alert_modification_offline(offline_cache_setup) -> Non
         _local_data = json.load(in_f)
     assert _local_data.get("description") == "updated!"
     
-    sender(_alert._local_staging_file.parents[1], 1, 10, ["alerts"])
+    sender(_alert._local_staging_file.parents[1], 1, 10, ["alerts"], throw_exceptions=True)
     time.sleep(1) 
     
     _online_alert.refresh()

@@ -71,7 +71,7 @@ def test_create_s3_offline(offline_cache_setup) -> None:
     assert not _local_data.get("user", None)
     assert not _local_data.get("usage", None)
 
-    _id_mapping = sender(_storage._local_staging_file.parents[1], 1, 10, ["storage"])
+    _id_mapping = sender(_storage._local_staging_file.parents[1], 1, 10, ["storage"], throw_exceptions=True)
     _online_id = _id_mapping[_storage.id]
     time.sleep(1)
     
