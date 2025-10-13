@@ -158,9 +158,8 @@ def test_file_artifact_creation_offline_updated(offline_cache_setup, caplog, sna
         out_f.write("File changed!")
     
     if not snapshot:
-        with caplog.at_level(logging.ERROR): 
+        with pytest.raises(RuntimeError, match="The SHA256 you specified did not match the calculated checksum."): 
             _id_mapping = sender(pathlib.Path(offline_cache_setup.name), 1, 10, throw_exceptions=True)
-        assert "The SHA256 you specified did not match the calculated checksum." in caplog.text
         return
     else:
         _id_mapping = sender(pathlib.Path(offline_cache_setup.name), 1, 10, throw_exceptions=True)
