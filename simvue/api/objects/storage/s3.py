@@ -20,7 +20,7 @@ except ImportError:
 
 import pydantic
 
-from simvue.api.objects.base import staging_check, write_only
+from simvue.api.objects.base import SimvueObjectAttribute, staging_check, write_only
 from simvue.models import NAME_REGEX
 
 from .base import StorageBase
@@ -135,12 +135,8 @@ class S3Storage(StorageBase):
         return _config
 
 
-class Config:
+class Config(SimvueObjectAttribute[S3Storage]):
     """S3 Configuration interface."""
-
-    def __init__(self, storage: S3Storage) -> None:
-        """Initialise a new configuration using an S3Storage object."""
-        self._sv_obj: S3Storage = storage
 
     @property
     @staging_check
@@ -156,25 +152,31 @@ class Config:
             raise RuntimeError("Expected S3Storage instance but none found.")
 
         try:
-            return self._sv_obj.get_config()["endpoint_url"]
+            _http_url: str = typing.cast(
+                "str", self._sv_obj.get_config()["endpoint_url"]
+            )
         except KeyError as e:
             raise RuntimeError(
                 "Expected key 'endpoint_url' in alert definition retrieval"
             ) from e
+        return _http_url
 
     @endpoint_url.setter
     @write_only
     @pydantic.validate_call
-    def endpoint_url(self, endpoint_url: pydantic.HttpUrl) -> None:
+    def endpoint_url(
+        self,
+        endpoint_url: typing.Annotated[str, pydantic.BeforeValidator(pydantic.HttpUrl)],
+    ) -> None:
         _config = self._sv_obj.get_config() | {"endpoint_url": endpoint_url.__str__()}
-        self._sv_obj._staging["config"] = _config
+        self._sv_obj._staging["config"] = _config  # noqa: SLF001
 
     @property
     @staging_check
     def region_name(self) -> str:
-        """Retrieve the region name for this storage"""
+        """Retrieve the region name for this storage."""
         try:
-            return self._sv_obj.get_config()["region_name"]
+            return typing.cast("str", self._sv_obj.get_config()["region_name"])
         except KeyError as e:
             raise RuntimeError(
                 "Expected key 'region_name' in alert definition retrieval"
@@ -184,16 +186,16 @@ class Config:
     @write_only
     @pydantic.validate_call
     def region_name(self, region_name: str) -> None:
-        """Modify the region name for this storage"""
+        """Modify the region name for this storage."""
         _config = self._sv_obj.get_config() | {"region_name": region_name}
-        self._sv_obj._staging["config"] = _config
+        self._sv_obj._staging["config"] = _config  # noqa: SLF001
 
     @property
     @staging_check
     def bucket(self) -> str:
-        """Retrieve the bucket label for this storage"""
+        """Retrieve the bucket label for this storage."""
         try:
-            return self._sv_obj.get_config()["bucket"]
+            return typing.cast("str", self._sv_obj.get_config()["bucket"])
         except KeyError as e:
             raise RuntimeError(
                 "Expected key 'bucket' in alert definition retrieval"

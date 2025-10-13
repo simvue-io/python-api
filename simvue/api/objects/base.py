@@ -53,18 +53,17 @@ except ImportError:
 if typing.TYPE_CHECKING:
     import pathlib
 
-# Need to use this inside of Generator typing to fix bug
-# present in Python 3.10 - see issue #745
 T = typing.TypeVar("T", bound="SimvueObject")
-U = typing.TypeVar("U", bound="SimvueObject | Visibility")
+C = typing.TypeVar("C")
+U = typing.TypeVar("U")
 
 
 def staging_check(
-    member_func: typing.Callable[[U], typing.Any | None],
-) -> typing.Callable[[U], typing.Any | None]:
+    member_func: typing.Callable[[T], C],
+) -> typing.Callable[[T], C]:
     """Check if requested attribute has uncommitted changes via decorator."""
 
-    def _wrapper(self: U) -> object:
+    def _wrapper(self: T) -> C:
         _sv_obj = typing.cast("SimvueObject", getattr(self, "_sv_obj", self))
         if not hasattr(_sv_obj, "_offline"):
             _out_msg: str = (
@@ -89,11 +88,11 @@ def staging_check(
 
 
 def write_only(
-    attribute_func: typing.Callable[[U, typing.Any], typing.Any | None],
-) -> typing.Callable[[U, typing.Any], typing.Any | None]:
+    attribute_func: typing.Callable[[T, U], None],
+) -> typing.Callable[[T, U], None]:
     """Check if function only available in write mode."""
 
-    def _wrapper(self: U, *args: object, **kwargs: object) -> object | None:
+    def _wrapper(self: T, *args: U, **kwargs: U) -> object | None:
         _sv_obj: SimvueObject = typing.cast(
             "SimvueObject", getattr(self, "_sv_obj", self)
         )
@@ -114,15 +113,19 @@ def write_only(
     return _wrapper
 
 
-class Visibility:
+class SimvueObjectAttribute(typing.Generic[T]):
+    """Interface for attributes to Simvue objects with sub-attributes."""
+
+    def __init__(self, sv_obj: T) -> None:
+        """Initialise visibility with target object."""
+        self._sv_obj: T = sv_obj
+
+
+class Visibility(SimvueObjectAttribute["SimvueObject"]):
     """Interface for object visibility definition."""
 
-    def __init__(self, sv_obj: SimvueObject) -> None:
-        """Initialise visibility with target object."""
-        self._sv_obj: SimvueObject = sv_obj
-
     def _update_visibility(self, key: str, value: object) -> None:
-        """Update the visibility configuration for this object."""
+        """Tpdate the visibility configuration for this object."""
         _visibility = self._sv_obj._get_visibility() | {key: value}  # noqa: SLF001
         self._sv_obj._staging["visibility"] = _visibility  # noqa: SLF001
 
