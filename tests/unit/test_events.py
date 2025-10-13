@@ -56,7 +56,7 @@ def test_events_creation_offline(offline_cache_setup) -> None:
     assert _local_data.get("events")[0].get("message") == "This is a test!"
     assert _local_data.get("events")[0].get("timestamp") == _timestamp
     
-    _id_mapping = sender(_events._local_staging_file.parents[1], 1, 10, ["folders", "runs", "events"])
+    _id_mapping = sender(_events._local_staging_file.parents[1], 1, 10, ["folders", "runs", "events"], throw_exceptions=True)
     time.sleep(1)
     
     # Get online version of events

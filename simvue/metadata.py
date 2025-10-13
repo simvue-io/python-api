@@ -16,7 +16,7 @@ import yaml
 import logging
 import pathlib
 
-from simvue.utilities import simvue_timestamp
+from simvue.models import simvue_timestamp
 
 logger = logging.getLogger(__file__)
 

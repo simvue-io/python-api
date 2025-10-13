@@ -35,7 +35,7 @@ def test_tag_creation_offline(offline_cache_setup) -> None:
         
     assert _local_data.get("name") == f"test_tag_{_uuid}"
     
-    _id_mapping = sender(_tag._local_staging_file.parents[1], 1, 10, ["tags"])
+    _id_mapping = sender(_tag._local_staging_file.parents[1], 1, 10, ["tags"], throw_exceptions=True)
     time.sleep(1)
     
     _online_id = _id_mapping.get(_tag.id)
@@ -78,7 +78,7 @@ def test_tag_modification_offline(offline_cache_setup) -> None:
         
     assert _local_data.get("name") == f"test_tag_{_uuid}"
     
-    _id_mapping = sender(_tag._local_staging_file.parents[1], 1, 10, ["tags"])
+    _id_mapping = sender(_tag._local_staging_file.parents[1], 1, 10, ["tags"], throw_exceptions=True)
     _online_id = _id_mapping.get(_tag.id)
     _online_tag = Tag(_online_id)
     
@@ -101,7 +101,7 @@ def test_tag_modification_offline(offline_cache_setup) -> None:
     assert pydantic.color.parse_str(_local_data.get("colour")).r == 250 / 255
     assert _local_data.get("description") == "modified test tag"
     
-    sender(_tag._local_staging_file.parents[1], 1, 10, ["tags"])
+    sender(_tag._local_staging_file.parents[1], 1, 10, ["tags"], throw_exceptions=True)
     time.sleep(1)
     
     # Check online version is updated
