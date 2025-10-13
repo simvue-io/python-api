@@ -103,7 +103,7 @@ def test_file_artifact_creation_offline(offline_cache_setup, snapshot) -> None:
     # If snapshot, check artifact definition file and a copy of the actual file exist in staging area
     assert len(list(_artifact._local_staging_file.parent.iterdir())) == 2 if snapshot else 1
     
-    _id_mapping = sender(pathlib.Path(offline_cache_setup.name), 1, 10)
+    _id_mapping = sender(pathlib.Path(offline_cache_setup.name), 1, 10, throw_exceptions=True)
     time.sleep(1)
     
     # Check file(s) deleted after upload
@@ -159,11 +159,11 @@ def test_file_artifact_creation_offline_updated(offline_cache_setup, caplog, sna
     
     if not snapshot:
         with caplog.at_level(logging.ERROR): 
-            _id_mapping = sender(pathlib.Path(offline_cache_setup.name), 1, 10)
+            _id_mapping = sender(pathlib.Path(offline_cache_setup.name), 1, 10, throw_exceptions=True)
         assert "The SHA256 you specified did not match the calculated checksum." in caplog.text
         return
     else:
-        _id_mapping = sender(pathlib.Path(offline_cache_setup.name), 1, 10)
+        _id_mapping = sender(pathlib.Path(offline_cache_setup.name), 1, 10, throw_exceptions=True)
     time.sleep(1)
     
     _online_artifact = Artifact(_id_mapping[_artifact.id])

@@ -88,7 +88,7 @@ def test_metrics_creation_offline(offline_cache_setup) -> None:
     assert _local_data.get("metrics")[0].get("step") == _step
     assert _local_data.get("metrics")[0].get("time") == _time
 
-    _id_mapping = sender(_metrics._local_staging_file.parents[1], 1, 10, ["folders", "runs", "metrics"])
+    _id_mapping = sender(_metrics._local_staging_file.parents[1], 1, 10, ["folders", "runs", "metrics"], throw_exceptions=True)
     time.sleep(1)
 
     # Get online version of metrics
