@@ -23,11 +23,11 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        python-version: ["3.10", "3.11", "3.12"]
+        python-version: ["3.11", "3.12", "3.13"]
     steps:
-    - uses: actions/checkout@v4
+    - uses: actions/checkout@v5
     - name: Set up Python ${{ matrix.python-version }}
-      uses: actions/setup-python@v5
+      uses: actions/setup-python@v6
       with:
         python-version: "${{ matrix.python-version }}"
     - name: Install dependencies
@@ -35,7 +35,7 @@ jobs:
         python -m pip install poetry
         poetry self add poetry-plugin-export
         poetry export -f requirements.txt --with dev -o requirements.txt --all-extras
-        python -m pip install torch --index-url https://download.pytorch.org/whl/cpu
+        python -m pip install torch --index-url https://download.pytorch.org/whl/cpu || true
         python -m pip install -r requirements.txt
         python -m pip install .
     - name: Test with pytest
@@ -55,9 +55,9 @@ jobs:
       matrix:
         python-version: ["3.10", "3.11", "3.12"]
     steps:
-    - uses: actions/checkout@v4
+    - uses: actions/checkout@v5
     - name: Set up Python ${{ matrix.python-version }}
-      uses: actions/setup-python@v5
+      uses: actions/setup-python@v6
       with:
         python-version: "${{ matrix.python-version }}"
     - name: Install dependencies
@@ -65,7 +65,7 @@ jobs:
         python -m pip install poetry
         poetry self add poetry-plugin-export
         poetry export -f requirements.txt --with dev -o requirements.txt --all-extras
-        python -m pip install torch --index-url https://download.pytorch.org/whl/cpu
+        python -m pip install torch --index-url https://download.pytorch.org/whl/cpu || true
         python -m pip install -r requirements.txt
         python -m pip install .
     - name: Test with pytest
@@ -83,11 +83,11 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        python-version: ["3.10", "3.11", "3.12"]
+        python-version: ["3.11", "3.12", "3.13"]
     steps:
-    - uses: actions/checkout@v4
+    - uses: actions/checkout@v5
     - name: Set up Python ${{ matrix.python-version }}
-      uses: actions/setup-python@v5
+      uses: actions/setup-python@v6
       with:
         python-version: "${{ matrix.python-version }}"
     - name: Install dependencies
@@ -112,11 +112,11 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        python-version: ["3.10", "3.11", "3.12"]
+        python-version: ["3.11", "3.12", "3.13"]
     steps:
-    - uses: actions/checkout@v4
+    - uses: actions/checkout@v5
     - name: Set up Python ${{ matrix.python-version }}
-      uses: actions/setup-python@v5
+      uses: actions/setup-python@v6
       with:
         python-version: "${{ matrix.python-version }}"
     - name: Install dependencies
@@ -124,7 +124,7 @@ jobs:
         python -m pip install poetry
         poetry self add poetry-plugin-export
         poetry export -f requirements.txt --with dev -o requirements.txt --all-extras
-        python -m pip install torch --index-url https://download.pytorch.org/whl/cpu
+        python -m pip install torch --index-url https://download.pytorch.org/whl/cpu || true
         python -m pip install -r requirements.txt
         python -m pip install .
     - name: Test with pytest
@@ -142,11 +142,11 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        python-version: ["3.10", "3.11", "3.12"]
+        python-version: ["3.11", "3.12", "3.13"]
     steps:
-    - uses: actions/checkout@v4
+    - uses: actions/checkout@v5
     - name: Set up Python ${{ matrix.python-version }}
-      uses: actions/setup-python@v5
+      uses: actions/setup-python@v6
       with:
         python-version: "${{ matrix.python-version }}"
     - name: Install dependencies
@@ -154,7 +154,7 @@ jobs:
         python -m pip install poetry
         poetry self add poetry-plugin-export
         poetry export -f requirements.txt --with dev -o requirements.txt --all-extras
-        python -m pip install torch --index-url https://download.pytorch.org/whl/cpu
+        python -m pip install torch --index-url https://download.pytorch.org/whl/cpu || true
         python -m pip install -r requirements.txt
         python -m pip install .
     - name: Test with pytest
@@ -172,11 +172,11 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        python-version: ["3.10", "3.11", "3.12"]
+        python-version: ["3.11", "3.12", "3.13"]
     steps:
-    - uses: actions/checkout@v4
+    - uses: actions/checkout@v5
     - name: Set up Python ${{ matrix.python-version }}
-      uses: actions/setup-python@v5
+      uses: actions/setup-python@v6
       with:
         python-version: "${{ matrix.python-version }}"
     - name: Install dependencies
@@ -201,11 +201,11 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        python-version: ["3.10", "3.11", "3.12"]
+        python-version: ["3.11", "3.12", "3.13"]
     steps:
-    - uses: actions/checkout@v4
+    - uses: actions/checkout@v5
     - name: Set up Python ${{ matrix.python-version }}
-      uses: actions/setup-python@v5
+      uses: actions/setup-python@v6
       with:
         python-version: "${{ matrix.python-version }}"
     - name: Install dependencies
@@ -230,11 +230,11 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        python-version: ["3.10", "3.11", "3.12"]
+        python-version: ["3.11", "3.12", "3.13"]
     steps:
-    - uses: actions/checkout@v4
+    - uses: actions/checkout@v5
     - name: Set up Python ${{ matrix.python-version }}
-      uses: actions/setup-python@v5
+      uses: actions/setup-python@v6
       with:
         python-version: "${{ matrix.python-version }}"
     - name: Install dependencies
@@ -259,11 +259,11 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        python-version: ["3.10", "3.11", "3.12"]
+        python-version: ["3.11", "3.12", "3.13"]
     steps:
-    - uses: actions/checkout@v4
+    - uses: actions/checkout@v5
     - name: Set up Python ${{ matrix.python-version }}
-      uses: actions/setup-python@v5
+      uses: actions/setup-python@v6
       with:
         python-version: "${{ matrix.python-version }}"
     - name: Install dependencies

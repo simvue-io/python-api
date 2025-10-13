@@ -1,3 +1,3 @@
 [submodule "examples/Geant4/FixedTarget"]
 	path = examples/Geant4/FixedTarget
-	url = https://github.com/artemis-beta/Geant4-Example.git
+	url = https://github.com/zarethrex/Geant4-Example.git

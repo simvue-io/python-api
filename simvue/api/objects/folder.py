@@ -7,7 +7,6 @@ a new folder given relevant arguments.
 
 """
 
-import pathlib
 import typing
 import datetime
 import json
@@ -72,6 +71,7 @@ class Folder(SimvueObject):
             any additional arguments to be passed to the object initialiser
         """
         super().__init__(identifier, **kwargs)
+        self._properties.remove("tree")
 
     @classmethod
     @pydantic.validate_call
@@ -102,6 +102,32 @@ class Folder(SimvueObject):
         return super().get(count=count, offset=offset, **_params)
 
     @property
+    def tree(self) -> dict[str, object]:
+        """Return hierarchy for this folder.
+
+        Returns
+        -------
+        dict
+            a nested dictionary describing the hierarchy
+        """
+        _level: int = len(self.path.split("/"))
+        _folders = self.__class__.get(
+            filters=json.dumps([f"path contains {self.path}"])
+        )
+        _paths = [folder.path.split("/") for _, folder in _folders]
+        _paths = sorted(_paths, key=len)
+        _out_dict: dict[str, object] = {}
+        _modifier = None
+        for path in _paths:
+            if len(path) <= _level:
+                continue
+            _modifier = _out_dict
+            for element in path[1:]:
+                _modifier.setdefault(element, {})
+                _modifier = _modifier[element]
+        return _out_dict
+
+    @property
     @staging_check
     def tags(self) -> list[str]:
         """Return list of tags assigned to this folder"""
@@ -115,7 +141,7 @@ class Folder(SimvueObject):
         self._staging["tags"] = tags
 
     @property
-    def path(self) -> pathlib.Path:
+    def path(self) -> str:
         """Return the path of this folder"""
         return self._get_attribute("path")
 
@@ -200,7 +226,11 @@ class Folder(SimvueObject):
         """Retrieve created datetime for the run"""
         _created: str | None = self._get_attribute("created")
         return (
-            datetime.datetime.strptime(_created, DATETIME_FORMAT) if _created else None
+            datetime.datetime.strptime(_created, DATETIME_FORMAT).replace(
+                tzinfo=datetime.timezone.utc
+            )
+            if _created
+            else None
         )
 
 

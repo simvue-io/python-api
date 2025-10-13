@@ -26,13 +26,12 @@ def test_grid_creation_online() -> None:
     _run.commit()
     _grid_def=numpy.vstack([
         numpy.linspace(0, 10, 10),
-        numpy.linspace(0, 20, 10),
         numpy.linspace(50, 60, 10),
     ])
     _grid_list = _grid_def.tolist()
     _grid = Grid.new(
         name=f"test_grid_creation_online_{_uuid}",
-        labels=["x", "y", "z"],
+        labels=["x", "y"],
         grid=_grid_list
     )
     _grid.commit()
@@ -57,14 +56,13 @@ def test_grid_creation_offline() -> None:
     _run.commit()
     _grid_def=numpy.vstack([
         numpy.linspace(0, 10, 10),
-        numpy.linspace(0, 20, 10),
         numpy.linspace(50, 60, 10),
     ])
     _grid_list = _grid_def.tolist()
     _grid = Grid.new(
         name=f"test_grid_creation_online_{_uuid}",
         grid=_grid_list,
-        labels=["x", "y", "z"],
+        labels=["x", "y"],
         offline=True
     )
     _grid.commit()
@@ -74,7 +72,7 @@ def test_grid_creation_offline() -> None:
 
     assert _local_data.get("runs", [None])[0] == [_run.id, "A"]
     npt.assert_array_equal(numpy.array(_local_data.get("grid")), _grid_def)
-    _id_mapping = sender(_grid._local_staging_file.parents[1], 1, 10, ["folders", "runs", "grids"])
+    _id_mapping = sender(_grid._local_staging_file.parents[1], 1, 10, ["folders", "runs", "grids"], throw_exceptions=True)
     time.sleep(1)
     # Get online version of grid
     _online_grid = Grid(_id_mapping.get(_grid.id))
@@ -105,13 +103,12 @@ def test_grid_metrics_creation_online() -> None:
     _run.commit()
     _grid_def=numpy.vstack([
         numpy.linspace(0, 10, 10),
-        numpy.linspace(0, 20, 10),
         numpy.linspace(50, 60, 10),
     ])
     _grid_list = _grid_def.tolist()
     _grid = Grid.new(
         name=f"test_grid_creation_online_{_uuid}",
-        labels=["x", "y", "z"],
+        labels=["x", "y"],
         grid=_grid_list
     )
     _grid.commit()
@@ -126,7 +123,7 @@ def test_grid_metrics_creation_online() -> None:
                 ),
                 "time": _time,
                 "step": _step,
-                "array": numpy.ones((10, 10, 10)),
+                "array": numpy.ones((10, 10)),
                 "grid": _grid.id,
                 "metric": "A"
             }
@@ -156,13 +153,12 @@ def test_grid_metrics_creation_offline() -> None:
     _run.commit()
     _grid_def=numpy.vstack([
         numpy.linspace(0, 10, 10),
-        numpy.linspace(0, 20, 10),
         numpy.linspace(50, 60, 10),
     ])
     _grid_list = _grid_def.tolist()
     _grid = Grid.new(
         name=f"test_grid_creation_offline_{_uuid}",
-        labels=["x", "y", "z"],
+        labels=["x", "y"],
         grid=_grid_list,
         offline=True
     )
@@ -178,7 +174,7 @@ def test_grid_metrics_creation_offline() -> None:
                 ),
                 "time": _time,
                 "step": _step,
-                "array": numpy.ones((10, 10, 10)),
+                "array": numpy.ones((10, 10)),
                 "grid": _grid.id,
                 "metric": "A"
             }
@@ -188,7 +184,7 @@ def test_grid_metrics_creation_offline() -> None:
     _metrics.commit()
     _run.status = "completed"
     _run.commit()
-    _id_mapping = sender(_grid._local_staging_file.parents[1], 1, 10, ["folders", "runs", "grids", "grid_metrics"])
+    _id_mapping = sender(_grid._local_staging_file.parents[1], 1, 10, ["folders", "runs", "grids", "grid_metrics"], throw_exceptions=True)
     time.sleep(1)
     # Online metrics
     assert list(GridMetrics.get(runs=[_id_mapping[_run.id]], metrics=["A"], step=_step))

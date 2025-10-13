@@ -1,4 +1,3 @@
-import datetime
 import hashlib
 import logging
 import json
@@ -13,9 +12,6 @@ import pathlib
 import typing
 import jwt
 from deepmerge import Merger
-
-from datetime import timezone
-from simvue.models import DATETIME_FORMAT
 
 
 CHECKSUM_BLOCK_SIZE = 4096
@@ -370,36 +366,6 @@ def calculate_sha256(filename: str | typing.Any, is_file: bool) -> str | None:
     else:
         sha256_hash.update(bytes(filename))
     return sha256_hash.hexdigest()
-
-
-def validate_timestamp(timestamp):
-    """
-    Validate a user-provided timestamp
-    """
-    try:
-        datetime.datetime.strptime(timestamp, DATETIME_FORMAT)
-    except ValueError:
-        return False
-
-    return True
-
-
-def simvue_timestamp(date_time: datetime.datetime | None = None) -> str:
-    """Return the Simvue valid timestamp
-
-    Parameters
-    ----------
-    date_time: datetime.datetime, optional
-        if provided, the datetime object to convert, else use current date and time
-
-    Returns
-    -------
-    str
-        Datetime string valid for the Simvue server
-    """
-    if not date_time:
-        date_time = datetime.datetime.now(timezone.utc)
-    return date_time.strftime(DATETIME_FORMAT)
 
 
 @functools.lru_cache

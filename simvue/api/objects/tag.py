@@ -100,7 +100,11 @@ class Tag(SimvueObject):
         """Retrieve created datetime for the run"""
         _created: str | None = self._get_attribute("created")
         return (
-            datetime.datetime.strptime(_created, DATETIME_FORMAT) if _created else None
+            datetime.datetime.strptime(_created, DATETIME_FORMAT).replace(
+                tzinfo=datetime.timezone.utc
+            )
+            if _created
+            else None
         )
 
     @classmethod

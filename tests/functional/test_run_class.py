@@ -116,7 +116,7 @@ def test_run_with_emissions_offline(speedy_heartbeat, mock_co2_signal, create_pl
     run_created.config(enable_emission_metrics=True)
     time.sleep(5)
     # Run should continue, but fail to log metrics until sender runs and creates file
-    id_mapping = sv_send.sender(os.environ["SIMVUE_OFFLINE_DIRECTORY"])
+    id_mapping = sv_send.sender(os.environ["SIMVUE_OFFLINE_DIRECTORY"], throw_exceptions=True)
     _run = RunObject(identifier=id_mapping[run_created.id])
     _metric_names = [item[0] for item in _run.metrics]
     for _metric in ["emissions", "energy_consumed"]:
@@ -126,7 +126,7 @@ def test_run_with_emissions_offline(speedy_heartbeat, mock_co2_signal, create_pl
         assert _delta_metric_name not in _metric_names
     # Sender should now have made a local file, and the run should be able to use it to create emissions metrics
     time.sleep(5)
-    id_mapping = sv_send.sender(os.environ["SIMVUE_OFFLINE_DIRECTORY"])
+    id_mapping = sv_send.sender(os.environ["SIMVUE_OFFLINE_DIRECTORY"], throw_exceptions=True)
     _run.refresh()
     _metric_names = [item[0] for item in _run.metrics]
     client = sv_cl.Client()
@@ -167,7 +167,7 @@ def test_log_metrics_online(
     visibility: typing.Literal["public", "tenant"] | list[str] | None,
     metric_type: typing.Literal["regular", "tensor"],
 ) -> None:
-    METRICS = {"a": 10, "b": 1.2}
+    METRICS = {"a": 10, "aB0-_/.:=><+()": 1.2}
 
     # Have to create the run outside of fixtures because the resources dispatch
     # occurs immediately and is not captured by the handler when using the fixture
@@ -313,12 +313,12 @@ def test_log_metrics_offline(
             axes_labels=["x", "y"]
         )
     else:
-        METRICS = {"a": 10, "b": 1.2, "c": 2}
+        METRICS = {"a": 10, "aB0-_/.:=><+()": 1.2, "c": 2}
         
     run.log_metrics(METRICS)
     
     time.sleep(1)
-    id_mapping = sv_send.sender(os.environ["SIMVUE_OFFLINE_DIRECTORY"], 2, 10)
+    id_mapping = sv_send.sender(os.environ["SIMVUE_OFFLINE_DIRECTORY"], 2, 10, throw_exceptions=True)
     time.sleep(1)
     
     if metric_type == "tensor":
@@ -441,7 +441,7 @@ def test_visibility_offline(
             retention_period=os.environ.get("SIMVUE_TESTING_RETENTION_PERIOD", "2 mins"),
         )
         _id = run.id
-        _id_mapping = sv_send.sender(os.environ["SIMVUE_OFFLINE_DIRECTORY"], 2, 10)
+        _id_mapping = sv_send.sender(os.environ["SIMVUE_OFFLINE_DIRECTORY"], 2, 10, throw_exceptions=True)
         run.close()
         _retrieved_run = RunObject(identifier=_id_mapping.get(_id))
 
@@ -478,7 +478,7 @@ def test_log_events_offline(create_plain_run_offline: tuple[sv_run.Run, dict]) -
     run, _ = create_plain_run_offline
     run_name = run.name
     run.log_event(EVENT_MSG)
-    sv_send.sender(os.environ["SIMVUE_OFFLINE_DIRECTORY"], 2, 10)
+    sv_send.sender(os.environ["SIMVUE_OFFLINE_DIRECTORY"], 2, 10, throw_exceptions=True)
     client = sv_cl.Client()
     attempts: int = 0
 
@@ -488,7 +488,7 @@ def test_log_events_offline(create_plain_run_offline: tuple[sv_run.Run, dict]) -
         not (event_data := client.get_events(client.get_run_id_from_name(run_name), count_limit=1))
     ) and attempts < 5:
         time.sleep(1)
-        sv_send.sender(os.environ["SIMVUE_OFFLINE_DIRECTORY"], 2, 10)
+        sv_send.sender(os.environ["SIMVUE_OFFLINE_DIRECTORY"], 2, 10, throw_exceptions=True)
         attempts += 1
     assert event_data[0].get("message", EVENT_MSG)
 
@@ -497,7 +497,7 @@ def test_log_events_offline(create_plain_run_offline: tuple[sv_run.Run, dict]) -
 @pytest.mark.offline
 def test_offline_tags(create_plain_run_offline: tuple[sv_run.Run, dict]) -> None:
     run, run_data = create_plain_run_offline
-    sv_send.sender(os.environ["SIMVUE_OFFLINE_DIRECTORY"], 2, 10)
+    sv_send.sender(os.environ["SIMVUE_OFFLINE_DIRECTORY"], 2, 10, throw_exceptions=True)
     client = sv_cl.Client()
 
     tags = client.get_tags()
@@ -557,7 +557,7 @@ def test_update_metadata_offline(
     # Try updating an already defined piece of metadata
     run.update_metadata({"a": 1})
 
-    sv_send.sender(os.environ["SIMVUE_OFFLINE_DIRECTORY"], 2, 10)
+    sv_send.sender(os.environ["SIMVUE_OFFLINE_DIRECTORY"], 2, 10, throw_exceptions=True)
 
     client = sv_cl.Client()
     run_info = client.get_run(client.get_run_id_from_name(run_name))
@@ -810,6 +810,9 @@ def test_set_folder_details(request: pytest.FixtureRequest) -> None:
 
 @pytest.mark.run
 @pytest.mark.parametrize(
+    "snapshot", (True, False)
+)
+@pytest.mark.parametrize(
     "valid_mimetype,preserve_path,name,allow_pickle,empty_file,category",
     [
         (True, False, None, False, False, "input"),
@@ -827,6 +830,7 @@ def test_save_file_online(
     allow_pickle: bool,
     empty_file: bool,
     category: typing.Literal["input", "output", "code"],
+    snapshot: bool,
     capfd,
     request,
 ) -> None:
@@ -860,6 +864,7 @@ def test_save_file_online(
                     file_type=file_type,
                     preserve_path=preserve_path,
                     name=name,
+                    snapshot=snapshot
                 )
             else:
                 with pytest.raises(RuntimeError):
@@ -892,6 +897,9 @@ def test_save_file_online(
 @pytest.mark.run
 @pytest.mark.offline
 @pytest.mark.parametrize(
+    "snapshot", (True, False)
+)
+@pytest.mark.parametrize(
     "preserve_path,name,allow_pickle,empty_file,category",
     [
         (False, None, False, False, "input"),
@@ -908,6 +916,7 @@ def test_save_file_offline(
     name: str | None,
     allow_pickle: bool,
     empty_file: bool,
+    snapshot: bool,
     category: typing.Literal["input", "output", "code"],
     capfd,
 ) -> None:
@@ -927,8 +936,16 @@ def test_save_file_offline(
             file_type=file_type,
             preserve_path=preserve_path,
             name=name,
+            snapshot=snapshot
         )
-        sv_send.sender(os.environ["SIMVUE_OFFLINE_DIRECTORY"], 2, 10)
+        # if snapshotting, check file can be updated, but previous contents set
+        if snapshot:
+            with open(
+                (out_name := pathlib.Path(tempd).joinpath("test_file.txt")),
+                "w",
+            ) as out_f:
+                out_f.write("updated file!")
+        sv_send.sender(os.environ["SIMVUE_OFFLINE_DIRECTORY"], 2, 10, throw_exceptions=True)
         os.remove(out_name)
         client = sv_cl.Client()
         base_name = name or out_name.name
@@ -944,8 +961,11 @@ def test_save_file_offline(
             name=f"{name or stored_name}",
             output_dir=tempd,
         )
-        assert out_loc.joinpath(name or out_name.name).exists()
-
+        assert out_file.exists()
+        with open(
+            out_file, "r") as out_f:
+            content = out_f.read()
+        assert content == "test data entry"
 
 @pytest.mark.run
 def test_update_tags_running(
@@ -1011,7 +1031,7 @@ def test_update_tags_offline(
 
     simvue_run.update_tags(["additional"])
 
-    sv_send.sender(os.environ["SIMVUE_OFFLINE_DIRECTORY"], 2, 10)
+    sv_send.sender(os.environ["SIMVUE_OFFLINE_DIRECTORY"], 2, 10, throw_exceptions=True)
 
     client = sv_cl.Client()
     run_data = client.get_run(client.get_run_id_from_name(run_name))
@@ -1338,7 +1358,7 @@ def test_reconnect_functionality(mode, monkeypatch: pytest.MonkeyPatch) -> None:
         )
         run_id = run.id
     if mode == "offline":
-        _id_mapping = sv_send.sender(os.environ["SIMVUE_OFFLINE_DIRECTORY"], 2, 10)
+        _id_mapping = sv_send.sender(os.environ["SIMVUE_OFFLINE_DIRECTORY"], 2, 10, throw_exceptions=True)
         run_id = _id_mapping.get(run_id)
 
     client = simvue.Client()
@@ -1352,7 +1372,7 @@ def test_reconnect_functionality(mode, monkeypatch: pytest.MonkeyPatch) -> None:
         run.log_event("Testing!")
 
     if mode == "offline":
-        _id_mapping = sv_send.sender(os.environ["SIMVUE_OFFLINE_DIRECTORY"], 2, 10)
+        _id_mapping = sv_send.sender(os.environ["SIMVUE_OFFLINE_DIRECTORY"], 2, 10, throw_exceptions=True)
 
     _reconnected_run = client.get_run(run_id)
     assert dict(_reconnected_run.metrics)["test_metric"]["last"] == 1

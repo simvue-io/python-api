@@ -13,6 +13,7 @@ import mimetypes
 import multiprocessing.synchronize
 import threading
 import humanfriendly
+import datetime
 import os
 import multiprocessing
 import pydantic
@@ -23,7 +24,6 @@ import time
 import functools
 import platform
 import typing
-import warnings
 import uuid
 import numpy
 import randomname
@@ -42,14 +42,18 @@ from .config.user import SimvueConfiguration
 from .factory.dispatch import Dispatcher
 from .executor import Executor, get_current_shell
 from .metrics import SystemResourceMeasurement
-from .models import FOLDER_REGEX, NAME_REGEX, MetricKeyString
+from .models import (
+    FOLDER_REGEX,
+    NAME_REGEX,
+    MetricKeyString,
+    validate_timestamp,
+    simvue_timestamp,
+)
 from .system import get_system
 from .metadata import git_info, environment
 from .eco import CO2Monitor
 from .utilities import (
     skip_if_failed,
-    validate_timestamp,
-    simvue_timestamp,
 )
 from .api.objects import (
     Run as RunObject,
@@ -281,11 +285,6 @@ class Run:
     def duration(self) -> float:
         """Return current run duration"""
         return time.time() - self._start_time
-
-    @property
-    def time_stamp(self) -> str:
-        """Return current timestamp"""
-        return simvue_timestamp()
 
     @property
     def processes(self) -> list[psutil.Process]:
@@ -1065,7 +1064,7 @@ class Run:
         enable_emission_metrics: bool | None = None,
         disable_resources_metrics: bool | None = None,
         storage_id: str | None = None,
-        abort_on_alert: typing.Literal["run", "all", "ignore"] | bool | None = None,
+        abort_on_alert: typing.Literal["run", "terminate", "ignore"] | None = None,
     ) -> bool:
         """Optional configuration
 
@@ -1084,10 +1083,10 @@ class Run:
             disable monitoring of resource metrics
         storage_id : str, optional
             identifier of storage to use, by default None
-        abort_on_alert : Literal['ignore', run', 'terminate'], optional
+        abort_on_alert : Literal['ignore', 'terminate', 'ignore'], optional
             whether to abort when an alert is triggered.
                 * run - current run is aborted.
-                * terminate - script itself is terminated.
+                * terminate - (default) script itself is terminated.
                 * ignore - alerts do not affect this run.
 
         Returns
@@ -1153,11 +1152,12 @@ class Run:
 
             if abort_on_alert is not None:
                 if isinstance(abort_on_alert, bool):
-                    warnings.warn(
-                        "Use of type bool for argument 'abort_on_alert' will be deprecated from v1.2, "
-                        "please use either 'run', 'all' or 'ignore'"
+                    raise (
+                        TypeError(
+                            "Use of type bool for argument 'abort_on_alert' has been removed, "
+                            "please use either 'run', 'all' or 'ignore'"
+                        )
                     )
-                    abort_on_alert = "run" if self._abort_on_alert else "ignore"
                 self._abort_on_alert = abort_on_alert
 
             if storage_id:
@@ -1256,16 +1256,23 @@ class Run:
 
     @skip_if_failed("_aborted", "_suppress_errors", False)
     @check_run_initialised
-    @pydantic.validate_call
-    def log_event(self, message: str, timestamp: str | None = None) -> bool:
+    @pydantic.validate_call(config={"validate_default": True})
+    def log_event(
+        self,
+        message: str,
+        timestamp: typing.Annotated[
+            datetime.datetime | str | None, pydantic.BeforeValidator(simvue_timestamp)
+        ] = None,
+    ) -> bool:
         """Log event to the server
 
         Parameters
         ----------
         message : str
             event message to log
-        timestamp : str, optional
+        timestamp : datetime.datetime | str, optional
             manually specify the time stamp for this log, by default None
+            if a string is provided, local time
 
         Returns
         -------
@@ -1287,11 +1294,7 @@ class Run:
             self._error("Cannot log events when not in the running state")
             return False
 
-        if timestamp and not validate_timestamp(timestamp):
-            self._error("Invalid timestamp format")
-            return False
-
-        _data = {"message": message, "timestamp": timestamp or self.time_stamp}
+        _data = {"message": message, "timestamp": timestamp}
         self._dispatcher.add_item(_data, "events", self._queue_blocking)
 
         return True
@@ -1302,7 +1305,7 @@ class Run:
         *,
         step: int | None = None,
         time: float | None = None,
-        timestamp: str | None = None,
+        timestamp: datetime.datetime | str | None = None,
         join_on_fail: bool = True,
     ) -> bool:
         if self._user_config.run.mode == "disabled":
@@ -1326,14 +1329,14 @@ class Run:
             )
             return False
 
-        if timestamp and not validate_timestamp(timestamp):
+        if isinstance(timestamp, str) and not validate_timestamp(timestamp):
             self._error("Invalid timestamp format", join_on_fail)
             return False
 
         _data: dict[str, typing.Any] = {
             "values": metrics,
             "time": time if time is not None else self.duration,
-            "timestamp": timestamp if timestamp is not None else self.time_stamp,
+            "timestamp": simvue_timestamp(timestamp),
             "step": step if step is not None else self._step,
         }
         self._dispatcher.add_item(_data, "metrics_regular", self._queue_blocking)
@@ -1346,14 +1349,39 @@ class Run:
         *,
         step: int | None = None,
         time: float | None = None,
-        timestamp: str | None = None,
+        timestamp: datetime.datetime | str | None = None,
         join_on_fail: bool = True,
     ) -> bool:
+        if self._user_config.run.mode == "disabled":
+            return True
+
+        # If there are no metrics to log just ignore
+        if not tensors:
+            return True
+
+        if not self._sv_obj or not self._dispatcher:
+            self._error("Cannot log tensors, run not initialised", join_on_fail)
+            return False
+
+        if not self._active:
+            self._error("Run is not active", join_on_fail)
+            return False
+
+        if self._status != "running":
+            self._error(
+                "Cannot log tensors when not in the running state", join_on_fail
+            )
+            return False
+
+        if isinstance(timestamp, str) and not validate_timestamp(timestamp):
+            self._error("Invalid timestamp format", join_on_fail)
+            return False
+
         for tensor, array in tensors.items():
             _data: dict[str, typing.Any] = {
                 "array": array,
                 "time": time if time is not None else self.duration,
-                "timestamp": timestamp if timestamp is not None else self.time_stamp,
+                "timestamp": simvue_timestamp(timestamp),
                 "step": step if step is not None else self._step,
                 "grid": self._grids[tensor]["id"],
                 "metric": tensor,
@@ -1362,36 +1390,6 @@ class Run:
             self._dispatcher.add_item(_data, "metrics_tensor", self._queue_blocking)
 
         return True
-
-    def _add_values_to_dispatch(
-        self,
-        values: dict[str, int | float | numpy.ndarray],
-        *,
-        step: int | None = None,
-        time: float | None = None,
-        timestamp: str | None = None,
-        join_on_fail: bool = True,
-    ) -> bool:
-        # If there are no metrics to log just ignore
-        if self._user_config.run.mode == "disabled":
-            return True
-
-        if not values:
-            return True
-
-        if not self._active:
-            self._error("Run is not active", join_on_fail)
-            return False
-
-        if self._status != "running":
-            self._error(
-                "Cannot log metrics when not in the running state", join_on_fail
-            )
-            return False
-
-        if timestamp and not validate_timestamp(timestamp):
-            self._error("Invalid timestamp format", join_on_fail)
-            return False
 
     @skip_if_failed("_aborted", "_suppress_errors", False)
     @check_run_initialised
@@ -1475,13 +1473,17 @@ class Run:
 
     @skip_if_failed("_aborted", "_suppress_errors", False)
     @check_run_initialised
-    @pydantic.validate_call(config={"arbitrary_types_allowed": True})
+    @pydantic.validate_call(
+        config={"arbitrary_types_allowed": True, "validate_default": True}
+    )
     def log_metrics(
         self,
         metrics: dict[MetricKeyString, int | float | numpy.ndarray],
         step: int | None = None,
         time: float | None = None,
-        timestamp: str | None = None,
+        timestamp: typing.Annotated[
+            datetime.datetime | str | None, pydantic.BeforeValidator(simvue_timestamp)
+        ] = None,
     ) -> bool:
         """Log metrics to Simvue server.
 
@@ -1493,8 +1495,9 @@ class Run:
             manually specify the step index for this log, by default None
         time : int, optional
             manually specify the time for this log, by default None
-        timestamp : str, optional
-            manually specify the timestamp for this log, by default None
+        timestamp : datetime.datetime | str, optional
+            manually specify the time stamp for this log, by default None
+            if a string is provided, local time
 
         Returns
         -------
@@ -1632,6 +1635,7 @@ class Run:
         category: typing.Literal["input", "output", "code"],
         file_type: str | None = None,
         preserve_path: bool = False,
+        snapshot: bool = False,
         name: typing.Optional[
             typing.Annotated[str, pydantic.Field(pattern=NAME_REGEX)]
         ] = None,
@@ -1652,6 +1656,8 @@ class Run:
             the MIME file type else this is deduced, by default None
         preserve_path : bool, optional
             whether to preserve the path during storage, by default False
+        snapshot : bool, optional
+            whether to take a snapshot of the file before uploading, by default False
         name : str, optional
             name to associate with this file, by default None
         metadata : str | None, optional
@@ -1686,6 +1692,7 @@ class Run:
                 offline=self._user_config.run.mode == "offline",
                 mime_type=file_type,
                 metadata=metadata,
+                snapshot=snapshot,
             )
             _artifact.attach_to_run(self.id, category)
         except (ValueError, RuntimeError) as e:

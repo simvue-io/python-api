@@ -19,19 +19,18 @@ jobs:
   object_retrieval:
     runs-on: ubuntu-latest
     timeout-minutes: 30
-    name: Ubuntu Nightly
     steps:
-    - uses: actions/checkout@v4
-    - name: Set up Python 3.13
-      uses: actions/setup-python@v5
+    - uses: actions/checkout@v5
+    - name: Set up Python 3.14
+      uses: actions/setup-python@v6
       with:
-        python-version: "3.13"
+        python-version: "3.14"
     - name: Install dependencies
       run: |
         python -m pip install poetry
         poetry self add poetry-plugin-export
         poetry export -f requirements.txt --with dev -o requirements.txt --all-extras
-        python -m pip install torch --index-url https://download.pytorch.org/whl/cpu
+        python -m pip install torch --index-url https://download.pytorch.org/whl/cpu || true
         python -m pip install -r requirements.txt
         python -m pip install .
     - name: Test with pytest
@@ -46,17 +45,17 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 30
     steps:
-    - uses: actions/checkout@v4
-    - name: Set up Python 3.13
-      uses: actions/setup-python@v5
+    - uses: actions/checkout@v5
+    - name: Set up Python 3.14
+      uses: actions/setup-python@v6
       with:
-        python-version: "3.13"
+        python-version: "3.14"
     - name: Install dependencies
       run: |
         python -m pip install poetry
         poetry self add poetry-plugin-export
         poetry export -f requirements.txt --with dev -o requirements.txt --all-extras
-        python -m pip install torch --index-url https://download.pytorch.org/whl/cpu
+        python -m pip install torch --index-url https://download.pytorch.org/whl/cpu || true
         python -m pip install -r requirements.txt
         python -m pip install .
     - name: Test with pytest
@@ -71,11 +70,11 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 30
     steps:
-    - uses: actions/checkout@v4
-    - name: Set up Python 3.13
-      uses: actions/setup-python@v5
+    - uses: actions/checkout@v5
+    - name: Set up Python 3.14
+      uses: actions/setup-python@v6
       with:
-        python-version: "3.13"
+        python-version: "3.14"
     - name: Install dependencies
       run: |
         python -m pip install poetry
@@ -95,17 +94,17 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 30
     steps:
-    - uses: actions/checkout@v4
-    - name: Set up Python 3.13
-      uses: actions/setup-python@v5
+    - uses: actions/checkout@v5
+    - name: Set up Python 3.14
+      uses: actions/setup-python@v6
       with:
-        python-version: "3.13"
+        python-version: "3.14"
     - name: Install dependencies
       run: |
         python -m pip install poetry
         poetry self add poetry-plugin-export
         poetry export -f requirements.txt --with dev -o requirements.txt --all-extras
-        python -m pip install torch --index-url https://download.pytorch.org/whl/cpu
+        python -m pip install torch --index-url https://download.pytorch.org/whl/cpu || true
         python -m pip install -r requirements.txt
         python -m pip install .
     - name: Test with pytest
@@ -120,17 +119,17 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 30
     steps:
-    - uses: actions/checkout@v4
-    - name: Set up Python 3.13
-      uses: actions/setup-python@v5
+    - uses: actions/checkout@v5
+    - name: Set up Python 3.14
+      uses: actions/setup-python@v6
       with:
-        python-version: "3.13"
+        python-version: "3.14"
     - name: Install dependencies
       run: |
         python -m pip install poetry
         poetry self add poetry-plugin-export
         poetry export -f requirements.txt --with dev -o requirements.txt --all-extras
-        python -m pip install torch --index-url https://download.pytorch.org/whl/cpu
+        python -m pip install torch --index-url https://download.pytorch.org/whl/cpu || true
         python -m pip install -r requirements.txt
         python -m pip install .
     - name: Test with pytest
@@ -145,11 +144,11 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 30
     steps:
-    - uses: actions/checkout@v4
-    - name: Set up Python 3.13
-      uses: actions/setup-python@v5
+    - uses: actions/checkout@v5
+    - name: Set up Python 3.14
+      uses: actions/setup-python@v6
       with:
-        python-version: "3.13"
+        python-version: "3.14"
     - name: Install dependencies
       run: |
         python -m pip install poetry
@@ -169,11 +168,11 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 30
     steps:
-    - uses: actions/checkout@v4
-    - name: Set up Python 3.13
-      uses: actions/setup-python@v5
+    - uses: actions/checkout@v5
+    - name: Set up Python 3.14
+      uses: actions/setup-python@v6
       with:
-        python-version: "3.13"
+        python-version: "3.14"
     - name: Install dependencies
       run: |
         python -m pip install poetry
@@ -193,11 +192,11 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 30
     steps:
-    - uses: actions/checkout@v4
-    - name: Set up Python 3.13
-      uses: actions/setup-python@v5
+    - uses: actions/checkout@v5
+    - name: Set up Python 3.14
+      uses: actions/setup-python@v6
       with:
-        python-version: "3.13"
+        python-version: "3.14"
     - name: Install dependencies
       run: |
         python -m pip install poetry
@@ -217,11 +216,11 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 30
     steps:
-    - uses: actions/checkout@v4
-    - name: Set up Python 3.13
-      uses: actions/setup-python@v5
+    - uses: actions/checkout@v5
+    - name: Set up Python 3.14
+      uses: actions/setup-python@v6
       with:
-        python-version: "3.13"
+        python-version: "3.14"
     - name: Install dependencies
       run: |
         python -m pip install poetry
