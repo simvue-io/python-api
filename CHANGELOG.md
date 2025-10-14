@@ -1,9 +1,13 @@
 # Change Log
 
-## [v2.2.1](https://github.com/simvue-io/client/releases/tag/v2.2.1) - 2025-10-13
+## [v2.2.2](https://github.com/simvue-io/client/releases/tag/v2.2.2) - 2025-10-14
 
 - Enforced use of UTC for all datetime recording.
 - Added support for Python3.14.
+
+## ~~[v2.2.1](https://github.com/simvue-io/client/releases/tag/v2.2.1) - 2025-10-13~~
+
+**Broken release yanked from PyPi**
 
 ## [v2.2.0](https://github.com/simvue-io/client/releases/tag/v2.2.0) - 2025-09-22
 
