@@ -12,13 +12,13 @@ If reporting a bug, provide as much detail outlining a minimal example and descr
 
 ## 🧰 Development
 
-### :closed_book: Python Poetry
+### :closed_book: UV
 
-For development it is strongly recommended that [Poetry](https://python-poetry.org) be used to manage dependencies and create the virtual environment used for development, the included `pyproject.toml` file makes use of the framework for ensuring dependency compatibility and building of the module during deployment. The included `poetry.lock` file defines the virtual environment to ensure the developers are running the `simvue` in an identical manner. Install poetry and setup the virtual environment by running from the root of this repository:
+For development it is strongly recommended that [UV](https://docs.astral.sh/uv/) be used to manage dependencies and create the virtual environment used for development, the included `pyproject.toml` file makes use of the framework for ensuring dependency compatibility and building of the module during deployment. The included `uv.lock` file defines the virtual environment to ensure the developers are running the `simvue` in an identical manner. Install UV and setup the virtual environment by running from the root of this repository:
 
 ```sh
-pip install --user poetry
-poetry install
+pip install --user uv
+uv sync --all-extras --all-groups
 ```
 
 ### 🪝 Using Git hooks
@@ -50,7 +50,7 @@ The branch `main` contains only tagged releases, the idea being all commits on t
 
 ### ℹ️ Typing
 
-All code within this repository makes use of Python's typing capability, this has proven invaluable for spotting any incorrect usage of functionality as linters are able to quickly flag up any incompatibilities. Typing also allows us define validator rules using the [Pydantic](https://docs.pydantic.dev/latest/) framework.  We ask that you type all functions and variables where possible.
+All code within this repository makes use of Python's typing capability, this has proven invaluable for spotting any incorrect usage of functionality as linters are able to quickly flag up any incompatibilities. Typing also allows us define validator rules using the [Pydantic](https://docs.pydantic.dev/latest/) framework. We ask that you type all functions and variables where possible.
 
 ### ✔️ Linting and Formatting
 
