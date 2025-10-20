@@ -63,7 +63,7 @@ def test_object_artifact_creation_offline(offline_cache_setup) -> None:
     assert _local_data.get("mime_type") == "application/vnd.simvue.numpy.v1"
     assert _local_data.get("runs") == {_run.id: "input"}
         
-    _id_mapping = sender(pathlib.Path(offline_cache_setup.name), 1, 10)
+    _id_mapping = sender(pathlib.Path(offline_cache_setup.name), 1, 10, throw_exceptions=True)
     time.sleep(1)
     
     _online_artifact = Artifact(_id_mapping.get(_artifact.id))

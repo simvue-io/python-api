@@ -38,7 +38,7 @@ def test_create_file_storage_offline(offline_cache_setup) -> None:
     assert _local_data.get("is_enabled") == False
     assert _local_data.get("is_default") == False
     
-    _id_mapping = sender(_storage._local_staging_file.parents[1], 1, 10, ["storage"])
+    _id_mapping = sender(_storage._local_staging_file.parents[1], 1, 10, ["storage"], throw_exceptions=True)
     time.sleep(1)
     _online_storage = FileStorage(_id_mapping.get(_storage.id))
     assert _online_storage.name == _uuid

@@ -13,8 +13,8 @@ from collections.abc import Generator
 import pydantic
 
 from simvue.api.request import get as sv_get
-from simvue.api.request import get_json_from_response
-from simvue.models import DATETIME_FORMAT, EventSet
+from simvue.api.request import get_json_from_response, sv_get
+from simvue.models import EventSet, simvue_timestamp
 
 from .base import SimvueObject
 
@@ -135,8 +135,8 @@ class Events(SimvueObject):
                 "value difference must be greater than window"
             )
         _url: URL = self._base_url / "histogram"
-        _time_begin: str = timestamp_begin.strftime(DATETIME_FORMAT)
-        _time_end: str = timestamp_end.strftime(DATETIME_FORMAT)
+        _time_begin: str = simvue_timestamp(timestamp_begin)
+        _time_end: str = simvue_timestamp(timestamp_end)
         _response = sv_get(
             url=f"{_url}",
             headers=self._headers,

@@ -483,14 +483,18 @@ class Run(SimvueObject):
         """
         _started: str | None = self._get_attribute("started")
         return (
-            datetime.datetime.strptime(_started, DATETIME_FORMAT) if _started else None
+            datetime.datetime.strptime(_started, DATETIME_FORMAT).replace(
+                tzinfo=datetime.timezone.utc
+            )
+            if _started
+            else None
         )
 
     @started.setter
     @write_only
     @pydantic.validate_call
     def started(self, started: datetime.datetime) -> None:
-        self._staging["started"] = started.strftime(DATETIME_FORMAT)
+        self._staging["started"] = simvue_timestamp(started)
 
     @property
     @staging_check
@@ -503,14 +507,18 @@ class Run(SimvueObject):
         """
         _endtime: str | None = self._get_attribute("endtime")
         return (
-            datetime.datetime.strptime(_endtime, DATETIME_FORMAT) if _endtime else None
+            datetime.datetime.strptime(_endtime, DATETIME_FORMAT).replace(
+                tzinfo=datetime.timezone.utc
+            )
+            if _endtime
+            else None
         )
 
     @endtime.setter
     @write_only
     @pydantic.validate_call
     def endtime(self, endtime: datetime.datetime) -> None:
-        self._staging["endtime"] = endtime.strftime(DATETIME_FORMAT)
+        self._staging["endtime"] = simvue_timestamp(endtime)
 
     @property
     def metrics(

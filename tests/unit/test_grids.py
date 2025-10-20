@@ -72,7 +72,7 @@ def test_grid_creation_offline() -> None:
 
     assert _local_data.get("runs", [None])[0] == [_run.id, "A"]
     npt.assert_array_equal(numpy.array(_local_data.get("grid")), _grid_def)
-    _id_mapping = sender(_grid._local_staging_file.parents[1], 1, 10, ["folders", "runs", "grids"])
+    _id_mapping = sender(_grid._local_staging_file.parents[1], 1, 10, ["folders", "runs", "grids"], throw_exceptions=True)
     time.sleep(1)
     # Get online version of grid
     _online_grid = Grid(_id_mapping.get(_grid.id))
@@ -184,7 +184,7 @@ def test_grid_metrics_creation_offline() -> None:
     _metrics.commit()
     _run.status = "completed"
     _run.commit()
-    _id_mapping = sender(_grid._local_staging_file.parents[1], 1, 10, ["folders", "runs", "grids", "grid_metrics"])
+    _id_mapping = sender(_grid._local_staging_file.parents[1], 1, 10, ["folders", "runs", "grids", "grid_metrics"], throw_exceptions=True)
     time.sleep(1)
     # Online metrics
     assert list(GridMetrics.get(runs=[_id_mapping[_run.id]], metrics=["A"], step=_step))

@@ -1,6 +1,7 @@
 import datetime
 import typing
 import numpy
+import warnings
 import pydantic
 
 
@@ -18,6 +19,56 @@ MetricKeyString = typing.Annotated[
 ]
 
 
+def validate_timestamp(timestamp: str, raise_except: bool = True) -> bool:
+    """
+    Validate a user-provided timestamp
+    """
+    try:
+        _ = datetime.datetime.strptime(timestamp, DATETIME_FORMAT)
+    except ValueError as e:
+        if raise_except:
+            raise e
+        return False
+
+    return True
+
+
+@pydantic.validate_call(config={"validate_default": True})
+def simvue_timestamp(
+    date_time: datetime.datetime
+    | typing.Annotated[str | None, pydantic.BeforeValidator(validate_timestamp)]
+    | None = None,
+) -> str:
+    """Return the Simvue valid timestamp
+
+    Parameters
+    ----------
+    date_time: datetime.datetime | str, optional
+        if provided, the datetime object to convert,
+        else use current date and time
+        if a string assume to be local time.
+
+    Returns
+    -------
+    str
+        Datetime string valid for the Simvue server
+    """
+    if isinstance(date_time, str):
+        warnings.warn(
+            "Timestamps as strings for object recording will be deprecated in Python API >= 2.3"
+        )
+    if not date_time:
+        date_time = datetime.datetime.now(datetime.timezone.utc)
+    elif isinstance(date_time, str):
+        _local_time = datetime.datetime.now().tzinfo
+        date_time = (
+            datetime.datetime.strptime(date_time, DATETIME_FORMAT)
+            .replace(tzinfo=_local_time)
+            .astimezone(datetime.timezone.utc)
+        )
+    return date_time.strftime(DATETIME_FORMAT)
+
+
 # Pydantic class to validate run.init()
 class RunInput(pydantic.BaseModel):
     model_config = pydantic.ConfigDict(extra="forbid")
@@ -33,44 +84,26 @@ class RunInput(pydantic.BaseModel):
 class MetricSet(pydantic.BaseModel):
     model_config = pydantic.ConfigDict(extra="forbid")
     time: pydantic.NonNegativeFloat | pydantic.NonNegativeInt
-    timestamp: str
+    timestamp: typing.Annotated[str | None, pydantic.BeforeValidator(simvue_timestamp)]
     step: pydantic.NonNegativeInt
     values: dict[str, int | float | bool]
 
-    @pydantic.field_validator("timestamp", mode="after")
-    @classmethod
-    def timestamp_str(cls, value: str) -> str:
-        try:
-            _ = datetime.datetime.strptime(value, DATETIME_FORMAT)
-        except ValueError as e:
-            raise AssertionError(
-                f"Invalid timestamp, expected form '{DATETIME_FORMAT}'"
-            ) from e
-        return value
-
 
 class GridMetricSet(pydantic.BaseModel):
-    model_config = pydantic.ConfigDict(arbitrary_types_allowed=True, extra="forbid")
+    model_config = pydantic.ConfigDict(
+        arbitrary_types_allowed=True, extra="forbid", validate_default=True
+    )
     time: pydantic.NonNegativeFloat | pydantic.NonNegativeInt
-    timestamp: str
+    timestamp: typing.Annotated[str | None, pydantic.BeforeValidator(simvue_timestamp)]
     step: pydantic.NonNegativeInt
-    array: list | numpy.ndarray
+    array: list[float] | list[list[float]] | numpy.ndarray
     grid: str
     metric: str
 
-    @pydantic.field_validator("timestamp", mode="after")
-    @classmethod
-    def timestamp_str(cls, value: str) -> str:
-        try:
-            datetime.datetime.strptime(value, DATETIME_FORMAT)
-        except ValueError as e:
-            raise AssertionError(
-                f"Invalid timestamp, expected form '{DATETIME_FORMAT}'"
-            ) from e
-        return value
-
     @pydantic.field_serializer("array", when_used="always")
-    def serialize_array(self, value: numpy.ndarray | list, *_) -> list:
+    def serialize_array(
+        self, value: numpy.ndarray | list[float] | list[list[float]], *_
+    ) -> list[float] | list[list[float]]:
         if isinstance(value, list):
             return value
         return value.tolist()
@@ -79,15 +112,4 @@ class GridMetricSet(pydantic.BaseModel):
 class EventSet(pydantic.BaseModel):
     model_config = pydantic.ConfigDict(extra="forbid")
     message: str
-    timestamp: str
-
-    @pydantic.field_validator("timestamp", mode="after")
-    @classmethod
-    def timestamp_str(cls, value: str) -> str:
-        try:
-            datetime.datetime.strptime(value, DATETIME_FORMAT)
-        except ValueError as e:
-            raise AssertionError(
-                f"Invalid timestamp, expected form '{DATETIME_FORMAT}'"
-            ) from e
-        return value
+    timestamp: typing.Annotated[str | None, pydantic.BeforeValidator(simvue_timestamp)]

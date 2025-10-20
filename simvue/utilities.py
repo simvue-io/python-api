@@ -114,11 +114,14 @@ def parse_validation_response(
         if body := response.get("body"):
             headers = ["Type", "Location", "Input", "Message"]
             input_arg = body
-            for loc in location:
-                try:
-                    input_arg = None if obj_type == "missing" else input_arg[loc]
-                except TypeError:
-                    break
+            if obj_type == "missing":
+                input_arg = None
+            else:
+                for loc in location:
+                    if loc in input_arg:
+                        input_arg = input_arg[loc]
+            if len(str(input_arg)) > 60 and input_arg:
+                input_arg = f"{str(input_arg)[:60]}..."
             information.append(input_arg)
 
         # Limit message to be 60 characters
