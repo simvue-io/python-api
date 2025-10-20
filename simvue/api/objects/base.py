@@ -33,8 +33,6 @@ from simvue.api.request import (
 )
 from simvue.api.url import URL
 
-logging.basicConfig(level=logging.INFO)
-
 try:
     from typing import Self
 except ImportError:
