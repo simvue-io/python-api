@@ -1225,7 +1225,6 @@ def test_add_alerts_offline(monkeypatch) -> None:
     # Try adding alerts with IDs, check there is no duplication
     _expected_alerts.append(_id)
     run.add_alerts(ids=_expected_alerts)
-    import pdb; pdb.set_trace()
     _id_mapping = sv_send.sender(os.environ["SIMVUE_OFFLINE_DIRECTORY"], 2, 10, throw_exceptions=True)
 
     _online_run.refresh()
