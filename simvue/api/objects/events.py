@@ -13,7 +13,7 @@ from collections.abc import Generator
 import pydantic
 
 from simvue.api.request import get as sv_get
-from simvue.api.request import get_json_from_response, sv_get
+from simvue.api.request import get_json_from_response
 from simvue.models import EventSet, simvue_timestamp
 
 from .base import SimvueObject
@@ -21,7 +21,13 @@ from .base import SimvueObject
 try:
     from typing import Self
 except ImportError:
-    from typing import Self
+    from typing_extensions import Self  # noqa: UP035
+
+
+try:
+    from typing import override
+except ImportError:
+    from typing_extensions import override  # noqa: UP035
 
 if typing.TYPE_CHECKING:
     from simvue.api.url import URL
@@ -59,7 +65,14 @@ class Events(SimvueObject):
         _class_instance = cls(_read_only=True, _local=True)
         _count: int = 0
 
-        for response in cls._get_all_objects(offset, count=count, run=run_id, **kwargs):
+        for response in cls._get_all_objects(
+            offset=offset,
+            endpoint=None,
+            count=count,
+            run=run_id,
+            expected_type=dict,
+            **kwargs,
+        ):
             _data = typing.cast(
                 "list[dict[str, str | float | None]] | None", response.get("data")
             )
@@ -96,11 +109,15 @@ class Events(SimvueObject):
             **kwargs,  # pyright: ignore[reportArgumentType]
         )
 
-    def _post_single(self, **kwargs: object) -> dict[str, typing.Any]:
-        return super()._post_single(is_json=False, **kwargs)
+    @override
+    def _post_single(
+        self,
+        data: list[dict[str, object]] | dict[str, object] | None = None,
+        **kwargs: object,
+    ) -> dict[str, typing.Any] | list[dict[str, typing.Any]]:
+        return super()._post_single(is_json=False, data=data, **kwargs)
 
-    @typing.override
-    def _put(self, **kwargs: object) -> dict[str, typing.Any]:
+    def _put(self, **_: object) -> dict[str, typing.Any]:
         raise NotImplementedError("Method 'put' is not available for type Events")
 
     @pydantic.validate_call
@@ -134,7 +151,7 @@ class Events(SimvueObject):
                 "Invalid arguments for datetime range, "
                 "value difference must be greater than window"
             )
-        _url: URL = self._base_url / "histogram"
+        _url: URL = self.base_url / "histogram"
         _time_begin: str = simvue_timestamp(timestamp_begin)
         _time_end: str = simvue_timestamp(timestamp_end)
         _response = sv_get(

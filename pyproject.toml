@@ -139,6 +139,7 @@ reportAny = "none" # ruff already does this
 reportMissingTypeStubs = "none"
 reportPrivateUsage = "none" # ruff already does this
 reportImportCycles = "none"
+reportIncompatibleMethodOverride = "none"
 
 [tool.mypy]
 ignore_missing_imports = true

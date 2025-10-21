@@ -677,6 +677,16 @@ class SimvueObject(abc.ABC):
         return self._offline
 
     @property
+    def staging(self) -> dict[str, typing.Any]:
+        """Return staging mapping."""
+        return self._staging
+
+    @property
+    def headers(self) -> dict[str, str]:
+        """Return request headers."""
+        return self._headers
+
+    @property
     def id(self) -> str | None:
         """The identifier for this object if applicable.
 

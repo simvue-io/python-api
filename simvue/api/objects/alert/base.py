@@ -38,9 +38,9 @@ class AlertBase(SimvueObject, abc.ABC):
 
     @classmethod
     @override
-    @abc.abstractmethod
     def new(cls, **_: typing.Any) -> Self:
         """Create a new alert."""
+        raise NotImplementedError
 
     def __init__(
         self,

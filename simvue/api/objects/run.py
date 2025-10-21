@@ -484,7 +484,7 @@ class Run(SimvueObject):
         _started: str | None = self._get_attribute("started")
         return (
             datetime.datetime.strptime(_started, DATETIME_FORMAT).replace(
-                tzinfo=datetime.timezone.utc
+                tzinfo=datetime.UTC
             )
             if _started
             else None
@@ -508,7 +508,7 @@ class Run(SimvueObject):
         _endtime: str | None = self._get_attribute("endtime")
         return (
             datetime.datetime.strptime(_endtime, DATETIME_FORMAT).replace(
-                tzinfo=datetime.timezone.utc
+                tzinfo=datetime.UTC
             )
             if _endtime
             else None
@@ -574,7 +574,7 @@ class Run(SimvueObject):
             _heartbeat_file.touch()
             return None
 
-        _url = self._base_url
+        _url = self.base_url
         _url /= f"{self._identifier}/heartbeat"
         _response = sv_put(f"{_url}", headers=self._headers, data={})
         return get_json_from_response(
