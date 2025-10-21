@@ -1153,6 +1153,95 @@ def test_add_alerts() -> None:
         )
     for _id in _expected_alerts:
         client.delete_alert(_id)
+        
+@pytest.mark.run
+@pytest.mark.offline
+def test_add_alerts_offline(monkeypatch) -> None:
+    _uuid = f"{uuid.uuid4()}".split("-")[0]
+    
+    temp_d = tempfile.TemporaryDirectory()
+    monkeypatch.setenv("SIMVUE_OFFLINE_DIRECTORY", temp_d.name)
+
+    run = sv_run.Run(mode="offline")
+    run.init(
+        name="test_add_alerts_offline",
+        folder=f"/simvue_unit_testing/{_uuid}",
+        retention_period=os.environ.get("SIMVUE_TESTING_RETENTION_PERIOD", "2 mins"),
+        tags=[platform.system(), "test_add_alerts"],
+        visibility="tenant" if os.environ.get("CI") else None,
+    )
+
+    _expected_alerts = []
+
+    # Create alerts, have them attach to run automatically
+    _id = run.create_event_alert(
+        name=f"event_alert_{_uuid}",
+        pattern="test",
+    )
+    _expected_alerts.append(_id)
+
+    # Create another alert and attach to run
+    _id = run.create_metric_range_alert(
+        name=f"metric_range_alert_{_uuid}",
+        metric="test",
+        range_low=10,
+        range_high=100,
+        rule="is inside range",
+    )
+    _expected_alerts.append(_id)
+
+    # Create another alert, do not attach to run
+    _id = run.create_metric_threshold_alert(
+        name=f"metric_threshold_alert_{_uuid}",
+        metric="test",
+        threshold=10,
+        rule="is above",
+        attach_to_run=False,
+    )
+    
+    # Try redefining existing alert again
+    _id = run.create_metric_range_alert(
+        name=f"metric_range_alert_{_uuid}",
+        metric="test",
+        range_low=10,
+        range_high=100,
+        rule="is inside range",
+    )
+    
+    _id_mapping = sv_send.sender(os.environ["SIMVUE_OFFLINE_DIRECTORY"], 2, 10, throw_exceptions=True)
+    _online_run = RunObject(identifier=_id_mapping.get(run.id))
+
+    # Check that there is no duplication
+    assert sorted(_online_run.alerts) == sorted([_id_mapping.get(_id) for _id in _expected_alerts])
+
+    # Create another run without adding to run
+    _id = run.create_user_alert(name=f"user_alert_{_uuid}", attach_to_run=False)
+    _id_mapping = sv_send.sender(os.environ["SIMVUE_OFFLINE_DIRECTORY"], 2, 10, throw_exceptions=True)
+
+    # Check alert is not added
+    _online_run.refresh()
+    assert sorted(_online_run.alerts) == sorted([_id_mapping.get(_id) for _id in _expected_alerts])
+
+    # Try adding alerts with IDs, check there is no duplication
+    _expected_alerts.append(_id)
+    run.add_alerts(ids=_expected_alerts)
+    import pdb; pdb.set_trace()
+    _id_mapping = sv_send.sender(os.environ["SIMVUE_OFFLINE_DIRECTORY"], 2, 10, throw_exceptions=True)
+
+    _online_run.refresh()
+    assert sorted(_online_run.alerts) == sorted([_id_mapping.get(_id) for _id in _expected_alerts])
+
+    run.close()
+
+    client = sv_cl.Client()
+    with contextlib.suppress(ObjectNotFoundError):
+        client.delete_folder(
+            f"/simvue_unit_testing/{_uuid}",
+            remove_runs=True,
+            recursive=True
+        )
+    for _id in [_id_mapping.get(_id) for _id in _expected_alerts]:
+        client.delete_alert(_id)
 
 
 @pytest.mark.run
