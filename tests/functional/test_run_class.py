@@ -1439,7 +1439,7 @@ def test_run_environment_metadata(environment: str, mocker: pytest_mock.MockerFi
     _target_dir = _data_dir
     if "python" in environment:
         _target_dir = _data_dir.joinpath(environment)
-    _config = SimvueConfiguration.fetch()
+    _config = SimvueConfiguration.fetch(mode="online")
 
     with sv_run.Run(server_token=_config.server.token, server_url=_config.server.url) as run:
         _uuid = f"{uuid.uuid4()}".split("-")[0]
