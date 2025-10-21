@@ -38,8 +38,6 @@ from simvue.exception import ObjectNotFoundError
 from simvue.utilities import staging_merger
 from simvue.version import __version__
 
-logging.basicConfig(level=logging.INFO)
-
 try:
     from typing import Self
 except ImportError:
