@@ -21,7 +21,6 @@ logger = logging.getLogger(__name__)
 
 if typing.TYPE_CHECKING:
     from simvue.run import Run
-    from simvue.offline import Sender
 
 
 def find_first_instance_of_file(
@@ -220,7 +219,7 @@ def parse_pydantic_error(error: pydantic.ValidationError) -> str:
 
 
 def skip_if_failed(
-    failure_attr: str | None,
+    failure_attr: str,
     ignore_exc_attr: str,
     on_failure_return: typing.Any | None = None,
 ) -> typing.Callable:
@@ -249,7 +248,7 @@ def skip_if_failed(
 
     def decorator(class_func: typing.Callable) -> typing.Callable:
         @functools.wraps(class_func)
-        def wrapper(self: "Run | Sender", *args, **kwargs) -> typing.Any:
+        def wrapper(self: "Run", *args, **kwargs) -> typing.Any:
             if getattr(self, failure_attr, None) and getattr(
                 self, ignore_exc_attr, None
             ):

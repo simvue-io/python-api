@@ -1,14 +1,13 @@
-import typing
 import pytest
 import uuid
 import contextlib
 import json
 import time
-import os
 
 from simvue.api.objects.folder import Folder
-from simvue.sender import sender
+from simvue.sender import Sender
 from simvue.client import Client
+
 @pytest.mark.api
 @pytest.mark.online
 def test_folder_creation_online() -> None:
@@ -42,14 +41,15 @@ def test_folder_creation_offline(offline_cache_setup) -> None:
     assert  _folder._local_staging_file.name.split(".")[0] == _folder.id
     assert _local_data.get("path", None) == _path
 
-    sender(_folder._local_staging_file.parents[1], 2, 10, ["folders"], throw_exceptions=True)
-    time.sleep(1)
-    client = Client()
+    _sender = Sender(cache_directory=_folder._local_staging_file.parents[1], max_workers=2, threading_threshold=10, throw_exceptions=True)
+    _sender.upload(["folders"])
 
-    _folder_new = client.get_folder(_path)
+    time.sleep(1)
+
+    _folder_new = Folder(identifier=_sender.id_mapping[_folder.id])
     assert _folder_new.path == _path
 
-    _folder_new.delete()
+    _folder_new.delete(recursive=True, delete_runs=True)
 
     assert not _folder._local_staging_file.exists()
 
@@ -96,11 +96,11 @@ def test_folder_modification_offline(offline_cache_setup) -> None:
     _folder = Folder.new(path=_path, offline=True)
     _folder.commit()
 
-    sender(_folder._local_staging_file.parents[1], 2, 10, ["folders"], throw_exceptions=True)
+    _sender = Sender(cache_directory=_folder._local_staging_file.parents[1], max_workers=2, threading_threshold=10, throw_exceptions=True)
+    _sender.upload(["folders"])
     time.sleep(1)
 
-    client = Client()
-    _folder_online = client.get_folder(_path)
+    _folder_online = Folder(identifier=_sender.id_mapping[_folder.id])
     assert _folder_online.path == _path
 
     _folder_new = Folder(identifier=_folder.id)
@@ -115,7 +115,8 @@ def test_folder_modification_offline(offline_cache_setup) -> None:
     assert _local_data.get("description", None) == _description
     assert _local_data.get("tags", None) == _tags
 
-    sender(_folder._local_staging_file.parents[1], 2, 10, ["folders"], throw_exceptions=True)
+    _sender = Sender(cache_directory=_folder._local_staging_file.parents[1], max_workers=2, threading_threshold=10, throw_exceptions=True)
+    _sender.upload(["folders"])
     time.sleep(1)
 
     _folder_online.refresh()

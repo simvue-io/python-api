@@ -253,3 +253,13 @@ class SimvueConfiguration(pydantic.BaseModel):
             raise FileNotFoundError("Failed to find Simvue configuration file")
 
         return _config_file
+
+    @property
+    def headers(self) -> dict[str, str]:
+        if not self.server.token:
+            raise ValueError("Cannot generate headers, no token provided.")
+        return {
+            "Authorization": f"Bearer {self.server.token.get_secret_value()}",
+            "User-Agent": f"Simvue Python client {__version__}",
+            "Accept-Encoding": "gzip",
+        }
