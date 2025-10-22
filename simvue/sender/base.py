@@ -4,6 +4,7 @@ These are designed to be run with a cron task in cases where server connection
 is either not possible on the simulation machine, or connection is limited.
 """
 
+import datetime
 import logging
 import threading
 import typing
@@ -12,6 +13,7 @@ import psutil
 
 from simvue.sender.actions import UPLOAD_ACTION_ORDER
 from simvue.config.user import SimvueConfiguration
+from simvue.run import Run
 
 logger = logging.getLogger(__name__)
 
@@ -42,6 +44,7 @@ class Sender:
         threading_threshold: pydantic.PositiveInt = 10,
         throw_exceptions: bool = False,
         retry_failed_uploads: bool = False,
+        run_notification: typing.Literal["none", "all", "email"] = "none",
     ) -> None:
         """Creates required local directories."""
         _local_config: SimvueConfiguration = SimvueConfiguration.fetch()
@@ -53,6 +56,7 @@ class Sender:
         self._max_workers = max_workers
         self._lock_path = self._cache_directory.joinpath("sender.lock")
         self._thread_lock = threading.Lock()
+        self._run_notification: typing.Literal["none", "email"] = run_notification
         self._id_mapping = {
             file_path.name.split(".")[0]: file_path.read_text()
             for file_path in self._cache_directory.glob("server_ids/*.txt")
@@ -82,10 +86,35 @@ class Sender:
         """Release lock to this sender."""
         self._lock_path.unlink()
 
+    def _initialise_monitor_run(self) -> Run:
+        """Create a Simvue run for monitoring upload."""
+        _time_stamp: str = datetime.datetime.now(tz=datetime.UTC).strftime(
+            "%Y_%m_%d_%H_%M_%S"
+        )
+        _run = Run(mode="online")
+        _ = _run.init(
+            name=f"sender_upload_{_time_stamp}",
+            folder="/sender",
+            notification=self._run_notification,
+            timeout=None,
+            no_color=True,
+        )
+        _ = _run.config(suppress_errors=True, enable_emission_metrics=False)
+        _run.create_user_alert(
+            name="sender_object_upload_failure",
+            description="Triggers when an object fails to send to the server.",
+            notification=self._run_notification,
+            trigger_abort=False,
+        )
+
+        return _run
+
     @pydantic.validate_call
     def upload(self, objects_to_upload: list[UploadItem] | None = None) -> None:
         """Upload objects to server."""
         self._lock()
+
+        _monitor_run = self._initialise_monitor_run()
 
         for action in UPLOAD_ACTION_ORDER:
             if objects_to_upload and action.object_type not in objects_to_upload:
@@ -103,5 +132,6 @@ class Sender:
                 retry_failed=self._retry_failed_uploads,
                 single_thread_limit=self._threading_threshold,
                 max_thread_workers=self._max_workers,
+                simvue_monitor_run=_monitor_run,
             )
         self._release()

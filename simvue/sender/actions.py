@@ -1,3 +1,5 @@
+"""Upload actions for cached files."""
+
 import abc
 from collections.abc import Generator
 from concurrent.futures import ThreadPoolExecutor
@@ -39,6 +41,7 @@ from simvue.api.request import put as sv_put, get_json_from_response
 from simvue.models import ObjectID
 from simvue.config.user import SimvueConfiguration
 from simvue.eco import CO2Monitor
+from simvue.run import Run as SimvueRun
 
 try:
     from typing import override
@@ -115,10 +118,12 @@ class UploadAction:
         id_mapping: dict[str, str],
         cache_directory: pathlib.Path,
         thread_lock: threading.Lock,
+        simvue_monitor_run: SimvueRun,
         *,
         throw_exceptions: bool = False,
         retry_failed: bool = False,
     ) -> None:
+        simvue_monitor_run.log_event(f"Uploading {cls.object_type} '{identifier}'")
         _json_file = cache_directory.joinpath(f"{cls.object_type}/{identifier}.json")
 
         with _json_file.open() as in_f:
@@ -151,9 +156,14 @@ class UploadAction:
         except Exception as err:
             if throw_exceptions:
                 raise err
-            cls.logger.exception(
-                "Failed to upload %s '%s'", cls.object_type, identifier
+            _exception_msg: str = (
+                f"Error while committing {cls.object_type} '{identifier}': {err}"
             )
+            simvue_monitor_run.log_event(_exception_msg)
+            simvue_monitor_run.log_alert(
+                name="sender_object_upload_failure", state="critical"
+            )
+            cls.logger.error(_exception_msg)
             cls.log_upload_failed(cache_directory, identifier, _data)
             return
 
@@ -202,6 +212,7 @@ class UploadAction:
         thread_lock: threading.Lock,
         single_thread_limit: int,
         max_thread_workers: int,
+        simvue_monitor_run: SimvueRun,
         *,
         throw_exceptions: bool = False,
         retry_failed: bool = False,
@@ -217,6 +228,7 @@ class UploadAction:
                     throw_exceptions=throw_exceptions,
                     retry_failed=retry_failed,
                     id_mapping=id_mapping,
+                    simvue_monitor_run=simvue_monitor_run,
                 )
         else:
             with ThreadPoolExecutor(
@@ -231,6 +243,7 @@ class UploadAction:
                         throw_exceptions=throw_exceptions,
                         retry_failed=retry_failed,
                         id_mapping=id_mapping,
+                        simvue_monitor_run=simvue_monitor_run,
                     ),
                     _iterable,
                 )
