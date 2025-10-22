@@ -80,7 +80,9 @@ class FileArtifact(ArtifactBase):
         else:
             file_path = pathlib.Path(file_path)
             if snapshot:
-                _user_config = SimvueConfiguration.fetch()
+                _user_config = SimvueConfiguration.fetch(
+                    mode="offline" if offline else "online"
+                )
 
                 _local_staging_dir: pathlib.Path = _user_config.offline.cache.joinpath(
                     "artifacts"
