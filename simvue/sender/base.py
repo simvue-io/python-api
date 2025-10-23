@@ -63,7 +63,7 @@ class Sender:
         retry_failed_uploads : bool, optional
             Whether to retry sending objects which previously failed, by default False
         """
-        _local_config: SimvueConfiguration = SimvueConfiguration.fetch()
+        _local_config: SimvueConfiguration = SimvueConfiguration.fetch(mode="online")
         self._cache_directory = cache_directory or _local_config.offline.cache
         self._cache_directory.joinpath("server_ids").mkdir(parents=True, exist_ok=True)
         self._throw_exceptions = throw_exceptions

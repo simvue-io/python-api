@@ -944,7 +944,7 @@ class HeartbeatUploadAction(UploadAction):
             cache_directory.joinpath(f"runs/{identifier}.heartbeat").unlink()
             return
 
-        _local_config: SimvueConfiguration = SimvueConfiguration.fetch()
+        _local_config: SimvueConfiguration = SimvueConfiguration.fetch(mode="online")
 
         cls.logger.info("Sending heartbeat to run '%s'", identifier)
 
