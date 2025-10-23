@@ -196,6 +196,12 @@ class SimvueObject(abc.ABC):
         self._read_only: bool = _read_only
         self._is_set: bool = False
         self._endpoint: str = getattr(self, "_endpoint", f"{self._label}s")
+
+        # For simvue object initialisation, unlike the server there is no nested
+        # arguments, however this means that there are extra keys during post which
+        # need removing, this attribute handles that and should be set in subclasses.
+        self._local_only_args: list[str] = []
+
         self._identifier: str | None = (
             identifier if identifier is not None else f"offline_{uuid.uuid1()}"
         )
@@ -626,6 +632,10 @@ class SimvueObject(abc.ABC):
         if not is_json:
             kwargs = msgpack.packb(data or kwargs, use_bin_type=True)
 
+        # Remove any extra keys
+        for key in self._local_only_args:
+            _ = (data or kwargs).pop(key, None)
+
         _response = sv_post(
             url=f"{self._base_url}",
             headers=self._headers | {"Content-Type": "application/msgpack"},
@@ -663,6 +673,11 @@ class SimvueObject(abc.ABC):
     def _put(self, **kwargs) -> dict[str, typing.Any]:
         if not self.url:
             raise RuntimeError(f"Identifier for instance of {self._label} Unknown")
+
+        # Remove any extra keys
+        for key in self._local_only_args:
+            _ = kwargs.pop(key, None)
+
         _response = sv_put(
             url=f"{self.url}", headers=self._headers, data=kwargs, is_json=True
         )

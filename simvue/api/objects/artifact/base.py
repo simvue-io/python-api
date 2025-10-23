@@ -54,6 +54,7 @@ class ArtifactBase(SimvueObject):
         self._label = "artifact"
         self._endpoint = f"{self._label}s"
         super().__init__(identifier=identifier, _read_only=_read_only, **kwargs)
+        self._local_only_args += ["storage", "file_path", "runs"]
 
         # If the artifact is an online instance, need a place to store the response
         # from the initial creation
