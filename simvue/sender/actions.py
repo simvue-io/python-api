@@ -934,11 +934,13 @@ class HeartbeatUploadAction(UploadAction):
         id_mapping: dict[str, str],
         cache_directory: pathlib.Path,
         thread_lock: threading.Lock,
+        simvue_monitor_run: SimvueRun,
         *,
         throw_exceptions: bool = False,
         retry_failed: bool = False,
     ) -> None:
         """Upload a single heartbeat item."""
+        _ = simvue_monitor_run
         if not (_online_id := id_mapping.get(identifier)):
             # Run has been closed - can just remove heartbeat and continue
             cache_directory.joinpath(f"runs/{identifier}.heartbeat").unlink()
@@ -1029,10 +1031,12 @@ class CO2IntensityUploadAction(UploadAction):
         id_mapping: dict[str, str],
         cache_directory: pathlib.Path,
         thread_lock: threading.Lock,
+        simvue_monitor_run: SimvueRun,
         *,
         throw_exceptions: bool = False,
         retry_failed: bool = False,
     ) -> None:
+        _ = simvue_monitor_run
         _ = identifier
         _ = id_mapping
         _ = cache_directory
