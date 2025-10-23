@@ -58,26 +58,66 @@ class UploadAction:
 
     @classmethod
     def json_file(cls, cache_directory: pathlib.Path, offline_id: str) -> pathlib.Path:
+        """Returns the local cache JSON file for an upload.
+
+        Parameters
+        ----------
+        cache_directory : pathlib.Path
+            the cache directory to search
+        offline_id : str
+            the offline identifier for the upload
+
+        Returns
+        -------
+        pathlib.Path
+            path of local JSON file
+        """
         return cache_directory.joinpath(f"{cls.object_type}", f"{offline_id}.json")
 
     @classmethod
-    def log_upload_failed(
+    def _log_upload_failed(
         cls, cache_directory: pathlib.Path, offline_id: str, data: dict[str, typing.Any]
     ) -> None:
+        """Log a failing upload to the local cache."""
         data["upload_failed"] = True
         with cls.json_file(cache_directory, offline_id).open("w") as out_f:
             json.dump(data, out_f, indent=2)
 
     @classmethod
     def count(cls, cache_directory: pathlib.Path) -> int:
-        """Return number of objects to upload of this type."""
+        """Return number of objects to upload of this type.
+
+        Parameters
+        ----------
+        cache_directory : pathlib.Path
+            the local cache directory to read from.
+
+        Returns
+        -------
+        int
+            the number of objects of this type pending upload.
+        """
         return len(list(cls.uploadable_objects(cache_directory)))
 
     @classmethod
     def pre_tasks(
         cls, offline_id: str, data: dict[str, typing.Any], cache_directory: pathlib.Path
     ) -> None:
-        """Pre-upload actions."""
+        """Pre-upload actions.
+
+        For this object type no pre-actions are performed.
+
+        Parameters
+        -----------
+        offline_id : str
+            the offline identifier for the upload.
+        online_id : str
+            the recorded online identifier after upload.
+        data : dict[str, Any]
+            the data sent during upload.
+        cache_directory : pathlib.Path
+            the local cache directory to read from.
+        """
         _ = offline_id
         _ = data
         _ = cache_directory
@@ -91,7 +131,21 @@ class UploadAction:
         data: dict[str, typing.Any],
         cache_directory: pathlib.Path,
     ) -> None:
-        """Post-upload actions."""
+        """Post-upload actions.
+
+        Removes local JSON data on successful upload.
+
+        Parameters
+        -----------
+        offline_id : str
+            the offline identifier for the upload.
+        online_id : str
+            the recorded online identifier after upload.
+        data : dict[str, Any]
+            the data sent during upload.
+        cache_directory : pathlib.Path
+            the local cache directory to read from.
+        """
         _ = data
         _ = online_id
         cls.json_file(cache_directory, offline_id).unlink(missing_ok=True)
@@ -101,13 +155,27 @@ class UploadAction:
     def initialise_object(
         cls, online_id: ObjectID | None, **data
     ) -> SimvueObject | None:
-        """Initialise an instance."""
+        """Initialise an instance of an object."""
         _ = online_id
         _ = data
 
     @classmethod
     def uploadable_objects(cls, cache_directory: pathlib.Path) -> Generator[str]:
-        """Iterate through uploadables."""
+        """Iterate through uploadables.
+
+        Returns the offline identifiers.f objects awaiting upload for this type.
+
+
+        Parameters
+        ----------
+        cache_directory : pathlib.Path
+            the local cache directory to read from.
+
+        Yields
+        ------
+        str
+            offline identifier
+        """
         for file in cache_directory.glob(f"{cls.object_type}/*.json"):
             yield file.stem
 
@@ -122,8 +190,11 @@ class UploadAction:
         *,
         throw_exceptions: bool = False,
         retry_failed: bool = False,
+        upload_status: dict[str, str | float] | None,
     ) -> None:
-        simvue_monitor_run.log_event(f"Uploading {cls.object_type} '{identifier}'")
+        """Upload a single item of this object type."""
+        _label: str = cls.object_type[:-1] if cls.singular_object else cls.object_type
+        simvue_monitor_run.log_event(f"Uploading {_label} '{identifier}'")
         _json_file = cache_directory.joinpath(f"{cls.object_type}/{identifier}.json")
 
         with _json_file.open() as in_f:
@@ -157,32 +228,30 @@ class UploadAction:
             if throw_exceptions:
                 raise err
             _exception_msg: str = (
-                f"Error while committing {cls.object_type} '{identifier}': {err}"
+                f"Error while committing {_label} '{identifier}': {err}"
             )
             simvue_monitor_run.log_event(_exception_msg)
             simvue_monitor_run.log_alert(
                 name="sender_object_upload_failure", state="critical"
             )
             cls.logger.error(_exception_msg)
-            cls.log_upload_failed(cache_directory, identifier, _data)
+            cls._log_upload_failed(cache_directory, identifier, _data)
             return
 
         if cls.singular_object:
             if not _object.id:
                 cls.logger.error(
                     "No identifier retrieved for %s '%s'",
-                    cls.object_type,
+                    _label,
                     identifier,
                 )
-                cls.log_upload_failed(cache_directory, identifier, _data)
+                cls._log_upload_failed(cache_directory, identifier, _data)
                 return
 
             cls.logger.info(
                 "%s %s '%s'",
                 "Updated" if id_mapping.get(identifier) else "Created",
-                cls.object_type[:-1]
-                if cls.object_type.endswith("s")
-                else cls.object_type,
+                _label,
                 _object.id,
             )
 
@@ -190,12 +259,16 @@ class UploadAction:
                 id_mapping[identifier] = _object.id
         else:
             cls.logger.info(
-                "%s %s",
-                "Updated" if id_mapping.get(identifier) else "Created",
-                cls.object_type[:-1]
-                if cls.object_type.endswith("s")
-                else cls.object_type,
+                "%s %s", "Updated" if id_mapping.get(identifier) else "Created", _label
             )
+
+        if upload_status is not None:
+            with thread_lock:
+                upload_status.setdefault(cls.object_type, 0)
+                upload_status[cls.object_type] += 1
+                simvue_monitor_run.log_metrics(
+                    {f"uploads.{cls.object_type}": upload_status[cls.object_type]}
+                )
 
         cls.post_tasks(
             offline_id=identifier,
@@ -210,16 +283,38 @@ class UploadAction:
         id_mapping: dict[str, str],
         cache_directory: pathlib.Path,
         thread_lock: threading.Lock,
-        single_thread_limit: int,
+        threading_threshold: int,
         max_thread_workers: int,
         simvue_monitor_run: SimvueRun,
         *,
         throw_exceptions: bool = False,
         retry_failed: bool = False,
+        upload_status: dict[str, int | float] | None = None,
     ) -> None:
-        """Run upload of file category."""
+        """Run upload of all objects of this type.
+
+        Parameters
+        ----------
+        id_mapping : dict[str, str]
+            the offline-online mapping to update after upload.
+        cache_directory : pathlib.Path
+            the local cache directory to read from.
+        thread_lock : threading.Lock
+            the thread lock to use when uploading via multithreading
+            to ensure mappings are modified correctly.
+        threading_threshold: int
+            the number of cached files above which threading will be used.
+        max_thread_workers : int
+            the maximum number of threads to use.
+        throw_exceptions : bool, optional
+            whether to throw exceptions and terminate, default False.
+        retry_failed : bool, optional
+            whether to retry failed uploads, default True.
+        upload_status : dict[str, int | float] | None, optional
+            a mapping which will be updated with upload status, default None.
+        """
         _iterable = cls.uploadable_objects(cache_directory)
-        if cls.count(cache_directory) < single_thread_limit:
+        if cls.count(cache_directory) < threading_threshold:
             for identifier in _iterable:
                 cls._single_item_upload(
                     identifier=identifier,
@@ -229,6 +324,7 @@ class UploadAction:
                     retry_failed=retry_failed,
                     id_mapping=id_mapping,
                     simvue_monitor_run=simvue_monitor_run,
+                    upload_status=upload_status,
                 )
         else:
             with ThreadPoolExecutor(
@@ -244,11 +340,12 @@ class UploadAction:
                         retry_failed=retry_failed,
                         id_mapping=id_mapping,
                         simvue_monitor_run=simvue_monitor_run,
+                        upload_status=upload_status,
                     ),
                     _iterable,
                 )
                 # This will raise any exceptions encountered during sending
-                for result in _results:
+                for _ in _results:
                     pass
 
 
@@ -263,6 +360,22 @@ class ArtifactUploadAction(UploadAction):
         data: dict[str, typing.Any],
         cache_directory: pathlib.Path,
     ) -> None:
+        """Pre-upload actions.
+
+        For object-based artifacts the local data is serialized in
+        preparation for the upload.
+
+        Parameters
+        -----------
+        offline_id : str
+            the offline identifier for the upload.
+        online_id : str
+            the recorded online identifier after upload.
+        data : dict[str, Any]
+            the data sent during upload.
+        cache_directory : pathlib.Path
+            the local cache directory to read from.
+        """
         if data["obj_type"] != "ObjectArtifact":
             return
         with cache_directory.joinpath(cls.object_type, f"{offline_id}.object").open(
@@ -279,6 +392,22 @@ class ArtifactUploadAction(UploadAction):
         data: dict[str, typing.Any],
         cache_directory: pathlib.Path,
     ) -> None:
+        """Post-upload actions.
+
+        Removes local JSON data on successful upload, if the artifact
+        is object-based the locally serialized data is removed.
+
+        Parameters
+        -----------
+        offline_id : str
+            the offline identifier for the upload.
+        online_id : str
+            the recorded online identifier after upload.
+        data : dict[str, Any]
+            the data sent during upload.
+        cache_directory : pathlib.Path
+            the local cache directory to read from.
+        """
         _ = online_id
         super().post_tasks(
             offline_id=offline_id,
@@ -295,6 +424,20 @@ class ArtifactUploadAction(UploadAction):
     def initialise_object(
         cls, online_id: ObjectID | None, **data
     ) -> FileArtifact | ObjectArtifact:
+        """Initialise/update an Artifact object.
+
+        Parameters
+        ----------
+        online_id : str | None, optional
+            the online identifier for an object to update, default None.
+        **data
+            data to create/modify a run.
+
+        Returns
+        -------
+        simvue.api.objects.FileArtifact | simvue.api.objects.ObjectArtifact
+            a local representation of the server object.
+        """
         if not online_id:
             if data.get("file_path"):
                 return FileArtifact.new(**data)
@@ -311,6 +454,20 @@ class RunUploadAction(UploadAction):
     @override
     @classmethod
     def initialise_object(cls, online_id: ObjectID | None, **data) -> Run:
+        """Initialise/update a Run object.
+
+        Parameters
+        ----------
+        online_id : str | None, optional
+            the online identifier for an object to update, default None.
+        **data
+            data to create/modify a run.
+
+        Returns
+        -------
+        simvue.api.objects.Run
+            a local representation of the server object.
+        """
         if not online_id:
             return Run.new(**data)
 
@@ -325,6 +482,22 @@ class RunUploadAction(UploadAction):
         data: dict[str, typing.Any],
         cache_directory: pathlib.Path,
     ) -> None:
+        """Post-upload actions.
+
+        Removes local JSON data on successful upload, also handles removal
+        of additional files defining related identifiers.
+
+        Parameters
+        -----------
+        offline_id : str
+            the offline identifier for the upload.
+        online_id : str
+            the recorded online identifier after upload.
+        data : dict[str, Any]
+            the data sent during upload.
+        cache_directory : pathlib.Path
+            the local cache directory to read from.
+        """
         super().post_tasks(
             offline_id=offline_id,
             online_id=online_id,
@@ -360,6 +533,20 @@ class FolderUploadAction(UploadAction):
     @classmethod
     @override
     def initialise_object(cls, online_id: ObjectID | None, **data) -> Folder:
+        """Initialise/update a Folder object.
+
+        Parameters
+        ----------
+        online_id : str | None, optional
+            the online identifier for an object to update, default None.
+        **data
+            data to create/modify a run.
+
+        Returns
+        -------
+        simvue.api.objects.Folder
+            a local representation of the server object.
+        """
         if not online_id:
             return Folder.new(**data)
 
@@ -374,6 +561,22 @@ class FolderUploadAction(UploadAction):
         data: dict[str, typing.Any],
         cache_directory: pathlib.Path,
     ) -> None:
+        """Post-upload actions.
+
+        Removes local JSON data on successful upload, also handles removal
+        of additional files defining related identifiers.
+
+        Parameters
+        -----------
+        offline_id : str
+            the offline identifier for the upload.
+        online_id : str
+            the recorded online identifier after upload.
+        data : dict[str, Any]
+            the data sent during upload.
+        cache_directory : pathlib.Path
+            the local cache directory to read from.
+        """
         super().post_tasks(
             offline_id=offline_id,
             online_id=online_id,
@@ -392,6 +595,20 @@ class TenantUploadAction(UploadAction):
     @classmethod
     @override
     def initialise_object(cls, online_id: ObjectID | None, **data) -> Tenant:
+        """Initialise/update a Tenant object.
+
+        Parameters
+        ----------
+        online_id : str | None, optional
+            the online identifier for an object to update, default None.
+        **data
+            data to create/modify a run.
+
+        Returns
+        -------
+        simvue.api.objects.administrator.Tenant
+            a local representation of the server object.
+        """
         if not online_id:
             return Tenant.new(**data)
 
@@ -404,6 +621,20 @@ class UserUploadAction(UploadAction):
     @classmethod
     @override
     def initialise_object(cls, online_id: ObjectID | None, **data) -> User:
+        """Initialise/update a User object.
+
+        Parameters
+        ----------
+        online_id : str | None, optional
+            the online identifier for an object to update, default None.
+        **data
+            data to create/modify a run.
+
+        Returns
+        -------
+        simvue.api.objects.administrator.User
+            a local representation of the server object.
+        """
         if not online_id:
             return User.new(**data)
 
@@ -416,6 +647,20 @@ class TagUploadAction(UploadAction):
     @classmethod
     @override
     def initialise_object(cls, online_id: ObjectID | None, **data) -> Tag:
+        """Initialise/update a Tag object.
+
+        Parameters
+        ----------
+        online_id : str | None, optional
+            the online identifier for an object to update, default None.
+        **data
+            data to create/modify a run.
+
+        Returns
+        -------
+        simvue.api.objects.Tag
+            a local representation of the server object.
+        """
         if not online_id:
             return Tag.new(**data)
 
@@ -430,6 +675,22 @@ class TagUploadAction(UploadAction):
         data: dict[str, typing.Any],
         cache_directory: pathlib.Path,
     ) -> None:
+        """Post-upload actions.
+
+        Removes local JSON data on successful upload, also handles removal
+        of additional files defining related identifiers.
+
+        Parameters
+        -----------
+        offline_id : str
+            the offline identifier for the upload.
+        online_id : str
+            the recorded online identifier after upload.
+        data : dict[str, Any]
+            the data sent during upload.
+        cache_directory : pathlib.Path
+            the local cache directory to read from.
+        """
         super().post_tasks(offline_id, online_id, data, cache_directory)
         _ = cache_directory.joinpath("server_ids", f"{offline_id}.txt").write_text(
             online_id
@@ -442,6 +703,20 @@ class AlertUploadAction(UploadAction):
     @classmethod
     @override
     def initialise_object(cls, online_id: ObjectID | None, **data) -> AlertType:
+        """Initialise/update an Alert object.
+
+        Parameters
+        ----------
+        online_id : str | None, optional
+            the online identifier for an object to update, default None.
+        **data
+            data to create/modify a run.
+
+        Returns
+        -------
+        simvue.api.objects.AlertType
+            a local representation of the server object.
+        """
         if not online_id:
             _source: str = data["source"]
 
@@ -465,6 +740,22 @@ class AlertUploadAction(UploadAction):
         data: dict[str, typing.Any],
         cache_directory: pathlib.Path,
     ) -> None:
+        """Post-upload actions.
+
+        Removes local JSON data on successful upload, also handles removal
+        of additional files defining related identifiers.
+
+        Parameters
+        -----------
+        offline_id : str
+            the offline identifier for the upload.
+        online_id : str
+            the recorded online identifier after upload.
+        data : dict[str, Any]
+            the data sent during upload.
+        cache_directory : pathlib.Path
+            the local cache directory to read from.
+        """
         super().post_tasks(offline_id, online_id, data, cache_directory)
         _ = cache_directory.joinpath("server_ids", f"{offline_id}.txt").write_text(
             online_id
@@ -479,6 +770,20 @@ class StorageUploadAction(UploadAction):
     def initialise_object(
         cls, online_id: ObjectID | None, **data
     ) -> S3Storage | FileStorage:
+        """Initialise/update an Storage object.
+
+        Parameters
+        ----------
+        online_id : str | None, optional
+            the online identifier for an object to update, default None.
+        **data
+            data to create/modify a run.
+
+        Returns
+        -------
+        simvue.api.objects.S3Storage | simvue.api.objects.FileStorage
+            a local representation of the server object.
+        """
         if not online_id:
             if data.get("config", {}).get("endpoint_url"):
                 return S3Storage.new(**data)
@@ -494,6 +799,20 @@ class GridUploadAction(UploadAction):
     @classmethod
     @override
     def initialise_object(cls, online_id: ObjectID | None, **data) -> Grid:
+        """Initialise/update an Grid object.
+
+        Parameters
+        ----------
+        online_id : str | None, optional
+            the online identifier for an object to update, default None.
+        **data
+            data to create/modify a run.
+
+        Returns
+        -------
+        simvue.api.objects.Grid
+            a local representation of the server object.
+        """
         if not online_id:
             return Grid.new(**data)
 
@@ -507,6 +826,21 @@ class MetricsUploadAction(UploadAction):
     @classmethod
     @override
     def initialise_object(cls, online_id: ObjectID | None, **data) -> Metrics:
+        """Initialise Metrics.
+
+        Parameters
+        ----------
+        online_id : str | None, optional
+            parameter is ignored in this case,
+            update is ambiguous in this context
+        **data
+            data to create/modify a run.
+
+        Returns
+        -------
+        simvue.api.objects.Grid
+            a local representation of the server object.
+        """
         _ = online_id
         return Metrics.new(**data)
 
@@ -518,6 +852,21 @@ class GridMetricsUploadAction(UploadAction):
     @classmethod
     @override
     def initialise_object(cls, online_id: ObjectID | None, **data) -> GridMetrics:
+        """Initialise GridMetrics.
+
+        Parameters
+        ----------
+        online_id : str | None, optional
+            parameter is ignored in this case,
+            update is ambiguous in this context
+        **data
+            data to create/modify a run.
+
+        Returns
+        -------
+        simvue.api.objects.GridMetrics
+            a local representation of the server object.
+        """
         _ = online_id
         return GridMetrics.new(**data)
 
@@ -529,6 +878,21 @@ class EventsUploadAction(UploadAction):
     @classmethod
     @override
     def initialise_object(cls, online_id: ObjectID | None, **data) -> Events:
+        """Initialise Events.
+
+        Parameters
+        ----------
+        online_id : str | None, optional
+            parameter is ignored in this case,
+            update is ambiguous in this context
+        **data
+            data to create/modify a run.
+
+        Returns
+        -------
+        simvue.api.objects.Events
+            a local representation of the server object.
+        """
         _ = online_id
         return Events.new(**data)
 
@@ -540,6 +904,7 @@ class HeartbeatUploadAction(UploadAction):
     @override
     @classmethod
     def initialise_object(cls, online_id: ObjectID | None, **data) -> None:
+        """No initialiser for this action."""
         _ = online_id
         _ = data
 
@@ -548,6 +913,7 @@ class HeartbeatUploadAction(UploadAction):
     def pre_tasks(
         cls, offline_id: str, data: dict[str, typing.Any], cache_directory: pathlib.Path
     ) -> None:
+        """No pre-tasks for this action."""
         _ = offline_id
         _ = data
         _ = cache_directory
@@ -556,7 +922,7 @@ class HeartbeatUploadAction(UploadAction):
     @override
     @classmethod
     def uploadable_objects(cls, cache_directory: pathlib.Path) -> Generator[str]:
-        """Iterate through uploadables."""
+        """Iterate through uploadable heartbeat run identifiers."""
         for file in cache_directory.glob("runs/*.heartbeat"):
             yield file.stem
 
@@ -572,6 +938,7 @@ class HeartbeatUploadAction(UploadAction):
         throw_exceptions: bool = False,
         retry_failed: bool = False,
     ) -> None:
+        """Upload a single heartbeat item."""
         if not (_online_id := id_mapping.get(identifier)):
             # Run has been closed - can just remove heartbeat and continue
             cache_directory.joinpath(f"runs/{identifier}.heartbeat").unlink()
@@ -606,6 +973,11 @@ class HeartbeatUploadAction(UploadAction):
         data: dict[str, typing.Any],
         cache_directory: pathlib.Path,
     ) -> None:
+        """No post-tasks for this action."""
+        _ = offline_id
+        _ = data
+        _ = cache_directory
+        _ = online_id
         pass
 
 
@@ -615,6 +987,7 @@ class CO2IntensityUploadAction(UploadAction):
     @override
     @classmethod
     def initialise_object(cls, online_id: ObjectID | None, **data) -> None:
+        """No initialiser for this action."""
         _ = online_id
         _ = data
 
@@ -623,6 +996,7 @@ class CO2IntensityUploadAction(UploadAction):
     def pre_tasks(
         cls, offline_id: str, data: dict[str, typing.Any], cache_directory: pathlib.Path
     ) -> None:
+        """No pre-tasks for this action."""
         _ = offline_id
         _ = data
         _ = cache_directory
@@ -636,6 +1010,7 @@ class CO2IntensityUploadAction(UploadAction):
         data: dict[str, typing.Any],
         cache_directory: pathlib.Path,
     ) -> None:
+        """No post-tasks for this action."""
         _ = offline_id
         _ = data
         _ = cache_directory
@@ -643,6 +1018,7 @@ class CO2IntensityUploadAction(UploadAction):
     @override
     @classmethod
     def uploadable_objects(cls, cache_directory: pathlib.Path) -> Generator[str]:
+        """No uploadable object file data for this action."""
         yield from ()
 
     @override
@@ -669,16 +1045,21 @@ class CO2IntensityUploadAction(UploadAction):
         id_mapping: dict[str, str],
         cache_directory: pathlib.Path,
         thread_lock: threading.Lock,
-        single_thread_limit: int,
+        threading_threshold: int,
         max_thread_workers: int,
         *,
         throw_exceptions: bool = False,
         retry_failed: bool = False,
+        upload_status: dict[str, str | float] | None = None,
+        simvue_monitor_run: dict[str, str | float] | None = None,
     ) -> None:
+        """Upload CO2 intensity data."""
         _ = id_mapping
         _ = thread_lock
-        _ = single_thread_limit
+        _ = threading_threshold
         _ = max_thread_workers
+        _ = simvue_monitor_run
+        _ = upload_status
 
         _local_config: SimvueConfiguration = SimvueConfiguration.fetch()
 
@@ -700,6 +1081,7 @@ class CO2IntensityUploadAction(UploadAction):
             cls.logger.exception(e)
 
 
+# Define the upload action ordering
 UPLOAD_ACTION_ORDER: tuple[type[UploadAction], ...] = (
     TenantUploadAction,
     UserUploadAction,

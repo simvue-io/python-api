@@ -1,5 +1,9 @@
 # Change Log
 
+## Unreleased
+
+- Refactored sender functionality introducing new `Sender` class.
+
 ## [v2.2.2](https://github.com/simvue-io/client/releases/tag/v2.2.2) - 2025-10-14
 
 - Enforced use of UTC for all datetime recording.
