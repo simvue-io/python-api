@@ -938,6 +938,7 @@ class HeartbeatUploadAction(UploadAction):
         *,
         throw_exceptions: bool = False,
         retry_failed: bool = False,
+        upload_status: dict[str, str | float] | None,
     ) -> None:
         """Upload a single heartbeat item."""
         _ = simvue_monitor_run
@@ -1035,6 +1036,7 @@ class CO2IntensityUploadAction(UploadAction):
         *,
         throw_exceptions: bool = False,
         retry_failed: bool = False,
+        upload_status: dict[str, str | float] | None,
     ) -> None:
         _ = simvue_monitor_run
         _ = identifier
