@@ -79,7 +79,7 @@ def test_tag_modification_offline(offline_cache_setup) -> None:
         
     assert _local_data.get("name") == f"test_tag_{_uuid}"
     
-    _sender = sender(_tag._local_staging_file.parents[1], 1, 10, throw_exceptions=True)
+    _sender = Sender(_tag._local_staging_file.parents[1], 1, 10, throw_exceptions=True)
     _sender.upload(["tags"])
     _online_id = _sender.id_mapping.get(_tag.id)
     _online_tag = Tag(_online_id)

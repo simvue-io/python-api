@@ -40,8 +40,8 @@ def test_create_tenant_offline(offline_cache_setup) -> None:
     assert _local_data.get("name") == _uuid
     assert _local_data.get("is_enabled") == True
     
-    _sender = Sender(_new_tenant._local_staging_file.parents[1], 1, 10, ["tenants"], throw_exceptions=True)
-    _sender.upload()
+    _sender = Sender(_new_tenant._local_staging_file.parents[1], 1, 10, throw_exceptions=True)
+    _sender.upload(["tenants"])
     time.sleep(1)
     _online_user = Tenant(_sender.id_mapping.get(_new_tenant.id))
     assert _online_user.name == _uuid

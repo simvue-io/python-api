@@ -1067,7 +1067,7 @@ class CO2IntensityUploadAction(UploadAction):
         _ = simvue_monitor_run
         _ = upload_status
 
-        _local_config: SimvueConfiguration = SimvueConfiguration.fetch()
+        _local_config: SimvueConfiguration = SimvueConfiguration.fetch(mode="online")
 
         if not _local_config.metrics.enable_emission_metrics:
             return

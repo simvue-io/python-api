@@ -21,9 +21,7 @@ import datetime
 import simvue
 from simvue.api.objects import Alert, Metrics
 from simvue.api.objects.grids import GridMetrics
-from simvue.eco.api_client import CO2SignalData, CO2SignalResponse
 from simvue.exception import ObjectNotFoundError, SimvueRunError
-from simvue.eco.emissions_monitor import TIME_FORMAT, CO2Monitor
 from simvue.sender import Sender
 import simvue.run as sv_run
 import simvue.client as sv_cl
@@ -1222,27 +1220,30 @@ def test_add_alerts_offline(monkeypatch) -> None:
         rule="is inside range",
     )
     
-    _id_mapping = sv_send.sender(os.environ["SIMVUE_OFFLINE_DIRECTORY"], 2, 10, throw_exceptions=True)
-    _online_run = RunObject(identifier=_id_mapping.get(run.id))
+    _sender = Sender(os.environ["SIMVUE_OFFLINE_DIRECTORY"], 2, 10, throw_exceptions=True)
+    _sender.upload()
+    _online_run = RunObject(identifier=_sender.id_mapping.get(run.id))
 
     # Check that there is no duplication
-    assert sorted(_online_run.alerts) == sorted([_id_mapping.get(_id) for _id in _expected_alerts])
+    assert sorted(_online_run.alerts) == sorted([_sender.id_mapping.get(_id) for _id in _expected_alerts])
 
     # Create another run without adding to run
     _id = run.create_user_alert(name=f"user_alert_{_uuid}", attach_to_run=False)
-    _id_mapping = sv_send.sender(os.environ["SIMVUE_OFFLINE_DIRECTORY"], 2, 10, throw_exceptions=True)
+    _sender = Sender(os.environ["SIMVUE_OFFLINE_DIRECTORY"], 2, 10, throw_exceptions=True)
+    _sender.upload()
 
     # Check alert is not added
     _online_run.refresh()
-    assert sorted(_online_run.alerts) == sorted([_id_mapping.get(_id) for _id in _expected_alerts])
+    assert sorted(_online_run.alerts) == sorted([_sender.id_mapping.get(_id) for _id in _expected_alerts])
 
     # Try adding alerts with IDs, check there is no duplication
     _expected_alerts.append(_id)
     run.add_alerts(ids=_expected_alerts)
-    _id_mapping = sv_send.sender(os.environ["SIMVUE_OFFLINE_DIRECTORY"], 2, 10, throw_exceptions=True)
+    _sender = Sender(os.environ["SIMVUE_OFFLINE_DIRECTORY"], 2, 10, throw_exceptions=True)
+    _sender.upload()
 
     _online_run.refresh()
-    assert sorted(_online_run.alerts) == sorted([_id_mapping.get(_id) for _id in _expected_alerts])
+    assert sorted(_online_run.alerts) == sorted([_sender.id_mapping.get(_id) for _id in _expected_alerts])
 
     run.close()
 
@@ -1253,7 +1254,7 @@ def test_add_alerts_offline(monkeypatch) -> None:
             remove_runs=True,
             recursive=True
         )
-    for _id in [_id_mapping.get(_id) for _id in _expected_alerts]:
+    for _id in [_sender.id_mapping.get(_id) for _id in _expected_alerts]:
         client.delete_alert(_id)
 
 
@@ -1478,7 +1479,6 @@ def test_reconnect_functionality(mode, monkeypatch: pytest.MonkeyPatch) -> None:
     if mode == "offline":
         _sender = Sender(cache_directory=os.environ["SIMVUE_OFFLINE_DIRECTORY"], max_workers=2, threading_threshold=10, throw_exceptions=True)
         _sender.upload()
-        _id_mapping = _sender.id_mapping
 
     _reconnected_run = client.get_run(run_id)
     assert dict(_reconnected_run.metrics)["test_metric"]["last"] == 1
