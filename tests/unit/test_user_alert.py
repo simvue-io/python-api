@@ -199,7 +199,7 @@ def test_user_alert_status_offline(offline_cache_setup) -> None:
     
     # Get online aler, check status is not set
     _online_alert = UserAlert(_sender.id_mapping.get(_alert.id))
-    assert not _online_alert.get_status(run_id=_id_mapping.get(_run.id))
+    assert not _online_alert.get_status(run_id=_sender.id_mapping.get(_run.id))
 
     _alert.set_status(_run.id, "critical")
     _alert.commit()
@@ -207,7 +207,7 @@ def test_user_alert_status_offline(offline_cache_setup) -> None:
     
     # Check online status is still not set as change has not been sent
     _online_alert.refresh()
-    assert not _online_alert.get_status(run_id=_id_mapping.get(_run.id))
+    assert not _online_alert.get_status(run_id=_sender.id_mapping.get(_run.id))
     
     _sender = Sender(_alert._local_staging_file.parents[1], 1, 10, throw_exceptions=True)
     _sender.upload(["alerts"])
