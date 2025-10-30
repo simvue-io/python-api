@@ -701,19 +701,9 @@ class Run(SimvueObject):
         id_mapping: dict[str, str]
             A mapping from offline identifier to online identifier.
         """
-        online_alert_ids: list[str] = []
-        for id in self._staging.get("alerts", []):
-            try:
-                online_alert_ids.append(id_mapping[id])
-            except KeyError:
-                raise KeyError(
-                    "Could not find alert ID in offline to online ID mapping."
-                )
-        # If run is offline, no alerts have been added yet, so add all alerts:
-        if self._identifier is not None and self._identifier.startswith("offline"):
-            self._staging["alerts"] = online_alert_ids
-        # Otherwise, only add alerts which have not yet been added
-        else:
-            self._staging["alerts"] = [
-                id for id in online_alert_ids if id not in list(self.alerts)
-            ]
+        online_alert_ids: list[str] = list(
+            set(id_mapping.get(_id) for _id in self._staging.get("alerts", []))
+        )
+        if not all(online_alert_ids):
+            raise KeyError("Could not find alert ID in offline to online ID mapping.")
+        self._staging["alerts"] = online_alert_ids

@@ -759,7 +759,6 @@ class Run:
         self._sv_obj.alerts = []
         self._sv_obj.created = time.time()
         self._sv_obj.notifications = notification
-        self._sv_obj._staging["folder_id"] = self._folder.id
 
         if self._status == "running":
             self._sv_obj.system = get_system()

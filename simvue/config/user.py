@@ -157,11 +157,11 @@ class SimvueConfiguration(pydantic.BaseModel):
     @sv_util.prettify_pydantic
     def fetch(
         cls,
+        mode: typing.Literal["offline", "online", "disabled"],
         server_url: str | None = None,
         server_token: str | None = None,
-        mode: typing.Literal["offline", "online", "disabled"] | None = None,
     ) -> Self:
-        """Retrieve the Simvue configuration from this project
+        """Retrieve the Simvue configuration from this project.
 
         Will retrieve the configuration options set for this project either using
         local or global configurations.

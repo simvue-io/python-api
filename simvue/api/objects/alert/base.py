@@ -53,15 +53,9 @@ class AlertBase(SimvueObject, abc.ABC):
         **kwargs: object,
     ) -> None:
         """Retrieve an alert from the Simvue server by identifier."""
-        self._label: str = "alert"
-        super().__init__(
-            identifier=identifier,
-            _offline=_offline,
-            _local=_local,
-            _user_agent=_user_agent,
-            _read_only=_read_only,
-            **kwargs,
-        )
+        self._label = "alert"
+        super().__init__(identifier=identifier, **kwargs)
+        self._local_only_args = ["frequency", "pattern", "aggregation"]
 
     def compare(self, other: "AlertBase") -> bool:
         """Compare this alert to another."""
