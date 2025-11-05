@@ -32,7 +32,7 @@ _logger.setLevel(logging.INFO)
     "-o",
     "--objects-to-upload",
     type=str,
-    nargs=-1,
+    multiple=True,
     required=False,
     default=UPLOAD_ORDER,
     help="The object types to upload, by default All",
@@ -63,7 +63,9 @@ def run(
             cache_directory=cache_directory,
             max_workers=max_workers,
             threading_threshold=threading_threshold,
+            throw_exceptions=True,
         )
         _sender.upload(objects_to_upload)
     except Exception as err:
         _logger.critical("Exception running sender: %s", str(err))
+        raise click.Abort
