@@ -101,15 +101,16 @@ def test_config_setup(
 
         if not use_file and not use_env and not use_args:
             with pytest.raises(RuntimeError):
-                simvue.config.user.SimvueConfiguration.fetch()
+                simvue.config.user.SimvueConfiguration.fetch(mode="online")
             return
         elif use_args:
             _config = simvue.config.user.SimvueConfiguration.fetch(
                 server_url=_arg_url,
-                server_token=_arg_token
+                server_token=_arg_token,
+                mode="online"
             )
         else:
-            _config = simvue.config.user.SimvueConfiguration.fetch()
+            _config = simvue.config.user.SimvueConfiguration.fetch(mode="online")
             
         if use_file and use_file != "pyproject.toml":
             assert _config.config_file() == _config_file

@@ -217,7 +217,7 @@ def sender(
     id_mapping
         mapping of local ID to server ID
     """
-    _user_config: SimvueConfiguration = SimvueConfiguration.fetch()
+    _user_config: SimvueConfiguration = SimvueConfiguration.fetch(mode="online")
     cache_dir = cache_dir or _user_config.offline.cache
 
     cache_dir.joinpath("server_ids").mkdir(parents=True, exist_ok=True)

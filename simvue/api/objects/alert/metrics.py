@@ -30,6 +30,12 @@ class MetricsThresholdAlert(AlertBase):
         """Connect to a local or remote threshold alert by identifier"""
         self.alert = MetricThresholdAlertDefinition(self)
         super().__init__(identifier, **kwargs)
+        self._local_only_args += [
+            "rule",
+            "window",
+            "metric",
+            "threshold",
+        ]
 
     @classmethod
     def get(
@@ -117,6 +123,13 @@ class MetricsRangeAlert(AlertBase):
         """Connect to a local or remote threshold alert by identifier"""
         self.alert = MetricRangeAlertDefinition(self)
         super().__init__(identifier, **kwargs)
+        self._local_only_args += [
+            "rule",
+            "window",
+            "metric",
+            "range_low",
+            "range_high",
+        ]
 
     def compare(self, other: "MetricsRangeAlert") -> bool:
         """Compare two MetricRangeAlerts"""
