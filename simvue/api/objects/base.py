@@ -201,7 +201,7 @@ class SimvueObject(abc.ABC):
         # For simvue object initialisation, unlike the server there is no nested
         # arguments, however this means that there are extra keys during post which
         # need removing, this attribute handles that and should be set in subclasses.
-        self._local_only_args: list[str] = []
+        self._local_only_args: list[str] = ["created"]
 
         self._identifier: str | None = (
             identifier if identifier is not None else f"offline_{uuid.uuid1()}"
@@ -636,12 +636,12 @@ class SimvueObject(abc.ABC):
     def _post_single(
         self, *, is_json: bool = True, data: list | dict | None = None, **kwargs
     ) -> dict[str, typing.Any] | list[dict[str, typing.Any]]:
-        if not is_json:
-            kwargs = msgpack.packb(data or kwargs, use_bin_type=True)
-
         # Remove any extra keys
         for key in self._local_only_args:
             _ = (data or kwargs).pop(key, None)
+
+        if not is_json:
+            kwargs = msgpack.packb(data or kwargs, use_bin_type=True)
 
         _response = sv_post(
             url=f"{self._base_url}",
