@@ -202,12 +202,7 @@ class Run:
             else self._user_config.metrics.system_metrics_interval
         )
         self._headers: dict[str, str] = (
-            {
-                "Authorization": f"Bearer {self._user_config.server.token.get_secret_value()}",
-                "Accept-Encoding": "gzip",
-            }
-            if mode != "offline"
-            else {}
+            self._user_config.headers if mode != "offline" else {}
         )
         self._sv_obj: RunObject | None = None
         self._pid: int | None = 0

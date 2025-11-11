@@ -4,7 +4,7 @@ import json
 import uuid
 
 from simvue.api.objects import FileStorage
-from simvue.sender import sender
+from simvue.sender import Sender
 
 @pytest.mark.api
 @pytest.mark.online
@@ -37,10 +37,11 @@ def test_create_file_storage_offline(offline_cache_setup) -> None:
     assert _local_data.get("name") == _uuid
     assert _local_data.get("is_enabled") == False
     assert _local_data.get("is_default") == False
-    
-    _id_mapping = sender(_storage._local_staging_file.parents[1], 1, 10, ["storage"], throw_exceptions=True)
+   
+    _sender = Sender(cache_directory=_storage._local_staging_file.parents[1], max_workers=1, threading_threshold=10, throw_exceptions=True)
+    _sender.upload(["storage"])
     time.sleep(1)
-    _online_storage = FileStorage(_id_mapping.get(_storage.id))
+    _online_storage = FileStorage(_sender.id_mapping.get(_storage.id))
     assert _online_storage.name == _uuid
     assert _online_storage.is_enabled == False
     assert _online_storage.is_default == False

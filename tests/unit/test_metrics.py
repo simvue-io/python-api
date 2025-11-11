@@ -7,7 +7,7 @@ import uuid
 
 from simvue.api.objects import Metrics, Folder, Run
 from simvue.models import DATETIME_FORMAT
-from simvue.sender import sender
+from simvue.sender import Sender
 
 @pytest.mark.api
 @pytest.mark.online
@@ -88,14 +88,15 @@ def test_metrics_creation_offline(offline_cache_setup) -> None:
     assert _local_data.get("metrics")[0].get("step") == _step
     assert _local_data.get("metrics")[0].get("time") == _time
 
-    _id_mapping = sender(_metrics._local_staging_file.parents[1], 1, 10, ["folders", "runs", "metrics"], throw_exceptions=True)
+    _sender = Sender(_metrics._local_staging_file.parents[1], 1, 10, throw_exceptions=True)
+    _sender.upload( ["folders", "runs", "metrics"])
     time.sleep(1)
 
     # Get online version of metrics
-    _online_metrics = Metrics(_id_mapping.get(_metrics.id))
-    _data = next(_online_metrics.get(metrics=["x", "y", "aB0-_/.:=><+()"], runs=[_id_mapping.get(_run.id)], xaxis="step"))
-    assert sorted(_online_metrics.names(run_ids=[_id_mapping.get(_run.id)])) == sorted(_values.keys())
-    assert _data.get(_id_mapping.get(_run.id)).get('y')[0].get('value') == 2.0
-    assert _data.get(_id_mapping.get(_run.id)).get('y')[0].get('step') == 1
+    _online_metrics = Metrics(_sender.id_mapping.get(_metrics.id))
+    _data = next(_online_metrics.get(metrics=["x", "y", "aB0-_/.:=><+()"], runs=[_sender.id_mapping.get(_run.id)], xaxis="step"))
+    assert sorted(_online_metrics.names(run_ids=[_sender.id_mapping.get(_run.id)])) == sorted(_values.keys())
+    assert _data.get(_sender.id_mapping.get(_run.id)).get('y')[0].get('value') == 2.0
+    assert _data.get(_sender.id_mapping.get(_run.id)).get('y')[0].get('step') == 1
     _run.delete()
     _folder.delete(recursive=True, delete_runs=True, runs_only=False)

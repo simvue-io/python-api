@@ -156,11 +156,12 @@ def create_test_run_offline(request, monkeypatch: pytest.MonkeyPatch, prevent_sc
     with tempfile.TemporaryDirectory() as temp_d:
         monkeypatch.setenv("SIMVUE_OFFLINE_DIRECTORY", temp_d)
         with sv_run.Run("offline") as run:
-            yield run, setup_test_run(run, True, request)
+            _test_run_data = setup_test_run(run, True, request)
+            yield run, _test_run_data
     with contextlib.suppress(ObjectNotFoundError):
         sv_api_obj.Folder(identifier=run._folder.id).delete(recursive=True, delete_runs=True, runs_only=False)
     for alert_id in _test_run_data.get("alert_ids", []):
-        with contextlib.suppress(ObjectNotFoundError):
+        with contextlib.suppress(ObjectNotFoundError, RuntimeError):
             sv_api_obj.Alert(identifier=alert_id).delete()
     clear_out_files()
 
@@ -172,6 +173,7 @@ def create_plain_run(request, prevent_script_exit, mocker) -> typing.Generator[t
     with sv_run.Run() as run:
         run.metric_spy = mocker.spy(run, "_get_internal_metrics")
         yield run, setup_test_run(run, False, request)
+    clear_out_files()
 
 
 @pytest.fixture
@@ -306,6 +308,8 @@ def setup_test_run(run: sv_run.Run, create_objects: bool, request: pytest.Fixtur
                 out_f.write(
                     "print('Hello World!')"
                 )
+            print(test_script)
+            assert pathlib.Path(test_script).exists()
             run.save_file(test_script, category="code", name="test_code_upload")
             TEST_DATA["file_3"] = "test_code_upload"
 

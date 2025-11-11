@@ -5,7 +5,7 @@ import uuid
 import json
 import pydantic.color
 from simvue.api.objects.tag import Tag
-from simvue.sender import sender
+from simvue.sender import Sender
 
 @pytest.mark.api
 @pytest.mark.online
@@ -35,10 +35,11 @@ def test_tag_creation_offline(offline_cache_setup) -> None:
         
     assert _local_data.get("name") == f"test_tag_{_uuid}"
     
-    _id_mapping = sender(_tag._local_staging_file.parents[1], 1, 10, ["tags"], throw_exceptions=True)
+    _sender = Sender(_tag._local_staging_file.parents[1], 1, 10, throw_exceptions=True)
+    _sender.upload(["tags"])
     time.sleep(1)
     
-    _online_id = _id_mapping.get(_tag.id)
+    _online_id = _sender.id_mapping.get(_tag.id)
     
     _online_tag = Tag(_online_id)
     assert _online_tag.name == f"test_tag_{_uuid}"
@@ -78,8 +79,9 @@ def test_tag_modification_offline(offline_cache_setup) -> None:
         
     assert _local_data.get("name") == f"test_tag_{_uuid}"
     
-    _id_mapping = sender(_tag._local_staging_file.parents[1], 1, 10, ["tags"], throw_exceptions=True)
-    _online_id = _id_mapping.get(_tag.id)
+    _sender = Sender(_tag._local_staging_file.parents[1], 1, 10, throw_exceptions=True)
+    _sender.upload(["tags"])
+    _online_id = _sender.id_mapping.get(_tag.id)
     _online_tag = Tag(_online_id)
     
     assert _online_tag.name == f"test_tag_{_uuid}"
@@ -101,7 +103,8 @@ def test_tag_modification_offline(offline_cache_setup) -> None:
     assert pydantic.color.parse_str(_local_data.get("colour")).r == 250 / 255
     assert _local_data.get("description") == "modified test tag"
     
-    sender(_tag._local_staging_file.parents[1], 1, 10, ["tags"], throw_exceptions=True)
+    _sender = Sender(_tag._local_staging_file.parents[1], 1, 10, throw_exceptions=True)
+    _sender.upload(["tags"])
     time.sleep(1)
     
     # Check online version is updated

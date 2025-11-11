@@ -31,7 +31,7 @@ class AlertBase(SimvueObject):
         """Retrieve an alert from the Simvue server by identifier"""
         self._label = "alert"
         super().__init__(identifier=identifier, **kwargs)
-        self._local_only_args = [
+        self._local_only_args += [
             "frequency",
             "pattern",
             "aggregation",

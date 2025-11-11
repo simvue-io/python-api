@@ -8,9 +8,8 @@ import tempfile
 import json
 from simvue.api.objects import FileArtifact, Run, Artifact
 from simvue.api.objects.folder import Folder
-from simvue.sender import sender
-from simvue.client import Client
-import logging
+from simvue.sender import Sender
+
 
 @pytest.mark.api
 @pytest.mark.online
@@ -103,13 +102,14 @@ def test_file_artifact_creation_offline(offline_cache_setup, snapshot) -> None:
     # If snapshot, check artifact definition file and a copy of the actual file exist in staging area
     assert len(list(_artifact._local_staging_file.parent.iterdir())) == 2 if snapshot else 1
     
-    _id_mapping = sender(pathlib.Path(offline_cache_setup.name), 1, 10, throw_exceptions=True)
+    _sender = Sender(cache_directory=pathlib.Path(offline_cache_setup.name), max_workers=1, threading_threshold=10, throw_exceptions=True)
+    _sender.upload()
     time.sleep(1)
     
     # Check file(s) deleted after upload
     assert len(list(_artifact._local_staging_file.parent.iterdir())) == 0
     
-    _online_artifact = Artifact(_id_mapping[_artifact.id])
+    _online_artifact = Artifact(_sender.id_mapping[_artifact.id])
     assert _online_artifact.name == _artifact.name
     _content = b"".join(_online_artifact.download_content()).decode("UTF-8")
     assert _content == f"Hello World! {_uuid}"
@@ -159,13 +159,15 @@ def test_file_artifact_creation_offline_updated(offline_cache_setup, caplog, sna
     
     if not snapshot:
         with pytest.raises(RuntimeError, match="The SHA256 you specified did not match the calculated checksum."): 
-            _id_mapping = sender(pathlib.Path(offline_cache_setup.name), 1, 10, throw_exceptions=True)
+            _sender = Sender(cache_directory=pathlib.Path(offline_cache_setup.name), max_workers=1, threading_threshold=10, throw_exceptions=True)
+            _sender.upload()
         return
     else:
-        _id_mapping = sender(pathlib.Path(offline_cache_setup.name), 1, 10, throw_exceptions=True)
+        _sender = Sender(cache_directory=pathlib.Path(offline_cache_setup.name), max_workers=1, threading_threshold=10, throw_exceptions=True)
+        _sender.upload()
     time.sleep(1)
     
-    _online_artifact = Artifact(_id_mapping[_artifact.id])
+    _online_artifact = Artifact(_sender.id_mapping[_artifact.id])
     assert _online_artifact.name == _artifact.name
     _content = b"".join(_online_artifact.download_content()).decode("UTF-8")
     # Since it was snapshotted, should be the state of the file before it was changed

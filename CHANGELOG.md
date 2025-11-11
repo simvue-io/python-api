@@ -1,5 +1,9 @@
 # Change Log
 
+## Unreleased
+
+- Refactored sender functionality introducing new `Sender` class.
+
 ## [v2.2.3](https://github.com/simvue-io/client/releases/tag/v2.2.3) - 2025-11-10
 
 - Use `msgpack` for `GridMetrics` in a manner similar to `Metrics`.

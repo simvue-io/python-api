@@ -7,7 +7,7 @@ import uuid
 
 from simvue.api.objects import Events, Folder, Run
 from simvue.models import DATETIME_FORMAT
-from simvue.sender import sender
+from simvue.sender import Sender
 
 @pytest.mark.api
 @pytest.mark.online
@@ -55,13 +55,14 @@ def test_events_creation_offline(offline_cache_setup) -> None:
     assert _local_data.get("run") == _run.id
     assert _local_data.get("events")[0].get("message") == "This is a test!"
     assert _local_data.get("events")[0].get("timestamp") == _timestamp
-    
-    _id_mapping = sender(_events._local_staging_file.parents[1], 1, 10, ["folders", "runs", "events"], throw_exceptions=True)
+   
+    _sender = Sender(cache_directory=_events._local_staging_file.parents[1], max_workers=1, threading_threshold=10, throw_exceptions=True)
+    _sender.upload(["folders", "runs", "events"])
     time.sleep(1)
     
     # Get online version of events
-    _online_events = Events(_id_mapping.get(_events.id))
-    _event_content = next(_online_events.get(run_id=_id_mapping.get(_run.id)))
+    _online_events = Events(_sender.id_mapping.get(_events.id))
+    _event_content = next(_online_events.get(run_id=_sender.id_mapping.get(_run.id)))
     assert _event_content.message == "This is a test!"
     assert _event_content.timestamp == _timestamp
 

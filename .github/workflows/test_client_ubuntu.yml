@@ -42,7 +42,7 @@ jobs:
       run: >-
         python -m pytest -x
         -m object_retrieval -c /dev/null -p no:warnings
-        -n 0 -v -o cache_dir=${GITHUB_WORKSPACE}/.pytest-cache
+        -n 8 -v -o cache_dir=${GITHUB_WORKSPACE}/.pytest-cache
   object_removal:
     runs-on: ubuntu-latest
     timeout-minutes: 30
@@ -67,7 +67,7 @@ jobs:
       run: >-
         python -m pytest -x
         -m object_removal -c /dev/null -p no:warnings
-        -n 0 -v -o cache_dir=${GITHUB_WORKSPACE}/.pytest-cache
+        -n 8 -v -o cache_dir=${GITHUB_WORKSPACE}/.pytest-cache
   dispatch_tests:
     runs-on: ubuntu-latest
     timeout-minutes: 30
@@ -91,7 +91,7 @@ jobs:
       run: >-
         python -m pytest -x
         -m dispatch -c /dev/null -p no:warnings
-        -n 0 -v -o cache_dir=${GITHUB_WORKSPACE}/.pytest-cache
+        -n 8 -v -o cache_dir=${GITHUB_WORKSPACE}/.pytest-cache
   run_tests_online:
     runs-on: ubuntu-latest
     timeout-minutes: 30
@@ -115,8 +115,8 @@ jobs:
         SIMVUE_TOKEN: ${{ secrets.SIMVUE_TOKEN }}
       run: >-
         python -m pytest -x
-        -m run -m online -c /dev/null -p no:warnings
-        -n 0 -v -o cache_dir=${GITHUB_WORKSPACE}/.pytest-cache
+        -m "online and not api" -c /dev/null -p no:warnings
+        -n 8 -v -o cache_dir=${GITHUB_WORKSPACE}/.pytest-cache
   run_tests_offline:
     runs-on: ubuntu-latest
     timeout-minutes: 30
@@ -140,7 +140,7 @@ jobs:
         SIMVUE_TOKEN: ${{ secrets.SIMVUE_TOKEN }}
       run: >-
         python -m pytest -x
-        -m run -m offline -c /dev/null -p no:warnings
+        -m "offline and not api" -c /dev/null -p no:warnings
         -n 0 -v -o cache_dir=${GITHUB_WORKSPACE}/.pytest-cache
   config_tests:
     runs-on: ubuntu-latest
@@ -165,7 +165,7 @@ jobs:
       run: >-
         python -m pytest -x
         -m config -c /dev/null -p no:warnings
-        -n 0 -v -o cache_dir=${GITHUB_WORKSPACE}/.pytest-cache
+        -n 8 -v -o cache_dir=${GITHUB_WORKSPACE}/.pytest-cache
   executor_tests:
     runs-on: ubuntu-latest
     timeout-minutes: 30
@@ -237,4 +237,4 @@ jobs:
       run: >-
         python -m pytest -x
         -m local -c /dev/null -p no:warnings
-        -n 0 -v -o cache_dir=${GITHUB_WORKSPACE}/.pytest-cache
+        -n 8 -v -o cache_dir=${GITHUB_WORKSPACE}/.pytest-cache

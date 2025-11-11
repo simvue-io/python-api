@@ -22,7 +22,6 @@ from collections.abc import Generator
 from simvue.utilities import staging_merger
 from simvue.config.user import SimvueConfiguration
 from simvue.exception import ObjectNotFoundError
-from simvue.version import __version__
 from simvue.api.request import (
     get as sv_get,
     get_paginated,
@@ -201,7 +200,7 @@ class SimvueObject(abc.ABC):
         # For simvue object initialisation, unlike the server there is no nested
         # arguments, however this means that there are extra keys during post which
         # need removing, this attribute handles that and should be set in subclasses.
-        self._local_only_args: list[str] = ["created"]
+        self._local_only_args: list[str] = ["created", "obj_type"]
 
         self._identifier: str | None = (
             identifier if identifier is not None else f"offline_{uuid.uuid1()}"
@@ -232,13 +231,7 @@ class SimvueObject(abc.ABC):
         )
 
         self._headers: dict[str, str] = (
-            {
-                "Authorization": f"Bearer {self._user_config.server.token.get_secret_value()}",
-                "User-Agent": _user_agent or f"Simvue Python client {__version__}",
-                "Accept-Encoding": "gzip",
-            }
-            if not self._offline
-            else {}
+            self._user_config.headers if not self._offline else {}
         )
 
         self._params: dict[str, str] = {}

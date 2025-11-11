@@ -5,7 +5,7 @@ import json
 import uuid
 
 from simvue.api.objects.administrator import User, Tenant
-from simvue.sender import sender
+from simvue.sender import Sender
 
 @pytest.mark.api
 @pytest.mark.online
@@ -62,9 +62,10 @@ def test_create_user_offline(offline_cache_setup) -> None:
     assert _local_data.get("fullname") == "Joe Bloggs"
     assert _local_data.get("email") == "jbloggs@simvue.io"
 
-    _id_mapping = sender(_user._local_staging_file.parents[1], 1, 10, ["users"], throw_exceptions=True)
+    _sender = Sender(_user._local_staging_file.parents[1], 1, 10, throw_exceptions=True)
+    _sender.upload(["users"])
     time.sleep(1)
-    _online_user = User(_id_mapping.get(_user.id))
+    _online_user = User(_sender.id_mapping.get(_user.id))
     assert _online_user.username == "jbloggs"
     assert _online_user.fullname == "Joe Bloggs"
     assert _online_user.email == "jbloggs@simvue.io"

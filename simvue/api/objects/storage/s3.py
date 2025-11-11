@@ -27,7 +27,7 @@ class S3Storage(StorageBase):
         """Initialise an S3Storage instance attaching a configuration"""
         self.config = Config(self)
         super().__init__(identifier, **kwargs)
-        self._local_only_args: list[str] = [
+        self._local_only_args += [
             "endpoint_url",
             "region_name",
             "access_key_id",

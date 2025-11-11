@@ -5,7 +5,7 @@ import contextlib
 import uuid
 
 from simvue.api.objects import Alert, EventsAlert
-from simvue.sender import sender
+from simvue.sender import Sender
 
 @pytest.mark.api
 @pytest.mark.online
@@ -55,12 +55,13 @@ def test_event_alert_creation_offline(offline_cache_setup) -> None:
     assert _local_data.get("alert").get("pattern") == "completed"
     assert _local_data.get("name") == f"events_alert_{_uuid}"
     assert _local_data.get("notification") == "none"
-    
-    _id_mapping = sender(_alert._local_staging_file.parents[1], 1, 10, ["alerts"], throw_exceptions=True)
+
+    _sender = Sender(cache_directory=_alert._local_staging_file.parents[1], max_workers=1, threading_threshold=10, throw_exceptions=True)
+    _sender.upload(objects_to_upload=["alerts"])
     time.sleep(1)
     
     # Get online ID and retrieve alert
-    _online_alert = Alert(_id_mapping.get(_alert.id))
+    _online_alert = Alert(_sender.id_mapping.get(_alert.id))
     assert _online_alert.source == "events"
     assert _online_alert.alert.frequency == 1
     assert _online_alert.alert.pattern == "completed"
@@ -106,11 +107,12 @@ def test_event_alert_modification_offline(offline_cache_setup) -> None:
         description=None
     )
     _alert.commit()
-    _id_mapping = sender(_alert._local_staging_file.parents[1], 1, 10, ["alerts"], throw_exceptions=True)
+    _sender = Sender(cache_directory=_alert._local_staging_file.parents[1], max_workers=1, threading_threshold=10, throw_exceptions=True)
+    _sender.upload(objects_to_upload=["alerts"])
     time.sleep(1)  
       
     # Get online ID and retrieve alert
-    _online_alert = Alert(_id_mapping.get(_alert.id))
+    _online_alert = Alert(_sender.id_mapping.get(_alert.id))
     assert _online_alert.source == "events"
     assert _online_alert.alert.frequency == 1
     assert _online_alert.alert.pattern == "completed"
@@ -118,6 +120,7 @@ def test_event_alert_modification_offline(offline_cache_setup) -> None:
     assert _online_alert.notification == "none"
     
     _new_alert = EventsAlert(_alert.id)
+    assert _new_alert._offline
     _new_alert.read_only(False)
     _new_alert.description = "updated!"
     _new_alert.commit()
@@ -130,7 +133,9 @@ def test_event_alert_modification_offline(offline_cache_setup) -> None:
         _local_data = json.load(in_f)
     assert _local_data.get("description") == "updated!"
     
-    sender(_alert._local_staging_file.parents[1], 1, 10, ["alerts"], throw_exceptions=True)
+    _sender = Sender(cache_directory=_alert._local_staging_file.parents[1], max_workers=1, threading_threshold=10, throw_exceptions=True)
+    _sender.upload(objects_to_upload=["alerts"])
+
     time.sleep(1)
     
     _online_alert.refresh()
