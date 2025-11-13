@@ -1,5 +1,9 @@
 # Change Log
 
+## [v2.2.4](https://github.com/simvue-io/client/releases/tag/v2.2.4) - 2025-11-13
+
+- Added fixes for future servers which disallow extra arguments in requests.
+
 ## [v2.2.3](https://github.com/simvue-io/client/releases/tag/v2.2.3) - 2025-11-10
 
 - Use `msgpack` for `GridMetrics` in a manner similar to `Metrics`.
