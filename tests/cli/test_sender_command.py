@@ -14,7 +14,7 @@ def test_sender_command(request, monkeypatch) -> None:
     with tempfile.TemporaryDirectory() as tempd:
         monkeypatch.setenv("SIMVUE_OFFLINE_DIRECTORY", tempd)
         _run = Run(mode="offline")
-        setup_test_run(_run, tempd, create_objects=True, request=request)
+        setup_test_run(_run, temp_dir=tempd, create_objects=True, request=request)
         _run.close()
         _runner = click.testing.CliRunner()
         _result = _runner.invoke(

@@ -135,7 +135,7 @@ jobs:
         SIMVUE_TOKEN: ${{ secrets.SIMVUE_TOKEN }}
       run: >-
         python -m pytest -x
-        -m "offline and not api" -c /dev/null -p no:warnings
+        -m "(offline and not api) or cli" -c /dev/null -p no:warnings
         -n 0 -v -o cache_dir=${GITHUB_WORKSPACE}/.pytest-cache
   config_tests:
     runs-on: ubuntu-latest
