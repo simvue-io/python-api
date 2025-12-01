@@ -1,5 +1,6 @@
 import contextlib
 from _pytest import monkeypatch
+import numpy
 import pytest
 import pytest_mock
 import typing
@@ -156,7 +157,7 @@ def create_test_run_offline(request, monkeypatch: pytest.MonkeyPatch, prevent_sc
     with tempfile.TemporaryDirectory() as temp_d:
         monkeypatch.setenv("SIMVUE_OFFLINE_DIRECTORY", temp_d)
         with sv_run.Run("offline") as run:
-            _test_run_data = setup_test_run(run, True, request)
+            _test_run_data = setup_test_run(run, temp_d, True, request)
             yield run, _test_run_data
     with contextlib.suppress(ObjectNotFoundError):
         sv_api_obj.Folder(identifier=run._folder.id).delete(recursive=True, delete_runs=True, runs_only=False)
@@ -188,7 +189,8 @@ def create_plain_run_offline(request,prevent_script_exit,monkeypatch) -> typing.
     with tempfile.TemporaryDirectory() as temp_d:
         monkeypatch.setenv("SIMVUE_OFFLINE_DIRECTORY", temp_d)
         with sv_run.Run("offline") as run:
-            yield run, setup_test_run(run, False, request)
+            _temporary_directory = pathlib.Path(temp_d)
+            yield run, setup_test_run(run, _temporary_directory,False, request)
     clear_out_files()
 
 
@@ -205,7 +207,7 @@ def create_run_object(mocker: pytest_mock.MockFixture) -> sv_api_obj.Run:
     _folder.delete(recursive=True, runs_only=False, delete_runs=True)
 
 
-def setup_test_run(run: sv_run.Run, create_objects: bool, request: pytest.FixtureRequest, created_only: bool=False):
+def setup_test_run(run: sv_run.Run, temp_dir: pathlib.Path, create_objects: bool, request: pytest.FixtureRequest, created_only: bool=False):
     fix_use_id: str = str(uuid.uuid4()).split('-', 1)[0]
     _test_name: str = request.node.name.replace("[", "_").replace("]", "")
     TEST_DATA = {
@@ -239,6 +241,13 @@ def setup_test_run(run: sv_run.Run, create_objects: bool, request: pytest.Fixtur
     _alert_ids = []
 
     if create_objects:
+
+        run.assign_metric_to_grid(
+            metric_name="grid_metric",
+            grid_name=f"test_grid_{fix_use_id}",
+            axes_ticks=[list(range(10)), list(range(10))],
+            axes_labels=["x", "y"]
+        )
         for i in range(5):
             run.log_event(f"{TEST_DATA['event_contains']} {i}")
 
@@ -279,11 +288,12 @@ def setup_test_run(run: sv_run.Run, create_objects: bool, request: pytest.Fixtur
 
         for i in range(5):
             run.log_metrics({"metric_counter": i, "metric_val": i*i - 1})
+            run.log_metrics({"grid_metric": i * numpy.identity(10)})
 
     run.update_metadata(TEST_DATA["metadata"])
 
     if create_objects:
-        TEST_DATA["metrics"] = ("metric_counter", "metric_val")
+        TEST_DATA["metrics"] = ("metric_counter", "metric_val", "grid_metric")
 
     TEST_DATA["run_id"] = run.id
     TEST_DATA["run_name"] = run.name
@@ -293,25 +303,23 @@ def setup_test_run(run: sv_run.Run, create_objects: bool, request: pytest.Fixtur
     TEST_DATA["system_metrics_interval"] = run._system_metrics_interval
 
     if create_objects:
-        with tempfile.TemporaryDirectory() as tempd:
-            with open((test_file := os.path.join(tempd, "test_file.txt")), "w") as out_f:
-                out_f.write("This is a test file")
-            run.save_file(test_file, category="input", name="test_file")
-            TEST_DATA["file_1"] = "test_file"
+        with open((test_file := os.path.join(temp_dir, "test_file.txt")), "w") as out_f:
+            out_f.write("This is a test file")
+        run.save_file(test_file, category="input", name="test_file")
+        TEST_DATA["file_1"] = "test_file"
 
-            with open((test_json := os.path.join(tempd, f"test_attrs_{fix_use_id}.json")), "w") as out_f:
-                json.dump(TEST_DATA, out_f, indent=2)
-            run.save_file(test_json, category="output", name="test_attributes")
-            TEST_DATA["file_2"] = "test_attributes"
+        with open((test_json := os.path.join(temp_dir, f"test_attrs_{fix_use_id}.json")), "w") as out_f:
+            json.dump(TEST_DATA, out_f, indent=2)
+        run.save_file(test_json, category="output", name="test_attributes")
+        TEST_DATA["file_2"] = "test_attributes"
 
-            with open((test_script := os.path.join(tempd, "test_script.py")), "w") as out_f:
-                out_f.write(
-                    "print('Hello World!')"
-                )
-            print(test_script)
-            assert pathlib.Path(test_script).exists()
-            run.save_file(test_script, category="code", name="test_code_upload")
-            TEST_DATA["file_3"] = "test_code_upload"
+        with open((test_script := os.path.join(temp_dir, "test_script.py")), "w") as out_f:
+            out_f.write(
+                "print('Hello World!')"
+            )
+        assert pathlib.Path(test_script).exists()
+        run.save_file(test_script, category="code", name="test_code_upload")
+        TEST_DATA["file_3"] = "test_code_upload"
 
     TEST_DATA["alert_ids"] = _alert_ids
 

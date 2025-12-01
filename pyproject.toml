@@ -68,7 +68,7 @@ documentation = "https://docs.simvue.io"
 plot = ["plotly (>=6.0.0,<7.0.0)", "matplotlib (>=3.10.0,<4.0.0)"]
 
 [project.scripts]
-simvue_sender = "simvue.bin.sender:run"
+simvue-sender = "simvue.bin.sender:run"
 
 [tool.poetry.group.dev.dependencies]
 pytest = "^8.0.0"
