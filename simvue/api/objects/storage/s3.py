@@ -49,6 +49,13 @@ class S3Storage(StorageBase):
             _user_agent=_user_agent,
             **kwargs,
         )
+        self._local_only_args += [
+            "endpoint_url",
+            "region_name",
+            "access_key_id",
+            "secret_access_key",
+            "bucket",
+        ]
 
     @classmethod
     @override

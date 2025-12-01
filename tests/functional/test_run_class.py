@@ -21,12 +21,10 @@ import datetime
 import simvue
 from simvue.api.objects import Alert, Metrics
 from simvue.api.objects.grids import GridMetrics
-from simvue.eco.api_client import CO2SignalData, CO2SignalResponse
 from simvue.exception import ObjectNotFoundError, SimvueRunError
-from simvue.eco.emissions_monitor import TIME_FORMAT, CO2Monitor
+from simvue.sender import Sender
 import simvue.run as sv_run
 import simvue.client as sv_cl
-import simvue.sender as sv_send
 import simvue.config.user as sv_cfg
 
 from simvue.api.objects import Run as RunObject
@@ -116,7 +114,9 @@ def test_run_with_emissions_offline(speedy_heartbeat, mock_co2_signal, create_pl
     run_created.config(enable_emission_metrics=True)
     time.sleep(5)
     # Run should continue, but fail to log metrics until sender runs and creates file
-    id_mapping = sv_send.sender(os.environ["SIMVUE_OFFLINE_DIRECTORY"], throw_exceptions=True)
+    _sender = Sender(cache_directory=os.environ["SIMVUE_OFFLINE_DIRECTORY"], throw_exceptions=True)
+    _sender.upload()
+    id_mapping = _sender.id_mapping
     _run = RunObject(identifier=id_mapping[run_created.id])
     _metric_names = [item[0] for item in _run.metrics]
     for _metric in ["emissions", "energy_consumed"]:
@@ -126,7 +126,9 @@ def test_run_with_emissions_offline(speedy_heartbeat, mock_co2_signal, create_pl
         assert _delta_metric_name not in _metric_names
     # Sender should now have made a local file, and the run should be able to use it to create emissions metrics
     time.sleep(5)
-    id_mapping = sv_send.sender(os.environ["SIMVUE_OFFLINE_DIRECTORY"], throw_exceptions=True)
+    _sender = Sender(cache_directory=os.environ["SIMVUE_OFFLINE_DIRECTORY"], throw_exceptions=True)
+    _sender.upload()
+    id_mapping = _sender.id_mapping
     _run.refresh()
     _metric_names = [item[0] for item in _run.metrics]
     client = sv_cl.Client()
@@ -318,7 +320,9 @@ def test_log_metrics_offline(
     run.log_metrics(METRICS)
     
     time.sleep(1)
-    id_mapping = sv_send.sender(os.environ["SIMVUE_OFFLINE_DIRECTORY"], 2, 10, throw_exceptions=True)
+    _sender = Sender(cache_directory=os.environ["SIMVUE_OFFLINE_DIRECTORY"], throw_exceptions=True)
+    _sender.upload()
+    id_mapping = _sender.id_mapping
     time.sleep(1)
     
     if metric_type == "tensor":
@@ -441,9 +445,11 @@ def test_visibility_offline(
             retention_period=os.environ.get("SIMVUE_TESTING_RETENTION_PERIOD", "2 mins"),
         )
         _id = run.id
-        _id_mapping = sv_send.sender(os.environ["SIMVUE_OFFLINE_DIRECTORY"], 2, 10, throw_exceptions=True)
+        _sender = Sender(cache_directory=os.environ["SIMVUE_OFFLINE_DIRECTORY"], throw_exceptions=True)
+        _sender.upload()
+        id_mapping = _sender.id_mapping
         run.close()
-        _retrieved_run = RunObject(identifier=_id_mapping.get(_id))
+        _retrieved_run = RunObject(identifier=id_mapping.get(_id))
 
         if visibility == "tenant":
             assert _retrieved_run.visibility.tenant
@@ -478,7 +484,8 @@ def test_log_events_offline(create_plain_run_offline: tuple[sv_run.Run, dict]) -
     run, _ = create_plain_run_offline
     run_name = run.name
     run.log_event(EVENT_MSG)
-    sv_send.sender(os.environ["SIMVUE_OFFLINE_DIRECTORY"], 2, 10, throw_exceptions=True)
+    _sender = Sender(cache_directory=os.environ["SIMVUE_OFFLINE_DIRECTORY"], throw_exceptions=True)
+    _sender.upload()
     client = sv_cl.Client()
     attempts: int = 0
 
@@ -488,7 +495,8 @@ def test_log_events_offline(create_plain_run_offline: tuple[sv_run.Run, dict]) -
         not (event_data := client.get_events(client.get_run_id_from_name(run_name), count_limit=1))
     ) and attempts < 5:
         time.sleep(1)
-        sv_send.sender(os.environ["SIMVUE_OFFLINE_DIRECTORY"], 2, 10, throw_exceptions=True)
+        _sender = Sender(cache_directory=os.environ["SIMVUE_OFFLINE_DIRECTORY"], max_workers=2, threading_threshold=10, throw_exceptions=True)
+        _sender.upload()
         attempts += 1
     assert event_data[0].get("message", EVENT_MSG)
 
@@ -496,8 +504,9 @@ def test_log_events_offline(create_plain_run_offline: tuple[sv_run.Run, dict]) -
 @pytest.mark.run
 @pytest.mark.offline
 def test_offline_tags(create_plain_run_offline: tuple[sv_run.Run, dict]) -> None:
-    run, run_data = create_plain_run_offline
-    sv_send.sender(os.environ["SIMVUE_OFFLINE_DIRECTORY"], 2, 10, throw_exceptions=True)
+    _, run_data = create_plain_run_offline
+    _sender = Sender(cache_directory=os.environ["SIMVUE_OFFLINE_DIRECTORY"], max_workers=2, threading_threshold=10, throw_exceptions=True)
+    _sender.upload()
     client = sv_cl.Client()
 
     tags = client.get_tags()
@@ -557,7 +566,8 @@ def test_update_metadata_offline(
     # Try updating an already defined piece of metadata
     run.update_metadata({"a": 1})
 
-    sv_send.sender(os.environ["SIMVUE_OFFLINE_DIRECTORY"], 2, 10, throw_exceptions=True)
+    _sender = Sender(cache_directory=os.environ["SIMVUE_OFFLINE_DIRECTORY"], max_workers=2, threading_threshold=10, throw_exceptions=True)
+    _sender.upload()
 
     client = sv_cl.Client()
     run_info = client.get_run(client.get_run_id_from_name(run_name))
@@ -945,7 +955,8 @@ def test_save_file_offline(
                 "w",
             ) as out_f:
                 out_f.write("updated file!")
-        sv_send.sender(os.environ["SIMVUE_OFFLINE_DIRECTORY"], 2, 10, throw_exceptions=True)
+        _sender = Sender(cache_directory=os.environ["SIMVUE_OFFLINE_DIRECTORY"], max_workers=2, threading_threshold=10, throw_exceptions=True)
+        _sender.upload()
         os.remove(out_name)
         client = sv_cl.Client()
         base_name = name or out_name.name
@@ -1031,7 +1042,8 @@ def test_update_tags_offline(
 
     simvue_run.update_tags(["additional"])
 
-    sv_send.sender(os.environ["SIMVUE_OFFLINE_DIRECTORY"], 2, 10, throw_exceptions=True)
+    _sender = Sender(cache_directory=os.environ["SIMVUE_OFFLINE_DIRECTORY"], max_workers=2, threading_threshold=10, throw_exceptions=True)
+    _sender.upload()
 
     client = sv_cl.Client()
     run_data = client.get_run(client.get_run_id_from_name(run_name))
@@ -1208,27 +1220,30 @@ def test_add_alerts_offline(monkeypatch) -> None:
         rule="is inside range",
     )
     
-    _id_mapping = sv_send.sender(os.environ["SIMVUE_OFFLINE_DIRECTORY"], 2, 10, throw_exceptions=True)
-    _online_run = RunObject(identifier=_id_mapping.get(run.id))
+    _sender = Sender(os.environ["SIMVUE_OFFLINE_DIRECTORY"], 2, 10, throw_exceptions=True)
+    _sender.upload()
+    _online_run = RunObject(identifier=_sender.id_mapping.get(run.id))
 
     # Check that there is no duplication
-    assert sorted(_online_run.alerts) == sorted([_id_mapping.get(_id) for _id in _expected_alerts])
+    assert sorted(_online_run.alerts) == sorted([_sender.id_mapping.get(_id) for _id in _expected_alerts])
 
     # Create another run without adding to run
     _id = run.create_user_alert(name=f"user_alert_{_uuid}", attach_to_run=False)
-    _id_mapping = sv_send.sender(os.environ["SIMVUE_OFFLINE_DIRECTORY"], 2, 10, throw_exceptions=True)
+    _sender = Sender(os.environ["SIMVUE_OFFLINE_DIRECTORY"], 2, 10, throw_exceptions=True)
+    _sender.upload()
 
     # Check alert is not added
     _online_run.refresh()
-    assert sorted(_online_run.alerts) == sorted([_id_mapping.get(_id) for _id in _expected_alerts])
+    assert sorted(_online_run.alerts) == sorted([_sender.id_mapping.get(_id) for _id in _expected_alerts])
 
     # Try adding alerts with IDs, check there is no duplication
     _expected_alerts.append(_id)
     run.add_alerts(ids=_expected_alerts)
-    _id_mapping = sv_send.sender(os.environ["SIMVUE_OFFLINE_DIRECTORY"], 2, 10, throw_exceptions=True)
+    _sender = Sender(os.environ["SIMVUE_OFFLINE_DIRECTORY"], 2, 10, throw_exceptions=True)
+    _sender.upload()
 
     _online_run.refresh()
-    assert sorted(_online_run.alerts) == sorted([_id_mapping.get(_id) for _id in _expected_alerts])
+    assert sorted(_online_run.alerts) == sorted([_sender.id_mapping.get(_id) for _id in _expected_alerts])
 
     run.close()
 
@@ -1239,7 +1254,7 @@ def test_add_alerts_offline(monkeypatch) -> None:
             remove_runs=True,
             recursive=True
         )
-    for _id in [_id_mapping.get(_id) for _id in _expected_alerts]:
+    for _id in [_sender.id_mapping.get(_id) for _id in _expected_alerts]:
         client.delete_alert(_id)
 
 
@@ -1446,7 +1461,9 @@ def test_reconnect_functionality(mode, monkeypatch: pytest.MonkeyPatch) -> None:
         )
         run_id = run.id
     if mode == "offline":
-        _id_mapping = sv_send.sender(os.environ["SIMVUE_OFFLINE_DIRECTORY"], 2, 10, throw_exceptions=True)
+        _sender = Sender(cache_directory=os.environ["SIMVUE_OFFLINE_DIRECTORY"], max_workers=2, threading_threshold=10, throw_exceptions=True)
+        _sender.upload()
+        _id_mapping = _sender.id_mapping
         run_id = _id_mapping.get(run_id)
 
     client = simvue.Client()
@@ -1460,7 +1477,8 @@ def test_reconnect_functionality(mode, monkeypatch: pytest.MonkeyPatch) -> None:
         run.log_event("Testing!")
 
     if mode == "offline":
-        _id_mapping = sv_send.sender(os.environ["SIMVUE_OFFLINE_DIRECTORY"], 2, 10, throw_exceptions=True)
+        _sender = Sender(cache_directory=os.environ["SIMVUE_OFFLINE_DIRECTORY"], max_workers=2, threading_threshold=10, throw_exceptions=True)
+        _sender.upload()
 
     _reconnected_run = client.get_run(run_id)
     assert dict(_reconnected_run.metrics)["test_metric"]["last"] == 1

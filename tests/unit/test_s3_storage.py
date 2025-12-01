@@ -5,7 +5,7 @@ import uuid
 
 from simvue.api.objects import S3Storage
 from simvue.api.objects.storage.fetch import Storage
-from simvue.sender import sender
+from simvue.sender import Sender
 
 @pytest.mark.api
 @pytest.mark.online
@@ -71,8 +71,9 @@ def test_create_s3_offline(offline_cache_setup) -> None:
     assert not _local_data.get("user", None)
     assert not _local_data.get("usage", None)
 
-    _id_mapping = sender(_storage._local_staging_file.parents[1], 1, 10, ["storage"], throw_exceptions=True)
-    _online_id = _id_mapping[_storage.id]
+    _sender = Sender(_storage._local_staging_file.parents[1], 1, 10, throw_exceptions=True)
+    _sender.upload(["storage"])
+    _online_id = _sender.id_mapping[_storage.id]
     time.sleep(1)
     
     _online_storage = S3Storage(_online_id)

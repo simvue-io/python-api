@@ -161,7 +161,7 @@ def test_plot_metrics(create_test_run: tuple[sv_run.Run, dict]) -> None:
         raise AssertionError("Failed to retrieve metrics.")
     client.plot_metrics(
         run_ids=[create_test_run[1]["run_id"]],
-        metric_names=list(create_test_run[1]["metrics"]),
+        metric_names=[m for m in create_test_run[1]["metrics"] if not m.startswith("grid")],
         xaxis="time",
     )
 

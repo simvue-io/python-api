@@ -36,8 +36,8 @@ jobs:
         SIMVUE_TOKEN: ${{ secrets.SIMVUE_TOKEN }}
       run: >-
         python -m pytest -x
-        -m object_retrieval -c /dev/null -p no:warnings
-        -n 0 -v -o cache_dir=${GITHUB_WORKSPACE}/.pytest-cache
+        -m 'object_retrieval and not unix' -c /dev/null -p no:warnings
+        -n 8 -v -o cache_dir=${GITHUB_WORKSPACE}/.pytest-cache
       shell: pwsh
   object_removal:
     runs-on: windows-latest
@@ -63,7 +63,7 @@ jobs:
       run: >-
         python -m pytest -x
         -m 'object_removal and not unix' -c /dev/null -p no:warnings
-        -n 0 -v -o cache_dir=${GITHUB_WORKSPACE}/.pytest-cache
+        -n 8 -v -o cache_dir=${GITHUB_WORKSPACE}/.pytest-cache
       shell: pwsh
   dispatch_tests:
     runs-on: windows-latest
@@ -88,7 +88,7 @@ jobs:
       run: >-
         python -m pytest -x
         -m 'dispatch and not unix' -c /dev/null -p no:warnings
-        -n 0 -v -o cache_dir=${GITHUB_WORKSPACE}/.pytest-cache
+        -n 8 -v -o cache_dir=${GITHUB_WORKSPACE}/.pytest-cache
       shell: pwsh
   run_tests_online:
     runs-on: windows-latest
@@ -113,8 +113,8 @@ jobs:
         SIMVUE_TOKEN: ${{ secrets.SIMVUE_TOKEN }}
       run: >-
         python -m pytest -x
-        -m run -m 'online and not unix' -c /dev/null -p no:warnings
-        -n 0 -v -o cache_dir=${GITHUB_WORKSPACE}/.pytest-cache
+        -m run -m 'online and not unix and not api' -c /dev/null -p no:warnings
+        -n 8 -v -o cache_dir=${GITHUB_WORKSPACE}/.pytest-cache
       shell: pwsh
   run_tests_offline:
     runs-on: windows-latest
@@ -139,7 +139,7 @@ jobs:
         SIMVUE_TOKEN: ${{ secrets.SIMVUE_TOKEN }}
       run: >-
         python -m pytest -x
-        -m run -m 'offline and not unix' -c /dev/null -p no:warnings
+        -m run -m '(offline and not unix and not api) or cli' -c /dev/null -p no:warnings
         -n 0 -v -o cache_dir=${GITHUB_WORKSPACE}/.pytest-cache
       shell: pwsh
   config_tests:
@@ -165,7 +165,7 @@ jobs:
       run: >-
         python -m pytest -x
         -m 'config and not unix' -c /dev/null -p no:warnings
-        -n 0 -v -o cache_dir=${GITHUB_WORKSPACE}/.pytest-cache
+        -n 8 -v -o cache_dir=${GITHUB_WORKSPACE}/.pytest-cache
       shell: pwsh
   executor_tests:
     runs-on: windows-latest
@@ -240,5 +240,5 @@ jobs:
       run: >-
         python -m pytest -x
         -m 'local and not unix' -c /dev/null -p no:warnings
-        -n 0 -v -o cache_dir=${GITHUB_WORKSPACE}/.pytest-cache
+        -n 8 -v -o cache_dir=${GITHUB_WORKSPACE}/.pytest-cache
       shell: pwsh

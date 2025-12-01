@@ -96,10 +96,7 @@ class Client:
         if not self._user_config.server.token:
             raise ValueError("No API token specified")
 
-        self._headers: dict[str, str] = {
-            "Authorization": (
-                f"Bearer {self._user_config.server.token.get_secret_value()}"
-            ),
+        self._headers: dict[str, str] = self._user_config.headers | {
             "Accept-Encoding": "gzip",
         }
 

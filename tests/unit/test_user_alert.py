@@ -3,7 +3,7 @@ import json
 import contextlib
 import pytest
 import uuid
-from simvue.sender import sender
+from simvue.sender import Sender
 from simvue.api.objects import Alert, UserAlert, Run
 from simvue.api.objects.folder import Folder
 
@@ -46,11 +46,11 @@ def test_user_alert_creation_offline(offline_cache_setup) -> None:
     assert _local_data.get("name") == f"users_alert_{_uuid}"
     assert _local_data.get("notification") == "none"
 
-    _id_mapping = sender(_alert._local_staging_file.parents[1], 1, 10, ["alerts"], throw_exceptions=True)
+    _sender = Sender(_alert._local_staging_file.parents[1], 1, 10, throw_exceptions=True)
+    _sender.upload(["alerts"])
     time.sleep(1)
     
-    _online_id = _alert._local_staging_file.parents[1].joinpath("server_ids", f"{_alert._local_staging_file.name.split('.')[0]}.txt").read_text()
-    _online_alert = Alert(_online_id)
+    _online_alert = Alert(_sender.id_mapping[_alert.id])
     
     assert _online_alert.source == "user"
     assert _online_alert.name == f"users_alert_{_uuid}"
@@ -94,12 +94,13 @@ def test_user_alert_modification_offline(offline_cache_setup) -> None:
     )
     _alert.commit()
     
-    sender(_alert._local_staging_file.parents[1], 1, 10, ["alerts"], throw_exceptions=True)
+    _sender = Sender(_alert._local_staging_file.parents[1], 1, 10, throw_exceptions=True)
+    _sender.upload(["alerts"])
+
     time.sleep(1) 
     
     # Get online ID and retrieve alert
-    _online_id = _alert._local_staging_file.parents[1].joinpath("server_ids", f"{_alert._local_staging_file.name.split('.')[0]}.txt").read_text()
-    _online_alert = UserAlert(_online_id)
+    _online_alert = UserAlert(_sender.id_mapping[_alert.id])
     
     assert _online_alert.source == "user"
     assert _online_alert.name == f"users_alert_{_uuid}"
@@ -117,7 +118,8 @@ def test_user_alert_modification_offline(offline_cache_setup) -> None:
     with _alert._local_staging_file.open() as in_f:
         _local_data = json.load(in_f)
     assert _local_data.get("description") == "updated!"
-    sender(_alert._local_staging_file.parents[1], 1, 10, ["alerts"], throw_exceptions=True)
+    _sender = Sender(_alert._local_staging_file.parents[1], 1, 10, throw_exceptions=True)
+    _sender.upload(["alerts"])
     time.sleep(1) 
     
     _online_alert.refresh()
@@ -191,12 +193,13 @@ def test_user_alert_status_offline(offline_cache_setup) -> None:
     _run.alerts = [_alert.id]
     _run.commit()
 
-    _id_mapping = sender(_alert._local_staging_file.parents[1], 1, 10, ["folders", "runs", "alerts"], throw_exceptions=True)
+    _sender = Sender(_alert._local_staging_file.parents[1], 1, 10, throw_exceptions=True)
+    _sender.upload(["folders", "runs", "alerts"])
     time.sleep(1) 
     
     # Get online aler, check status is not set
-    _online_alert = UserAlert(_id_mapping.get(_alert.id))
-    assert not _online_alert.get_status(run_id=_id_mapping.get(_run.id))
+    _online_alert = UserAlert(_sender.id_mapping.get(_alert.id))
+    assert not _online_alert.get_status(run_id=_sender.id_mapping.get(_run.id))
 
     _alert.set_status(_run.id, "critical")
     _alert.commit()
@@ -204,14 +207,15 @@ def test_user_alert_status_offline(offline_cache_setup) -> None:
     
     # Check online status is still not set as change has not been sent
     _online_alert.refresh()
-    assert not _online_alert.get_status(run_id=_id_mapping.get(_run.id))
+    assert not _online_alert.get_status(run_id=_sender.id_mapping.get(_run.id))
     
-    sender(_alert._local_staging_file.parents[1], 1, 10, ["alerts"], throw_exceptions=True)
+    _sender = Sender(_alert._local_staging_file.parents[1], 1, 10, throw_exceptions=True)
+    _sender.upload(["alerts"])
     time.sleep(1)
     
     # Check online status has been updated
     _online_alert.refresh()
-    assert _online_alert.get_status(run_id=_id_mapping.get(_run.id)) == "critical"
+    assert _online_alert.get_status(run_id=_sender.id_mapping.get(_run.id)) == "critical"
 
     _run.delete()
     _folder.delete(recursive=True, runs_only=False, delete_runs=True)

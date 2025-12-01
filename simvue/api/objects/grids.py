@@ -8,6 +8,7 @@ a new grid given relevant arguments.
 """
 
 import http
+import msgpack
 import numpy
 import typing
 
@@ -373,8 +374,9 @@ class GridMetrics(SimvueObject):
 
         _response = sv_post(
             url=f"{self._user_config.server.url}/{self.run_grids_endpoint(self._run_id)}",
-            headers=self._headers,
-            data=metrics,
+            headers=self._headers | {"Content-Type": "application/msgpack"},
+            data=msgpack.packb(metrics, use_bin_type=True),
+            is_json=False,
             params={},
         )
 
