@@ -6,7 +6,7 @@ import numpy
 import json
 from simvue.api.objects import ObjectArtifact, Run, Artifact
 from simvue.api.objects.folder import Folder
-from simvue.sender import sender
+from simvue.sender import Sender
 from simvue.serialization import _deserialize_numpy_array
 
 @pytest.mark.api
@@ -63,10 +63,11 @@ def test_object_artifact_creation_offline(offline_cache_setup) -> None:
     assert _local_data.get("mime_type") == "application/vnd.simvue.numpy.v1"
     assert _local_data.get("runs") == {_run.id: "input"}
         
-    _id_mapping = sender(pathlib.Path(offline_cache_setup.name), 1, 10, throw_exceptions=True)
+    _sender = Sender(pathlib.Path(offline_cache_setup.name), 1, 10, throw_exceptions=True)
+    _sender.upload()
     time.sleep(1)
     
-    _online_artifact = Artifact(_id_mapping.get(_artifact.id))
+    _online_artifact = Artifact(_sender.id_mapping.get(_artifact.id))
     
     assert _online_artifact.name == f"test_object_artifact_offline_{_uuid}"
     assert _online_artifact.mime_type == "application/vnd.simvue.numpy.v1"

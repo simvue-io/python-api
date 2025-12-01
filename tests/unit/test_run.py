@@ -5,7 +5,7 @@ import time
 import datetime
 import uuid
 from simvue.api.objects.run import RunBatchArgs
-from simvue.sender import sender
+from simvue.sender import Sender
 from simvue.api.objects import Run, Folder
 from simvue.client import Client
 
@@ -41,18 +41,17 @@ def test_run_creation_offline(offline_cache_setup) -> None:
     assert _local_data.get("name") == f"simvue_offline_run_{_uuid}"
     assert _local_data.get("folder") == _folder_name
 
-    sender(_run._local_staging_file.parents[1], 1, 10, ["folders", "runs"], throw_exceptions=True)
+    _sender = Sender(_run._local_staging_file.parents[1], 1, 10, throw_exceptions=True)
+    _sender.upload(["folders", "runs"])
     time.sleep(1)
 
     # Get online ID and retrieve run
-    _online_id = _run._local_staging_file.parents[1].joinpath("server_ids", f"{_run._local_staging_file.name.split('.')[0]}.txt").read_text()
-    _online_run = Run(_online_id)
+    _online_run = Run(_sender.id_mapping[_run.id])
 
     assert _online_run.name == _run_name
     assert _online_run.folder == _folder_name
 
     _run.delete()
-    _run._local_staging_file.parents[1].joinpath("server_ids", f"{_run._local_staging_file.name.split('.')[0]}.txt").unlink()
     client = Client()
     client.delete_folder(_folder_name, recursive=True, remove_runs=True)
 
@@ -119,12 +118,12 @@ def test_run_modification_offline(offline_cache_setup) -> None:
     assert _new_run.description == "Simvue test run"
     assert _new_run.name == "simvue_test_run"
 
-    sender(_run._local_staging_file.parents[1], 1, 10, ["folders", "runs"], throw_exceptions=True)
+    _sender = Sender(_run._local_staging_file.parents[1], 1, 10, throw_exceptions=True)
+    _sender.upload(["folders", "runs"])
     time.sleep(1)
 
     # Get online ID and retrieve run
-    _online_id = _run._local_staging_file.parents[1].joinpath("server_ids", f"{_run._local_staging_file.name.split('.')[0]}.txt").read_text()
-    _online_run = Run(_online_id)
+    _online_run = Run(_sender.id_mapping[_run.id])
 
     assert _online_run.ttl == 120
     assert _online_run.description == "Simvue test run"
@@ -139,7 +138,8 @@ def test_run_modification_offline(offline_cache_setup) -> None:
     _online_run.refresh()
     assert _online_run.tags == []
 
-    sender(_run._local_staging_file.parents[1], 1, 10, ["folders", "runs"], throw_exceptions=True)
+    _sender = Sender(_run._local_staging_file.parents[1], 1, 10, throw_exceptions=True)
+    _sender.upload(["folders", "runs"])
     time.sleep(1)
 
     _online_run.refresh()

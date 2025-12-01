@@ -1,5 +1,9 @@
 # Change Log
 
+## Unreleased
+
+- Refactored sender functionality introducing new `Sender` class.
+
 ## [v2.2.4](https://github.com/simvue-io/client/releases/tag/v2.2.4) - 2025-11-13
 
 - Added fixes for future servers which disallow extra arguments in requests.

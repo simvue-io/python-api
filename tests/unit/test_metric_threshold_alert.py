@@ -5,7 +5,7 @@ import json
 import uuid
 
 from simvue.api.objects import MetricsThresholdAlert, Alert
-from simvue.sender import sender
+from simvue.sender import Sender
 
 @pytest.mark.api
 @pytest.mark.online
@@ -61,12 +61,12 @@ def test_metric_threshold_alert_creation_offline(offline_cache_setup) -> None:
     assert _local_data.get("notification") == "none"
     assert _local_data.get("alert").get("threshold") == 10
     
-    sender(_alert._local_staging_file.parents[1], 1, 10, ["alerts"], throw_exceptions=True)
+    _sender = Sender(_alert._local_staging_file.parents[1], 1, 10, throw_exceptions=True)
+    _sender.upload(["alerts"])
     time.sleep(1)
     
     # Get online ID and retrieve alert
-    _online_id = _alert._local_staging_file.parents[1].joinpath("server_ids", f"{_alert._local_staging_file.name.split('.')[0]}.txt").read_text()
-    _online_alert = Alert(_online_id)
+    _online_alert = Alert(_sender.id_mapping[_alert.id])
     
     assert _online_alert.source == "metrics"
     assert _online_alert.alert.frequency == 1
@@ -123,12 +123,12 @@ def test_metric_threshold_alert_modification_offline(offline_cache_setup) -> Non
     )
     _alert.commit()
     
-    sender(_alert._local_staging_file.parents[1], 1, 10, ["alerts"], throw_exceptions=True)
+    _sender = Sender(_alert._local_staging_file.parents[1], 1, 10, throw_exceptions=True)
+    _sender.upload(["alerts"])
     time.sleep(1) 
     
     # Get online ID and retrieve alert
-    _online_id = _alert._local_staging_file.parents[1].joinpath("server_ids", f"{_alert._local_staging_file.name.split('.')[0]}.txt").read_text()
-    _online_alert = MetricsThresholdAlert(_online_id)
+    _online_alert = MetricsThresholdAlert(_sender.id_mapping[_alert.id])
     
     assert _online_alert.source == "metrics"
     assert _online_alert.alert.frequency == 1
@@ -149,7 +149,7 @@ def test_metric_threshold_alert_modification_offline(offline_cache_setup) -> Non
         _local_data = json.load(in_f)
     assert _local_data.get("description") == "updated!"
     
-    sender(_alert._local_staging_file.parents[1], 1, 10, ["alerts"], throw_exceptions=True)
+    Sender(_alert._local_staging_file.parents[1], 1, 10, throw_exceptions=True).upload(["alerts"])
     time.sleep(1) 
     
     _online_alert.refresh()
