@@ -1,3 +1,4 @@
+from collections.abc import Generator
 import contextlib
 from _pytest import monkeypatch
 import numpy
@@ -138,9 +139,11 @@ def prevent_script_exit(monkeypatch: monkeypatch.MonkeyPatch) -> None:
 
 
 @pytest.fixture
-def create_test_run(request, prevent_script_exit) -> typing.Generator[typing.Tuple[sv_run.Run, dict], None, None]:
+def create_test_run(request, prevent_script_exit) -> Generator[tuple[sv_run.Run, dict]]:
+    _ = prevent_script_exit
     with sv_run.Run() as run:
-        _test_run_data = setup_test_run(run, True, request)
+        with tempfile.TemporaryDirectory() as tempd:
+            _test_run_data = setup_test_run(run, temp_dir=pathlib.Path(tempd), create_objects=True, request=request)
         yield run, _test_run_data
     with contextlib.suppress(ObjectNotFoundError):
         sv_api_obj.Folder(identifier=run._folder.id).delete(recursive=True, delete_runs=True, runs_only=False)
@@ -151,13 +154,12 @@ def create_test_run(request, prevent_script_exit) -> typing.Generator[typing.Tup
 
 
 @pytest.fixture
-def create_test_run_offline(request, monkeypatch: pytest.MonkeyPatch, prevent_script_exit) -> typing.Generator[typing.Tuple[sv_run.Run, dict], None, None]:
-    def testing_exit(status: int) -> None:
-        raise SystemExit(status)
+def create_test_run_offline(request, monkeypatch: pytest.MonkeyPatch, prevent_script_exit) -> Generator[tuple[sv_run.Run, dict]]:
+    _ = prevent_script_exit
     with tempfile.TemporaryDirectory() as temp_d:
         monkeypatch.setenv("SIMVUE_OFFLINE_DIRECTORY", temp_d)
         with sv_run.Run("offline") as run:
-            _test_run_data = setup_test_run(run, temp_d, True, request)
+            _test_run_data = setup_test_run(run, temp_dir=pathlib.Path(temp_d), create_objects=True, request=request)
             yield run, _test_run_data
     with contextlib.suppress(ObjectNotFoundError):
         sv_api_obj.Folder(identifier=run._folder.id).delete(recursive=True, delete_runs=True, runs_only=False)
@@ -168,29 +170,34 @@ def create_test_run_offline(request, monkeypatch: pytest.MonkeyPatch, prevent_sc
 
 
 @pytest.fixture
-def create_plain_run(request, prevent_script_exit, mocker) -> typing.Generator[typing.Tuple[sv_run.Run, dict], None, None]:
+def create_plain_run(request, prevent_script_exit, mocker) -> Generator[tuple[sv_run.Run, dict]]:
+    _ = prevent_script_exit
     def testing_exit(status: int) -> None:
         raise SystemExit(status)
     with sv_run.Run() as run:
         run.metric_spy = mocker.spy(run, "_get_internal_metrics")
-        yield run, setup_test_run(run, False, request)
+        with tempfile.TemporaryDirectory() as tempd:
+            yield run, setup_test_run(run, temp_dir=pathlib.Path(tempd), create_objects=False, request=request)
     clear_out_files()
 
 
 @pytest.fixture
-def create_pending_run(request, prevent_script_exit) -> typing.Generator[typing.Tuple[sv_run.Run, dict], None, None]:
+def create_pending_run(request, prevent_script_exit) -> Generator[tuple[sv_run.Run, dict]]:
+    _ = prevent_script_exit
     with sv_run.Run() as run:
-        yield run, setup_test_run(run, False, request, True)
+        with tempfile.TemporaryDirectory() as tempd:
+            yield run, setup_test_run(run, temp_dir=pathlib.Path(tempd), create_objects=False, request=request, created_only=True)
     clear_out_files()
 
 
 @pytest.fixture
-def create_plain_run_offline(request,prevent_script_exit,monkeypatch) -> typing.Generator[typing.Tuple[sv_run.Run, dict], None, None]:
+def create_plain_run_offline(request,prevent_script_exit,monkeypatch) -> Generator[tuple[sv_run.Run, dict]]:
+    _ = prevent_script_exit
     with tempfile.TemporaryDirectory() as temp_d:
         monkeypatch.setenv("SIMVUE_OFFLINE_DIRECTORY", temp_d)
         with sv_run.Run("offline") as run:
             _temporary_directory = pathlib.Path(temp_d)
-            yield run, setup_test_run(run, _temporary_directory,False, request)
+            yield run, setup_test_run(run, temp_dir=_temporary_directory, create_objects=False, request=request)
     clear_out_files()
 
 
@@ -207,7 +214,7 @@ def create_run_object(mocker: pytest_mock.MockFixture) -> sv_api_obj.Run:
     _folder.delete(recursive=True, runs_only=False, delete_runs=True)
 
 
-def setup_test_run(run: sv_run.Run, temp_dir: pathlib.Path, create_objects: bool, request: pytest.FixtureRequest, created_only: bool=False):
+def setup_test_run(run: sv_run.Run, *, temp_dir: pathlib.Path, create_objects: bool, request: pytest.FixtureRequest, created_only: bool=False):
     fix_use_id: str = str(uuid.uuid4()).split('-', 1)[0]
     _test_name: str = request.node.name.replace("[", "_").replace("]", "")
     TEST_DATA = {
