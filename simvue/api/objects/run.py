@@ -9,6 +9,7 @@ a new run given relevant arguments.
 
 from collections.abc import Generator, Iterable
 import http
+import re
 import typing
 import pydantic
 import datetime
@@ -29,6 +30,8 @@ from .base import (
     Visibility,
     write_only,
 )
+from .filters import Filter
+
 from simvue.api.request import (
     get as sv_get,
     put as sv_put,
@@ -48,19 +51,67 @@ __all__ = ["Run"]
 
 
 class RunSort(Sort):
-    @pydantic.field_validator("column")
+    @pydantic.field_validator("column", mode="before")
     @classmethod
     def check_column(cls, column: str) -> str:
         if (
             column
-            and column != "name"
+            and column not in ("name", "description", "ttl", "heartbeat_timeout")
             and not column.startswith("metrics")
             and not column.startswith("metadata.")
             and column not in ("created", "started", "endtime", "modified")
         ):
-            raise ValueError(f"Invalid sort column for runs '{column}'")
+            raise ValueError(
+                f"Invalid sort column specified in run retrieval '{column}'"
+            )
 
         return column
+
+
+class RunFilter(Filter):
+    _allowed_filters: dict[
+        str,
+        dict[str | None, typing.Callable[[int | float | str], bool]],
+    ] = {
+        "name": {
+            "==": lambda v: isinstance(v, str),
+            "contains": lambda v: isinstance(v, str),
+        },
+        "user": {"==": lambda v: v == "self", "!=": lambda v: v == "self"},
+        "shared": {},
+        "starred": {},
+        "status": {
+            "==": lambda v: v
+            in ("created", "running", "completed", "lost", "terminated", "failed"),
+        },
+        "created": {
+            "<": lambda v: (isinstance(v, str) and re.search(r"\d+h", v) is not None)
+        },
+        "started": {
+            "<": lambda v: (isinstance(v, str) and re.search(r"\d+h", v) is not None)
+        },
+        "modified": {
+            "<": lambda v: (isinstance(v, str) and re.search(r"\d+h", v) is not None)
+        },
+        "ended": {
+            "<": lambda v: (isinstance(v, str) and re.search(r"\d+h", v) is not None)
+        },
+        "description": {
+            "contains": lambda v: isinstance(v, str),
+            "not contains": lambda v: isinstance(v, str),
+        },
+        "folder": {
+            "==": lambda v: (
+                isinstance(v, str) and re.search(FOLDER_REGEX, v) is not None
+            ),
+            "contains": lambda _: True,
+        },
+        "tags": {
+            "has": lambda v: isinstance(v, str),
+            "does not have": lambda v: isinstance(v, str),
+        },
+        "events": {"contains": lambda v: isinstance(v, str)},
+    }
 
 
 class RunBatchArgs(ObjectBatchArgs):

@@ -5,6 +5,7 @@ import json
 
 from simvue.api.objects.artifact.base import ArtifactBase
 from simvue.api.objects.base import Sort
+from simvue.config.user import SimvueConfiguration
 from .file import FileArtifact
 from simvue.api.objects.artifact.object import ObjectArtifact
 from simvue.api.request import get_json_from_response, get as sv_get
@@ -82,10 +83,10 @@ class Artifact:
         ObjectNotFoundError
             Raised if artifacts could not be found for that run
         """
-        _temp = ArtifactBase(**kwargs)
-        _url = URL(_temp._user_config.server.url) / f"runs/{run_id}/artifacts"
+        _user_config: SimvueConfiguration = SimvueConfiguration.fetch()
+        _url = URL(_user_config.server.url) / f"runs/{run_id}/artifacts"
         _response = sv_get(
-            url=f"{_url}", params={"category": category}, headers=_temp._headers
+            url=f"{_url}", params={"category": category}, headers=_user_config.headers
         )
         _json_response = get_json_from_response(
             expected_type=list,
