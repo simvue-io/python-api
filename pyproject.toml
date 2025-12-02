@@ -1,38 +1,126 @@
-[tool.poetry]
+[project]
 name = "simvue"
-version = "1.0.0.dev2"
+version = "2.3.0"
 description = "Simulation tracking and monitoring"
-authors = ["Simvue Development Team <info@simvue.io>"]
+authors = [
+  {name = "Simvue Development Team", email = "info@simvue.io"}
+]
 license = "Apache v2"
+requires-python = ">=3.10,<3.15"
 readme = "README.md"
+classifiers = [
+    "Development Status :: 5 - Production/Stable",
+    "Intended Audience :: Science/Research",
+    "License :: OSI Approved :: Apache Software License",
+    "Natural Language :: English",
+    "Operating System :: Unix",
+    "Operating System :: Microsoft :: Windows",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Programming Language :: Python :: 3.14",
+    "Topic :: Scientific/Engineering",
+    "Topic :: System :: Monitoring",
+    "Topic :: Utilities",
+    "Typing :: Typed"
+]
 
-[tool.poetry.dependencies]
-python = "^3.9"
-dill = "^0.3.7"
-requests = "^2.31.0"
-msgpack = "^1.0.7"
-tenacity = "^8.2.3"
-PyJWT = "^2.8.0"
-psutil = "^5.9.8"
-pydantic = "^2.5.3"
-pandas = {version = "^2.2.0", optional = true}
-plotly = {version = "^5.18.0", optional = true}
-torch = {version = "^2.1.2", python = "<3.12", optional = true}
-numpy = {version = "^1.26.3", optional = true}
-matplotlib = {version = "^3.8.2", optional = true}
-toml = "^0.10.2"
+keywords = [
+    "tracking",
+    "monitoring",
+    "metrics",
+    "alerting",
+    "metrics-gathering"
+]
+dependencies = [
+  "requests (>=2.32.3,<3.0.0)",
+  "pydantic (>=2.11,<3.0.0)",
+  "tabulate (>=0.9.0,<0.10.0)",
+  "msgpack (>=1.1.0,<2.0.0)",
+  "pyjwt (>=2.10.1,<3.0.0)",
+  "pandas (>=2.2.3,<3.0.0)",
+  "toml (>=0.10.2,<0.11.0)",
+  "click (>=8.1.8,<9.0.0)",
+  "gitpython (>=3.1.44,<4.0.0)",
+  "humanfriendly (>=10.0,<11.0)",
+  "randomname (>=0.2.1,<0.3.0)",
+  "numpy (>=2.0.0,<3.0.0)",
+  "flatdict (>=4.0.1,<5.0.0)",
+  "semver (>=3.0.4,<4.0.0)",
+  "email-validator (>=2.2.0,<3.0.0)",
+  "psutil (>=6.1.1,<7.0.0)",
+  "tenacity (>=9.0.0,<10.0.0)",
+  "typing-extensions (>=4.12.2,<5.0.0) ; python_version < \"3.11\"",
+  "deepmerge (>=2.0,<3.0)",
+  "geocoder (>=1.38.1,<2.0.0)",
+  "pydantic-extra-types (>=2.10.5,<3.0.0)",
+  "pyyaml (>=6.0.2,<7.0.0)",
+]
 
-[tool.poetry.extras]
-dataset = ["pandas", "numpy"]
-torch = ["torch"]
-plot = ["matplotlib", "plotly"]
+[project.urls]
+homepage = "https://simvue.io"
+repository = "https://github.com/simvue-io/python-api"
+documentation = "https://docs.simvue.io"
 
-[tool.poetry.scripts]
-simvue_sender = "simvue.bin.simvue_sender:run"
+[project.optional-dependencies]
+plot = ["plotly (>=6.0.0,<7.0.0)", "matplotlib (>=3.10.0,<4.0.0)"]
+
+[project.scripts]
+simvue-sender = "simvue.bin.sender:run"
 
 [tool.poetry.group.dev.dependencies]
 pytest = "^8.0.0"
+pytest-dependency = "^0.6.0"
+ruff = ">=0.5.0,<0.10.0"
+pytest-cov = ">=4.1,<7.0"
+pytest-mock = "^3.14.0"
+pytest-sugar = "^1.0.0"
+pytest-xdist = "^3.6.1"
+jinja2 = "^3.1.6"
+types-requests = "^2.32.0.20241016"
+interrogate = "^1.7.0"
+pytest-timeout = "^2.3.1"
 
 [build-system]
 requires = ["poetry-core"]
 build-backend = "poetry.core.masonry.api"
+
+[tool.ruff]
+lint.extend-select = ["C901", "T201"]
+lint.mccabe.max-complexity = 11
+extend-exclude = ["tests", "examples", "notebooks"]
+
+[tool.pytest.ini_options]
+addopts = "-p no:warnings --no-cov -n 0"
+testpaths = [
+    "tests"
+]
+markers = [
+    "eco: tests for emission metrics",
+    "client: tests of Simvue client",
+    "dispatch: test data dispatcher",
+    "run: test the simvue Run class",
+    "utilities: test simvue utilities module",
+    "scenario: test scenarios",
+    "executor: tests of executors",
+    "config: tests of simvue configuration",
+    "api: tests of RestAPI functionality",
+    "unix: tests for UNIX systems only",
+    "metadata: tests of metadata gathering functions",
+    "online: tests for online functionality",
+    "offline: tests for offline functionality",
+    "local: tests of functionality which do not involve a server or writing to an offline cache file",
+    "object_retrieval: tests relating to retrieval of objects from the server",
+    "object_removal: tests relating to removal of objects from the server",
+]
+
+[tool.interrogate]
+ignore-init-method = true
+fail-under = 95
+verbose = 1
+exclude = ["docs", "tests"]
+
+[tool.mypy]
+ignore_missing_imports = true

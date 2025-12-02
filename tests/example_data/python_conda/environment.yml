@@ -1,0 +1,40 @@
+name: advanced_env
+channels:
+  - conda-forge
+  - anaconda
+  - defaults
+dependencies:
+  # Basic Conda packages with different version specifiers
+  - python=3.10.12
+  - numpy>=1.23.5
+  - pandas
+  - scikit-learn<1.2
+  - openjdk>=11,<12
+
+  # Platform-specific dependencies
+  - libsass  # Standard dependency
+  - vsix-installer  # Standard dependency
+  - openblas  # A package that may have platform-specific builds
+
+  # Using a sub-channel (also called a label)
+  - ::my-package-from-subchannel
+  
+  # A 'pip' section for installing packages from PyPI and other sources
+  - pip
+  - pip:
+    # Public PyPI packages with different version specifiers
+    - requests==2.31.0
+    - black
+    - jupyterlab~=4.0.0
+    - numpy==2.32.2
+    
+    # A local package from a path
+    - -e ./path/to/my-local-package
+    - file:///path/to/my-local-wheel.whl
+    
+    # A package from a Git repository
+    - git+https://github.com/myuser/myrepo.git#egg=myproject
+
+variables:
+  # Define environment variables
+  MY_ENV_VAR: "some_value"

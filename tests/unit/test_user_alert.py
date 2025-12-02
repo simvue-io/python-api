@@ -1,0 +1,223 @@
+import time
+import json
+import contextlib
+import pytest
+import uuid
+from simvue.sender import Sender
+from simvue.api.objects import Alert, UserAlert, Run
+from simvue.api.objects.folder import Folder
+
+@pytest.mark.api
+@pytest.mark.online
+def test_user_alert_creation_online() -> None:
+    _uuid: str = f"{uuid.uuid4()}".split("-")[0]
+    _alert = UserAlert.new(
+        name=f"users_alert_{_uuid}",
+        notification="none",
+        description=None
+    )
+    _alert.commit()
+    assert _alert.source == "user"
+    assert _alert.name == f"users_alert_{_uuid}"
+    assert _alert.notification == "none"
+    assert dict(Alert.get(count=10))
+    _alert.delete()
+
+
+@pytest.mark.api
+@pytest.mark.offline
+def test_user_alert_creation_offline(offline_cache_setup) -> None:
+    _uuid: str = f"{uuid.uuid4()}".split("-")[0]
+    _alert = UserAlert.new(
+        name=f"users_alert_{_uuid}",
+        notification="none",
+        offline=True,
+        description = "test user alert"
+    )
+    _alert.commit()
+    assert _alert.source == "user"
+    assert _alert.name == f"users_alert_{_uuid}"
+    assert _alert.notification == "none"
+
+    with _alert._local_staging_file.open() as in_f:
+        _local_data = json.load(in_f)
+
+    assert _local_data.get("source") == "user"
+    assert _local_data.get("name") == f"users_alert_{_uuid}"
+    assert _local_data.get("notification") == "none"
+
+    _sender = Sender(_alert._local_staging_file.parents[1], 1, 10, throw_exceptions=True)
+    _sender.upload(["alerts"])
+    time.sleep(1)
+    
+    _online_alert = Alert(_sender.id_mapping[_alert.id])
+    
+    assert _online_alert.source == "user"
+    assert _online_alert.name == f"users_alert_{_uuid}"
+    assert _online_alert.notification == "none"
+    
+    _online_alert.read_only(False)
+    _online_alert.delete()
+    _alert._local_staging_file.parents[1].joinpath("server_ids", f"{_alert._local_staging_file.name.split('.')[0]}.txt").unlink()
+
+        
+@pytest.mark.api
+@pytest.mark.online
+def test_user_alert_modification_online() -> None:
+    _uuid: str = f"{uuid.uuid4()}".split("-")[0]
+    _alert = UserAlert.new(
+        name=f"users_alert_{_uuid}",
+        notification="none",
+        description=None
+    )
+    _alert.commit()
+    time.sleep(1)
+    _new_alert = Alert(_alert.id)
+    assert isinstance(_new_alert, UserAlert)
+    _new_alert.read_only(False)
+    _new_alert.description = "updated!"
+    assert _new_alert.description != "updated!"
+    _new_alert.commit()
+    assert _new_alert.description == "updated!"
+    _new_alert.delete()
+
+
+@pytest.mark.api
+@pytest.mark.offline
+def test_user_alert_modification_offline(offline_cache_setup) -> None:
+    _uuid: str = f"{uuid.uuid4()}".split("-")[0]
+    _alert = UserAlert.new(
+        name=f"users_alert_{_uuid}",
+        notification="none",
+        offline=True,
+        description = "test user alert"
+    )
+    _alert.commit()
+    
+    _sender = Sender(_alert._local_staging_file.parents[1], 1, 10, throw_exceptions=True)
+    _sender.upload(["alerts"])
+
+    time.sleep(1) 
+    
+    # Get online ID and retrieve alert
+    _online_alert = UserAlert(_sender.id_mapping[_alert.id])
+    
+    assert _online_alert.source == "user"
+    assert _online_alert.name == f"users_alert_{_uuid}"
+    assert _online_alert.notification == "none"
+    
+    _new_alert = UserAlert(_alert.id)
+    _new_alert.read_only(False)
+    _new_alert.description = "updated!"
+    _new_alert.commit()
+
+    # Since changes havent been sent, check online run not updated
+    _online_alert.refresh()
+    assert _online_alert.description != "updated!"
+    
+    with _alert._local_staging_file.open() as in_f:
+        _local_data = json.load(in_f)
+    assert _local_data.get("description") == "updated!"
+    _sender = Sender(_alert._local_staging_file.parents[1], 1, 10, throw_exceptions=True)
+    _sender.upload(["alerts"])
+    time.sleep(1) 
+    
+    _online_alert.refresh()
+    assert _online_alert.description == "updated!"
+    
+    _online_alert.read_only(False)
+    _online_alert.delete()
+    _alert._local_staging_file.parents[1].joinpath("server_ids", f"{_alert._local_staging_file.name.split('.')[0]}.txt").unlink()
+
+@pytest.mark.api
+@pytest.mark.online
+def test_user_alert_properties() -> None:
+    _uuid: str = f"{uuid.uuid4()}".split("-")[0]
+    _alert = UserAlert.new(
+        name=f"users_alert_{_uuid}",
+        notification="none",
+        description=None
+    )
+    _alert.commit()
+
+    _failed = []
+
+    for member in _alert._properties:
+        try:
+            getattr(_alert, member)
+        except Exception as e:
+            _failed.append((member, f"{e}"))
+    with contextlib.suppress(Exception):
+        _alert.delete()
+
+    if _failed:
+        raise AssertionError("\n" + "\n\t- ".join(": ".join(i) for i in _failed))
+
+
+@pytest.mark.api
+@pytest.mark.online
+def test_user_alert_status() -> None:
+    _uuid: str = f"{uuid.uuid4()}".split("-")[0]
+    _alert = UserAlert.new(
+        name=f"users_alert_{_uuid}",
+        notification="none",
+        description=None
+    )
+    _alert.commit()
+    _folder = Folder.new(path=f"/simvue_unit_tests/{_uuid}")
+    _run = Run.new(folder=f"/simvue_unit_tests/{_uuid}")
+    _folder.commit()
+    _run.alerts = [_alert.id]
+    _run.commit()
+    _alert.set_status(_run.id, "critical")
+    time.sleep(1)
+    _run.delete()
+    _folder.delete(recursive=True, runs_only=False, delete_runs=True)
+    _alert.delete()
+    
+    
+@pytest.mark.api
+@pytest.mark.offline
+def test_user_alert_status_offline(offline_cache_setup) -> None:
+    _uuid: str = f"{uuid.uuid4()}".split("-")[0]
+    _alert = UserAlert.new(
+        name=f"users_alert_{_uuid}",
+        notification="none",
+        description=None,
+        offline=True
+    )
+    _alert.commit()
+    _folder = Folder.new(path=f"/simvue_unit_tests/{_uuid}", offline=True)
+    _run = Run.new(folder=f"/simvue_unit_tests/{_uuid}", offline=True)
+    _folder.commit()
+    _run.alerts = [_alert.id]
+    _run.commit()
+
+    _sender = Sender(_alert._local_staging_file.parents[1], 1, 10, throw_exceptions=True)
+    _sender.upload(["folders", "runs", "alerts"])
+    time.sleep(1) 
+    
+    # Get online aler, check status is not set
+    _online_alert = UserAlert(_sender.id_mapping.get(_alert.id))
+    assert not _online_alert.get_status(run_id=_sender.id_mapping.get(_run.id))
+
+    _alert.set_status(_run.id, "critical")
+    _alert.commit()
+    time.sleep(1)
+    
+    # Check online status is still not set as change has not been sent
+    _online_alert.refresh()
+    assert not _online_alert.get_status(run_id=_sender.id_mapping.get(_run.id))
+    
+    _sender = Sender(_alert._local_staging_file.parents[1], 1, 10, throw_exceptions=True)
+    _sender.upload(["alerts"])
+    time.sleep(1)
+    
+    # Check online status has been updated
+    _online_alert.refresh()
+    assert _online_alert.get_status(run_id=_sender.id_mapping.get(_run.id)) == "critical"
+
+    _run.delete()
+    _folder.delete(recursive=True, runs_only=False, delete_runs=True)
+    _alert.delete()
+

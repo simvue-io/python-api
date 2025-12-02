@@ -134,9 +134,21 @@ dmypy.json
 
 # Simvue files
 simvue.ini
+simvue.toml
+offline/
+*.err
+*.out
 
 # Pyenv
 .python-version
 
 # VSCode
 .vscode/
+
+# Vagrant
+Vagrantfile
+
+.sourcery*
+
+# Modules
+!simvue/offline/

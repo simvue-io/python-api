@@ -1,8 +1,22 @@
-from simvue.serialization import Serializer, Deserializer
+from simvue.serialization import serialize_object
 import matplotlib.pyplot as plt
 import plotly
+import pytest
 
-def test_plotly_figure_mime_type():
+try:
+    import matplotlib.pyplot as plt
+except ImportError:
+    plt = None
+
+try:
+    import plotly
+except ImportError:
+    plotly = None
+
+@pytest.mark.local
+@pytest.mark.skipif(not plt, reason="Matplotlib is not installed")
+@pytest.mark.skipif(not plotly, reason="Plotly is not installed")
+def test_plotly_figure_mime_type() -> None:
     """
     Check that a plotly figure has the correct mime-type
     """
@@ -10,6 +24,6 @@ def test_plotly_figure_mime_type():
     figure = plt.gcf()
     plotly_figure = plotly.tools.mpl_to_plotly(figure)
 
-    _, mime_type = Serializer().serialize(plotly_figure)
+    _, mime_type = serialize_object(plotly_figure, False)
 
     assert (mime_type == 'application/vnd.plotly.v1+json')

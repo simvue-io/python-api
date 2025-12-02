@@ -1,0 +1,19 @@
+name = "Julia Demo Project"
+uuid = "31b09h27-d3fd-4268-8c4f-7ab0a8rbc582"
+authors = ["Joe Bloggs <jbloggs@notemail.com"]
+version = "0.1.0"
+
+[deps]
+AbstractDifferentiation = "c29ec348-61ec-40c8-8164-b8c60e9d9f3d"
+LinearAlgebra = "37e2e46d-f89d-539d-b4ee-838fcccc9c8e"
+Measurements = "eff96d63-e80a-5855-80a2-b1b0885c5ab7"
+ReverseDiff = "37e2e3b7-166d-5795-8a7a-e32c996b4267"
+
+[compat]
+AbstractDifferentiation = "0.6.2"
+LinearAlgebra = "1.11.0"
+Measurements = "2.11.0"
+ReverseDiff = "1.15.3"
+
+[test]
+Test = "8dfed614-e22c-5e08-85e1-65c5234f0b40"

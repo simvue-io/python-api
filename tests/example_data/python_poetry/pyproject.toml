@@ -1,0 +1,17 @@
+[tool.poetry]
+name = "example-repo"
+version = "0.1.0"
+description = ""
+authors = ["Kristian Zarębski <kristian.zarebski@ukaea.uk>"]
+readme = "README.md"
+
+[tool.poetry.dependencies]
+python = "^3.13"
+numpy = "^2.2.0"
+pandas = "^2.2.3"
+requests = "^2.32.4"
+
+
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"

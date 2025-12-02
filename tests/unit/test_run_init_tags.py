@@ -1,13 +1,11 @@
-import os
 from simvue import Run
 import pytest
 
-def test_run_init_tags():
+@pytest.mark.local
+def test_run_init_tags() -> None:
     """
     Check that run.init throws an exception if tags are not a list
     """
-    os.environ["SIMVUE_TOKEN"] = "test"
-    os.environ["SIMVUE_URL"] = "https://simvue.io"
 
     x1_lower = 2
     x1_upper = 6
@@ -16,7 +14,9 @@ def test_run_init_tags():
 
     with pytest.raises(RuntimeError) as exc_info:
         run.init(metadata={'dataset.x1_lower': x1_lower, 'dataset.x1_upper': x1_upper}, tags=1,
-                description="A test to validate tag inputs passed into run.init"
+                description="A test to validate tag inputs passed into run.init",
+                retention_period="1 hour",
+                folder="/simvue_unit_testing"
         )
 
-    assert exc_info.match(r"value is not a valid list")
+    assert "Input should be a valid list" in str(exc_info.value)

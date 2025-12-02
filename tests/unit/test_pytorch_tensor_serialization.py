@@ -1,14 +1,21 @@
-import torch
-from simvue.serialization import Serializer, Deserializer
+from simvue.serialization import serialize_object, deserialize_data
+import pytest
 
-def test_pytorch_tensor_serialization():
+try:
+    import torch
+except ImportError:
+    torch = None
+
+@pytest.mark.local
+@pytest.mark.skipif(not torch, reason="Torch is not installed")
+def test_pytorch_tensor_serialization() -> None:
     """
     Check that a PyTorch tensor can be serialized then deserialized successfully
     """
     torch.manual_seed(1724)
     array = torch.rand(2, 3)
 
-    serialized, mime_type = Serializer().serialize(array)
-    array_out = Deserializer().deserialize(serialized, mime_type)
+    serialized, mime_type = serialize_object(array, False)
+    array_out = deserialize_data(serialized, mime_type, False)
 
     assert (array == array_out).all()
