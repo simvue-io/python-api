@@ -3,6 +3,7 @@ from collections.abc import Generator
 import enum
 import json
 import sys
+from typing import Generic, TypeVar
 
 import pydantic
 
@@ -14,6 +15,8 @@ else:
 
 if TYPE_CHECKING:
     from .base import SimvueObject
+
+T = TypeVar("T", bound="SimvueObject")
 
 
 class Status(str, enum.Enum):
@@ -45,13 +48,16 @@ class System(str, enum.Enum):
     GPU_Driver = "gpu.driver"
 
 
-class RestAPIFilter(abc.ABC):
+class RestAPIFilter(abc.ABC, Generic[T]):
     """RestAPI query filter object."""
 
-    def __init__(self, simvue_object: "type[SimvueObject] | None" = None) -> None:
+    def __init__(
+        self, simvue_object: "type[SimvueObject] | None" = None, **kwargs
+    ) -> None:
         """Initialise a query object using a Simvue object class."""
         self._sv_object: "type[SimvueObject] | None" = simvue_object
         self._filters: list[str] = []
+        self._query_args: dict = kwargs
         self._generate_members()
 
     def _time_within(
@@ -78,6 +84,16 @@ class RestAPIFilter(abc.ABC):
     @abc.abstractmethod
     def _generate_members(self) -> None:
         """Generate filters using specified definitions."""
+
+    @pydantic.validate_call
+    def limit_to(self, n_entries: pydantic.PositiveInt | None) -> Self:
+        self._query_args["count"] = n_entries
+        return self
+
+    @pydantic.validate_call
+    def start_at_index(self, start_index: pydantic.NonNegativeInt) -> Self:
+        self._query_args["offset"] = start_index
+        return self
 
     def has_name(self, name: str) -> Self:
         """Filter based on absolute object name."""
@@ -112,37 +128,37 @@ class RestAPIFilter(abc.ABC):
         self._filters.append("starred")
         return self
 
-    def as_list(self) -> list[str]:
+    def list_filters(self) -> list[str]:
         """Returns the filters as a list."""
         return self._filters
 
-    def clear(self) -> None:
+    def clear_filters(self) -> None:
         """Clear all current filters."""
         self._filters = []
 
+    def append_filters(self, filters: list[str]) -> Self:
+        """Manually append filters to the query."""
+        self._filters += filters
+        return self
+
     def get(
         self,
-        count: pydantic.PositiveInt | None = None,
-        offset: pydantic.NonNegativeInt | None = None,
-        **kwargs,
-    ) -> Generator[tuple[str, "SimvueObject | None"], None, None]:
+    ) -> Generator[tuple[str, T], None, None]:
         """Call the get method from the simvue object class."""
         if not self._sv_object:
             raise RuntimeError("No object type associated with filter.")
         _filters: str = json.dumps(self._filters)
-        return self._sv_object.get(
-            count=count, offset=offset, filters=_filters, **kwargs
-        )
+        return self._sv_object.get(filters=_filters, **self._query_args)
 
-    def count(self, **kwargs) -> int:
+    def count(self) -> int:
         if not self._sv_object:
             raise RuntimeError("No object type associated with filter.")
-        _ = kwargs.pop("count", None)
+        _ = self._query_args.pop("count", None)
         _filters: str = json.dumps(self._filters)
-        return self._sv_object.count(filters=_filters, **kwargs)
+        return self._sv_object.count(filters=_filters, **self._query_args)
 
 
-class FoldersFilter(RestAPIFilter):
+class FoldersFilter(RestAPIFilter["Folder"]):
     def has_path(self, name: str) -> "FoldersFilter":
         self._filters.append(f"path == {name}")
         return self
@@ -155,7 +171,7 @@ class FoldersFilter(RestAPIFilter):
         return super()._generate_members()
 
 
-class RunsFilter(RestAPIFilter):
+class RunsFilter(RestAPIFilter["Run"]):
     def _generate_members(self) -> None:
         _global_comparators = [self._value_contains, self._value_eq, self._value_neq]
 

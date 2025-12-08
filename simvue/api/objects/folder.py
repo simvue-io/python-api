@@ -122,8 +122,8 @@ class Folder(SimvueObject):
         return super().get(count=count, offset=offset, **_params)
 
     @classmethod
-    def filter(cls) -> FoldersFilter:
-        _filter_instance: FoldersFilter = FoldersFilter(cls)
+    def filter(cls, **kwargs) -> FoldersFilter:
+        _filter_instance: FoldersFilter = FoldersFilter(cls, **kwargs)
         _filter_instance.get.__func__.__doc__ = cls.get.__func__.__doc__
         return _filter_instance
 

@@ -97,8 +97,8 @@ class Run(SimvueObject):
         super().__init__(identifier, **kwargs)
 
     @classmethod
-    def filter(cls) -> RunsFilter:
-        _run_filter = RunsFilter(cls)
+    def filter(cls, **kwargs) -> RunsFilter:
+        _run_filter = RunsFilter(cls, **kwargs)
         _run_filter.get.__func__.__doc__ = cls.get.__func__.__doc__
         return _run_filter
 
