@@ -188,11 +188,11 @@ class RunsFilter(RestAPIFilter):
             _out_func.__name__ = _func_name
             setattr(self, _func_name, _out_func)
 
-    def author(self, username: str = "self") -> "RunsFilter":
+    def owner(self, username: str = "self") -> "RunsFilter":
         self._filters.append(f"user == {username}")
         return self
 
-    def exclude_author(self, username: str = "self") -> "RunsFilter":
+    def exclude_owner(self, username: str = "self") -> "RunsFilter":
         self._filters.append(f"user != {username}")
         return self
 
