@@ -16,9 +16,9 @@ import time
 import json
 
 try:
-    from typing import Self
+    from typing import Self, override
 except ImportError:
-    from typing_extensions import Self
+    from typing_extensions import Self, override
 
 from .base import (
     ObjectBatchArgs,
@@ -29,6 +29,7 @@ from .base import (
     Visibility,
     write_only,
 )
+from .filter import RunsFilter
 from simvue.api.request import (
     get as sv_get,
     put as sv_put,
@@ -94,6 +95,19 @@ class Run(SimvueObject):
         """
         self.visibility = Visibility(self)
         super().__init__(identifier, **kwargs)
+
+    @classmethod
+    def filter(cls) -> RunsFilter:
+        _run_filter = RunsFilter(cls)
+        _run_filter.get.__func__.__doc__ = cls.get.__func__.__doc__
+        return _run_filter
+
+    @override
+    def commit(self) -> dict | list[dict] | None:
+        if "starred" in self._staging:
+            _star_run: bool = self._staging.pop("starred")
+            self._set_favourite(starred=_star_run)
+        return super().commit()
 
     @classmethod
     @pydantic.validate_call
@@ -490,6 +504,31 @@ class Run(SimvueObject):
     @pydantic.validate_call
     def started(self, started: datetime.datetime) -> None:
         self._staging["started"] = simvue_timestamp(started)
+
+    @property
+    @staging_check
+    def star(self) -> bool:
+        """Return if this folder is starred"""
+        return self._get().get("starred", False)
+
+    @star.setter
+    @write_only
+    @pydantic.validate_call
+    def star(self, is_true: bool = True) -> None:
+        """Star this folder as a favourite"""
+        self._staging["starred"] = is_true
+
+    def _set_favourite(self, *, starred: bool) -> dict:
+        """Set starred status."""
+        _url = self.url / "starred"
+        _response = sv_put(
+            f"{_url}", headers=self._user_config.headers, data={"starred": starred}
+        )
+        return get_json_from_response(
+            expected_status=[http.HTTPStatus.OK],
+            response=_response,
+            scenario=f"Applying favourite preference to run '{self.id}'",
+        )
 
     @property
     @staging_check
