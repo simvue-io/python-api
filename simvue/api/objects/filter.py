@@ -134,6 +134,13 @@ class RestAPIFilter(abc.ABC):
             count=count, offset=offset, filters=_filters, **kwargs
         )
 
+    def count(self, **kwargs) -> int:
+        if not self._sv_object:
+            raise RuntimeError("No object type associated with filter.")
+        _ = kwargs.pop("count", None)
+        _filters: str = json.dumps(self._filters)
+        return self._sv_object.count(filters=_filters, **kwargs)
+
 
 class FoldersFilter(RestAPIFilter):
     def has_path(self, name: str) -> "FoldersFilter":

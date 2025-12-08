@@ -177,6 +177,7 @@ def test_get_run_count(subset: bool) -> None:
         _generator = Run.filter().has_tag(f"run_1_{_uuid}").in_folder(_folder_name)
         _generator = _generator.has_metadata_attribute("uuid").metadata_eq("uuid", _uuid).starred()
         assert len(list(_generator.get())) == 1
+        assert _generator.count() == 1
     _folder.delete(recursive=True, delete_runs=True, runs_only=False)
 
 

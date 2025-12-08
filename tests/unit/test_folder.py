@@ -73,7 +73,9 @@ def test_get_folder_count(subset: bool) -> None:
     if not subset:
         assert len(list(Folder.get(count=2, offset=None))) == 2
     else:
-        assert len(list(Folder.filter().has_tag(f"simvue_{_uuid}").starred().get())) == 1
+        _generator = Folder.filter().has_tag(f"simvue_{_uuid}").starred()
+        assert len(list(_generator.get())) == 1
+        assert _generator.count() == 1
     _folder_1.delete()
     _folder_2.delete()
 
