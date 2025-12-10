@@ -48,6 +48,7 @@ class Sender:
         retry_failed_uploads: bool = False,
         run_notification: typing.Literal["none", "all", "email"] = "none",
         run_retention_period: str | None = None,
+        monitor_uploads: bool = False,
     ) -> None:
         """Initialise a local data sender.
 
@@ -64,6 +65,8 @@ class Sender:
             default is False (exceptions will be logged)
         retry_failed_uploads : bool, optional
             Whether to retry sending objects which previously failed, by default False
+        monitor_uploads : bool, optional
+            Whether to track uploads as a Simvue run, by default False
         """
         _local_config: SimvueConfiguration = SimvueConfiguration.fetch(mode="online")
         self._cache_directory = cache_directory or _local_config.offline.cache
@@ -77,6 +80,7 @@ class Sender:
         self._run_notification: typing.Literal["none", "email"] = run_notification
         self._run_retention_period: str | None = run_retention_period
         self._upload_status: dict[str, str | float] = {}
+        self._monitor_uploads: bool = monitor_uploads
         self._id_mapping = {
             file_path.name.split(".")[0]: file_path.read_text()
             for file_path in self._cache_directory.glob("server_ids/*.txt")
@@ -149,7 +153,8 @@ class Sender:
         """
         self._lock()
 
-        _monitor_run = self._initialise_monitor_run()
+        _monitor_run = self._initialise_monitor_run() if self._monitor_uploads else None
+
         self._upload_status = {}
 
         for action in UPLOAD_ACTION_ORDER:
@@ -171,5 +176,6 @@ class Sender:
                 simvue_monitor_run=_monitor_run,
                 upload_status=self._upload_status,
             )
-        _monitor_run.close()
+        if _monitor_run:
+            _monitor_run.close()
         self._release()
