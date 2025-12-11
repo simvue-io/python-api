@@ -1,5 +1,10 @@
 # Change Log
 
+## [v2.3.0](https://github.com/simvue-io/client/releases/tag/v2.3.0) - 2025-12-11
+
+- Refactored sender functionality introducing new `Sender` class.
+- Added missing `created` property to `User` and `Tenant` LLAPI objects.
+
 ## [v2.2.4](https://github.com/simvue-io/client/releases/tag/v2.2.4) - 2025-11-13
 
 - Added fixes for future servers which disallow extra arguments in requests.

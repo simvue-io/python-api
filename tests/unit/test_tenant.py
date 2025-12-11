@@ -5,7 +5,7 @@ import json
 import uuid
 
 from simvue.api.objects.administrator import Tenant
-from simvue.sender import sender
+from simvue.sender import Sender
 
 @pytest.mark.api
 @pytest.mark.online
@@ -40,9 +40,10 @@ def test_create_tenant_offline(offline_cache_setup) -> None:
     assert _local_data.get("name") == _uuid
     assert _local_data.get("is_enabled") == True
     
-    _id_mapping = sender(_new_tenant._local_staging_file.parents[1], 1, 10, ["tenants"], throw_exceptions=True)
+    _sender = Sender(_new_tenant._local_staging_file.parents[1], 1, 10, throw_exceptions=True)
+    _sender.upload(["tenants"])
     time.sleep(1)
-    _online_user = Tenant(_id_mapping.get(_new_tenant.id))
+    _online_user = Tenant(_sender.id_mapping.get(_new_tenant.id))
     assert _online_user.name == _uuid
     assert _online_user.is_enabled == True
     

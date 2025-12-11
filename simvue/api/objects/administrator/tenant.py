@@ -12,8 +12,10 @@ try:
 except ImportError:
     from typing_extensions import Self
 import pydantic
+import datetime
 
 from simvue.api.objects.base import write_only, SimvueObject, staging_check
+from simvue.models import DATETIME_FORMAT
 
 
 class Tenant(SimvueObject):
@@ -30,6 +32,7 @@ class Tenant(SimvueObject):
         max_runs: int = 0,
         max_data_volume: int = 0,
         offline: bool = False,
+        **_,
     ) -> Self:
         """Create a new tenant on the Simvue server.
 
@@ -129,3 +132,16 @@ class Tenant(SimvueObject):
     def max_data_volume(self, max_data_volume: int) -> None:
         """Update tenant's maximum data volume"""
         self._staging["max_data_volume"] = max_data_volume
+
+    @property
+    def created(self) -> datetime.datetime | None:
+        """Set/retrieve created datetime for the run.
+
+        Returns
+        -------
+        datetime.datetime
+        """
+        _created: str | None = self._get_attribute("created")
+        return (
+            datetime.datetime.strptime(_created, DATETIME_FORMAT) if _created else None
+        )

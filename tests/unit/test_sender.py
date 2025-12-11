@@ -1,13 +1,10 @@
-import contextlib
 import json
 import pytest
 import time
 import datetime
 import uuid
-from simvue.api.objects.run import RunBatchArgs
-from simvue.sender import sender
+from simvue.sender import Sender
 from simvue.api.objects import Run, Metrics, Folder
-from simvue.client import Client
 from simvue.models import DATETIME_FORMAT
 import logging
 import pathlib
@@ -37,23 +34,26 @@ def test_sender_exception_handling(offline_cache_setup, caplog, throw_exceptions
         
     if throw_exceptions:
         with pytest.raises(ValueError):
-            sender(throw_exceptions=True, threading_threshold=1 if parallel else 10)
+            _sender = Sender(throw_exceptions=True, threading_threshold=1 if parallel else 10)
+            _sender.upload()
         return
     
     with caplog.at_level(logging.ERROR):
-        sender(threading_threshold=1 if parallel else 10)
+        _sender = Sender(threading_threshold=1 if parallel else 10)
+        _sender.upload()
             
-    assert "Error while committing 'Metrics'" in caplog.text
+    assert "Error while committing metrics" in caplog.text
     
     # Wait, then try sending again
     time.sleep(1)
     caplog.clear()
     
     with caplog.at_level(logging.ERROR):
-        sender(retry_failed_uploads=retry_failed_uploads, threading_threshold=1 if parallel else 10)
+        _sender = Sender(retry_failed_uploads=retry_failed_uploads, threading_threshold=1 if parallel else 10)
+        _sender.upload()
         
     if retry_failed_uploads:
-        assert "Error while committing 'Metrics'" in caplog.text
+        assert "Error while committing metrics" in caplog.text
     else:
         assert not caplog.text
         
@@ -100,7 +100,8 @@ def test_sender_server_ids(offline_cache_setup, caplog, parallel):
     
     # Send both items
     with caplog.at_level(logging.ERROR):
-        sender(threading_threshold=1 if parallel else 10)
+        _sender = Sender(threading_threshold=1 if parallel else 10)
+        _sender.upload()
     
     assert not caplog.text
     
@@ -139,7 +140,8 @@ def test_sender_server_ids(offline_cache_setup, caplog, parallel):
     
     # Run sender again, check online ID is correctly loaded from file and substituted for offline ID
     with caplog.at_level(logging.ERROR):
-        sender(threading_threshold=1 if parallel else 10)
+        _sender = Sender(threading_threshold=1 if parallel else 10)
+        _sender.upload()
     
     assert not caplog.text
     
@@ -171,8 +173,9 @@ def test_send_heartbeat(offline_cache_setup, parallel, mocker):
         
         _offline_runs.append(_run)
     
-    _id_mapping = sender(threading_threshold=1 if parallel else 10)
-    _online_runs = [Run(identifier=_id_mapping.get(_offline_run.id)) for _offline_run in _offline_runs]
+    _sender = Sender(threading_threshold=1 if parallel else 10)
+    _sender.upload()
+    _online_runs = [Run(identifier=_sender.id_mapping.get(_offline_run.id)) for _offline_run in _offline_runs]
     assert all([_online_run.status == "running" for _online_run in _online_runs])
     
     spy_put = mocker.spy(requests, "put")
@@ -181,7 +184,7 @@ def test_send_heartbeat(offline_cache_setup, parallel, mocker):
     for i in range(10):
         time.sleep(0.5)
         [_offline_run.send_heartbeat() for _offline_run in _offline_runs]
-        sender(threading_threshold=1 if parallel else 10)
+        Sender(threading_threshold=1 if parallel else 10).upload()
         
     # Check requests.put() endpoint called 50 times - once for each of the 5 runs, on all 10 iterations
     assert spy_put.call_count == 50
