@@ -18,14 +18,14 @@ import pathlib
 import concurrent.futures
 import random
 import datetime
+import json
 import simvue
-from simvue.api.objects import Alert, Metrics
+from simvue.api.objects import Alert, Metrics, Folder
 from simvue.api.objects.grids import GridMetrics
 from simvue.exception import ObjectNotFoundError, SimvueRunError
 from simvue.sender import Sender
 import simvue.run as sv_run
 import simvue.client as sv_cl
-import simvue.config.user as sv_cfg
 
 from simvue.api.objects import Run as RunObject
 
@@ -1052,6 +1052,7 @@ def test_update_tags_offline(
 
 
 @pytest.mark.run
+@pytest.mark.online
 @pytest.mark.parametrize("object_type", ("DataFrame", "ndarray"))
 def test_save_object(
     create_plain_run: tuple[sv_run.Run, dict], object_type: str
@@ -1074,6 +1075,7 @@ def test_save_object(
 
 
 @pytest.mark.run
+@pytest.mark.online
 def test_add_alerts() -> None:
     _uuid = f"{uuid.uuid4()}".split("-")[0]
 
@@ -1259,6 +1261,7 @@ def test_add_alerts_offline(monkeypatch) -> None:
 
 
 @pytest.mark.run
+@pytest.mark.online
 def test_log_alert() -> None:
     _uuid = f"{uuid.uuid4()}".split("-")[0]
 
@@ -1309,6 +1312,7 @@ def test_log_alert() -> None:
 
 
 @pytest.mark.run
+@pytest.mark.online
 def test_abort_on_alert_process(mocker: pytest_mock.MockerFixture) -> None:
     def testing_exit(status: int) -> None:
         raise SystemExit(status)
@@ -1362,6 +1366,7 @@ def test_abort_on_alert_process(mocker: pytest_mock.MockerFixture) -> None:
 
 
 @pytest.mark.run
+@pytest.mark.online
 def test_abort_on_alert_python(
     speedy_heartbeat, create_plain_run: tuple[sv_run.Run, dict], mocker: pytest_mock.MockerFixture
 ) -> None:
@@ -1382,6 +1387,7 @@ def test_abort_on_alert_python(
 
 
 @pytest.mark.run
+@pytest.mark.online
 def test_abort_on_alert_raise(
     create_plain_run: tuple[sv_run.Run, dict]
 ) -> None:
@@ -1406,6 +1412,7 @@ def test_abort_on_alert_raise(
 
 
 @pytest.mark.run
+@pytest.mark.online
 def test_kill_all_processes(create_plain_run: tuple[sv_run.Run, dict]) -> None:
     run, _ = create_plain_run
     run.config(system_metrics_interval=1)
@@ -1421,6 +1428,7 @@ def test_kill_all_processes(create_plain_run: tuple[sv_run.Run, dict]) -> None:
 
 
 @pytest.mark.run
+@pytest.mark.online
 def test_run_created_with_no_timeout() -> None:
     _uuid = f"{uuid.uuid4()}".split("-")[0]
     with simvue.Run() as run:
@@ -1443,6 +1451,7 @@ def test_run_created_with_no_timeout() -> None:
 
 @pytest.mark.parametrize("mode", ("online", "offline"), ids=("online", "offline"))
 @pytest.mark.run
+@pytest.mark.online
 def test_reconnect_functionality(mode, monkeypatch: pytest.MonkeyPatch) -> None:
     temp_d: tempfile.TemporaryDirectory | None = None
     _uuid = f"{uuid.uuid4()}".split("-")[0]
@@ -1486,6 +1495,7 @@ def test_reconnect_functionality(mode, monkeypatch: pytest.MonkeyPatch) -> None:
 
 
 @pytest.mark.run
+@pytest.mark.online
 def test_env_var_metadata() -> None:
     # Add some environment variables to glob
     _recorded_env = {
@@ -1506,6 +1516,7 @@ def test_env_var_metadata() -> None:
     assert all(key in _recorded_meta.get("shell") for key in _recorded_env)
 
 @pytest.mark.run
+@pytest.mark.online
 def test_reconnect_with_process() -> None:
     _uuid = f"{uuid.uuid4()}".split("-")[0]
     with simvue.Run() as run:
@@ -1537,6 +1548,8 @@ def test_reconnect_with_process() -> None:
 @pytest.mark.parametrize(
     "environment", ("python_conda", "python_poetry", "python_uv", "julia", "rust", "nodejs")
 )
+@pytest.mark.run
+@pytest.mark.online
 def test_run_environment_metadata(environment: str, mocker: pytest_mock.MockerFixture) -> None:
     """Tests that the environment information is compatible with the server."""
     from simvue.config.user import SimvueConfiguration
@@ -1557,4 +1570,5 @@ def test_run_environment_metadata(environment: str, mocker: pytest_mock.MockerFi
             visibility="tenant" if os.environ.get("CI") else None,
         )
         run.update_metadata(env_func(_target_dir))
+
 
