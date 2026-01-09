@@ -18,9 +18,9 @@ import pathlib
 import concurrent.futures
 import random
 import datetime
-import json
 import simvue
-from simvue.api.objects import Alert, Metrics, Folder
+
+from simvue.api.objects import Alert, Metrics
 from simvue.api.objects.grids import GridMetrics
 from simvue.exception import ObjectNotFoundError, SimvueRunError
 from simvue.sender import Sender
