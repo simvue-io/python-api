@@ -637,18 +637,17 @@ class Run:
         self,
         name: typing.Annotated[str | None, pydantic.Field(pattern=NAME_REGEX)] = None,
         *,
-        metadata: dict[str, typing.Any] = None,
+        metadata: dict[str, typing.Any] | None = None,
         tags: list[str] | None = None,
         description: str | None = None,
-        folder: typing.Annotated[
-            str, pydantic.Field(None, pattern=FOLDER_REGEX)
-        ] = None,
+        folder: typing.Annotated[str, pydantic.Field(None, pattern=FOLDER_REGEX)]
+        | None = None,
         notification: typing.Literal["none", "all", "error", "lost"] = "none",
         running: bool = True,
         retention_period: str | None = None,
         timeout: int | None = 180,
         visibility: typing.Literal["public", "tenant"] | list[str] | None = None,
-        terminate_on_low_system_health: bool = True,
+        terminate_on_low_system_health: bool = False,
         no_color: bool = False,
         record_shell_vars: set[str] | None = None,
     ) -> bool:
@@ -689,7 +688,7 @@ class Run:
         terminate_on_low_system_health : bool, optional
             whether to terminate this run if the resource metrics are
             registering unhealthy values, e.g. very low available memory
-            default is True
+            default is False
         no_color : bool, optional
             disable terminal colors. Default False.
         record_shell_vars : list[str] | None,
@@ -1085,6 +1084,7 @@ class Run:
         system_metrics_interval: pydantic.PositiveInt | None = None,
         enable_emission_metrics: bool | None = None,
         disable_resources_metrics: bool | None = None,
+        healthcheck_alert_email_notify: bool | None = None,
         storage_id: str | None = None,
         abort_on_alert: typing.Literal["run", "terminate", "ignore"] | None = None,
     ) -> bool:
@@ -1103,6 +1103,9 @@ class Run:
             enable monitoring of emission metrics
         disable_resources_metrics : bool, optional
             disable monitoring of resource metrics
+        healthcheck_alert_email_notify : bool, optional
+            whether to enable notification by email of
+            critical memory usage or disk availability
         storage_id : str, optional
             identifier of storage to use, by default None
         abort_on_alert : Literal['ignore', 'terminate', 'ignore'], optional
@@ -1132,6 +1135,11 @@ class Run:
 
             if system_metrics_interval:
                 self._system_metrics_interval = system_metrics_interval
+
+            if healthcheck_alert_email_notify is not None:
+                self._healthcheck_alert_email_notification = (
+                    healthcheck_alert_email_notify
+                )
 
             if disable_resources_metrics:
                 if self._emissions_monitor:
