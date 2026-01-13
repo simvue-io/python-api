@@ -219,13 +219,6 @@ class User(SimvueObject):
             return self._get_attribute("user")["email"]
         return self._get_attribute("email")
 
-    @property
-    def tenant(self) -> str:
-        """Retrieve user tenant."""
-        if self.id and self.id.startswith("offline_"):
-            return self._get_attribute("user")["tenant"]
-        return self._get_attribute("tenant")
-
     @email.setter
     @write_only
     @pydantic.validate_call
