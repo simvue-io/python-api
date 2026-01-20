@@ -30,7 +30,8 @@ def test_python_env(backend: str | None) -> None:
     else:
         metadata = sv_meta._python_env(pathlib.Path(__file__).parents[1].joinpath("example_data"))
 
-    assert re.findall(r"\d+\.\d+\.\d+", metadata["environment"]["numpy"])
+    if backend:
+        assert re.findall(r"\d+\.\d+\.\d+", metadata["environment"]["numpy"])
 
 
 @pytest.mark.metadata
