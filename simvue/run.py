@@ -190,6 +190,13 @@ class Run:
                 server_url=server_url, server_token=server_token, mode=mode
             )
         except SimvueUserConfigError as e:
+            _help_str = (
+                "A required Simvue configuration is missing, "
+                "please ensure you have created a valid configuration "
+                "file, or the environment variables 'SIMVUE_URL' and 'SIMVUE_TOKEN' "
+                "have been defined."
+            )
+            click.secho(_help_str)
             click.secho(f"[simvue] {e}", bold=True, fg="red")
             sys.exit(1)
 
