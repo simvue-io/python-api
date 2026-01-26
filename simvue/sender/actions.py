@@ -186,7 +186,7 @@ class UploadAction:
         id_mapping: dict[str, str],
         cache_directory: pathlib.Path,
         thread_lock: threading.Lock,
-        simvue_monitor_run: SimvueRun,
+        simvue_monitor_run: SimvueRun | None,
         *,
         throw_exceptions: bool = False,
         retry_failed: bool = False,
@@ -194,7 +194,8 @@ class UploadAction:
     ) -> None:
         """Upload a single item of this object type."""
         _label: str = cls.object_type[:-1] if cls.singular_object else cls.object_type
-        simvue_monitor_run.log_event(f"Uploading {_label} '{identifier}'")
+        if simvue_monitor_run:
+            simvue_monitor_run.log_event(f"Uploading {_label} '{identifier}'")
         _json_file = cache_directory.joinpath(f"{cls.object_type}/{identifier}.json")
 
         with _json_file.open() as in_f:
@@ -230,10 +231,11 @@ class UploadAction:
             _exception_msg: str = (
                 f"Error while committing {_label} '{identifier}': {err}"
             )
-            simvue_monitor_run.log_event(_exception_msg)
-            simvue_monitor_run.log_alert(
-                name="sender_object_upload_failure", state="critical"
-            )
+            if simvue_monitor_run:
+                simvue_monitor_run.log_event(_exception_msg)
+                simvue_monitor_run.log_alert(
+                    name="sender_object_upload_failure", state="critical"
+                )
             cls.logger.error(_exception_msg)
             cls._log_upload_failed(cache_directory, identifier, _data)
             return
@@ -266,9 +268,10 @@ class UploadAction:
             with thread_lock:
                 upload_status.setdefault(cls.object_type, 0)
                 upload_status[cls.object_type] += 1
-                simvue_monitor_run.log_metrics(
-                    {f"uploads.{cls.object_type}": upload_status[cls.object_type]}
-                )
+                if simvue_monitor_run:
+                    simvue_monitor_run.log_metrics(
+                        {f"uploads.{cls.object_type}": upload_status[cls.object_type]}
+                    )
 
         cls.post_tasks(
             offline_id=identifier,
@@ -285,7 +288,7 @@ class UploadAction:
         thread_lock: threading.Lock,
         threading_threshold: int,
         max_thread_workers: int,
-        simvue_monitor_run: SimvueRun,
+        simvue_monitor_run: SimvueRun | None,
         *,
         throw_exceptions: bool = False,
         retry_failed: bool = False,
@@ -306,6 +309,8 @@ class UploadAction:
             the number of cached files above which threading will be used.
         max_thread_workers : int
             the maximum number of threads to use.
+        simvue_monitor_run : SimvueRun | None
+            run to track uploading
         throw_exceptions : bool, optional
             whether to throw exceptions and terminate, default False.
         retry_failed : bool, optional
@@ -934,7 +939,7 @@ class HeartbeatUploadAction(UploadAction):
         id_mapping: dict[str, str],
         cache_directory: pathlib.Path,
         thread_lock: threading.Lock,
-        simvue_monitor_run: SimvueRun,
+        simvue_monitor_run: SimvueRun | None,
         *,
         throw_exceptions: bool = False,
         retry_failed: bool = False,
@@ -1032,7 +1037,7 @@ class CO2IntensityUploadAction(UploadAction):
         id_mapping: dict[str, str],
         cache_directory: pathlib.Path,
         thread_lock: threading.Lock,
-        simvue_monitor_run: SimvueRun,
+        simvue_monitor_run: SimvueRun | None,
         *,
         throw_exceptions: bool = False,
         retry_failed: bool = False,
@@ -1057,7 +1062,7 @@ class CO2IntensityUploadAction(UploadAction):
         throw_exceptions: bool = False,
         retry_failed: bool = False,
         upload_status: dict[str, str | float] | None = None,
-        simvue_monitor_run: dict[str, str | float] | None = None,
+        simvue_monitor_run: SimvueRun | None = None,
     ) -> None:
         """Upload CO2 intensity data."""
         _ = id_mapping
