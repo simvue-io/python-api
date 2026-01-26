@@ -122,6 +122,7 @@ class Run:
         abort_callback: typing.Callable[[Self], None] | None = None,
         server_token: pydantic.SecretStr | None = None,
         server_url: str | None = None,
+        raise_exception: bool = False,
         debug: bool = False,
     ) -> None:
         """Initialise a new Simvue run
@@ -141,6 +142,9 @@ class Run:
             overwrite value for server token, default is None
         server_url : str, optional
             overwrite value for server URL, default is None
+        raise_exception : bool, optional
+            whether to raise an exception with traceback as opposed to
+            printing an error and exiting, default is False
         debug : bool, optional
             run in debug mode, default is False
 
@@ -175,6 +179,11 @@ class Run:
         self._grids: dict[str, str] = {}
         self._suppress_errors: bool = False
         self._queue_blocking: bool = False
+        self._raise_exception: bool = raise_exception
+
+        # Capture exceptions raised within threads
+        self._thread_exception_message: str | None = None
+
         self._status: (
             typing.Literal[
                 "created", "running", "completed", "failed", "terminated", "lost"
@@ -190,6 +199,8 @@ class Run:
                 server_url=server_url, server_token=server_token, mode=mode
             )
         except SimvueUserConfigError as e:
+            if self._raise_exception:
+                raise e
             _help_str = (
                 "A required Simvue configuration is missing, "
                 "please ensure you have created a valid configuration "
@@ -310,7 +321,6 @@ class Run:
     def _terminate_run(
         self,
         abort_callback: typing.Callable[[Self], None] | None,
-        force_exit: bool = True,
     ) -> None:
         """Close the current simvue Run and its subprocesses.
 
@@ -321,8 +331,6 @@ class Run:
         ----------
         abort_callback: Callable, optional
             the callback to execute on the termination else None
-        force_exit: bool, optional
-            whether to close Python itself, the default is True
         """
         self._alert_raised_trigger.set()
         logger.debug("Received abort request from server")
@@ -338,13 +346,16 @@ class Run:
                 self._dispatcher.join()
             if self._active:
                 self.set_status("terminated")
+            if self._raise_exception:
+                self._thread_exception_message = "Run was aborted."
+                return
             click.secho(
                 "[simvue] Run was aborted.",
                 fg="red" if self._term_color else None,
                 bold=self._term_color,
             )
         if self._abort_on_alert == "terminate":
-            os._exit(1) if force_exit else sys.exit(1)
+            os._exit(1)
 
     def _get_internal_metrics(
         self,
@@ -457,7 +468,9 @@ class Run:
                 # Check if the user has aborted the run
                 with self._configuration_lock:
                     if self._sv_obj and self._sv_obj.abort_trigger:
-                        self._terminate_run(abort_callback=abort_callback)
+                        self._terminate_run(
+                            abort_callback=abort_callback,
+                        )
 
                 if self._sv_obj:
                     self._sv_obj.send_heartbeat()
@@ -1874,13 +1887,20 @@ class Run:
             )
             if _error_msg:
                 _error_msg = f":\n{_error_msg}"
+            _error_msg = (
+                f"Process executor terminated with non-zero exit status {_non_zero}"
+            )
+            if self._raise_exception:
+                raise SimvueRunError(_error_msg)
             click.secho(
-                "[simvue] Process executor terminated with non-zero exit status "
-                f"{_non_zero}{_error_msg}",
+                f"[simvue] {_error_msg}",
                 fg="red" if self._term_color else None,
                 bold=self._term_color,
             )
             sys.exit(_non_zero)
+
+        if self._thread_exception_message and self._raise_exception:
+            raise SimvueRunError(self._thread_exception_message)
 
     @skip_if_failed("_aborted", "_suppress_errors", False)
     def close(self) -> bool:

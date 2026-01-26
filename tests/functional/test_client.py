@@ -10,10 +10,11 @@ import time
 
 import tempfile
 import simvue.client as svc
-from simvue.exception import ObjectNotFoundError
+from simvue.exception import ObjectNotFoundError, SimvueRunError
 import simvue.run as sv_run
 import simvue.api.objects as sv_api_obj
 from simvue.api.objects.alert.base import AlertBase
+from simvue.sender.actions import SimvueRun
 
 
 @pytest.mark.client
@@ -535,16 +536,24 @@ def test_alert_deletion() -> None:
 
 @pytest.mark.client
 @pytest.mark.object_removal
-def test_abort_run(speedy_heartbeat, create_plain_run: tuple[sv_run.Run, dict]) -> None:
-    run, run_data = create_plain_run
+def test_abort_run(speedy_heartbeat) -> None:
+    run = sv_run.Run(raise_exception=True)
+    unique_id = f"{uuid.uuid4()}".split("-")[0]
+    run.init(
+        name="test_abort_run",
+        folder=f"/simvue_unit_testing/{unique_id}",
+        tags=["test_tag_deletion", platform.system()],
+        retention_period="1 min",
+    )
+    run._heartbeat_interval = 1
     _uuid = f"{uuid.uuid4()}".split("-")[0]
     run.update_tags([f"delete_me_{_uuid}"])
     _client = svc.Client()
     _client.abort_run(run.id, reason="Test abort")
     _attempts: int = 0
 
-    while run.status != "terminated" and _attempts < 10:
-        time.sleep(1)
-        _attempts += 1
-    if _attempts >= 10:
-        raise AssertionError("Failed to terminate run.")
+    with pytest.raises(SimvueRunError):
+        run.close()
+        while run.status != "terminated" and _attempts < 10:
+            time.sleep(1)
+            _attempts += 1

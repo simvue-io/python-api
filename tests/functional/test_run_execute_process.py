@@ -72,7 +72,10 @@ def test_abort_all_processes(create_plain_run: tuple[Run, dict]) -> None:
     _out_err = pathlib.Path.cwd().glob(f"*process_*_{os.environ.get('PYTEST_XDIST_WORKER', 0)}.err")
     for file in _out_err:
         with file.open() as in_f:
-            assert not in_f.readlines()
+            # Simvue Executor appends message informing user it aborted the process itself
+            _lines = in_f.readlines()
+            assert len(_lines) == 1
+            assert "Process was aborted by Simvue executor." in _lines[0]
 
     # Now check the counter in the process was terminated
     # just beyond the sleep time
