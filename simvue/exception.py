@@ -22,3 +22,9 @@ class SimvueRunError(RuntimeError):
     """A special sub-class of runtime error specifically for Simvue run errors"""
 
     pass
+
+
+class SimvueUserConfigError(Exception):
+    """Raised when no local Simvue Configuration file has been found."""
+
+    pass

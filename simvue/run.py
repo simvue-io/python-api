@@ -33,7 +33,7 @@ import psutil
 from simvue.api.objects.alert.fetch import Alert
 from simvue.api.objects.folder import Folder
 from simvue.api.objects.grids import GridMetrics
-from simvue.exception import ObjectNotFoundError, SimvueRunError
+from simvue.exception import ObjectNotFoundError, SimvueRunError, SimvueUserConfigError
 from simvue.utilities import prettify_pydantic
 
 
@@ -184,9 +184,14 @@ class Run:
         self._data: dict[str, typing.Any] = {}
         self._step: int = 0
         self._active: bool = False
-        self._user_config: SimvueConfiguration = SimvueConfiguration.fetch(
-            server_url=server_url, server_token=server_token, mode=mode
-        )
+
+        try:
+            self._user_config: SimvueConfiguration = SimvueConfiguration.fetch(
+                server_url=server_url, server_token=server_token, mode=mode
+            )
+        except SimvueUserConfigError as e:
+            click.secho(f"[simvue] {e}", bold=True, fg="red")
+            sys.exit(1)
 
         logging.getLogger(self.__class__.__module__).setLevel(
             logging.DEBUG
