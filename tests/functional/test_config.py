@@ -6,6 +6,7 @@ import pathlib
 import pytest_mock
 import tempfile
 from simvue.config.user import SimvueConfiguration
+from simvue.exception import SimvueUserConfigError
 
 
 @pytest.mark.config
@@ -100,7 +101,7 @@ def test_config_setup(
         import simvue.config.user
 
         if not use_file and not use_env and not use_args:
-            with pytest.raises(RuntimeError):
+            with pytest.raises(SimvueUserConfigError):
                 simvue.config.user.SimvueConfiguration.fetch(mode="online")
             return
         elif use_args:
