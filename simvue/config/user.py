@@ -17,6 +17,12 @@ import toml
 import semver
 
 from simvue.exception import SimvueUserConfigError
+
+try:
+    from typing import Self
+except ImportError:
+    from typing_extensions import Self
+
 import simvue.utilities as sv_util
 from simvue.config.parameters import (
     ClientGeneralOptions,
@@ -139,14 +145,13 @@ class SimvueConfiguration(pydantic.BaseModel):
             toml.dump(self.model_dump(), out_f)
 
     @pydantic.model_validator(mode="after")
-    @classmethod
-    def check_valid_server(cls, values: "SimvueConfiguration") -> "SimvueConfiguration":
+    def check_valid_server(self) -> Self:
         if os.environ.get("SIMVUE_NO_SERVER_CHECK"):
-            return values
+            return self
 
-        cls._check_server(values.server.token, values.server.url, values.run.mode)
+        self._check_server(self.server.token, self.server.url, self.run.mode)
 
-        return values
+        return self
 
     @classmethod
     @sv_util.prettify_pydantic
