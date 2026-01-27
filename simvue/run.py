@@ -499,7 +499,9 @@ class Run:
 
         return _dispatch_callback
 
-    def _define_system_health_alerts(self, terminate_on_alert: bool) -> None:
+    def _define_system_health_alerts(
+        self, terminate_on_alert: bool, email_notify: bool
+    ) -> None:
         """Define system health resource metric alerts."""
         _ = self.create_metric_threshold_alert(
             name="low_available_virtual_memory",
@@ -508,6 +510,7 @@ class Run:
             aggregation="at least one",
             window=2,
             rule="is below",
+            notification="email" if email_notify else "none",
             trigger_abort=terminate_on_alert,
         )
         _ = self.create_metric_threshold_alert(
@@ -648,6 +651,7 @@ class Run:
         timeout: int | None = 180,
         visibility: typing.Literal["public", "tenant"] | list[str] | None = None,
         terminate_on_low_system_health: bool = False,
+        email_on_low_system_health: bool = False,
         no_color: bool = False,
         record_shell_vars: set[str] | None = None,
     ) -> bool:
@@ -689,6 +693,9 @@ class Run:
             whether to terminate this run if the resource metrics are
             registering unhealthy values, e.g. very low available memory
             default is False
+        email_on_low_system_health : bool, optional
+            notify by email if system health enters fail status, e.g.
+            low memory, default is False
         no_color : bool, optional
             disable terminal colors. Default False.
         record_shell_vars : list[str] | None,
@@ -799,7 +806,9 @@ class Run:
         if self._status == "running":
             self._start()
 
-        self._define_system_health_alerts(terminate_on_low_system_health)
+        self._define_system_health_alerts(
+            terminate_on_low_system_health, email_on_low_system_health
+        )
 
         if self._user_config.run.mode == "online":
             click.secho(
