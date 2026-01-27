@@ -14,7 +14,6 @@ from simvue.exception import ObjectNotFoundError, SimvueRunError
 import simvue.run as sv_run
 import simvue.api.objects as sv_api_obj
 from simvue.api.objects.alert.base import AlertBase
-from simvue.sender.actions import SimvueRun
 
 
 @pytest.mark.client

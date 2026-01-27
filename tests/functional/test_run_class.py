@@ -25,10 +25,8 @@ from simvue.exception import ObjectNotFoundError, SimvueRunError
 from simvue.sender import Sender
 import simvue.run as sv_run
 import simvue.client as sv_cl
-import simvue.config.user as sv_cfg
 
 from simvue.api.objects import Run as RunObject
-from simvue.sender.actions import SimvueRun
 
 if typing.TYPE_CHECKING:
     from .conftest import CountingLogHandler
@@ -1373,7 +1371,6 @@ def test_abort_on_alert_python() -> None:
         retention_period="1 min",
     )
     run._heartbeat_interval = 1
-    _uuid = f"{uuid.uuid4()}".split("-")[0]
     client = sv_cl.Client()
     client.abort_run(run.id, reason="Test abort")
 
@@ -1402,7 +1399,6 @@ def test_abort_on_alert_raise(
     run.config(system_metrics_interval=1)
     run._heartbeat_interval = 1
     run._testing = True
-    _uuid = f"{uuid.uuid4()}".split("-")[0]
 
     alert_id = run.create_user_alert("abort_test", trigger_abort=True)
     run.add_process(identifier=f"forever_long_other_{os.environ.get('PYTEST_XDIST_WORKER', 0)}", executable="bash", c="sleep 10")
