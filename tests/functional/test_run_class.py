@@ -1391,7 +1391,7 @@ def test_abort_on_alert_python(
 
     attempts: int = 0
 
-    while run._status == "terminated" and attemps < 5:
+    while run._status == "terminated" and attempts < 5:
         time.sleep(1)
         attempts += 1
 
