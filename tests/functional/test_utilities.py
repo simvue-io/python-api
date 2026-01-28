@@ -1,6 +1,10 @@
 import pytest
 import tempfile
 import os.path
+import pathlib
+import stat
+
+from pytest_mock import MockerFixture
 
 import simvue.utilities as sv_util
 
@@ -19,3 +23,37 @@ def test_calculate_hash(is_file: bool, hash: str) -> None:
             assert sv_util.calculate_sha256(filename=out_file, is_file=is_file) == hash
     else:
         assert sv_util.calculate_sha256(filename="temp.txt", is_file=is_file) == hash
+
+@pytest.mark.config
+@pytest.mark.parametrize(
+    "user_area", (True, False),
+        ids=("permitted_dir", "out_of_user_area")
+)
+def test_find_first_file(user_area: bool, monkeypatch: pytest.MonkeyPatch, mocker: MockerFixture) -> None:
+    # Deactivate the server checks for this test
+    monkeypatch.setenv("SIMVUE_NO_SERVER_CHECK", "True")
+    monkeypatch.delenv("SIMVUE_TOKEN", False)
+    monkeypatch.delenv("SIMVUE_URL", False)
+
+
+    with tempfile.TemporaryDirectory() as temp_d:
+        _path = pathlib.Path(temp_d)
+        _path_sub = _path.joinpath("level_0")
+        _path_sub.mkdir()
+
+        for i in range(1, 5):
+            _path_sub = _path_sub.joinpath(f"level_{i}")
+            _path_sub.mkdir()
+        mocker.patch("pathlib.Path.cwd", lambda *_: _path_sub)
+
+        if user_area:
+            _path.joinpath("level_0").joinpath("simvue.toml").touch()
+            _path.chmod(stat.S_IXUSR)
+            _result = sv_util.find_first_instance_of_file("simvue.toml", check_user_space=False)
+        else:
+            _path.chmod(stat.S_IXUSR)
+            _result = sv_util.find_first_instance_of_file("simvue.toml", check_user_space=False) is None
+
+        _path.chmod(stat.S_IRWXU)
+        assert _result
+

@@ -47,9 +47,13 @@ def find_first_instance_of_file(
         file_names = [file_names]
 
     for file_name in file_names:
-        _user_file = pathlib.Path.cwd().joinpath(file_name)
-        if _user_file.exists():
-            return _user_file
+        _current_path = pathlib.Path.cwd()
+
+        while os.access(_current_path, os.R_OK):
+            _user_file = _current_path.joinpath(file_name)
+            if _user_file.exists():
+                return _user_file
+            _current_path = _current_path.parent
 
     # If the user is running on different mounted volume or outside
     # of their user space then the above will not return the file
