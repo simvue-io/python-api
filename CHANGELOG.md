@@ -1,5 +1,11 @@
 # Change Log
 
+## Unreleased
+
+- Added graceful handling of configuration errors with a simple error message.
+- Added option to specify that exceptions should be raised when using the `simvue.Run` class.
+- Ensured that if Simvue itself aborts a process, this abort is recorded in log files.
+
 ## [v2.3.0](https://github.com/simvue-io/client/releases/tag/v2.3.0) - 2025-12-11
 
 - Refactored sender functionality introducing new `Sender` class.
