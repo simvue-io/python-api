@@ -9,7 +9,8 @@ Get information relating to the usage of the CPU and GPU (where applicable)
 import contextlib
 import logging
 import psutil
-
+import os
+import typing
 
 from .pynvml import (
     nvmlDeviceGetComputeRunningProcesses,
@@ -158,6 +159,8 @@ class SystemResourceMeasurement:
         _metrics: dict[str, float] = {
             f"{RESOURCES_METRIC_PREFIX}/cpu.usage.percentage": self.cpu_percent,
             f"{RESOURCES_METRIC_PREFIX}/cpu.usage.memory": self.cpu_memory,
+            f"{RESOURCES_METRIC_PREFIX}/memory.virtual.available.percentage": self.memory_available_percent,
+            f"{RESOURCES_METRIC_PREFIX}/disk.available.percentage": self.disk_available_percent,
         }
 
         for i, gpu in enumerate(self.gpus or []):
@@ -177,3 +180,11 @@ class SystemResourceMeasurement:
     @property
     def gpu_memory(self) -> float:
         return sum(m[1] for m in self.gpus or []) / (len(self.gpus or []) or 1)
+
+    @property
+    def memory_available_percent(self) -> float:
+        return 100 - typing.cast("float", psutil.virtual_memory().percent)
+
+    @property
+    def disk_available_percent(self) -> float:
+        return 100 - psutil.disk_usage(os.getcwd()).percent

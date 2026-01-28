@@ -1,3 +1,10 @@
+"""
+System Information
+==================
+
+Retrieve and assemble information on the current system.
+"""
+
 import os
 import platform
 import socket
@@ -5,6 +12,7 @@ import subprocess
 import shutil
 import sys
 import contextlib
+import psutil
 import typing
 
 
@@ -60,6 +68,14 @@ def get_gpu_info():
     return _gpu_info
 
 
+def get_memory_info() -> dict[str, int]:
+    """Get total available memory in GB."""
+    return {
+        "virtual": typing.cast("int", psutil.virtual_memory().total) // 1024**3,
+        "swap": psutil.swap_memory().total // 1024**3,
+    }
+
+
 def get_system() -> dict[str, typing.Any]:
     """
     Get system details
@@ -76,6 +92,7 @@ def get_system() -> dict[str, typing.Any]:
     system["platform"]["system"] = platform.system()
     system["platform"]["release"] = platform.release()
     system["platform"]["version"] = platform.version()
+    system["memory"] = {k: f"{v}GB" for k, v in get_memory_info().items()}
     system["cpu"] = {}
     system["cpu"]["arch"] = cpu[1]
     system["cpu"]["processor"] = cpu[0]

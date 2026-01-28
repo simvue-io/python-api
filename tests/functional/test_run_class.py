@@ -19,13 +19,13 @@ import concurrent.futures
 import random
 import datetime
 import simvue
+
 from simvue.api.objects import Alert, Metrics
 from simvue.api.objects.grids import GridMetrics
 from simvue.exception import ObjectNotFoundError, SimvueRunError
 from simvue.sender import Sender
 import simvue.run as sv_run
 import simvue.client as sv_cl
-import simvue.config.user as sv_cfg
 
 from simvue.api.objects import Run as RunObject
 
@@ -1391,7 +1391,7 @@ def test_abort_on_alert_python(
 
     attempts: int = 0
 
-    while run._status == "terminated" and attemps < 5:
+    while run._status == "terminated" and attempts < 5:
         time.sleep(1)
         attempts += 1
 
@@ -1561,6 +1561,7 @@ def test_reconnect_with_process() -> None:
 @pytest.mark.parametrize(
     "environment", ("python_conda", "python_poetry", "python_uv", "julia", "rust", "nodejs")
 )
+@pytest.mark.run
 @pytest.mark.online
 def test_run_environment_metadata(environment: str, mocker: pytest_mock.MockerFixture) -> None:
     """Tests that the environment information is compatible with the server."""
@@ -1582,4 +1583,5 @@ def test_run_environment_metadata(environment: str, mocker: pytest_mock.MockerFi
             visibility="tenant" if os.environ.get("CI") else None,
         )
         run.update_metadata(env_func(_target_dir))
+
 

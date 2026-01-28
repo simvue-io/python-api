@@ -1,5 +1,9 @@
 # Change Log
 
+## Unreleased
+
+- Simvue runs now contain built in system health alerts which ensure runs terminate with uploads before high CPU usage or low disk space.
+
 ## [v2.3.0](https://github.com/simvue-io/client/releases/tag/v2.3.0) - 2025-12-11
 
 - Refactored sender functionality introducing new `Sender` class.
