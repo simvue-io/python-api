@@ -55,10 +55,14 @@ class SimvueConfiguration(pydantic.BaseModel):
     server: ServerSpecifications = pydantic.Field(
         ..., description="Specifications for Simvue server"
     )
+    profiles: dict[str, ServerSpecifications] = pydantic.Field(
+        default_factory=dict[str, ServerSpecifications]
+    )
     run: DefaultRunSpecifications = DefaultRunSpecifications()
     offline: OfflineSpecifications = OfflineSpecifications()
     metrics: MetricsSpecifications = MetricsSpecifications()
     eco: EcoConfig = EcoConfig()
+    current_profile: str = "default"
 
     @classmethod
     def _load_pyproject_configs(cls) -> dict | None:
@@ -158,6 +162,7 @@ class SimvueConfiguration(pydantic.BaseModel):
         mode: typing.Literal["offline", "online", "disabled"],
         server_url: str | None = None,
         server_token: str | None = None,
+        profile: str = "default",
     ) -> "SimvueConfiguration":
         """Retrieve the Simvue configuration from this project
 
@@ -190,10 +195,18 @@ class SimvueConfiguration(pydantic.BaseModel):
 
         except FileNotFoundError:
             if not server_token or not server_url:
-                _config_dict = {"server": {}}
+                _config_dict |= {"server": {}}
                 logger.debug("No config file found, checking environment variables")
 
-        _config_dict["server"] = _config_dict.get("server", {})
+        if profile == "default":
+            _config_dict["server"] = _config_dict.get("server", {})
+        elif not _config_dict.get("profiles", {}).get(profile):
+            raise RuntimeError(
+                f"Cannot load server configuration for '{profile}', "
+                "profile not found in configurations."
+            )
+        else:
+            _config_dict["server"] = _config_dict["profiles"][profile]
 
         _config_dict["offline"] = _config_dict.get("offline", {})
 
@@ -234,7 +247,7 @@ class SimvueConfiguration(pydantic.BaseModel):
         _config_dict["server"]["url"] = _server_url
         _config_dict["run"]["mode"] = _run_mode
 
-        return SimvueConfiguration(**_config_dict)
+        return SimvueConfiguration(profile=profile, **_config_dict)
 
     @classmethod
     @functools.lru_cache
