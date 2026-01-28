@@ -7,22 +7,25 @@ a new folder given relevant arguments.
 
 """
 
+import http
 import typing
 import datetime
 import json
 
 import pydantic
 
+from simvue.api.objects.filter import FoldersFilter
 from simvue.exception import ObjectNotFoundError
+from simvue.api.request import put as sv_put, get_json_from_response
 
 from .base import SimvueObject, staging_check, write_only, Sort
 from simvue.models import FOLDER_REGEX, DATETIME_FORMAT
 
 # Need to use this inside of Generator typing to fix bug present in Python 3.10 - see issue #745
 try:
-    from typing import Self
+    from typing import Self, override
 except ImportError:
-    from typing_extensions import Self
+    from typing_extensions import Self, override
 
 
 __all__ = ["Folder"]
@@ -94,12 +97,42 @@ class Folder(SimvueObject):
         sorting: list[FolderSort] | None = None,
         **kwargs,
     ) -> typing.Generator[tuple[str, T | None], None, None]:
+        """Get folders from the server.
+
+        Parameters
+        ----------
+        count : int, optional
+            limit the number of objects returned, default no limit.
+        offset : int, optional
+            start index for results, default is 0.
+        sorting : list[dict] | None, optional
+            list of sorting definitions in the form {'column': str, 'descending': bool}
+
+        Yields
+        ------
+        tuple[str, Folder]
+            id of run
+            Folder object representing object on server
+        """
         _params: dict[str, str] = kwargs
 
         if sorting:
             _params["sorting"] = json.dumps([i.to_params() for i in sorting])
 
         return super().get(count=count, offset=offset, **_params)
+
+    @classmethod
+    def filter(cls) -> FoldersFilter:
+        _filter_instance: FoldersFilter = FoldersFilter(cls)
+        _filter_instance.get.__func__.__doc__ = cls.get.__func__.__doc__
+        return _filter_instance
+
+    @override
+    def commit(self) -> dict | list[dict] | None:
+        if "starred" in self._staging:
+            _star_run: bool = self._staging.pop("starred")
+            self._set_favourite(starred=_star_run)
+        return super().commit()
 
     @property
     def tree(self) -> dict[str, object]:
@@ -231,6 +264,18 @@ class Folder(SimvueObject):
             )
             if _created
             else None
+        )
+
+    def _set_favourite(self, *, starred: bool) -> dict:
+        """Set starred status."""
+        _url = self.url / "starred"
+        _response = sv_put(
+            f"{_url}", headers=self._user_config.headers, data={"starred": starred}
+        )
+        return get_json_from_response(
+            expected_status=[http.HTTPStatus.OK],
+            response=_response,
+            scenario=f"Applying favourite preference to folder '{self.id}'",
         )
 
 
