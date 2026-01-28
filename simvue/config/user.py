@@ -16,6 +16,8 @@ import pydantic
 import toml
 import semver
 
+from simvue.exception import SimvueUserConfigError
+
 try:
     from typing import Self
 except ImportError:
@@ -225,10 +227,10 @@ class SimvueConfiguration(pydantic.BaseModel):
         _run_mode = mode or _config_dict["run"].get("mode") or "online"
 
         if not _server_url and _run_mode != "offline":
-            raise RuntimeError("No server URL was specified")
+            raise SimvueUserConfigError("No server URL was specified")
 
         if not _server_token and _run_mode != "offline":
-            raise RuntimeError("No server token was specified")
+            raise SimvueUserConfigError("No server token was specified")
 
         _config_dict["server"]["token"] = _server_token
         _config_dict["server"]["url"] = _server_url

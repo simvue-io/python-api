@@ -133,15 +133,8 @@ def log_messages(caplog):
 
 
 @pytest.fixture
-def prevent_script_exit(monkeypatch: monkeypatch.MonkeyPatch) -> None:
-    _orig_func = sv_run.Run._terminate_run
-    monkeypatch.setattr(sv_run.Run, "_terminate_run", lambda *args, **kwargs: _orig_func(*args, force_exit=False, **kwargs))
-
-
-@pytest.fixture
-def create_test_run(request, prevent_script_exit) -> Generator[tuple[sv_run.Run, dict]]:
-    _ = prevent_script_exit
-    with sv_run.Run() as run:
+def create_test_run(request) -> Generator[tuple[sv_run.Run, dict]]:
+    with sv_run.Run(raise_exception=True) as run:
         with tempfile.TemporaryDirectory() as tempd:
             _test_run_data = setup_test_run(run, temp_dir=pathlib.Path(tempd), create_objects=True, request=request)
         yield run, _test_run_data
@@ -154,11 +147,10 @@ def create_test_run(request, prevent_script_exit) -> Generator[tuple[sv_run.Run,
 
 
 @pytest.fixture
-def create_test_run_offline(request, monkeypatch: pytest.MonkeyPatch, prevent_script_exit) -> Generator[tuple[sv_run.Run, dict]]:
-    _ = prevent_script_exit
+def create_test_run_offline(request, monkeypatch: pytest.MonkeyPatch) -> Generator[tuple[sv_run.Run, dict]]:
     with tempfile.TemporaryDirectory() as temp_d:
         monkeypatch.setenv("SIMVUE_OFFLINE_DIRECTORY", temp_d)
-        with sv_run.Run("offline") as run:
+        with sv_run.Run("offline", raise_exception=True) as run:
             _test_run_data = setup_test_run(run, temp_dir=pathlib.Path(temp_d), create_objects=True, request=request)
             yield run, _test_run_data
     with contextlib.suppress(ObjectNotFoundError):
@@ -170,11 +162,8 @@ def create_test_run_offline(request, monkeypatch: pytest.MonkeyPatch, prevent_sc
 
 
 @pytest.fixture
-def create_plain_run(request, prevent_script_exit, mocker) -> Generator[tuple[sv_run.Run, dict]]:
-    _ = prevent_script_exit
-    def testing_exit(status: int) -> None:
-        raise SystemExit(status)
-    with sv_run.Run() as run:
+def create_plain_run(request, mocker) -> Generator[tuple[sv_run.Run, dict]]:
+    with sv_run.Run(raise_exception=True) as run:
         run.metric_spy = mocker.spy(run, "_get_internal_metrics")
         with tempfile.TemporaryDirectory() as tempd:
             yield run, setup_test_run(run, temp_dir=pathlib.Path(tempd), create_objects=False, request=request)
@@ -182,20 +171,18 @@ def create_plain_run(request, prevent_script_exit, mocker) -> Generator[tuple[sv
 
 
 @pytest.fixture
-def create_pending_run(request, prevent_script_exit) -> Generator[tuple[sv_run.Run, dict]]:
-    _ = prevent_script_exit
-    with sv_run.Run() as run:
+def create_pending_run(request) -> Generator[tuple[sv_run.Run, dict]]:
+    with sv_run.Run(raise_exception=True) as run:
         with tempfile.TemporaryDirectory() as tempd:
             yield run, setup_test_run(run, temp_dir=pathlib.Path(tempd), create_objects=False, request=request, created_only=True)
     clear_out_files()
 
 
 @pytest.fixture
-def create_plain_run_offline(request,prevent_script_exit,monkeypatch) -> Generator[tuple[sv_run.Run, dict]]:
-    _ = prevent_script_exit
+def create_plain_run_offline(request, monkeypatch) -> Generator[tuple[sv_run.Run, dict]]:
     with tempfile.TemporaryDirectory() as temp_d:
         monkeypatch.setenv("SIMVUE_OFFLINE_DIRECTORY", temp_d)
-        with sv_run.Run("offline") as run:
+        with sv_run.Run("offline", raise_exception=True) as run:
             _temporary_directory = pathlib.Path(temp_d)
             yield run, setup_test_run(run, temp_dir=_temporary_directory, create_objects=False, request=request)
     clear_out_files()

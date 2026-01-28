@@ -25,7 +25,6 @@ from simvue.exception import ObjectNotFoundError, SimvueRunError
 from simvue.sender import Sender
 import simvue.run as sv_run
 import simvue.client as sv_cl
-import simvue.config.user as sv_cfg
 
 from simvue.api.objects import Run as RunObject
 
@@ -1380,48 +1379,60 @@ def test_abort_on_alert_process(mocker: pytest_mock.MockerFixture) -> None:
 
 @pytest.mark.run
 @pytest.mark.online
-def test_abort_on_alert_python(
-    speedy_heartbeat, create_plain_run: tuple[sv_run.Run, dict], mocker: pytest_mock.MockerFixture
-) -> None:
-    timeout: int = 20
-    interval: int = 0
-    run, _ = create_plain_run
+def test_abort_on_alert_python() -> None:
+    run = sv_run.Run(raise_exception=True)
+    unique_id = f"{uuid.uuid4()}".split("-")[0]
+    run.init(
+        name="test_abort_on_alert_python",
+        folder=f"/simvue_unit_testing/{unique_id}",
+        tags=["test_abort_on_alert_python", platform.system()],
+        retention_period="1 min",
+    )
+    run._heartbeat_interval = 1
     client = sv_cl.Client()
     client.abort_run(run.id, reason="Test abort")
 
     attempts: int = 0
 
-    while run._status == "terminated" and attemps < 5:
-        time.sleep(1)
-        attempts += 1
+    with pytest.raises(SimvueRunError) as e:
+        run.close()
+        while run._status == "terminated" and attempts < 5:
+            time.sleep(1)
+            attempts += 1
+    assert "Run was aborted." in f"{e}"
 
-    if attempts >= 5:
-        raise AssertionError("Failed to terminate run")
 
 
 @pytest.mark.run
 @pytest.mark.online
 def test_abort_on_alert_raise(
-    create_plain_run: tuple[sv_run.Run, dict]
 ) -> None:
-
-    run, _ = create_plain_run
+    run = sv_run.Run(raise_exception=True)
+    unique_id = f"{uuid.uuid4()}".split("-")[0]
+    run.init(
+        name="test_abort_on_alert_raise",
+        folder=f"/simvue_unit_testing/{unique_id}",
+        tags=["test_abort_on_alert_raise", platform.system()],
+        retention_period="1 min",
+    )
     run.config(system_metrics_interval=1)
     run._heartbeat_interval = 1
     run._testing = True
+
     alert_id = run.create_user_alert("abort_test", trigger_abort=True)
     run.add_process(identifier=f"forever_long_other_{os.environ.get('PYTEST_XDIST_WORKER', 0)}", executable="bash", c="sleep 10")
     run.log_alert(identifier=alert_id, state="critical")
     _alert = Alert(identifier=alert_id)
     assert _alert.get_status(run.id) == "critical"
     counter = 0
-    while run._status != "terminated" and counter < 15:
-        time.sleep(1)
-        assert run._sv_obj.abort_trigger, "Abort trigger was not set"
-        counter += 1
-    if counter >= 15:
-        run.kill_all_processes()
-        raise AssertionError("Run was not terminated")
+
+    with pytest.raises(SimvueRunError) as e:
+        run.close()
+        while run._status != "terminated" and counter < 15:
+            time.sleep(1)
+            assert run._sv_obj.abort_trigger, "Abort trigger was not set"
+            counter += 1
+    assert "Process executor terminated with non-zero exit status" in f"{e}"
 
 
 @pytest.mark.run

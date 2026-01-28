@@ -24,6 +24,7 @@ import pathlib
 import time
 import typing
 from simvue.api.objects.alert.user import UserAlert
+from simvue.models import simvue_timestamp
 
 if typing.TYPE_CHECKING:
     import simvue
@@ -475,6 +476,13 @@ class Executor:
         kill_children_only : bool, optional
             if process_id is an integer, whether to kill only its children
         """
+        # Ensure logs have record of aborted status
+        with pathlib.Path(f"{self._runner.name}_{process_id}.err").open(
+            "a"
+        ) as err_file:
+            err_file.writelines(
+                [f"{simvue_timestamp()} Process was aborted by Simvue executor."]
+            )
         if isinstance(process_id, str):
             if not (process := self._processes.get(process_id)):
                 logger.error(
