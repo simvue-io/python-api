@@ -9,6 +9,9 @@ Statistics accessible to the current user.
 import http
 import typing
 
+from pydantic import BaseModel
+import pydantic
+
 from .base import SimvueObject
 from simvue.api.request import get as sv_get, get_json_from_response
 from simvue.api.url import URL
@@ -16,8 +19,23 @@ from simvue.api.url import URL
 __all__ = ["Stats"]
 
 
+class UserStatistics(BaseModel):
+    """Interface to per-user statistics output."""
+
+    runs: pydantic.NonNegativeInt
+    alerts: pydantic.NonNegativeInt
+    tags: pydantic.NonNegativeInt
+    files: pydantic.NonNegativeInt
+    volume: pydantic.NonNegativeInt
+    events: pydantic.NonNegativeInt
+    metrics: pydantic.NonNegativeInt
+
+
 class Stats(SimvueObject):
     """Class for accessing Server statistics."""
+
+    _single: bool = True
+    _tenant: str | None = None
 
     def __init__(self) -> None:
         """Initialise a statistics query object."""
@@ -122,14 +140,22 @@ class Stats(SimvueObject):
         return {}
 
     def to_dict(self) -> dict[str, typing.Any]:
-        """Dictionary form of statistics.
+        """Dictionary form of current user statistics.
 
         Returns
         -------
-        doct[str, Any]
+        dict[str, Any]
             statistics data as dictionary
         """
         return {"runs": self._get_run_stats()}
+
+    def admin_stats(self, *, tenant: str | None = None) -> dict[str, dict[str, int]]:
+        return {
+            name: UserStatistics(**entry)
+            for name, entry in self._get(
+                single=False, **({"tenant": tenant} if tenant else {})
+            ).items()
+        }
 
     def commit(self) -> None:
         """Does nothing, no data sendable to server."""
