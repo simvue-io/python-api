@@ -189,6 +189,8 @@ class SimvueConfiguration(pydantic.BaseModel):
         """
         _config_dict: dict[str, dict[str, str]] = cls._load_pyproject_configs() or {}
 
+        profile = os.environ.get("SIMVUE_SERVER_PROFILE", profile)
+
         try:
             # NOTE: Legacy INI support has been removed
             _config_dict |= toml.load(cls.config_file())
