@@ -53,7 +53,10 @@ def find_first_instance_of_file(
             _user_file = _current_path.joinpath(file_name)
             if _user_file.exists():
                 return _user_file
-            _current_path = _current_path.parent
+            _parent_path = _current_path.parent
+            if _parent_path == _current_path:  # parent of root dir is root dir
+                break
+            _current_path = _parent_path
 
     # If the user is running on different mounted volume or outside
     # of their user space then the above will not return the file
