@@ -124,7 +124,7 @@ class Run:
         server_token: pydantic.SecretStr | None = None,
         server_url: str | None = None,
         debug: bool = False,
-        server_profile: str = "default",
+        server_profile: str | None = None,
     ) -> None:
         """Initialise a new Simvue run
 
@@ -145,7 +145,7 @@ class Run:
             overwrite value for server URL, default is None
         debug : bool, optional
             run in debug mode, default is False
-        server_profile : str, optional
+        server_profile : str | None, optional
             specify alternative profile to use for server, this assumes
             additional profiles have been specified in the configuration.
             Default is to use the main server.

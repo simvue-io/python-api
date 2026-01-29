@@ -22,14 +22,14 @@ from simvue.config.user import SimvueConfiguration
     ids=("args", "no_args")
 )
 @pytest.mark.parametrize(
-    "profile", ("default", "other"),
+    "profile", (None, "other"),
     ids=("default_profile", "alt_profile")
 )
 def test_config_setup(
     use_env: bool,
     use_file: typing.Literal["basic", "extended", "pyproject.toml"] | None,
     use_args: bool,
-    profile: typing.Literal["default", "other"],
+    profile: typing.Literal[None, "other"],
     monkeypatch: pytest.MonkeyPatch,
     mocker: pytest_mock.MockerFixture
 ) -> None:

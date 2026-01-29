@@ -62,7 +62,7 @@ class SimvueConfiguration(pydantic.BaseModel):
     offline: OfflineSpecifications = OfflineSpecifications()
     metrics: MetricsSpecifications = MetricsSpecifications()
     eco: EcoConfig = EcoConfig()
-    current_profile: str = "default"
+    current_profile: str | None = None
 
     @classmethod
     def _load_pyproject_configs(cls) -> dict | None:
@@ -162,7 +162,7 @@ class SimvueConfiguration(pydantic.BaseModel):
         mode: typing.Literal["offline", "online", "disabled"],
         server_url: str | None = None,
         server_token: str | None = None,
-        profile: str = "default",
+        profile: str | None = None,
     ) -> "SimvueConfiguration":
         """Retrieve the Simvue configuration from this project
 
@@ -180,6 +180,8 @@ class SimvueConfiguration(pydantic.BaseModel):
                 * online - send metrics and data to a server.
                 * offline - run in offline mode.
                 * disabled - run in disabled mode.
+        profile : str | None, optional
+            specify server profile to user for URL and token.
 
         Return
         ------
@@ -200,7 +202,7 @@ class SimvueConfiguration(pydantic.BaseModel):
                 _config_dict |= {"server": {}}
                 logger.debug("No config file found, checking environment variables")
 
-        if profile == "default":
+        if not profile:
             _config_dict["server"] = _config_dict.get("server", {})
         elif not _config_dict.get("profiles", {}).get(profile):
             raise RuntimeError(
