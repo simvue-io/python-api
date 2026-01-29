@@ -1,5 +1,9 @@
 # Change Log
 
+## Unreleased
+
+- Added search for Simvue configuration within the parent file hierarchy of the current directory.
+
 ## [v2.3.0](https://github.com/simvue-io/client/releases/tag/v2.3.0) - 2025-12-11
 
 - Refactored sender functionality introducing new `Sender` class.
