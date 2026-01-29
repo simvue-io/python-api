@@ -1,5 +1,10 @@
 # Change Log
 
+## Unreleased
+
+- Added ability to specify above one server in the `simvue.toml` file using `profiles`.
+- Enforced keyword arguments for readability and certainty in intent within initialiser for `simvue.Run`.
+
 ## [v2.3.0](https://github.com/simvue-io/client/releases/tag/v2.3.0) - 2025-12-11
 
 - Refactored sender functionality introducing new `Sender` class.
