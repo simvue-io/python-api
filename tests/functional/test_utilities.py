@@ -29,12 +29,11 @@ def test_calculate_hash(is_file: bool, hash: str) -> None:
     "user_area", (True, False),
         ids=("permitted_dir", "out_of_user_area")
 )
-def test_find_first_file(user_area: bool, monkeypatch: pytest.MonkeyPatch, mocker: MockerFixture) -> None:
+def test_find_first_file_search(user_area: bool, monkeypatch: pytest.MonkeyPatch, mocker: MockerFixture) -> None:
     # Deactivate the server checks for this test
     monkeypatch.setenv("SIMVUE_NO_SERVER_CHECK", "True")
     monkeypatch.delenv("SIMVUE_TOKEN", False)
     monkeypatch.delenv("SIMVUE_URL", False)
-
 
     with tempfile.TemporaryDirectory() as temp_d:
         _path = pathlib.Path(temp_d)
@@ -56,4 +55,31 @@ def test_find_first_file(user_area: bool, monkeypatch: pytest.MonkeyPatch, mocke
 
         _path.chmod(stat.S_IRWXU)
         assert _result
+
+@pytest.mark.config
+def test_find_first_file_at_root(monkeypatch: pytest.MonkeyPatch, mocker: MockerFixture) -> None:
+    # Deactivate the server checks for this test
+    monkeypatch.setenv("SIMVUE_NO_SERVER_CHECK", "True")
+    monkeypatch.delenv("SIMVUE_TOKEN", False)
+    monkeypatch.delenv("SIMVUE_URL", False)
+
+    @property
+    def _returns_self(self):
+        return self
+
+
+    with tempfile.TemporaryDirectory() as temp_d:
+        _path = pathlib.Path(temp_d)
+        _path_sub = _path.joinpath("level_0")
+        _path_sub.mkdir()
+        _path.joinpath("level_0").joinpath("simvue.toml").touch()
+
+        for i in range(1, 5):
+            _path_sub = _path_sub.joinpath(f"level_{i}")
+            _path_sub.mkdir()
+        mocker.patch("pathlib.Path.parent", _returns_self)
+        mocker.patch("pathlib.Path.cwd", lambda *_: _path_sub)
+
+        assert not sv_util.find_first_instance_of_file("simvue.toml", check_user_space=False)
+
 
