@@ -95,7 +95,7 @@ class GridMetricSet(pydantic.BaseModel):
     model_config = pydantic.ConfigDict(
         arbitrary_types_allowed=True, extra="forbid", validate_default=True
     )
-    time: pydantic.NonNegativeFloat | pydantic.NonNegativeInt
+    time: float | int
     timestamp: typing.Annotated[str | None, pydantic.BeforeValidator(simvue_timestamp)]
     step: pydantic.NonNegativeInt
     array: list[float] | list[list[float]] | numpy.ndarray
