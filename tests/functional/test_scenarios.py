@@ -161,3 +161,12 @@ def test_uploaded_data_immediately_accessible(
         assert i == int(values[(i, shared_dict["ident"])]), (
             "values should be ascending ints"
         )
+
+@pytest.mark.scenario
+def test_negative_time(create_plain_run: tuple[simvue.Run, dict]) -> None:
+    _run, _ = create_plain_run
+
+    for i in range(10):
+        time.sleep(0.1)
+        _run.log_metrics({"x": 10, "y": 20}, time=-10 + i)
+
