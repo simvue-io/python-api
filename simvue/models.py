@@ -85,7 +85,7 @@ class RunInput(pydantic.BaseModel):
 
 class MetricSet(pydantic.BaseModel):
     model_config = pydantic.ConfigDict(extra="forbid")
-    time: pydantic.NonNegativeFloat | pydantic.NonNegativeInt
+    time: float | int
     timestamp: typing.Annotated[str | None, pydantic.BeforeValidator(simvue_timestamp)]
     step: pydantic.NonNegativeInt
     values: dict[str, int | float | bool]
