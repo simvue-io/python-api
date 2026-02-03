@@ -1,5 +1,7 @@
+import logging
 import pathlib
 import uuid
+from venv import logger
 import pytest
 import simvue
 import time
@@ -9,8 +11,10 @@ import random
 import tempfile
 import threading
 from multiprocessing import Process, Manager
+from pytest_mock import MockerFixture
 
 from simvue.api.objects.artifact.fetch import Artifact
+from simvue.dispatch.queued import MAX_ITEM_SIZE_BYTES
 
 
 @pytest.mark.scenario
@@ -169,4 +173,17 @@ def test_negative_time(create_plain_run: tuple[simvue.Run, dict]) -> None:
     for i in range(10):
         time.sleep(0.1)
         _run.log_metrics({"x": 10, "y": 20}, time=-10 + i)
+
+
+@pytest.mark.scenario
+def test_large_metric_failure(mocker: MockerFixture) -> None:
+    _ = mocker.patch("pympler.asizeof.asizeof", lambda *_: MAX_ITEM_SIZE_BYTES * 1.1)
+    run = simvue.Run()
+    run.init(name="test_large_metric_failure", tags=[platform.system(), "simvue_unit_testing"], retention_period="1min")
+
+    run.log_metrics({"x": 10})
+
+    with pytest.raises(SystemExit):
+        run.close()
+    assert run._failed_metric_count > 0
 

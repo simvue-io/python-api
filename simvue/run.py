@@ -39,7 +39,7 @@ from simvue.utilities import prettify_pydantic
 
 from .config.user import SimvueConfiguration
 
-from .factory.dispatch import Dispatcher
+from .dispatch import Dispatcher
 from .executor import Executor, get_current_shell
 from .metrics import SystemResourceMeasurement
 from .models import (
@@ -75,7 +75,7 @@ except ImportError:
 
 
 if typing.TYPE_CHECKING:
-    from .factory.dispatch import DispatcherBaseClass
+    from .dispatch import DispatcherBaseClass
 
 HEARTBEAT_INTERVAL: int = 60
 RESOURCES_METRIC_PREFIX: str = "resources"
@@ -175,6 +175,8 @@ class Run:
         self._grids: dict[str, str] = {}
         self._suppress_errors: bool = False
         self._queue_blocking: bool = False
+        self._failed_metric_count: int = 0
+
         self._status: (
             typing.Literal[
                 "created", "running", "completed", "failed", "terminated", "lost"
@@ -1333,7 +1335,16 @@ class Run:
             "timestamp": simvue_timestamp(timestamp),
             "step": step if step is not None else self._step,
         }
-        self._dispatcher.add_item(_data, "metrics_regular", self._queue_blocking)
+
+        try:
+            _ = self._dispatcher.add_item(
+                _data, "metrics_regular", self._queue_blocking
+            )
+        except AssertionError as e:
+            self._failed_metric_count += 1
+            logger.warning(
+                f"Skipping metric '{id(_data)}' due to exception raise:\n{e}"
+            )
 
         return True
 
@@ -1380,8 +1391,15 @@ class Run:
                 "grid": self._grids[tensor]["id"],
                 "metric": tensor,
             }
-
-            self._dispatcher.add_item(_data, "metrics_tensor", self._queue_blocking)
+            try:
+                _ = self._dispatcher.add_item(
+                    _data, "metrics_tensor", self._queue_blocking
+                )
+            except AssertionError as e:
+                self._failed_metric_count += 1
+                logger.warning(
+                    f"Skipping tensor metric '{id(_data)}' due to exception raise:\n{e}"
+                )
 
         return True
 
@@ -1864,11 +1882,19 @@ class Run:
                 _error_msg = f":\n{_error_msg}"
             click.secho(
                 "[simvue] Process executor terminated with non-zero exit status "
-                f"{_non_zero}{_error_msg}",
+                + f"{_non_zero}{_error_msg}",
                 fg="red" if self._term_color else None,
                 bold=self._term_color,
             )
             sys.exit(_non_zero)
+        if self._failed_metric_count:
+            click.secho(
+                f"[simvue] WARNING: Run concluded with {self._failed_metric_count} "
+                + "skipped metrics.",
+                fg="yellow" if self._term_color else None,
+                bold=self._term_color,
+            )
+            sys.exit(1)
 
     @skip_if_failed("_aborted", "_suppress_errors", False)
     def close(self) -> bool:

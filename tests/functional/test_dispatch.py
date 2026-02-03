@@ -7,9 +7,9 @@ from queue import Queue
 from concurrent.futures import ThreadPoolExecutor
 
 
-from simvue.factory.dispatch.queued import QueuedDispatcher
+from simvue.dispatch.queued import QueuedDispatcher
 
-from simvue.factory.dispatch.direct import DirectDispatcher
+from simvue.dispatch.direct import DirectDispatcher
 
 # FIXME: Update the layout of these tests
 
