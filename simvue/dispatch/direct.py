@@ -33,6 +33,7 @@ class DirectDispatcher(DispatcherBaseClass):
 
     def add_item(self, item: typing.Any, object_type: str, *_, **__) -> None:
         """Execute callback on the given item"""
+        super().add_item(item=item, object_type=object_type)
         self._callback([item], object_type)
 
     def run(self) -> None:

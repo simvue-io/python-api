@@ -1,6 +1,9 @@
 import threading
 import abc
 import typing
+import pympler.asizeof
+
+MAX_ITEM_SIZE_BYTES: int = 10 * 1024 * 1024
 
 
 class DispatcherBaseClass(abc.ABC):
@@ -16,9 +19,12 @@ class DispatcherBaseClass(abc.ABC):
         self._termination_trigger = termination_trigger
         self._callback = callback
 
-    @abc.abstractmethod
     def add_item(self, item: typing.Any, object_type: str, *_, **__) -> None:
-        pass
+        if pympler.asizeof.asizeof(item) > MAX_ITEM_SIZE_BYTES:
+            raise AssertionError(
+                "Cannot append item to dispatch queue, "
+                + f"size exceeds maximum allowance of {MAX_ITEM_SIZE_BYTES // 1024 // 1024}MB"
+            )
 
     @abc.abstractmethod
     def run(self) -> None:

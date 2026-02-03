@@ -10,11 +10,12 @@ often the callback can be executed, and the number of items it is called on.
 import logging
 import queue
 import threading
+import pympler.asizeof
 import time
 import typing
 import contextlib
 
-from .base import DispatcherBaseClass
+from .base import MAX_ITEM_SIZE_BYTES, DispatcherBaseClass
 
 MAX_REQUESTS_PER_SECOND: float = 1.0
 MAX_BUFFER_SIZE: int = 16000
@@ -81,10 +82,11 @@ class QueuedDispatcher(threading.Thread, DispatcherBaseClass):
         if self._termination_trigger.is_set():
             raise RuntimeError(
                 f"Cannot append item '{item}' to queue '{object_type}', "
-                "termination called."
+                + "termination called."
             )
         if object_type not in self._queues:
             raise KeyError(f"No queue '{object_type}' found")
+        super().add_item(item=item, object_type=object_type)
         self._queues[object_type].put(item, block=blocking)
 
     @property
@@ -115,6 +117,7 @@ class QueuedDispatcher(threading.Thread, DispatcherBaseClass):
         while (
             not self._queues[queue_label].empty()
             and len(_buffer) < self._max_buffer_size
+            and pympler.asizeof.asizeof(_buffer) < MAX_ITEM_SIZE_BYTES
         ):
             _item = self._queues[queue_label].get(block=False)
             _buffer.append(_item)
