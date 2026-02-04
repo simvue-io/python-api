@@ -23,9 +23,9 @@ class DispatcherBaseClass(abc.ABC):
     def add_item(
         self,
         item: typing.Any,
+        *,
         object_type: str,
         metadata: dict[str, int | float] | None = None,
-        *_,
         **__,
     ) -> None:
         _ = item
