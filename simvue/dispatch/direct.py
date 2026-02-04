@@ -9,10 +9,11 @@ class DirectDispatcher(DispatcherBaseClass):
 
     def __init__(
         self,
+        *,
         callback: typing.Callable[[list[typing.Any], str], None],
         object_types: list[str],
         termination_trigger: threading.Event,
-        **_,
+        thresholds: dict[str, int | float] | None = None,
     ) -> None:
         """Initialise a new DirectDispatcher instance
 
@@ -24,16 +25,31 @@ class DirectDispatcher(DispatcherBaseClass):
             categories, this is mainly used for creation of queues in a QueueDispatcher
         termination_trigger : Event
             event which triggers termination of the dispatcher
+        thresholds: int | float
+            if metadata is provided during item addition, specify
+            thresholds under which dispatch of an item is permitted,
+            default is None
         """
         super().__init__(
             callback=callback,
             object_types=object_types,
             termination_trigger=termination_trigger,
+            thresholds=thresholds,
         )
 
-    def add_item(self, item: typing.Any, object_type: str, *_, **__) -> None:
+    def add_item(
+        self,
+        item: typing.Any,
+        *,
+        object_type: str,
+        metadata: dict[str, int | float] | None = None,
+        **__,
+    ) -> bool:
         """Execute callback on the given item"""
+        if not super().add_item(item, object_type, metadata):
+            return False
         self._callback([item], object_type)
+        return True
 
     def run(self) -> None:
         """Run does not execute anything in this context"""

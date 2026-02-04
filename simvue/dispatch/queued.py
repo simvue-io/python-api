@@ -33,12 +33,14 @@ class QueuedDispatcher(threading.Thread, DispatcherBaseClass):
 
     def __init__(
         self,
+        *,
         callback: typing.Callable[[list[typing.Any], str], None],
         object_types: list[str],
         termination_trigger: threading.Event,
         name: str | None = None,
         max_buffer_size: int = MAX_BUFFER_SIZE,
         max_read_rate: float = MAX_REQUESTS_PER_SECOND,
+        thresholds: dict[str, int | float] | None = None,
     ) -> None:
         """
         Initialise a new queue based dispatcher
@@ -58,34 +60,47 @@ class QueuedDispatcher(threading.Thread, DispatcherBaseClass):
             maximum number of items allowed in created buffer.
         max_read_rate : float
             maximum rate at which the callback can be executed
+        thresholds: dict[str, int | float] | None, optional
+            if metadata is provided during item addition, specify
+            thresholds within which a single dispatch is permitted,
+            default is None
         """
         DispatcherBaseClass.__init__(
             self,
             callback=callback,
             object_types=object_types,
             termination_trigger=termination_trigger,
+            thresholds=thresholds,
         )
         super().__init__(name=name, daemon=True)
 
-        self._termination_trigger = termination_trigger
-        self._callback = callback
-        self._queues = {label: queue.Queue() for label in object_types}
-        self._max_read_rate = max_read_rate
-        self._max_buffer_size = max_buffer_size
-        self._send_timer = 0
+        self._termination_trigger: threading.Event = termination_trigger
+        self._callback: typing.Callable[[list[typing.Any], str], None] = callback
+        self._queues: dict[str, queue.Queue[typing.Any]] = {
+            label: queue.Queue() for label in object_types
+        }
+        self._max_read_rate: float = max_read_rate
+        self._max_buffer_size: int = max_buffer_size
+        self._send_timer: int = 0
 
     def add_item(
-        self, item: typing.Any, object_type: str, blocking: bool = True
+        self,
+        item: typing.Any,
+        *,
+        object_type: str,
+        blocking: bool = True,
+        metadata: dict[str, int | float] | None = None,
     ) -> None:
         """Add an item to the specified queue with/without blocking"""
+        super().add_item(item, object_type, metadata)
         if self._termination_trigger.is_set():
             raise RuntimeError(
                 f"Cannot append item '{item}' to queue '{object_type}', "
-                "termination called."
+                + "termination called."
             )
         if object_type not in self._queues:
             raise KeyError(f"No queue '{object_type}' found")
-        self._queues[object_type].put(item, block=blocking)
+        self._queues[object_type].put((item, metadata or {}), block=blocking)
 
     @property
     def empty(self) -> bool:
@@ -111,12 +126,23 @@ class QueuedDispatcher(threading.Thread, DispatcherBaseClass):
         The length of the buffer is constrained.
         """
         _buffer: list[typing.Any] = []
+        _criteria: dict[str, int | float] = {}
+        _threshold_totals: dict[str, float] = {k: 0 for k in self._thresholds}
 
         while (
             not self._queues[queue_label].empty()
             and len(_buffer) < self._max_buffer_size
+            and all(
+                _threshold_totals[key] < self._thresholds[key]
+                for key in _threshold_totals
+            )
         ):
-            _item = self._queues[queue_label].get(block=False)
+            _item, _metadata = typing.cast(
+                "tuple[typing.Any, dict[str, int | float]]",
+                self._queues[queue_label].get(block=False),
+            )
+            for key in _threshold_totals:
+                _threshold_totals[key] += _metadata.get(key, 0)
             _buffer.append(_item)
             self._queues[queue_label].task_done()
 
