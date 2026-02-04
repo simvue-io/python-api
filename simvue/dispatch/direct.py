@@ -44,12 +44,10 @@ class DirectDispatcher(DispatcherBaseClass):
         object_type: str,
         metadata: dict[str, int | float] | None = None,
         **__,
-    ) -> bool:
+    ) -> None:
         """Execute callback on the given item"""
-        if not super().add_item(item, object_type, metadata):
-            return False
+        super().add_item(item, object_type, metadata)
         self._callback([item], object_type)
-        return True
 
     def run(self) -> None:
         """Run does not execute anything in this context"""

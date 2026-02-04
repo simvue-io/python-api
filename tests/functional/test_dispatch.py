@@ -262,8 +262,8 @@ def test_queued_dispatch_error_attempting_to_use_non_existent_queue() -> None:
 
 
 @pytest.mark.dispatch
-@pytest.mark.parametrize("multiple", (True, False), ids=("multiple", "single"))
-def test_direct_dispatcher(multiple: bool) -> None:
+@pytest.mark.parametrize("scenario", ("multiple", "single", "max_exceed"))
+def test_direct_dispatcher(scenario: typing.Literal["multiple", "single", "max_exceed"]) -> None:
     n_elements: int = 10
     time_threshold: float = 1
 
@@ -273,11 +273,13 @@ def test_direct_dispatcher(multiple: bool) -> None:
 
     variables = ["lemons"]
 
-    if multiple:
+    if scenario == "multiple":
         variables.append("limes")
 
     event = Event()
     dispatchers: list[DirectDispatcher] = []
+
+    thresholds = {} if scenario != "max_exceed" else {"max_size": 10}
 
     for variable in variables:
         check_dict[variable] = {"counter": 0}
@@ -287,10 +289,14 @@ def test_direct_dispatcher(multiple: bool) -> None:
         ) -> None:
             args[var]["counter"] += 1
 
-        dispatchers.append(DirectDispatcher(callback=callback, object_types=[variable], termination_trigger=event))
+        dispatchers.append(DirectDispatcher(callback=callback, object_types=[variable], termination_trigger=event, thresholds=thresholds))
 
     for i in range(n_elements):
         for variable, dispatcher in zip(variables, dispatchers):
+            if scenario == "max_exceed":
+                with pytest.raises(ObjectDispatchError):
+                    dispatcher.add_item({string.ascii_uppercase[i % 26]: i}, object_type=variable, metadata={"max_size": 12})
+                return
             dispatcher.add_item({string.ascii_uppercase[i % 26]: i}, object_type=variable)
 
     event.set()
