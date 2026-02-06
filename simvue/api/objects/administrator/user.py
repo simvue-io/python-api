@@ -5,10 +5,13 @@ a new user given relevant arguments.
 
 """
 
+import datetime
 import typing
 from collections.abc import Generator
 
 import pydantic
+
+from simvue.models import DATETIME_FORMAT
 
 try:
     from typing import Self
@@ -243,3 +246,16 @@ class User(SimvueObject):
     def email(self, email: str) -> None:
         """Set the user email."""
         self._staging["email"] = email
+
+    @property
+    def created(self) -> datetime.datetime | None:
+        """Set/retrieve created datetime for the run.
+
+        Returns
+        -------
+        datetime.datetime
+        """
+        _created: str | None = self._get_attribute("created")
+        return (
+            datetime.datetime.strptime(_created, DATETIME_FORMAT) if _created else None
+        )

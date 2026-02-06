@@ -24,7 +24,8 @@ logger = logging.getLogger(__file__)
 
 class ServerSpecifications(pydantic.BaseModel):
     model_config: typing.ClassVar[pydantic.ConfigDict] = pydantic.ConfigDict(
-        extra="forbid", strict=True
+        extra="forbid",
+        strict=True,
     )
     url: pydantic.AnyHttpUrl | None
     token: pydantic.SecretStr | None

@@ -34,6 +34,7 @@ if typing.TYPE_CHECKING:
 
 
 @pytest.mark.run
+@pytest.mark.online
 def test_created_run(request) -> None:
     _uuid = f"{uuid.uuid4()}".split("-")[0]
     with sv_run.Run() as run_created:
@@ -151,6 +152,7 @@ def test_run_with_emissions_offline(speedy_heartbeat, mock_co2_signal, create_pl
             assert _total_values[i] == _total_values[i - 1] + _delta_values[i]
 
 @pytest.mark.run
+@pytest.mark.online
 @pytest.mark.parametrize(
     "timestamp",
     (datetime.datetime.now().strftime("%Y-%m-%dT%H:%M:%S.%f"), None),
@@ -355,6 +357,7 @@ def test_log_metrics_offline(
         assert len(_steps) == 1
 
 @pytest.mark.run
+@pytest.mark.online
 @pytest.mark.parametrize(
     "visibility", ("bad_option", "tenant", "public", ["user01"], None)
 )
@@ -468,6 +471,7 @@ def test_visibility_offline(
             )
 
 @pytest.mark.run
+@pytest.mark.online
 def test_log_events_online(create_test_run: tuple[sv_run.Run, dict]) -> None:
     EVENT_MSG = "Hello world!"
     run, _ = create_test_run
@@ -535,6 +539,7 @@ def test_update_metadata_running(create_test_run: tuple[sv_run.Run, dict]) -> No
 
 
 @pytest.mark.run
+@pytest.mark.online
 def test_update_metadata_created(create_pending_run: tuple[sv_run.Run, dict]) -> None:
     METADATA = {"a": 1, "b": 1.2, "c": "word", "d": "new"}
     run, _ = create_pending_run
@@ -577,6 +582,7 @@ def test_update_metadata_offline(
 
 
 @pytest.mark.run
+@pytest.mark.online
 @pytest.mark.scenario
 @pytest.mark.parametrize("multi_threaded", (True, False), ids=("multi", "single"))
 def test_runs_multiple_parallel(
@@ -678,6 +684,7 @@ def test_runs_multiple_parallel(
 
 
 @pytest.mark.run
+@pytest.mark.online
 @pytest.mark.scenario
 def test_runs_multiple_series(request: pytest.FixtureRequest) -> None:
     N_RUNS: int = 2
@@ -729,6 +736,7 @@ def test_runs_multiple_series(request: pytest.FixtureRequest) -> None:
 
 
 @pytest.mark.run
+@pytest.mark.online
 @pytest.mark.parametrize("post_init", (True, False), ids=("pre-init", "post-init"))
 def test_suppressed_errors(
     setup_logging: "CountingLogHandler", post_init: bool, request: pytest.FixtureRequest
@@ -778,6 +786,7 @@ def test_suppressed_errors(
 
 
 @pytest.mark.run
+@pytest.mark.online
 def test_bad_run_arguments() -> None:
     with sv_run.Run() as run:
         with pytest.raises(RuntimeError):
@@ -785,6 +794,7 @@ def test_bad_run_arguments() -> None:
 
 
 @pytest.mark.run
+@pytest.mark.online
 def test_set_folder_details(request: pytest.FixtureRequest) -> None:
     _uuid = f"{uuid.uuid4()}".split("-")[0]
     with sv_run.Run() as run:
@@ -819,6 +829,7 @@ def test_set_folder_details(request: pytest.FixtureRequest) -> None:
 
 
 @pytest.mark.run
+@pytest.mark.online
 @pytest.mark.parametrize(
     "snapshot", (True, False)
 )
@@ -979,6 +990,7 @@ def test_save_file_offline(
         assert content == "test data entry"
 
 @pytest.mark.run
+@pytest.mark.online
 def test_update_tags_running(
     create_plain_run: tuple[sv_run.Run, dict],
     request: pytest.FixtureRequest,
@@ -1003,6 +1015,7 @@ def test_update_tags_running(
 
 
 @pytest.mark.run
+@pytest.mark.online
 def test_update_tags_created(
     create_pending_run: tuple[sv_run.Run, dict],
     request: pytest.FixtureRequest,
@@ -1052,6 +1065,7 @@ def test_update_tags_offline(
 
 
 @pytest.mark.run
+@pytest.mark.online
 @pytest.mark.parametrize("object_type", ("DataFrame", "ndarray"))
 def test_save_object(
     create_plain_run: tuple[sv_run.Run, dict], object_type: str
@@ -1074,6 +1088,7 @@ def test_save_object(
 
 
 @pytest.mark.run
+@pytest.mark.online
 def test_add_alerts() -> None:
     _uuid = f"{uuid.uuid4()}".split("-")[0]
 
@@ -1259,6 +1274,7 @@ def test_add_alerts_offline(monkeypatch) -> None:
 
 
 @pytest.mark.run
+@pytest.mark.online
 def test_log_alert() -> None:
     _uuid = f"{uuid.uuid4()}".split("-")[0]
 
@@ -1309,6 +1325,7 @@ def test_log_alert() -> None:
 
 
 @pytest.mark.run
+@pytest.mark.online
 def test_abort_on_alert_process(mocker: pytest_mock.MockerFixture) -> None:
     def testing_exit(status: int) -> None:
         raise SystemExit(status)
@@ -1362,6 +1379,7 @@ def test_abort_on_alert_process(mocker: pytest_mock.MockerFixture) -> None:
 
 
 @pytest.mark.run
+@pytest.mark.online
 def test_abort_on_alert_python(
     speedy_heartbeat, create_plain_run: tuple[sv_run.Run, dict], mocker: pytest_mock.MockerFixture
 ) -> None:
@@ -1382,6 +1400,7 @@ def test_abort_on_alert_python(
 
 
 @pytest.mark.run
+@pytest.mark.online
 def test_abort_on_alert_raise(
     create_plain_run: tuple[sv_run.Run, dict]
 ) -> None:
@@ -1406,6 +1425,7 @@ def test_abort_on_alert_raise(
 
 
 @pytest.mark.run
+@pytest.mark.online
 def test_kill_all_processes(create_plain_run: tuple[sv_run.Run, dict]) -> None:
     run, _ = create_plain_run
     run.config(system_metrics_interval=1)
@@ -1421,6 +1441,7 @@ def test_kill_all_processes(create_plain_run: tuple[sv_run.Run, dict]) -> None:
 
 
 @pytest.mark.run
+@pytest.mark.online
 def test_run_created_with_no_timeout() -> None:
     _uuid = f"{uuid.uuid4()}".split("-")[0]
     with simvue.Run() as run:
@@ -1443,6 +1464,7 @@ def test_run_created_with_no_timeout() -> None:
 
 @pytest.mark.parametrize("mode", ("online", "offline"), ids=("online", "offline"))
 @pytest.mark.run
+@pytest.mark.online
 def test_reconnect_functionality(mode, monkeypatch: pytest.MonkeyPatch) -> None:
     temp_d: tempfile.TemporaryDirectory | None = None
     _uuid = f"{uuid.uuid4()}".split("-")[0]
@@ -1486,6 +1508,7 @@ def test_reconnect_functionality(mode, monkeypatch: pytest.MonkeyPatch) -> None:
 
 
 @pytest.mark.run
+@pytest.mark.online
 def test_env_var_metadata() -> None:
     # Add some environment variables to glob
     _recorded_env = {
@@ -1506,6 +1529,7 @@ def test_env_var_metadata() -> None:
     assert all(key in _recorded_meta.get("shell") for key in _recorded_env)
 
 @pytest.mark.run
+@pytest.mark.online
 def test_reconnect_with_process() -> None:
     _uuid = f"{uuid.uuid4()}".split("-")[0]
     with simvue.Run() as run:
@@ -1537,6 +1561,7 @@ def test_reconnect_with_process() -> None:
 @pytest.mark.parametrize(
     "environment", ("python_conda", "python_poetry", "python_uv", "julia", "rust", "nodejs")
 )
+@pytest.mark.online
 def test_run_environment_metadata(environment: str, mocker: pytest_mock.MockerFixture) -> None:
     """Tests that the environment information is compatible with the server."""
     from simvue.config.user import SimvueConfiguration

@@ -13,6 +13,7 @@ def test_stats() -> None:
     assert isinstance(_statistics.runs.data, int)
     assert _statistics.to_dict()
     assert _statistics.whoami()
+    assert _statistics.admin_stats()
 
     with pytest.raises(AttributeError):
         Stats.new()

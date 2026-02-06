@@ -1,8 +1,13 @@
 # Change Log
 
-## Unreleased
+## [v2.3.1](https://github.com/simvue-io/client/releases/tag/v2.3.1) - 2026-01-30
+
+- Allow negative time when logging simulation metrics.
+
+## [v2.3.0](https://github.com/simvue-io/client/releases/tag/v2.3.0) - 2025-12-11
 
 - Refactored sender functionality introducing new `Sender` class.
+- Added missing `created` property to `User` and `Tenant` LLAPI objects.
 
 ## [v2.2.4](https://github.com/simvue-io/client/releases/tag/v2.2.4) - 2025-11-13
 
