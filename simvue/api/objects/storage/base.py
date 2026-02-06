@@ -31,6 +31,7 @@ class StorageBase(SimvueObject):
 
     def __init__(
         self,
+        obj_type: str,
         identifier: str | None = None,
         *,
         _read_only: bool = False,
@@ -42,6 +43,7 @@ class StorageBase(SimvueObject):
         """Retrieve an alert from the Simvue server by identifier."""
         self._label: str = "storage"
         self._endpoint: str = self._label
+        self.type: str = obj_type
         super().__init__(
             identifier,
             _read_only=_read_only,

@@ -117,6 +117,7 @@ class Events(SimvueObject):
     ) -> dict[str, typing.Any] | list[dict[str, typing.Any]]:
         return super()._post_single(is_json=False, data=data, **kwargs)
 
+    @override
     def _put(self, **_: object) -> dict[str, typing.Any]:
         raise NotImplementedError("Method 'put' is not available for type Events")
 

@@ -5,9 +5,10 @@ Module contains classes for easier handling of URLs.
 """
 
 try:
-    from typing import Self
+    from typing import Self, override
 except ImportError:
-    from typing import Self
+    from typing import Self, override
+
 import copy
 import urllib.parse
 
@@ -36,14 +37,15 @@ class URL:
         _new /= other
         return _new
 
+    @override
     def __repr__(self) -> str:
-        """Representation of URL"""
+        """Representation of URL."""
         _out_str = f"{self.__class__.__module__}.{self.__class__.__qualname__}"
         return f"{_out_str}(url={self.__str__()!r})"
 
     @pydantic.validate_call
     def __itruediv__(self, other: str) -> Self:
-        """Define URL extension through use of '/'"""
+        """Define URL extension through use of '/'."""
         other = other.removeprefix("/")
         other = other.removesuffix("/")
 
@@ -52,26 +54,32 @@ class URL:
 
     @property
     def scheme(self) -> str:
+        """Return URL scheme."""
         return self._scheme
 
     @property
     def path(self) -> str:
+        """Return URL path."""
         return self._path
 
     @property
     def hostname(self) -> str | None:
+        """Return URL hostname."""
         return self._host
 
     @property
     def fragment(self) -> str:
+        """Return URL fragment."""
         return self._fragment
 
     @property
     def port(self) -> int | None:
+        """Return URL port."""
         return self._port
 
+    @override
     def __str__(self) -> str:
-        """Construct string form of the URL"""
+        """Construct string form of the URL."""
         _out_str: str = ""
         if self.scheme:
             _out_str += f"{self.scheme}://"

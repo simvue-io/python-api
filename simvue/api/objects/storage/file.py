@@ -26,6 +26,27 @@ except ImportError:
 class FileStorage(StorageBase):
     """Class for defining/accessing a File based storage system on the server."""
 
+    def __init__(
+        self,
+        identifier: str | None = None,
+        *,
+        _read_only: bool = False,
+        _offline: bool = False,
+        _user_agent: str | None = None,
+        _local: bool = False,
+        **kwargs: object,
+    ) -> None:
+        """Initialise an File storage instance attaching a configuration."""
+        super().__init__(
+            identifier,
+            obj_type="file",
+            _read_only=_read_only,
+            _offline=_offline,
+            _user_agent=_user_agent,
+            _local=_local,
+            **kwargs,
+        )
+
     @classmethod
     @pydantic.validate_call
     @override

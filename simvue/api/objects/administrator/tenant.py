@@ -148,7 +148,11 @@ class Tenant(SimvueObject):
         -------
         datetime.datetime
         """
-        _created: str | None = self._get_attribute("created")
+        _created: str | None = typing.cast("str | None", self._get_attribute("created"))
         return (
-            datetime.datetime.strptime(_created, DATETIME_FORMAT) if _created else None
+            datetime.datetime.strptime(_created, DATETIME_FORMAT).astimezone(
+                datetime.UTC
+            )
+            if _created
+            else None
         )

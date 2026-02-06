@@ -119,7 +119,7 @@ class Folder(SimvueObject):
         _paths = [folder.path.split("/") for _, folder in _folders]
         _paths = sorted(_paths, key=len)
         _out_dict: dict[str, object] = {}
-        _modifier = None
+        _modifier: dict[str, object] = {}
         for path in _paths:
             if len(path) <= _level:
                 continue

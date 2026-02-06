@@ -1,45 +1,42 @@
-exclude: '^tests|^docs|^examples|^notebooks'
+exclude: "^tests|^docs|^examples|^notebooks"
 ci:
-    autofix_prs: false
-    autoupdate_branch: ''
-    autoupdate_commit_msg: '[pre-commit.ci] pre-commit autoupdate'
-    autoupdate_schedule: weekly
-    skip: []
-    submodules: false
+  autofix_prs: false
+  autoupdate_branch: ""
+  autoupdate_commit_msg: "[pre-commit.ci] pre-commit autoupdate"
+  autoupdate_schedule: weekly
+  skip: []
+  submodules: false
 repos:
-  - repo: https://github.com/pre-commit/pre-commit-hooks
-    rev: v6.0.0
+  - repo: builtin
     hooks:
       - id: check-toml
       - id: check-yaml
-      - id: pretty-format-json
-        args: [--autofix]
       - id: trailing-whitespace
-        language: python
+        language: system
       - id: check-merge-conflict
       - id: end-of-file-fixer
       - id: mixed-line-ending
+        args: [--fix=lf]
       - id: no-commit-to-branch
         args: [--branch, main, --branch, dev]
       - id: check-added-large-files
   - repo: https://github.com/astral-sh/ruff-pre-commit
-    rev: v0.14.14
+    rev: v0.15.0
     hooks:
-      - id: ruff
-        args: [ --fix, --exit-non-zero-on-fix, "--ignore=C901" ]
+      - id: ruff-check
+        args: [--fix, --exit-non-zero-on-fix, "--ignore=C901"]
       - id: ruff-format
   - repo: https://github.com/conorfalvey/check_pdb_hook
     rev: 0.0.9
     hooks:
       - id: check_pdb_hook
         pass_filenames: false
-
   - repo: https://github.com/PyCQA/bandit.git
     rev: 1.9.3
     hooks:
-    -   id: bandit
+      - id: bandit
         args: [-lll, --recursive, clumper]
-  - repo: https://github.com/DetachHead/basedpyright-pre-commit-mirror
-    rev: 1.31.6
+  - repo: https://github.com/DetachHead/basedpyright-prek-mirror
+    rev: 1.37.4
     hooks:
-    - id: basedpyright
+      - id: basedpyright

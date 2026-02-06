@@ -5,6 +5,7 @@ policies. In cases where JSON is the expected form the data is firstly converted
 to a JSON string
 """
 
+from collections.abc import Generator
 import copy
 import http
 import json as json_module
@@ -285,7 +286,6 @@ def get_json_from_response(
             details = f"expected type '{expected_type.__name__}' but got '{type(json_response).__name__}'"
         else:
             return json_response
-        else:
     elif isinstance(json_response, dict):
         error_str += f" with status {_status_code}"
         details = (json_response or {}).get("detail")
@@ -311,7 +311,7 @@ def get_paginated(
     offset: int | None = None,
     count: int | None = None,
     **params,
-) -> typing.Generator[requests.Response]:
+) -> Generator[requests.Response]:
     """Paginate results of a server query.
 
     Parameters

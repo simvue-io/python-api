@@ -43,6 +43,7 @@ class S3Storage(StorageBase):
         self.config: Config = Config(self)
         super().__init__(
             identifier,
+            obj_type="s3",
             _local=_local,
             _read_only=_read_only,
             _offline=_offline,
@@ -212,11 +213,12 @@ class Config(SimvueObjectAttribute[S3Storage]):
     @write_only
     @pydantic.validate_call
     def bucket(self, bucket: str) -> None:
-        """Modify the bucket label for this storage"""
-        if self._sv_obj.type == "file":
-            raise ValueError(
+        """Modify the bucket label for this storage."""
+        if self._sv_obj.type != "s3":
+            _out_msg = (
                 f"Cannot set attribute 'bucket' for storage type '{self._sv_obj.type}'"
             )
+            raise ValueError(_out_msg)
 
         _config = self._sv_obj.get_config() | {"bucket": bucket}
-        self._sv_obj._staging["config"] = _config
+        self._sv_obj._staging["config"] = _config  # noqa: SLF001

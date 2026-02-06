@@ -1,34 +1,42 @@
-"""
-Simvue User Alert
-=================
+"""Simvue User Alert.
 
 Class for connecting with a local/remote user defined alert.
 
 """
 
-import pydantic
 import typing
+from typing import cast
+
+import pydantic
 
 try:
-    from typing import Self
+    from typing import Self, override
 except ImportError:
-    from typing_extensions import Self
+    from typing import Self, override
+
 import http
 
-from simvue.api.request import get_json_from_response, put as sv_put
-from .base import AlertBase
+from simvue.api.request import get_json_from_response
+from simvue.api.request import put as sv_put
 from simvue.models import NAME_REGEX
+
+from .base import AlertBase
 
 
 class UserAlert(AlertBase):
-    """Connect to/create a user defined alert either locally or on server"""
+    """Connect to/create a user defined alert either locally or on server."""
 
-    def __init__(self, identifier: str | None = None, **kwargs) -> None:
+    def __init__(
+        self, identifier: str | None = None, **kwargs: object | dict[str, str | None]
+    ) -> None:
         super().__init__(identifier, **kwargs)
-        self._local_status: dict[str, str | None] = kwargs.pop("status", {})
+        self._local_status: dict[str, str | None] = cast(
+            "dict[str, str | None]", kwargs.pop("status", {})
+        )
 
     @classmethod
     @pydantic.validate_call
+    @override
     def new(
         cls,
         *,
@@ -37,9 +45,9 @@ class UserAlert(AlertBase):
         notification: typing.Literal["none", "email"],
         enabled: bool = True,
         offline: bool = False,
-        **_,
+        **_: object,
     ) -> Self:
-        """Create a new user-defined alert
+        """Create a new user-defined alert.
 
         Note all arguments are keyword arguments.
 
@@ -70,27 +78,31 @@ class UserAlert(AlertBase):
         return _alert
 
     @classmethod
+    @override
     def get(
         cls, count: int | None = None, offset: int | None = None
     ) -> dict[str, typing.Any]:
-        """Return only UserAlerts"""
+        """Return only UserAlerts."""
         raise NotImplementedError("Retrieve of only user alerts is not yet supported")
 
+    @override
     def get_status(self, run_id: str) -> typing.Literal["ok", "critical"] | None:
-        """Retrieve current alert status for the given run"""
+        """Retrieve current alert status for the given run."""
         if self._offline:
             return self._staging.get("status", self._local_status).get(run_id)
 
         return super().get_status(run_id)
 
+    @override
     def on_reconnect(self, id_mapping: dict[str, str]) -> None:
-        """Set status update on reconnect"""
+        """Set status update on reconnect."""
         for offline_id, status in self._staging.get("status", {}).items():
             self.set_status(id_mapping.get(offline_id), status)
 
     @pydantic.validate_call
+    @override
     def set_status(self, run_id: str, status: typing.Literal["ok", "critical"]) -> None:
-        """Set the status of this alert for a given run"""
+        """Set the status of this alert for a given run."""
         if self._offline:
             if "status" not in self._staging:
                 self._staging["status"] = {}

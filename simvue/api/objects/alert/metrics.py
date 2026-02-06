@@ -10,9 +10,9 @@ import typing
 import pydantic
 
 try:
-    from typing import Self
+    from typing import Self, override
 except ImportError:
-    from typing import Self
+    from typing import Self, override
 
 from simvue.api.objects.base import write_only
 from simvue.models import NAME_REGEX
@@ -30,7 +30,7 @@ class MetricsThresholdAlert(AlertBase):
     """
 
     def __init__(self, identifier: str | None = None, **kwargs: object) -> None:
-        """Connect to a local or remote threshold alert by identifier"""
+        """Connect to a local or remote threshold alert by identifier."""
         self.alert = MetricThresholdAlertDefinition(self)
         super().__init__(identifier, **kwargs)
         self._local_only_args += [
@@ -41,13 +41,15 @@ class MetricsThresholdAlert(AlertBase):
         ]
 
     @classmethod
+    @override
     def get(
         cls, count: int | None = None, offset: int | None = None
     ) -> dict[str, typing.Any]:
-        """Retrieve only MetricsThresholdAlerts"""
+        """Retrieve only MetricsThresholdAlerts."""
         raise NotImplementedError("Retrieve of only metric alerts is not yet supported")
 
     @classmethod
+    @override
     @pydantic.validate_call
     def new(
         cls,
@@ -63,9 +65,9 @@ class MetricsThresholdAlert(AlertBase):
         frequency: pydantic.PositiveInt,
         enabled: bool = True,
         offline: bool = False,
-        **_,
+        **_: object,
     ) -> Self:
-        """Create a new metric threshold alert either locally or on the server
+        """Create a new metric threshold alert either locally or on the server.
 
         Note all arguments are keyword arguments.
 
@@ -120,10 +122,10 @@ class MetricsThresholdAlert(AlertBase):
 
 
 class MetricsRangeAlert(AlertBase):
-    """Class for connecting to/creating a local or remotely defined metric range alert"""
+    """Class for connecting to/creating a local/remotely defined metric range alert."""
 
-    def __init__(self, identifier: str | None = None, **kwargs) -> None:
-        """Connect to a local or remote threshold alert by identifier"""
+    def __init__(self, identifier: str | None = None, **kwargs: object) -> None:
+        """Connect to a local or remote threshold alert by identifier."""
         self.alert = MetricRangeAlertDefinition(self)
         super().__init__(identifier, **kwargs)
         self._local_only_args += [
@@ -134,12 +136,14 @@ class MetricsRangeAlert(AlertBase):
             "range_high",
         ]
 
+    @override
     def compare(self, other: "MetricsRangeAlert") -> bool:
-        """Compare two MetricRangeAlerts"""
+        """Compare two MetricRangeAlerts."""
         return self.alert.compare(other) if super().compare(other) else False
 
     @classmethod
     @pydantic.validate_call
+    @override
     def new(
         cls,
         *,
@@ -155,9 +159,9 @@ class MetricsRangeAlert(AlertBase):
         frequency: pydantic.PositiveInt,
         enabled: bool = True,
         offline: bool = False,
-        **_,
+        **_: object,
     ) -> Self:
-        """Create a new metric range alert either locally or on the server
+        """Create a new metric range alert either locally or on the server.
 
         Note all arguments are keyword arguments.
 
@@ -190,7 +194,8 @@ class MetricsRangeAlert(AlertBase):
 
         """
         if range_low >= range_high:
-            raise ValueError(f"Invalid arguments for range [{range_low}, {range_high}]")
+            _out_msg: str = f"Invalid arguments for range [{range_low}, {range_high}]"
+            raise ValueError(_out_msg)
 
         _alert_definition = {
             "rule": rule,
@@ -217,14 +222,14 @@ class MetricsRangeAlert(AlertBase):
 
 
 class MetricsAlertDefinition:
-    """General alert definition for a metric alert"""
+    """General alert definition for a metric alert."""
 
     def __init__(self, alert: MetricsRangeAlert) -> None:
-        """Initialise definition with target alert"""
+        """Initialise definition with target alert."""
         self._sv_obj = alert
 
     def compare(self, other: "MetricsAlertDefinition") -> bool:
-        """Compare a MetricsAlertDefinition with another"""
+        """Compare a MetricsAlertDefinition with another."""
         return all(
             [
                 self.aggregation == other.aggregation,
@@ -236,7 +241,7 @@ class MetricsAlertDefinition:
 
     @property
     def aggregation(self) -> Aggregate:
-        """Retrieve the aggregation strategy for this alert"""
+        """Retrieve the aggregation strategy for this alert."""
         if not (_aggregation := self._sv_obj.get_alert().get("aggregation")):
             raise RuntimeError(
                 "Expected key 'aggregation' in alert definition retrieval"
@@ -245,14 +250,14 @@ class MetricsAlertDefinition:
 
     @property
     def rule(self) -> Rule:
-        """Retrieve the rule for this alert"""
+        """Retrieve the rule for this alert."""
         if not (_rule := self._sv_obj.get_alert().get("rule")):
             raise RuntimeError("Expected key 'rule' in alert definition retrieval")
         return _rule
 
     @property
     def window(self) -> int:
-        """Retrieve the aggregation window for this alert"""
+        """Retrieve the aggregation window for this alert."""
         if not (_window := self._sv_obj.get_alert().get("window")):
             raise RuntimeError("Expected key 'window' in alert definition retrieval")
         return _window
@@ -260,7 +265,7 @@ class MetricsAlertDefinition:
     @property
     @staging_check
     def frequency(self) -> int:
-        """Retrieve the monitor frequency for this alert"""
+        """Retrieve the monitor frequency for this alert."""
         try:
             return self._sv_obj.get_alert()["frequency"]
         except KeyError as e:
@@ -272,16 +277,17 @@ class MetricsAlertDefinition:
     @write_only
     @pydantic.validate_call
     def frequency(self, frequency: int) -> None:
-        """Set the monitor frequency for this alert"""
+        """Set the monitor frequency for this alert."""
         _alert = self._sv_obj.get_alert() | {"frequency": frequency}
-        self._sv_obj._staging["alert"] = _alert
+        self._sv_obj._staging["alert"] = _alert  # noqa: SLF001
 
 
 class MetricThresholdAlertDefinition(MetricsAlertDefinition):
-    """Alert definition for metric threshold alerts"""
+    """Alert definition for metric threshold alerts."""
 
-    def compare(self, other: "MetricThresholdAlertDefinition") -> bool:
-        """Compare this MetricThresholdAlertDefinition with another"""
+    @override
+    def compare(self, other: "MetricThresholdAlertDefinition | object") -> bool:
+        """Compare this MetricThresholdAlertDefinition with another."""
         if not isinstance(other, MetricThresholdAlertDefinition):
             return False
 
@@ -289,17 +295,18 @@ class MetricThresholdAlertDefinition(MetricsAlertDefinition):
 
     @property
     def threshold(self) -> float:
-        """Retrieve the threshold value for this alert"""
+        """Retrieve the threshold value for this alert."""
         if not (threshold_l := self._sv_obj.get_alert().get("threshold")):
             raise RuntimeError("Expected key 'threshold' in alert definition retrieval")
         return threshold_l
 
 
 class MetricRangeAlertDefinition(MetricsAlertDefinition):
-    """Alert definition for metric range alerts"""
+    """Alert definition for metric range alerts."""
 
-    def compare(self, other: "MetricRangeAlertDefinition") -> bool:
-        """Compare a MetricRangeAlertDefinition with another"""
+    @override
+    def compare(self, other: "MetricRangeAlertDefinition | object") -> bool:
+        """Compare a MetricRangeAlertDefinition with another."""
         if not isinstance(other, MetricRangeAlertDefinition):
             return False
 
@@ -313,14 +320,14 @@ class MetricRangeAlertDefinition(MetricsAlertDefinition):
 
     @property
     def range_low(self) -> float:
-        """Retrieve the lower limit for metric range"""
+        """Retrieve the lower limit for metric range."""
         if not (range_l := self._sv_obj.get_alert().get("range_low")):
             raise RuntimeError("Expected key 'range_low' in alert definition retrieval")
         return range_l
 
     @property
     def range_high(self) -> float:
-        """Retrieve upper limit for metric range"""
+        """Retrieve upper limit for metric range."""
         if not (range_u := self._sv_obj.get_alert().get("range_high")):
             raise RuntimeError(
                 "Expected key 'range_high' in alert definition retrieval"

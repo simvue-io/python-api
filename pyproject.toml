@@ -2,37 +2,35 @@
 name = "simvue"
 version = "2.3.1"
 description = "Simulation tracking and monitoring"
-authors = [
-  {name = "Simvue Development Team", email = "info@simvue.io"}
-]
+authors = [{ name = "Simvue Development Team", email = "info@simvue.io" }]
 license = "Apache v2"
 requires-python = ">=3.10,<3.15"
 readme = "README.md"
 classifiers = [
-    "Development Status :: 5 - Production/Stable",
-    "Intended Audience :: Science/Research",
-    "License :: OSI Approved :: Apache Software License",
-    "Natural Language :: English",
-    "Operating System :: Unix",
-    "Operating System :: Microsoft :: Windows",
-    "Programming Language :: Python :: 3",
-    "Programming Language :: Python :: 3.10",
-    "Programming Language :: Python :: 3.11",
-    "Programming Language :: Python :: 3.12",
-    "Programming Language :: Python :: 3.13",
-    "Programming Language :: Python :: 3.14",
-    "Topic :: Scientific/Engineering",
-    "Topic :: System :: Monitoring",
-    "Topic :: Utilities",
-    "Typing :: Typed"
+  "Development Status :: 5 - Production/Stable",
+  "Intended Audience :: Science/Research",
+  "License :: OSI Approved :: Apache Software License",
+  "Natural Language :: English",
+  "Operating System :: Unix",
+  "Operating System :: Microsoft :: Windows",
+  "Programming Language :: Python :: 3",
+  "Programming Language :: Python :: 3.10",
+  "Programming Language :: Python :: 3.11",
+  "Programming Language :: Python :: 3.12",
+  "Programming Language :: Python :: 3.13",
+  "Programming Language :: Python :: 3.14",
+  "Topic :: Scientific/Engineering",
+  "Topic :: System :: Monitoring",
+  "Topic :: Utilities",
+  "Typing :: Typed",
 ]
 
 keywords = [
-    "tracking",
-    "monitoring",
-    "metrics",
-    "alerting",
-    "metrics-gathering"
+  "tracking",
+  "monitoring",
+  "metrics",
+  "alerting",
+  "metrics-gathering",
 ]
 dependencies = [
   "requests (>=2.32.3,<3.0.0)",
@@ -102,26 +100,24 @@ pydocstyle.convention = "numpy"
 
 [tool.pytest.ini_options]
 addopts = "-p no:warnings --no-cov -n 0"
-testpaths = [
-    "tests"
-]
+testpaths = ["tests"]
 markers = [
-    "eco: tests for emission metrics",
-    "client: tests of Simvue client",
-    "dispatch: test data dispatcher",
-    "run: test the simvue Run class",
-    "utilities: test simvue utilities module",
-    "scenario: test scenarios",
-    "executor: tests of executors",
-    "config: tests of simvue configuration",
-    "api: tests of RestAPI functionality",
-    "unix: tests for UNIX systems only",
-    "metadata: tests of metadata gathering functions",
-    "online: tests for online functionality",
-    "offline: tests for offline functionality",
-    "local: tests of functionality which do not involve a server or writing to an offline cache file",
-    "object_retrieval: tests relating to retrieval of objects from the server",
-    "object_removal: tests relating to removal of objects from the server",
+  "eco: tests for emission metrics",
+  "client: tests of Simvue client",
+  "dispatch: test data dispatcher",
+  "run: test the simvue Run class",
+  "utilities: test simvue utilities module",
+  "scenario: test scenarios",
+  "executor: tests of executors",
+  "config: tests of simvue configuration",
+  "api: tests of RestAPI functionality",
+  "unix: tests for UNIX systems only",
+  "metadata: tests of metadata gathering functions",
+  "online: tests for online functionality",
+  "offline: tests for offline functionality",
+  "local: tests of functionality which do not involve a server or writing to an offline cache file",
+  "object_retrieval: tests relating to retrieval of objects from the server",
+  "object_removal: tests relating to removal of objects from the server",
 ]
 
 [tool.interrogate]
@@ -131,15 +127,40 @@ verbose = 1
 exclude = ["docs", "tests"]
 
 [tool.basedpyright]
-reportImplicitStringConcatenation = "none"
-reportUnreachable = "none"
-reportUnknownMemberType = "none"
-reportUnknownVariableType = "none"
-reportAny = "none" # ruff already does this
-reportMissingTypeStubs = "none"
-reportPrivateUsage = "none" # ruff already does this
-reportImportCycles = "none"
-reportIncompatibleMethodOverride = "none"
+include = ["src", "examples"]
+pythonVersion = "3.13"
+typeCheckingMode = "off"
+deprecateTypingAliases = true
+reportAttributeAccessIssue = "error"
+reportDuplicateImport = "error"
+reportGeneralTypeIssues = "warning"
+reportImplicitOverride = "error"
+reportImportCycles = "error"
+reportInconsistentOverload = "error"
+reportIndexIssue = "error"
+reportInvalidTypeForm = "error"
+reportMissingTypeArgument = "error"
+reportOperatorIssue = "error"
+reportOptionalIterable = "error"
+reportOptionalSubscript = "error"
+reportPropertyTypeMismatch = "error"
+reportRedeclaration = "warning"
+reportUnusedClass = "error"
+reportUnusedFunction = "error"
+reportUnusedImport = "error"
+reportUnusedVariable = "error"
+reportConstantRedefinition = "error"
+reportUnecessaryComparison = "error"
+reportUnecessaryContains = "error"
+reportUnecessaryCast = "error"
+reportSelfClsParameterName = "error"
+reportUndefinedVariable = "error"
+reportUnboundVariable = "error"
+reportUnhashable = "error"
+reportUnusedExcept = "error"
+reportUnusedExpression = "error"
+reportUnreachable = "error"
+reportUnusedParameter = "error"
 
 [tool.mypy]
 ignore_missing_imports = true

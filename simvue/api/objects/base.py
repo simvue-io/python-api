@@ -288,7 +288,7 @@ class SimvueObject(abc.ABC):
             self._user_config.headers if not self._offline else {}
         )
 
-        self._params: dict[str, str] = {}
+        self._params: dict[str, str | bool | int | float] = {}
 
         self._staging: dict[str, typing.Any] = {}
 
