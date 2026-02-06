@@ -194,7 +194,7 @@ class Grid(SimvueObject):
             dictionary containing values from this for the run at specified step.
         """
         _response = sv_get(
-            url=f"{self.run_metric_values_url(run_id, metric_name) / 'values'}",
+            url=f"{self.run_metric_url(run_id, metric_name) / 'values'}",
             headers=self._headers,
             params={"step": step},
         )
