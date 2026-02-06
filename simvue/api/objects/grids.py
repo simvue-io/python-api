@@ -205,7 +205,7 @@ class Grid(SimvueObject):
             expected_type=dict,
             scenario=(
                 f"Retrieving '{metric_name}' grid values "
-                f"for run '{self._run_id}' at step {step}",
+                f"for run '{run_id}' at step {step}",
             ),
         )
 
