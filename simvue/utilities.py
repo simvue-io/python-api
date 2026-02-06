@@ -29,7 +29,7 @@ if typing.TYPE_CHECKING:
 def find_first_instance_of_file(
     file_names: list[str] | str, check_user_space: bool = True
 ) -> pathlib.Path | None:
-    """Traverses a file hierarchy from bottom upwards to find file
+    """Traverses a file hierarchy from bottom upwards to find file.
 
     Returns the first instance of 'file_names' found when moving
     upward from the current directory.

@@ -1,6 +1,4 @@
-"""
-Simvue Configuration File Model
-===============================
+"""Simvue Configuration File Model.
 
 Pydantic model for the Simvue TOML configuration file
 
@@ -15,6 +13,7 @@ import typing
 from collections.abc import Mapping
 
 import pydantic
+from requests import Response
 import semver
 import toml
 
@@ -51,8 +50,12 @@ logger = logging.getLogger(__name__)
 SIMVUE_SERVER_UPPER_CONSTRAINT: semver.Version | None = semver.Version.parse("2.0.0")
 SIMVUE_SERVER_LOWER_CONSTRAINT: semver.Version | None = semver.Version.parse("1.1.0")
 
+__all__ = ["SimvueConfiguration"]
+
 
 class SimvueConfiguration(pydantic.BaseModel):
+    """Configure session."""
+
     # Hide values as they contain token and URL
     model_config = pydantic.ConfigDict(
         hide_input_in_errors=True,
@@ -96,7 +99,8 @@ class SimvueConfiguration(pydantic.BaseModel):
             ]
         ):
             raise RuntimeError(
-                "Provision of Simvue URL, Token or offline directory in pyproject.toml is not allowed."
+                "Provision of Simvue URL, Token or offline directory "
+                "in pyproject.toml is not allowed."
             )
 
         return _simvue_setup
@@ -113,22 +117,25 @@ class SimvueConfiguration(pydantic.BaseModel):
             "Authorization": f"Bearer {token}",
             "User-Agent": f"Simvue Python client {__version__}",
         }
-        try:
-            _url = URL(url) / "version"
-            _response = sv_get(f"{_url}", headers)
 
-            if _response.status_code != http.HTTPStatus.OK or not (
-                _version_str := _response.json().get("version")
+        def _retrieve_version_str(response: Response) -> str:
+            if response.status_code != http.HTTPStatus.OK or not (
+                _version_str := response.json().get("version")
             ):
                 raise AssertionError
 
-            if _response.status_code == http.HTTPStatus.UNAUTHORIZED:
+            if response.status_code == http.HTTPStatus.UNAUTHORIZED:
                 raise AssertionError("Unauthorised token")
+            return _version_str
+
+        try:
+            _url = URL(url) / "version"
+            _response = sv_get(f"{_url}", headers)
+            _version_str = _retrieve_version_str(_response)
 
         except Exception as err:
-            raise AssertionError(
-                f"Exception retrieving server version:\n {err!s}"
-            ) from err
+            _out_msg = f"Exception retrieving server version:\n {err!s}"
+            raise AssertionError(_out_msg) from err
 
         _version = semver.Version.parse(_version_str)
 
@@ -136,23 +143,36 @@ class SimvueConfiguration(pydantic.BaseModel):
             SIMVUE_SERVER_UPPER_CONSTRAINT
             and _version >= SIMVUE_SERVER_UPPER_CONSTRAINT
         ):
-            raise AssertionError(
-                f"Python API v{_version_str} is not compatible with Simvue server versions "
+            _out_msg = (
+                f"Python API v{_version_str} is not compatible "
+                "with Simvue server versions "
                 f">= {SIMVUE_SERVER_UPPER_CONSTRAINT}"
             )
+            raise AssertionError(_out_msg)
+
         if SIMVUE_SERVER_LOWER_CONSTRAINT and _version < SIMVUE_SERVER_LOWER_CONSTRAINT:
-            raise AssertionError(
-                f"Python API v{_version_str} is not compatible with Simvue server versions "
+            _out_msg = (
+                f"Python API v{_version_str} is not compatible "
+                "with Simvue server versions "
                 f"< {SIMVUE_SERVER_LOWER_CONSTRAINT}"
             )
+            raise AssertionError(_out_msg)
 
     @pydantic.validate_call
     def write(self, out_directory: pydantic.DirectoryPath) -> None:
+        """Write configuration to file.
+
+        Parameters
+        ----------
+        output_directory : pathlib.path
+            location to write configuration file.
+        """
         with out_directory.joinpath(CONFIG_FILE_NAMES[0]).open("w") as out_f:
             toml.dump(self.model_dump(), out_f)
 
     @pydantic.model_validator(mode="after")
     def check_valid_server(self) -> Self:
+        """Check if the server is a valid URL."""
         if os.environ.get("SIMVUE_NO_SERVER_CHECK"):
             return self
 
@@ -248,7 +268,7 @@ class SimvueConfiguration(pydantic.BaseModel):
     @classmethod
     @functools.lru_cache
     def config_file(cls) -> pathlib.Path:
-        """Returns the path of top level configuration file used for the session"""
+        """Return the path of top level configuration file used for the session."""
         _config_file: pathlib.Path | None = sv_util.find_first_instance_of_file(
             CONFIG_FILE_NAMES, check_user_space=True
         )
@@ -258,8 +278,8 @@ class SimvueConfiguration(pydantic.BaseModel):
             CONFIG_INI_FILE_NAMES, check_user_space=True
         ):
             raise RuntimeError(
-                "Simvue INI configuration file format has been deprecated in simvue>=1.2, "
-                "please use TOML file"
+                "Simvue INI configuration file format has been deprecated "
+                "in simvue>=1.2, please use TOML file"
             )
 
         if not _config_file:

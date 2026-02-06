@@ -1,6 +1,4 @@
-"""
-Simvue Runs
-===========
+"""Simvue Runs.
 
 Contains a class for remotely connecting to Simvue runs, or defining
 a new run given relevant arguments.
@@ -16,10 +14,12 @@ from collections.abc import Generator, Iterable
 
 import pydantic
 
+from simvue.utilities import simvue_timestamp
+
 try:
-    from typing import Self
+    from typing import Self, override
 except ImportError:
-    from typing import Self
+    from typing import Self, override
 
 from simvue.api.request import (
     get as sv_get,
@@ -47,7 +47,8 @@ Status = typing.Literal[
     "lost", "failed", "completed", "terminated", "running", "created"
 ]
 
-# Need to use this inside of Generator typing to fix bug present in Python 3.10 - see issue #745
+# Need to use this inside of Generator typing to
+# fix bug present in Python 3.10 - see issue #745
 T = typing.TypeVar("T", bound="Run")
 
 __all__ = ["Run"]
@@ -64,7 +65,8 @@ class RunSort(Sort):
             and not column.startswith("metadata.")
             and column not in ("created", "started", "endtime", "modified")
         ):
-            raise ValueError(f"Invalid sort column for runs '{column}'")
+            _out_msg: str = f"Invalid sort column for runs '{column}'"
+            raise ValueError(_out_msg)
 
         return column
 
@@ -84,7 +86,7 @@ class RunBatchArgs(ObjectBatchArgs):
 class Run(SimvueObject):
     """Class for directly interacting with/creating runs on the server."""
 
-    def __init__(self, identifier: str | None = None, **kwargs) -> None:
+    def __init__(self, identifier: str | None = None, **kwargs: object) -> None:
         """Initialise a Run.
 
         If an identifier is provided a connection will be made to the
@@ -103,6 +105,7 @@ class Run(SimvueObject):
 
     @classmethod
     @pydantic.validate_call
+    @override
     def new(
         cls,
         *,
@@ -112,7 +115,7 @@ class Run(SimvueObject):
             "terminated", "created", "failed", "completed", "lost", "running"
         ] = "created",
         offline: bool = False,
-        **kwargs,
+        **kwargs: object,
     ) -> Self:
         """Create a new Run on the Simvue server.
 
@@ -151,6 +154,7 @@ class Run(SimvueObject):
 
     @classmethod
     @pydantic.validate_call
+    @override
     def batch_create(
         cls,
         entries: Iterable[RunBatchArgs],
@@ -169,7 +173,8 @@ class Run(SimvueObject):
         visibility : VisibilityBatchArgs | None, optional
             specify visibility options for these runs, default is None.
         folder : str, optional
-            override folder specification for these runs to be a single folder, default None.
+            override folder specification for these runs to be a single folder,
+            default None.
         metadata : dict[str, int | str | float | bool], optional
             override metadata specification for these runs, default None.
 
@@ -248,12 +253,12 @@ class Run(SimvueObject):
 
     @property
     @staging_check
-    def ttl(self) -> int:
+    def ttl(self) -> int | None:
         """Set/retrieve the retention period for this run.
 
         Returns
         -------
-        int
+        int | None
         """
         return self._get_attribute("ttl")
 
@@ -306,12 +311,12 @@ class Run(SimvueObject):
 
     @property
     @staging_check
-    def description(self) -> str:
+    def description(self) -> str | None:
         """Set/retrieve the description for this run.
 
         Returns
         -------
-        str
+        str | None
         """
         return self._get_attribute("description")
 
@@ -363,7 +368,9 @@ class Run(SimvueObject):
         -------
         "none" | "all" | "error" | "lost"
         """
-        return self._get_attribute("notifications")["state"]
+        return typing.cast("dict[str, object]", self._get_attribute("notifications"))[
+            "state"
+        ]
 
     @notifications.setter
     @write_only
@@ -389,12 +396,13 @@ class Run(SimvueObject):
 
     @classmethod
     @pydantic.validate_call
+    @override
     def get(
         cls,
         count: pydantic.PositiveInt | None = None,
         offset: pydantic.NonNegativeInt | None = None,
         sorting: list[RunSort] | None = None,
-        **kwargs,
+        **kwargs: object,
     ) -> Generator[tuple[str, Self]]:
         """Get runs from the server.
 
@@ -440,9 +448,10 @@ class Run(SimvueObject):
         """
         if self._offline:
             raise RuntimeError(
-                "Cannot get alert details from an offline run - use .alerts to access a list of IDs instead"
+                "Cannot get alert details from an offline run - "
+                "use member 'alerts' to access a list of IDs instead"
             )
-        for alert in self._get_attribute("alerts"):
+        for alert in typing.cast("dict[str, object]", self._get_attribute("alerts")):
             yield alert["alert"]
 
     @property
@@ -456,7 +465,11 @@ class Run(SimvueObject):
         """
         _created: str | None = self._get_attribute("created")
         return (
-            datetime.datetime.strptime(_created, DATETIME_FORMAT) if _created else None
+            datetime.datetime.strptime(_created, DATETIME_FORMAT).astimezone(
+                datetime.UTC
+            )
+            if _created
+            else None
         )
 
     @created.setter
@@ -468,7 +481,7 @@ class Run(SimvueObject):
     @property
     @staging_check
     def runtime(self) -> datetime.datetime | None:
-        """Retrieve execution time for the run"""
+        """Retrieve execution time for the run."""
         _runtime: str | None = self._get_attribute("runtime")
         return time.strptime(_runtime, "%H:%M:%S.%f") if _runtime else None
 
@@ -523,7 +536,7 @@ class Run(SimvueObject):
     @property
     def metrics(
         self,
-    ) -> typing.Generator[tuple[str, dict[str, int | float | bool]]]:
+    ) -> Generator[tuple[str, dict[str, int | float | bool]]]:
         """Retrieve metrics for this run from the server.
 
         Yields
@@ -535,12 +548,14 @@ class Run(SimvueObject):
         -------
         Generator[tuple[str, dict[str, int | float | bool]]
         """
-        yield from self._get_attribute("metrics").items()
+        yield from typing.cast(
+            "dict[str, dict[str, object]]", self._get_attribute("metrics")
+        ).items()
 
     @property
     def events(
         self,
-    ) -> typing.Generator[tuple[str, dict[str, typing.Any]]]:
+    ) -> Generator[tuple[str, dict[str, typing.Any]]]:
         """Returns events information for this run from the server.
 
         Yields
@@ -552,7 +567,9 @@ class Run(SimvueObject):
         -------
         Generator[tuple[str, dict[str, Any]]
         """
-        yield from self._get_attribute("events").items()
+        yield from typing.cast(
+            "dict[str, dict[str, object]]", self._get_attribute("events")
+        ).items()
 
     @write_only
     def send_heartbeat(self) -> dict[str, typing.Any] | None:
@@ -616,10 +633,13 @@ class Run(SimvueObject):
             return False
 
         _response = sv_get(f"{self._abort_url}", headers=self._headers)
-        _json_response = get_json_from_response(
-            response=_response,
-            expected_status=[http.HTTPStatus.OK],
-            scenario=f"Retrieving abort status for run '{self.id}'",
+        _json_response = typing.cast(
+            "dict[str, object]",
+            get_json_from_response(
+                response=_response,
+                expected_status=[http.HTTPStatus.OK],
+                scenario=f"Retrieving abort status for run '{self.id}'",
+            ),
         )
         return _json_response.get("status", False)
 
@@ -693,17 +713,18 @@ class Run(SimvueObject):
             response=_response,
         )
 
+    @override
     def on_reconnect(self, id_mapping: dict[str, str]) -> None:
-        """Executed when a run switches from offline to online mode.
+        """Execute when a run switches from offline to online mode.
 
         Parameters
         ----------
         id_mapping: dict[str, str]
             A mapping from offline identifier to online identifier.
         """
-        online_alert_ids: list[str] = list(
-            set(id_mapping.get(_id) for _id in self._staging.get("alerts", []))
+        online_alert_ids: Generator[str] = (
+            id_mapping.get(_id) for _id in self._staging.get("alerts", [])
         )
-        if not all(online_alert_ids):
+        if not all(set(online_alert_ids)):
             raise KeyError("Could not find alert ID in offline to online ID mapping.")
         self._staging["alerts"] = online_alert_ids

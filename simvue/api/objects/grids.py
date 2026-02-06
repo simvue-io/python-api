@@ -7,6 +7,7 @@ a new grid given relevant arguments.
 
 import http
 import typing
+from collections.abc import Generator
 
 import msgpack
 import numpy as np
@@ -256,20 +257,22 @@ class Grid(SimvueObject):
         return _response[0]
 
     @classmethod
+    @override
     def get(
         cls,
-        *_,
-        **__,
-    ) -> typing.Generator[tuple[str, Self | None]]:
+        *_: object,
+        **__: object,
+    ) -> Generator[tuple[str, Self | None]]:
         raise NotImplementedError
 
 
 class GridMetrics(SimvueObject):
     def __init__(
         self,
+        *,
         _read_only: bool = True,
         _local: bool = False,
-        **kwargs,
+        **kwargs: object,
     ) -> None:
         """Initialise a GridMetrics object instance."""
         self._label = "grid_metric"
@@ -279,10 +282,11 @@ class GridMetrics(SimvueObject):
 
     @staticmethod
     def run_grids_endpoint(run: str | None = None) -> URL:
-        """Returns the URL for grids for a specific run."""
+        """Return the URL for grids for a specific run."""
         return URL(f"runs/{run}/metrics/")
 
-    def _get_attribute(self, attribute: str, *default) -> typing.Any:
+    @override
+    def _get_attribute(self, attribute: str, *default: object) -> typing.Any:
         return super()._get_attribute(
             attribute,
             *default,
@@ -291,8 +295,14 @@ class GridMetrics(SimvueObject):
 
     @classmethod
     @pydantic.validate_call
+    @override
     def new(
-        cls, *, run: str, data: list[GridMetricSet], offline: bool = False, **kwargs
+        cls,
+        *,
+        run: str,
+        data: list[GridMetricSet],
+        offline: bool = False,
+        **kwargs: object,
     ) -> Self:
         """Create a new GridMetrics object for n-dimensional metric submission.
 
@@ -319,15 +329,15 @@ class GridMetrics(SimvueObject):
 
     @classmethod
     @pydantic.validate_call
+    @override
     def get(
         cls,
         *,
         runs: list[str],
         metrics: list[str],
         step: pydantic.NonNegativeInt,
-        spans: bool = False,
-        **kwargs,
-    ) -> typing.Generator[dict[str, dict[str, list[dict[str, float]]]]]:
+        **kwargs: object,
+    ) -> Generator[dict[str, dict[str, list[dict[str, float]]]]]:
         """Retrieve tensor-metrics from the server for a given set of runs.
 
         Parameters
@@ -338,8 +348,6 @@ class GridMetrics(SimvueObject):
             list of metrics to retrieve.
         step : int
             the timestep to retrieve grid metrics for
-        spans : bool, optional
-            return spans informations
 
         Yields
         ------
@@ -355,13 +363,15 @@ class GridMetrics(SimvueObject):
                     count=None,
                 )
 
-    def commit(self) -> dict | None:
+    @override
+    def commit(self) -> dict[str, object] | None:
         if not (_run_staging := self._staging.pop("data", None)):
             return None
         return self._log_values(_run_staging)
 
+    @override
     def on_reconnect(self, id_mapping: dict[str, str]) -> None:
-        """Operations performed when this grid metrics object is switched from offline to online mode.
+        """Operations performed when object is switched from offline to online mode.
 
         Parameters
         ----------

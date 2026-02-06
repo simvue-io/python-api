@@ -5,12 +5,12 @@ policies. In cases where JSON is the expected form the data is firstly converted
 to a JSON string
 """
 
-from collections.abc import Generator
 import copy
 import http
 import json as json_module
 import logging
 import typing
+from collections.abc import Generator
 
 import requests
 from tenacity import (
@@ -283,7 +283,10 @@ def get_json_from_response(
         if json_response is None:
             details = f"could not request JSON response: {decode_error}"
         elif not isinstance(json_response, expected_type):
-            details = f"expected type '{expected_type.__name__}' but got '{type(json_response).__name__}'"
+            details = (
+                f"expected type '{expected_type.__name__}' but got"
+                f"'{type(json_response).__name__}'"
+            )
         else:
             return json_response
     elif isinstance(json_response, dict):
@@ -310,7 +313,7 @@ def get_paginated(
     json: dict[str, typing.Any] | None = None,
     offset: int | None = None,
     count: int | None = None,
-    **params,
+    **params: object,
 ) -> Generator[requests.Response]:
     """Paginate results of a server query.
 
@@ -354,7 +357,9 @@ def get_paginated(
                 _response.json().get("count", 0) < _offset
             ):
                 break
-    except json_module.JSONDecodeError:
-        raise RuntimeError(
-            f"[{_response.status_code}] Failed to retrieve content from server: {_response.text}"
+    except json_module.JSONDecodeError as e:
+        _out_msg: str = (
+            f"[{_response.status_code}] Failed to retrieve content "
+            f"from server: {_response.text}"
         )
+        raise RuntimeError(_out_msg) from e

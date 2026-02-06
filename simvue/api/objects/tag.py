@@ -1,6 +1,4 @@
-"""
-Simvue Server Tag
-=================
+"""Simvue Server Tag.
 
 Contains a class for remotely connecting to a Simvue Tag, or defining
 a new tag given relevant arguments.
@@ -19,9 +17,9 @@ from simvue.api.objects.base import SimvueObject, Sort, staging_check, write_onl
 from simvue.models import DATETIME_FORMAT
 
 try:
-    from typing import Self
+    from typing import Self, override
 except ImportError:
-    from typing import Self
+    from typing import Self, override
 
 __all__ = ["Tag"]
 
@@ -31,16 +29,18 @@ class TagSort(Sort):
     @classmethod
     def check_column(cls, column: str) -> str:
         if column and column not in ("created", "name"):
-            raise ValueError(f"Invalid sort column for tags '{column}")
+            _out_msg: str = f"Invalid sort column for tags '{column}"
+            raise ValueError(_out_msg)
         return column
 
 
 class Tag(SimvueObject):
-    """Class for creation/interaction with tag object on server"""
+    """Class for creation/interaction with tag object on server."""
 
     @classmethod
     @pydantic.validate_call
-    def new(cls, *, name: str, offline: bool = False, **kwargs) -> Self:
+    @override
+    def new(cls, *, name: str, offline: bool = False, **kwargs: object) -> Self:
         """Create a new Tag on the Simvue server.
 
         Parameters
@@ -61,45 +61,45 @@ class Tag(SimvueObject):
     @property
     @staging_check
     def name(self) -> str:
-        """Retrieve the tag name"""
+        """Retrieve the tag name."""
         return self._get_attribute("name")
 
     @name.setter
     @write_only
     @pydantic.validate_call
     def name(self, name: str) -> None:
-        """Set the tag name"""
+        """Set the tag name."""
         self._staging["name"] = name
 
     @property
     @staging_check
-    def colour(self) -> pyd_color.RGBA:
-        """Retrieve the tag colour"""
+    def colour(self) -> pyd_color.Color:
+        """Retrieve the tag colour."""
         return pyd_color.parse_str(self._get_attribute("colour"))
 
     @colour.setter
     @write_only
     @pydantic.validate_call
     def colour(self, colour: pyd_color.Color) -> None:
-        """Set the tag colour"""
+        """Set the tag colour."""
         self._staging["colour"] = colour.as_hex()
 
     @property
     @staging_check
     def description(self) -> str:
-        """Get description for this tag"""
+        """Get description for this tag."""
         return self._get_attribute("description")
 
     @description.setter
     @write_only
     @pydantic.validate_call
     def description(self, description: str) -> None:
-        """Set the description for this tag"""
+        """Set the description for this tag."""
         self._staging["description"] = description
 
     @property
     def created(self) -> datetime.datetime | None:
-        """Retrieve created datetime for the run"""
+        """Retrieve created datetime for the run."""
         _created: str | None = self._get_attribute("created")
         return (
             datetime.datetime.strptime(_created, DATETIME_FORMAT).replace(
@@ -111,6 +111,7 @@ class Tag(SimvueObject):
 
     @classmethod
     @pydantic.validate_call
+    @override
     def get(
         cls,
         *,
