@@ -92,7 +92,7 @@ class QueuedDispatcher(threading.Thread, DispatcherBaseClass):
         metadata: dict[str, int | float] | None = None,
     ) -> None:
         """Add an item to the specified queue with/without blocking"""
-        super().add_item(item, object_type, metadata)
+        super().add_item(item, object_type=object_type, metadata=metadata)
         if self._termination_trigger.is_set():
             raise RuntimeError(
                 f"Cannot append item '{item}' to queue '{object_type}', "

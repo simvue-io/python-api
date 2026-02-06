@@ -46,7 +46,7 @@ class DirectDispatcher(DispatcherBaseClass):
         **__,
     ) -> None:
         """Execute callback on the given item"""
-        super().add_item(item, object_type, metadata)
+        super().add_item(item, object_type=object_type, metadata=metadata)
         self._callback([item], object_type)
 
     def run(self) -> None:
