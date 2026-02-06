@@ -7,26 +7,32 @@ from queue import Queue
 from concurrent.futures import ThreadPoolExecutor
 
 
-from simvue.factory.dispatch.queued import QueuedDispatcher
+from simvue.dispatch.queued import QueuedDispatcher
 
-from simvue.factory.dispatch.direct import DirectDispatcher
+from simvue.dispatch.direct import DirectDispatcher
+from simvue.exception import ObjectDispatchError
 
 # FIXME: Update the layout of these tests
 
 
 @pytest.mark.dispatch
-@pytest.mark.parametrize("overload_buffer", (True, False), ids=("overload", "normal"))
+@pytest.mark.parametrize("scenario", ("overload_buffer", "normal", "size_threshold_single", "size_threshold_total"))
 @pytest.mark.parametrize(
     "append_during_dispatch", (True, False), ids=("pre_append", "append")
 )
 @pytest.mark.parametrize("multiple", (True, False), ids=("multiple", "single"))
 def test_queued_dispatcher(
-    overload_buffer: bool, multiple: bool, append_during_dispatch: bool
+    scenario: typing.Literal["overload_buffer", "normal", "size_threshold_single", "size_threshold_total"], multiple: bool, append_during_dispatch: bool
 ) -> None:
     buffer_size: int = 10
-    n_elements: int = 2 * buffer_size if overload_buffer else buffer_size - 1
+    if scenario == "overload_buffer":
+        n_elements = 2 * buffer_size
+    elif scenario in ("size_threshold_total", "size_threshold_single"):
+        n_elements = 1
+    else:
+        n_elements = buffer_size - 1
     max_read_rate: float = 0.2
-    time_threshold: float = 1 + (1 / max_read_rate) if overload_buffer else 1
+    time_threshold: float = 1 + (1 / max_read_rate) if scenario == "overload_buffer" else 1
 
     start_time = time.time()
 
@@ -40,6 +46,8 @@ def test_queued_dispatcher(
     event = Event()
     dispatchers: list[QueuedDispatcher] = []
 
+    thresholds = {"max_size" : 10} if scenario in ("size_threshold_single", "size_threshold_total") else None
+
     for variable in variables:
         check_dict[variable] = {"counter": 0}
 
@@ -50,21 +58,33 @@ def test_queued_dispatcher(
 
         dispatchers.append(
             QueuedDispatcher(
-                callback,
-                [variable],
-                event,
+                callback=callback,
+                object_types=[variable],
+                termination_trigger=event,
                 max_buffer_size=buffer_size,
                 max_read_rate=max_read_rate,
-                name=f"Queued_Dispatcher_{variable}"
+                name=f"Queued_Dispatcher_{variable}",
+                thresholds=thresholds
             )
         )
 
     if not append_during_dispatch:
         for i in range(n_elements):
             for variable, dispatcher in zip(variables, dispatchers):
-                dispatcher.add_item(
-                    {string.ascii_uppercase[i % 26]: i}, variable, False
-                )
+                sizes = [10]
+                if scenario == "size_threshold_total":
+                    sizes = [1, 8, 7, 2]
+                if scenario == "size_threshold_single":
+                    with pytest.raises(ObjectDispatchError):
+                        dispatcher.add_item(
+                        {string.ascii_uppercase[i % 26]: i}, object_type=variable, blocking=False, metadata={"max_size": 12}
+                        )
+                    return
+
+                for size in sizes:
+                    dispatcher.add_item(
+                        {string.ascii_uppercase[i % 26]: i}, object_type=variable, blocking=False, metadata={"max_size": size}
+                    )
 
     for dispatcher in dispatchers:
         dispatcher.start()
@@ -72,12 +92,29 @@ def test_queued_dispatcher(
     if append_during_dispatch:
         for i in range(n_elements):
             for variable, dispatcher in zip(variables, dispatchers):
-                dispatcher.add_item(
-                    {string.ascii_uppercase[i % 26]: i}, variable, False
-                )
+                sizes = [10]
+                if scenario == "size_threshold_total":
+                    sizes = [1, 8, 7, 2]
+                if scenario == "size_threshold_single":
+                    with pytest.raises(ObjectDispatchError):
+                        dispatcher.add_item(
+                        {string.ascii_uppercase[i % 26]: i}, object_type=variable, blocking=False, metadata={"max_size": 12}
+                        )
+                    return
 
-    while not dispatcher.empty:
+                for size in sizes:
+                    dispatcher.add_item(
+                        {string.ascii_uppercase[i % 26]: i}, object_type=variable, blocking=False, metadata={"max_size": size}
+                    )
+
+    counter = 0
+
+    while not dispatcher.empty and counter < 100:
+        counter += 1
         time.sleep(0.1)
+
+    if counter >= 100:
+        raise AssertionError("Failed to empty dispatch queue")
 
     event.set()
 
@@ -85,9 +122,13 @@ def test_queued_dispatcher(
     time.sleep(0.1)
 
     for variable in variables:
-        assert check_dict[variable]["counter"] >= (2 if overload_buffer else 1), (
+        assert check_dict[variable]["counter"] >= (2 if scenario in ("overload_buffer", "size_threshold_total") else 1), (
             f"Check of counter for dispatcher '{variable}' failed with count = {check_dict[variable]['counter']}"
         )
+
+    if scenario in ("size_threshold_single", "size_threshold_total"):
+        return
+
     assert time.time() - start_time < time_threshold
 
 
@@ -121,9 +162,9 @@ def test_nested_queued_dispatch(multi_queue: bool) -> None:
     ) -> bool:
         term_event = Event()
         dispatcher = QueuedDispatcher(
-            dispatch_callback(index),
-            [variable] if isinstance(variable, str) else variable,
-            term_event,
+            callback=dispatch_callback(index),
+            object_types=[variable] if isinstance(variable, str) else variable,
+            termination_trigger=term_event,
             max_buffer_size=buffer_size,
             max_read_rate=max_read_rate,
             name=f"test_nested_queued_dispatch"
@@ -135,12 +176,12 @@ def test_nested_queued_dispatch(multi_queue: bool) -> None:
             for i in range(n_elements):
                 if isinstance(variable, str):
                     dispatcher.add_item(
-                        {string.ascii_uppercase[i % 26]: i}, variable, False
+                        {string.ascii_uppercase[i % 26]: i}, object_type=variable, blocking=False
                     )
                 else:
                     for var in variable:
                         dispatcher.add_item(
-                            {string.ascii_uppercase[i % 26]: i}, var, False
+                            {string.ascii_uppercase[i % 26]: i}, object_type=var, blocking=False
                         )
         except RuntimeError:
             res_queue.put("AARGHGHGHGHAHSHGHSDHFSEDHSE")
@@ -199,7 +240,7 @@ def test_queued_dispatch_error_adding_item_after_termination() -> None:
     trigger.set()
 
     with pytest.raises(RuntimeError):
-        dispatcher.add_item("blah", "q", False)
+        dispatcher.add_item("blah", object_type="q", blocking=False)
 
 
 def test_queued_dispatch_error_attempting_to_use_non_existent_queue() -> None:
@@ -215,14 +256,14 @@ def test_queued_dispatch_error_attempting_to_use_non_existent_queue() -> None:
     dispatcher.start()
 
     with pytest.raises(KeyError):
-        dispatcher.add_item("blah", "z", False)
+        dispatcher.add_item("blah", object_type="z", blocking=False)
 
     trigger.set()
 
 
 @pytest.mark.dispatch
-@pytest.mark.parametrize("multiple", (True, False), ids=("multiple", "single"))
-def test_direct_dispatcher(multiple: bool) -> None:
+@pytest.mark.parametrize("scenario", ("multiple", "single", "max_exceed"))
+def test_direct_dispatcher(scenario: typing.Literal["multiple", "single", "max_exceed"]) -> None:
     n_elements: int = 10
     time_threshold: float = 1
 
@@ -232,11 +273,13 @@ def test_direct_dispatcher(multiple: bool) -> None:
 
     variables = ["lemons"]
 
-    if multiple:
+    if scenario == "multiple":
         variables.append("limes")
 
     event = Event()
     dispatchers: list[DirectDispatcher] = []
+
+    thresholds = {} if scenario != "max_exceed" else {"max_size": 10}
 
     for variable in variables:
         check_dict[variable] = {"counter": 0}
@@ -246,11 +289,15 @@ def test_direct_dispatcher(multiple: bool) -> None:
         ) -> None:
             args[var]["counter"] += 1
 
-        dispatchers.append(DirectDispatcher(callback, [variable], event))
+        dispatchers.append(DirectDispatcher(callback=callback, object_types=[variable], termination_trigger=event, thresholds=thresholds))
 
     for i in range(n_elements):
         for variable, dispatcher in zip(variables, dispatchers):
-            dispatcher.add_item({string.ascii_uppercase[i % 26]: i}, variable)
+            if scenario == "max_exceed":
+                with pytest.raises(ObjectDispatchError):
+                    dispatcher.add_item({string.ascii_uppercase[i % 26]: i}, object_type=variable, metadata={"max_size": 12})
+                return
+            dispatcher.add_item({string.ascii_uppercase[i % 26]: i}, object_type=variable)
 
     event.set()
 
