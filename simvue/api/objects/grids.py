@@ -231,28 +231,36 @@ class Grid(SimvueObject):
             metric to retrieve span information for.
 
         Returns
-        ------
+        -------
         dict[str, list[dict[str, float]]
             dictionary containing span from this for the run at specified step.
         """
         _response = sv_get(
-            url=f"{self.run_metric_values_url(run_id, metric_name) / 'span'}",
+            url=f"{self.run_metric_url(run_id, metric_name) / 'span'}",
             headers=self._headers,
         )
 
-        return get_json_from_response(
-            response=_response,
-            expected_status=[http.HTTPStatus.OK],
-            expected_type=dict,
-            scenario=f"Retrieving grid span for run '{run_id}'",
+        _response = typing.cast(
+            "list[dict[str, int | float | str]]",
+            get_json_from_response(
+                response=_response,
+                expected_status=[http.HTTPStatus.OK],
+                expected_type=list,
+                scenario=f"Retrieving grid span for run '{run_id}'",
+            ),
         )
+
+        if not _response:
+            raise RuntimeError("Failed to retrieve span, no data.")
+
+        return _response[0]
 
     @classmethod
     def get(
         cls,
         *_,
         **__,
-    ) -> typing.Generator[tuple[str, Self | None], None, None]:
+    ) -> typing.Generator[tuple[str, Self | None]]:
         raise NotImplementedError
 
 
@@ -319,7 +327,7 @@ class GridMetrics(SimvueObject):
         step: pydantic.NonNegativeInt,
         spans: bool = False,
         **kwargs,
-    ) -> typing.Generator[dict[str, dict[str, list[dict[str, float]]]], None, None]:
+    ) -> typing.Generator[dict[str, dict[str, list[dict[str, float]]]]]:
         """Retrieve tensor-metrics from the server for a given set of runs.
 
         Parameters
