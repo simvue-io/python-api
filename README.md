@@ -16,7 +16,7 @@ Collect metadata, metrics and artifacts from simulations, processing and AI/ML t
 
 <div align="center">
 <a href="https://github.com/simvue-io/client/blob/main/LICENSE" target="_blank"><img src="https://img.shields.io/github/license/simvue-io/client"/></a>
-<img src="https://img.shields.io/badge/%7C%203.11%20%7C%203.12%20%7C%203.13%20python-3.14-blue">
+<img src="https://img.shields.io/badge/python-%203.11%20%7C%203.12%20%7C%203.13%20%7C%203.14-blue">
 <a href="https://pypi.org/project/simvue/" target="_blank"><img src="https://img.shields.io/pypi/v/simvue.svg"/></a>
 <a href="https://pepy.tech/project/simvue"><img src="https://static.pepy.tech/badge/simvue"/></a>
 <a href="https://github.com/astral-sh/ruff"><img src="https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/astral-sh/ruff/main/assets/badge/v2.json"></a>
