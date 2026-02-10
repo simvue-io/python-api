@@ -252,6 +252,7 @@
       "type": "object"
     },
     "ServerSpecifications": {
+      "additionalProperties": false,
       "properties": {
         "token": {
           "anyOf": [
@@ -288,6 +289,7 @@
       "type": "object"
     }
   },
+  "additionalProperties": false,
   "properties": {
     "client": {
       "$ref": "#/$defs/ClientGeneralOptions",

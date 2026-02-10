@@ -1,34 +1,39 @@
 # Change Log
 
-## [v2.3.1](https://github.com/simvue-io/client/releases/tag/v2.3.1) - 2026-01-30
+## [v2.3.2](https://github.com/simvue-io/python-api/releases/tag/v2.3.2) - 2026-02-10
+
+- Add handling of metrics based on size and enforce 10k points per grid metric as per server.
+- Freeze `flatdict==4.0.0` do address install issues.
+
+## [v2.3.1](https://github.com/simvue-io/python-api/releases/tag/v2.3.1) - 2026-01-30
 
 - Allow negative time when logging simulation metrics.
 
-## [v2.3.0](https://github.com/simvue-io/client/releases/tag/v2.3.0) - 2025-12-11
+## [v2.3.0](https://github.com/simvue-io/python-api/releases/tag/v2.3.0) - 2025-12-11
 
 - Refactored sender functionality introducing new `Sender` class.
 - Added missing `created` property to `User` and `Tenant` LLAPI objects.
 
-## [v2.2.4](https://github.com/simvue-io/client/releases/tag/v2.2.4) - 2025-11-13
+## [v2.2.4](https://github.com/simvue-io/python-api/releases/tag/v2.2.4) - 2025-11-13
 
 - Added fixes for future servers which disallow extra arguments in requests.
 
-## [v2.2.3](https://github.com/simvue-io/client/releases/tag/v2.2.3) - 2025-11-10
+## [v2.2.3](https://github.com/simvue-io/python-api/releases/tag/v2.2.3) - 2025-11-10
 
 - Use `msgpack` for `GridMetrics` in a manner similar to `Metrics`.
 - Fix incorrect setting of global log level.
 - Fix alert duplication in offline mode and other offline fixes.
 
-## [v2.2.2](https://github.com/simvue-io/client/releases/tag/v2.2.2) - 2025-10-14
+## [v2.2.2](https://github.com/simvue-io/python-api/releases/tag/v2.2.2) - 2025-10-14
 
 - Enforced use of UTC for all datetime recording.
 - Added support for Python3.14.
 
-## ~~[v2.2.1](https://github.com/simvue-io/client/releases/tag/v2.2.1) - 2025-10-13~~
+## ~~[v2.2.1](https://github.com/simvue-io/python-api/releases/tag/v2.2.1) - 2025-10-13~~
 
 **Broken release yanked from PyPi**
 
-## [v2.2.0](https://github.com/simvue-io/client/releases/tag/v2.2.0) - 2025-09-22
+## [v2.2.0](https://github.com/simvue-io/python-api/releases/tag/v2.2.0) - 2025-09-22
 
 - Improves handling of Conda based environments in metadata collection.
 - Adds additional options to `Client.get_runs`.
@@ -37,7 +42,7 @@
 - Improves checks on `offline.cache` directory specification in config file.
 - Added ability to upload multiple runs as a batch via the low level API.
 
-## [v2.1.2](https://github.com/simvue-io/client/releases/tag/v2.1.2) - 2025-06-25
+## [v2.1.2](https://github.com/simvue-io/python-api/releases/tag/v2.1.2) - 2025-06-25
 
 - Fixed issue in downloading files from tenant runs.
 - Fixed bug in pagination whereby the count value specified by the user is ignored.
@@ -47,7 +52,7 @@
 - Ensured all threads have `daemon=True` to prevent hanging on termination.
 - Added error when `close()` method is called within the `simvue.Run` context manager.
 
-## [v2.1.1](https://github.com/simvue-io/client/releases/tag/v2.1.1) - 2025-04-25
+## [v2.1.1](https://github.com/simvue-io/python-api/releases/tag/v2.1.1) - 2025-04-25
 
 - Changed from CO2 Signal to ElectricityMaps
 - Fixed a number of bugs in how offline mode is handled with emissions
@@ -56,18 +61,18 @@
 - Fixed bug in setting visibility in `run.init` method
 - Default setting in `Client.get_runs` is now `show_shared=True`
 
-## [v2.1.0](https://github.com/simvue-io/client/releases/tag/v2.1.0) - 2025-03-28
+## [v2.1.0](https://github.com/simvue-io/python-api/releases/tag/v2.1.0) - 2025-03-28
 
 - Removed CodeCarbon dependence in favour of a slimmer solution using the CO2 Signal API.
 - Added sorting to server queries, users can now specify to sort by columns during data retrieval from the database.
 - Added pagination of results from server to reduce await time in responses.
 - Added equivalent of folder details modification function to `Client` class.
 
-## [v2.0.1](https://github.com/simvue-io/client/releases/tag/v2.0.1) - 2025-03-24
+## [v2.0.1](https://github.com/simvue-io/python-api/releases/tag/v2.0.1) - 2025-03-24
 
 - Improvements to docstrings on methods, classes and functions.
 
-## [v2.0.0](https://github.com/simvue-io/client/releases/tag/v2.0.0) - 2025-03-07
+## [v2.0.0](https://github.com/simvue-io/python-api/releases/tag/v2.0.0) - 2025-03-07
 
 - Add new example notebooks
 - Update and refactor examples to work with v2.0
@@ -305,6 +310,6 @@
 
 - The previous `Simvue` class has been split into `Run` and `Client`. When creating a run use the new `Run` class rather than `Simvue`.
 
-## [v0.1.0](https://github.com/simvue-io/client/releases/tag/v0.1.0) - 2022-10-25
+## [v0.1.0](https://github.com/simvue-io/python-api/releases/tag/v0.1.0) - 2022-10-25
 
 - First release.

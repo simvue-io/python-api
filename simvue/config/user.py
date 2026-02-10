@@ -16,6 +16,11 @@ import pydantic
 import toml
 import semver
 
+try:
+    from typing import Self
+except ImportError:
+    from typing_extensions import Self
+
 import simvue.utilities as sv_util
 from simvue.config.parameters import (
     ClientGeneralOptions,
@@ -44,7 +49,10 @@ SIMVUE_SERVER_LOWER_CONSTRAINT: semver.Version | None = semver.Version.parse("1.
 class SimvueConfiguration(pydantic.BaseModel):
     # Hide values as they contain token and URL
     model_config = pydantic.ConfigDict(
-        hide_input_in_errors=True, revalidate_instances="always"
+        hide_input_in_errors=True,
+        revalidate_instances="always",
+        extra="forbid",
+        strict=True,
     )
     client: ClientGeneralOptions = ClientGeneralOptions()
     server: ServerSpecifications = pydantic.Field(
@@ -138,14 +146,13 @@ class SimvueConfiguration(pydantic.BaseModel):
             toml.dump(self.model_dump(), out_f)
 
     @pydantic.model_validator(mode="after")
-    @classmethod
-    def check_valid_server(cls, values: "SimvueConfiguration") -> "SimvueConfiguration":
+    def check_valid_server(self) -> Self:
         if os.environ.get("SIMVUE_NO_SERVER_CHECK"):
-            return values
+            return self
 
-        cls._check_server(values.server.token, values.server.url, values.run.mode)
+        self._check_server(self.server.token, self.server.url, self.run.mode)
 
-        return values
+        return self
 
     @classmethod
     @sv_util.prettify_pydantic
