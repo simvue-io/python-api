@@ -6,12 +6,12 @@ To simplify case whereby user does not know the alert type associated
 with an identifier, use a generic alert object.
 """
 
-import typing
 import http
 import json
 
 import pydantic
 
+from collections.abc import Generator
 from simvue.api.objects.alert.user import UserAlert
 from simvue.api.objects.base import Sort
 from simvue.api.request import get_json_from_response
@@ -69,7 +69,7 @@ class Alert:
         offset: int | None = None,
         sorting: list[AlertSort] | None = None,
         **kwargs,
-    ) -> typing.Generator[tuple[str, AlertType], None, None]:
+    ) -> Generator[tuple[str, AlertType]]:
         """Fetch all alerts from the server for the current user.
 
         Parameters

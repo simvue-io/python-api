@@ -18,6 +18,7 @@ from simvue.api.url import URL
 from .base import SimvueObject
 from simvue.models import EventSet, simvue_timestamp
 from simvue.api.request import get as sv_get, get_json_from_response
+from collections.abc import Generator
 
 try:
     from typing import Self
@@ -48,7 +49,7 @@ class Events(SimvueObject):
         count: pydantic.PositiveInt | None = None,
         offset: pydantic.PositiveInt | None = None,
         **kwargs,
-    ) -> typing.Generator[EventSet, None, None]:
+    ) -> Generator[EventSet]:
         _class_instance = cls(_read_only=True, _local=True)
         _count: int = 0
 

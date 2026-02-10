@@ -6,6 +6,7 @@ import json
 from simvue.api.objects.artifact.base import ArtifactBase
 from simvue.api.objects.base import Sort
 from .file import FileArtifact
+from collections.abc import Generator
 from simvue.api.objects.artifact.object import ObjectArtifact
 from simvue.api.request import get_json_from_response, get as sv_get
 from simvue.api.url import URL
@@ -53,7 +54,7 @@ class Artifact:
         run_id: str,
         category: typing.Literal["input", "output", "code"] | None = None,
         **kwargs,
-    ) -> typing.Generator[tuple[str, FileArtifact | ObjectArtifact], None, None]:
+    ) -> Generator[tuple[str, FileArtifact | ObjectArtifact]]:
         """Return artifacts associated with a given run.
 
         Parameters
@@ -68,12 +69,12 @@ class Artifact:
 
         Returns
         -------
-        typing.Generator[tuple[str, FileArtifact | ObjectArtifact], None, None]
+        Generator[tuple[str, FileArtifact | ObjectArtifact]]
             The artifacts
 
         Yields
         ------
-        Iterator[typing.Generator[tuple[str, FileArtifact | ObjectArtifact], None, None]]
+        Iterator[Generator[tuple[str, FileArtifact | ObjectArtifact]]]
             identifier for artifact
             the artifact itself as a class instance
 
@@ -162,7 +163,7 @@ class Artifact:
         offset: int | None = None,
         sorting: list[ArtifactSort] | None = None,
         **kwargs,
-    ) -> typing.Generator[tuple[str, FileArtifact | ObjectArtifact], None, None]:
+    ) -> Generator[tuple[str, FileArtifact | ObjectArtifact]]:
         """Returns artifacts associated with the current user.
 
         Parameters
