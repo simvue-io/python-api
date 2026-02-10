@@ -2,7 +2,7 @@ name: Deploy to PyPi
 on:
   push:
     tags:
-      - 'v*'
+      - "v*"
 jobs:
   build:
     name: Build Wheels and Package 🛠️
@@ -10,7 +10,7 @@ jobs:
     steps:
       - name: Checkout Code
         uses: actions/checkout@v5
-      - name: Set up Python 3.12
+      - name: Set up Python 3.x
         uses: actions/setup-python@v6
         with:
           python-version: "3.x"
@@ -84,6 +84,8 @@ jobs:
           inputs: >-
             ./dist/*.tar.gz
             ./dist/*.whl
+      - name: Checkout Code
+        uses: actions/checkout@v5
       - name: Create GitHub Release
         env:
           GITHUB_TOKEN: ${{ github.token }}
@@ -99,7 +101,7 @@ jobs:
                   exit
                 }
             }
-            header_found == 1 && /^\* / { print }
+            header_found == 1 && /^\- / { print }
           ' CHANGELOG.md)
           gh release create
           '${{ github.ref_name }}'
