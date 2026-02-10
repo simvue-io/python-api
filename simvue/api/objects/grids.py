@@ -250,7 +250,7 @@ class Grid(SimvueObject):
         cls,
         *_,
         **__,
-    ) -> typing.Generator[tuple[str, Self | None]]:
+    ) -> typing.Iterator[tuple[str, Self | None]]:
         raise NotImplementedError
 
 
@@ -317,7 +317,7 @@ class GridMetrics(SimvueObject):
         step: pydantic.NonNegativeInt,
         spans: bool = False,
         **kwargs,
-    ) -> typing.Generator[dict[str, dict[str, list[dict[str, float]]]]]:
+    ) -> typing.Iterator[dict[str, dict[str, list[dict[str, float]]]]]:
         """Retrieve tensor-metrics from the server for a given set of runs.
 
         Parameters
