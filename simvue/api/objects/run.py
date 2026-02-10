@@ -390,7 +390,7 @@ class Run(SimvueObject):
         offset: pydantic.NonNegativeInt | None = None,
         sorting: list[RunSort] | None = None,
         **kwargs,
-    ) -> typing.Generator[tuple[str, T | None], None, None]:
+    ) -> Generator[tuple[str, T | None]]:
         """Get runs from the server.
 
         Parameters
@@ -421,7 +421,7 @@ class Run(SimvueObject):
     def alerts(self, alerts: list[str]) -> None:
         self._staging["alerts"] = list(set(self._staging.get("alerts", []) + alerts))
 
-    def get_alert_details(self) -> typing.Generator[dict[str, typing.Any], None, None]:
+    def get_alert_details(self) -> Generator[dict[str, typing.Any]]:
         """Retrieve the full details of alerts for this run.
 
         Yields

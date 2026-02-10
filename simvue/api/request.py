@@ -21,6 +21,7 @@ from tenacity import (
     wait_exponential,
 )
 from simvue.utilities import parse_validation_response
+from collections.abc import Generator
 
 DEFAULT_API_TIMEOUT = 10
 RETRY_MULTIPLIER = 1
@@ -284,7 +285,7 @@ def get_paginated(
     offset: int | None = None,
     count: int | None = None,
     **params,
-) -> typing.Generator[requests.Response, None, None]:
+) -> Generator[requests.Response]:
     """Paginate results of a server query.
 
     Parameters

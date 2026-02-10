@@ -17,6 +17,7 @@ from simvue.exception import ObjectNotFoundError
 
 from .base import SimvueObject, staging_check, write_only, Sort
 from simvue.models import FOLDER_REGEX, DATETIME_FORMAT
+from collections.abc import Generator
 
 # Need to use this inside of Generator typing to fix bug present in Python 3.10 - see issue #745
 try:
@@ -93,7 +94,7 @@ class Folder(SimvueObject):
         offset: pydantic.NonNegativeInt | None = None,
         sorting: list[FolderSort] | None = None,
         **kwargs,
-    ) -> typing.Generator[tuple[str, T | None], None, None]:
+    ) -> Generator[tuple[str, T | None]]:
         _params: dict[str, str] = kwargs
 
         if sorting:
