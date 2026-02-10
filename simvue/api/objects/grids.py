@@ -16,6 +16,7 @@ import pydantic
 
 from simvue.api.url import URL
 from simvue.models import GridMetricSet
+from collections.abc import Generator
 
 
 from .base import SimvueObject, write_only
@@ -250,7 +251,7 @@ class Grid(SimvueObject):
         cls,
         *_,
         **__,
-    ) -> typing.Generator[tuple[str, Self | None]]:
+    ) -> Generator[tuple[str, Self | None]]:
         raise NotImplementedError
 
 
@@ -317,7 +318,7 @@ class GridMetrics(SimvueObject):
         step: pydantic.NonNegativeInt,
         spans: bool = False,
         **kwargs,
-    ) -> typing.Generator[dict[str, dict[str, list[dict[str, float]]]]]:
+    ) -> Generator[dict[str, dict[str, list[dict[str, float]]]]]:
         """Retrieve tensor-metrics from the server for a given set of runs.
 
         Parameters
