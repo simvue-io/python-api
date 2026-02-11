@@ -585,12 +585,6 @@ class Run:
         RuntimeError
             exception throw
         """
-        # Stop heartbeat
-        if self._heartbeat_termination_trigger and self._heartbeat_thread:
-            self._heartbeat_termination_trigger.set()
-            if join_threads:
-                self._heartbeat_thread.join()
-
         # Finish stopping all threads
         if self._shutdown_event:
             self._shutdown_event.set()
@@ -600,6 +594,12 @@ class Run:
             self._dispatcher.purge()
             if join_threads:
                 self._dispatcher.join()
+
+        # Stop heartbeat
+        if self._heartbeat_termination_trigger and self._heartbeat_thread:
+            self._heartbeat_termination_trigger.set()
+            if join_threads:
+                self._heartbeat_thread.join()
 
         if not self._suppress_errors:
             raise SimvueRunError(message)
@@ -1861,10 +1861,6 @@ class Run:
     def _tidy_run(self) -> None:
         self._executor.wait_for_completion()
 
-        if self._heartbeat_thread and self._heartbeat_termination_trigger:
-            self._heartbeat_termination_trigger.set()
-            self._heartbeat_thread.join()
-
         if self._shutdown_event:
             self._shutdown_event.set()
 
@@ -1876,6 +1872,10 @@ class Run:
         elif self._dispatcher:
             self._dispatcher.purge()
             self._dispatcher.join()
+
+        if self._heartbeat_thread and self._heartbeat_termination_trigger:
+            self._heartbeat_termination_trigger.set()
+            self._heartbeat_thread.join()
 
         if (
             self._sv_obj
