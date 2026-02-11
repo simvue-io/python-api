@@ -518,7 +518,7 @@ class Run(SimvueObject):
     @property
     def metrics(
         self,
-    ) -> typing.Generator[tuple[str, dict[str, int | float | bool]], None, None]:
+    ) -> Generator[tuple[str, dict[str, int | float | bool]]]:
         """Retrieve metrics for this run from the server.
 
         Yields
@@ -535,7 +535,7 @@ class Run(SimvueObject):
     @property
     def events(
         self,
-    ) -> typing.Generator[tuple[str, dict[str, typing.Any]], None, None]:
+    ) -> Generator[tuple[str, dict[str, typing.Any]]]:
         """Returns events information for this run from the server.
 
         Yields
