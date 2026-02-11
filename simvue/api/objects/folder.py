@@ -66,8 +66,6 @@ class Folder(SimvueObject):
         ----------
         identifier : str, optional
             the remote server unique id for the target folder
-        read_only : bool, optional
-            create object in read-only mode
         **kwargs : dict
             any additional arguments to be passed to the object initialiser
         """
