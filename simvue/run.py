@@ -79,6 +79,7 @@ if typing.TYPE_CHECKING:
 
 HEARTBEAT_INTERVAL: int = 60
 RESOURCES_METRIC_PREFIX: str = "resources"
+TOTAL_GRID_METRIC_SIZE: int = 1e7
 MAXIMUM_GRID_METRIC_SIZE: int = 5 * 10**4
 
 logger = logging.getLogger(__name__)
@@ -547,7 +548,7 @@ class Run:
                 mode=self._dispatch_mode,
                 termination_trigger=self._shutdown_event,
                 object_types=["events", "metrics_regular", "metrics_tensor"],
-                thresholds=dict(object_size=MAXIMUM_GRID_METRIC_SIZE),
+                thresholds=dict(object_size=TOTAL_GRID_METRIC_SIZE),
                 callback=self._create_dispatch_callback(),
             )
 
