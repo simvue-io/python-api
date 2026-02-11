@@ -79,7 +79,7 @@ if typing.TYPE_CHECKING:
 
 HEARTBEAT_INTERVAL: int = 60
 RESOURCES_METRIC_PREFIX: str = "resources"
-TOTAL_GRID_METRIC_SIZE: int = 1e7
+TOTAL_GRID_METRIC_SIZE: int = 1e6
 MAXIMUM_GRID_METRIC_SIZE: int = 5 * 10**4
 
 logger = logging.getLogger(__name__)
