@@ -43,5 +43,5 @@ keywords:
   - simulation
 license: Apache-2.0
 commit: a24e113aeb6091399cffa0166dd17d1bae0ed916
-version: 2.3.4
-date-released: '2026-02-11'
+version: 2.3.5
+date-released: '2026-02-12'

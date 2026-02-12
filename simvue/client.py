@@ -34,6 +34,7 @@ from .models import FOLDER_REGEX, NAME_REGEX
 from .config.user import SimvueConfiguration
 from .api.request import get_json_from_response
 from .api.objects import (
+    GridMetrics,
     Run,
     Folder,
     Tag,
@@ -876,6 +877,17 @@ class Client:
             run_labels=list(_run_metrics.keys()),
             parse_to=output_format,
         )
+
+    @prettify_pydantic
+    @pydantic.validate_call
+    def get_grid_metric_values(
+        self,
+        metric_name: str,
+        run_ids: list[str],
+        *,
+        step: pydantic.NonNegativeInt | None = None,
+    ):
+        GridMetrics.get()
 
     @check_extra("plot")
     @prettify_pydantic

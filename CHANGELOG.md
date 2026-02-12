@@ -1,5 +1,10 @@
 # Change Log
 
+## [v2.3.5](https://github.com/simvue-io/python-api/releases/tag/v2.3.5) - 2026-02-12
+
+- Ensure runs do not enter lost state during metric upload.
+- Set total grid metric threshold to be greater than individual.
+
 ## [v2.3.4](https://github.com/simvue-io/python-api/releases/tag/v2.3.4) - 2026-02-11
 
 - Add handling of metrics based on size and enforce 10k points per grid metric as per server.
