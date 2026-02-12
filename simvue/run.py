@@ -79,6 +79,7 @@ if typing.TYPE_CHECKING:
 
 HEARTBEAT_INTERVAL: int = 60
 RESOURCES_METRIC_PREFIX: str = "resources"
+TOTAL_GRID_METRIC_SIZE: int = 1e6
 MAXIMUM_GRID_METRIC_SIZE: int = 5 * 10**4
 
 logger = logging.getLogger(__name__)
@@ -547,7 +548,7 @@ class Run:
                 mode=self._dispatch_mode,
                 termination_trigger=self._shutdown_event,
                 object_types=["events", "metrics_regular", "metrics_tensor"],
-                thresholds=dict(object_size=MAXIMUM_GRID_METRIC_SIZE),
+                thresholds=dict(object_size=TOTAL_GRID_METRIC_SIZE),
                 callback=self._create_dispatch_callback(),
             )
 
@@ -584,12 +585,6 @@ class Run:
         RuntimeError
             exception throw
         """
-        # Stop heartbeat
-        if self._heartbeat_termination_trigger and self._heartbeat_thread:
-            self._heartbeat_termination_trigger.set()
-            if join_threads:
-                self._heartbeat_thread.join()
-
         # Finish stopping all threads
         if self._shutdown_event:
             self._shutdown_event.set()
@@ -599,6 +594,12 @@ class Run:
             self._dispatcher.purge()
             if join_threads:
                 self._dispatcher.join()
+
+        # Stop heartbeat
+        if self._heartbeat_termination_trigger and self._heartbeat_thread:
+            self._heartbeat_termination_trigger.set()
+            if join_threads:
+                self._heartbeat_thread.join()
 
         if not self._suppress_errors:
             raise SimvueRunError(message)
@@ -1860,10 +1861,6 @@ class Run:
     def _tidy_run(self) -> None:
         self._executor.wait_for_completion()
 
-        if self._heartbeat_thread and self._heartbeat_termination_trigger:
-            self._heartbeat_termination_trigger.set()
-            self._heartbeat_thread.join()
-
         if self._shutdown_event:
             self._shutdown_event.set()
 
@@ -1875,6 +1872,10 @@ class Run:
         elif self._dispatcher:
             self._dispatcher.purge()
             self._dispatcher.join()
+
+        if self._heartbeat_thread and self._heartbeat_termination_trigger:
+            self._heartbeat_termination_trigger.set()
+            self._heartbeat_thread.join()
 
         if (
             self._sv_obj
