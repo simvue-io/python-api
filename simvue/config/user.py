@@ -254,7 +254,7 @@ class SimvueConfiguration(pydantic.BaseModel):
         _config_dict["server"]["url"] = _server_url
         _config_dict["run"]["mode"] = _run_mode
 
-        return SimvueConfiguration(profile=profile, **_config_dict)
+        return SimvueConfiguration(current_profile=profile, **_config_dict)
 
     @classmethod
     @functools.lru_cache
