@@ -10,11 +10,11 @@
 - Add handling of metrics based on size and enforce 10k points per grid metric as per server.
 - Freeze `flatdict==4.0.0` do address install issues.
 
-## ~~[v2.2.3](https://github.com/simvue-io/python-api/releases/tag/v2.2.3) - 2026-02-10~~
+## ~~[v2.3.3](https://github.com/simvue-io/python-api/releases/tag/v2.3.3) - 2026-02-10~~
 
 **Broken release yanked from PyPi**
 
-## ~~[v2.2.2](https://github.com/simvue-io/python-api/releases/tag/v2.2.2) - 2026-02-10~~
+## ~~[v2.3.2](https://github.com/simvue-io/python-api/releases/tag/v2.3.2) - 2026-02-10~~
 
 **Broken release yanked from PyPi**
 
