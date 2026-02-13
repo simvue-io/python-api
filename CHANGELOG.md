@@ -1,5 +1,10 @@
 # Change Log
 
+## Unreleased
+
+- Added ability to specify above one server in the `simvue.toml` file using `profiles`.
+- Enforced keyword arguments for readability and certainty in intent within initialiser for `simvue.Run`.
+
 ## [v2.3.5](https://github.com/simvue-io/python-api/releases/tag/v2.3.5) - 2026-02-12
 
 - Ensure runs do not enter lost state during metric upload.

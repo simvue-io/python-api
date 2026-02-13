@@ -120,11 +120,13 @@ class Run:
     @pydantic.validate_call
     def __init__(
         self,
+        *,
         mode: typing.Literal["online", "offline", "disabled"] = "online",
         abort_callback: typing.Callable[[Self], None] | None = None,
         server_token: pydantic.SecretStr | None = None,
         server_url: str | None = None,
         debug: bool = False,
+        server_profile: str | None = None,
     ) -> None:
         """Initialise a new Simvue run
 
@@ -145,6 +147,10 @@ class Run:
             overwrite value for server URL, default is None
         debug : bool, optional
             run in debug mode, default is False
+        server_profile : str | None, optional
+            specify alternative profile to use for server, this assumes
+            additional profiles have been specified in the configuration.
+            Default is to use the main server.
 
         Examples
         --------
@@ -188,7 +194,10 @@ class Run:
         self._step: int = 0
         self._active: bool = False
         self._user_config: SimvueConfiguration = SimvueConfiguration.fetch(
-            server_url=server_url, server_token=server_token, mode=mode
+            server_url=server_url,
+            server_token=server_token,
+            mode=mode,
+            profile=server_profile,
         )
 
         logging.getLogger(self.__class__.__module__).setLevel(

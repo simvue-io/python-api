@@ -21,18 +21,25 @@ from simvue.config.user import SimvueConfiguration
     "use_args", (True, False),
     ids=("args", "no_args")
 )
+@pytest.mark.parametrize(
+    "profile", (None, "other"),
+    ids=("default_profile", "alt_profile")
+)
 def test_config_setup(
     use_env: bool,
-    use_file: str | None,
+    use_file: typing.Literal["basic", "extended", "pyproject.toml"] | None,
     use_args: bool,
+    profile: typing.Literal[None, "other"],
     monkeypatch: pytest.MonkeyPatch,
     mocker: pytest_mock.MockerFixture
 ) -> None:
     _token: str = f"{uuid.uuid4()}".replace('-', '')
     _other_token: str = f"{uuid.uuid4()}".replace('-', '')
     _arg_token: str = f"{uuid.uuid4()}".replace('-', '')
+    _alt_token: str = f"{uuid.uuid4()}".replace("-", "")
     _url: str = "https://simvue.example.com/"
     _other_url: str = "http://simvue.example.com/"
+    _alt_url: str = "https://simvue-dev.example.com/"
     _arg_url: str = "http://simvue.example.io/"
     _description: str = "test case for runs"
     _description_ppt: str = "test case for runs using pyproject.toml"
@@ -75,6 +82,10 @@ def test_config_setup(
                     url = "{_url}"
                     token = "{_token}"
 
+                    [profiles.other]
+                    url = "{_alt_url}"
+                    token = "{_alt_token}"
+
                     [offline]
                     cache = "{_windows_safe}"
                     """
@@ -104,14 +115,22 @@ def test_config_setup(
                 simvue.config.user.SimvueConfiguration.fetch(mode="online")
             return
         elif use_args:
-            _config = simvue.config.user.SimvueConfiguration.fetch(
+            _config: SimvueConfiguration = simvue.config.user.SimvueConfiguration.fetch(
                 server_url=_arg_url,
                 server_token=_arg_token,
                 mode="online"
             )
+        elif profile == "other":
+            if not use_file:
+                with pytest.raises(RuntimeError):
+                    _ = simvue.config.user.SimvueConfiguration.fetch(mode="online", profile="other")
+                return
+            else:
+                _config = simvue.config.user.SimvueConfiguration.fetch(mode="online", profile="other")
+
         else:
             _config = simvue.config.user.SimvueConfiguration.fetch(mode="online")
-            
+
         if use_file and use_file != "pyproject.toml":
             assert _config.config_file() == _config_file
 
@@ -121,6 +140,10 @@ def test_config_setup(
         elif use_args:
             assert _config.server.url == f"{_arg_url}api"
             assert _config.server.token.get_secret_value() == _arg_token
+        elif use_file and profile == "other":
+            assert _config.server.url == f"{_alt_url}api"
+            assert _config.server.token.get_secret_value() == _alt_token
+            assert f"{_config.offline.cache}" == temp_d
         elif use_file and use_file != "pyproject.toml":
             assert _config.server.url == f"{_url}api"
             assert _config.server.token.get_secret_value() == _token
