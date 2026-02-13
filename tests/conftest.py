@@ -158,7 +158,7 @@ def create_test_run_offline(request, monkeypatch: pytest.MonkeyPatch, prevent_sc
     _ = prevent_script_exit
     with tempfile.TemporaryDirectory() as temp_d:
         monkeypatch.setenv("SIMVUE_OFFLINE_DIRECTORY", temp_d)
-        with sv_run.Run("offline") as run:
+        with sv_run.Run(mode="offline") as run:
             _test_run_data = setup_test_run(run, temp_dir=pathlib.Path(temp_d), create_objects=True, request=request)
             yield run, _test_run_data
     with contextlib.suppress(ObjectNotFoundError):
@@ -195,7 +195,7 @@ def create_plain_run_offline(request,prevent_script_exit,monkeypatch) -> Generat
     _ = prevent_script_exit
     with tempfile.TemporaryDirectory() as temp_d:
         monkeypatch.setenv("SIMVUE_OFFLINE_DIRECTORY", temp_d)
-        with sv_run.Run("offline") as run:
+        with sv_run.Run(mode="offline") as run:
             _temporary_directory = pathlib.Path(temp_d)
             yield run, setup_test_run(run, temp_dir=_temporary_directory, create_objects=False, request=request)
     clear_out_files()
