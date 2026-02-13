@@ -197,7 +197,7 @@ class Client:
         start_index: pydantic.NonNegativeInt = 0,
         show_shared: bool = True,
         sort_by_columns: list[tuple[str, bool]] | None = None,
-    ) -> DataFrame | Generator[tuple[str, Run]] | None:
+    ) -> DataFrame | Generator[tuple[str, Run]] | dict[str, object] | None:
         """Retrieve all runs matching filters.
 
         Parameters
@@ -226,8 +226,9 @@ class Client:
         output_format : Literal['dict', objects', 'dataframe'], optional
             the structure of the response
                 * dict - dictionary of values.
-                * objects - a dictionary of objects (default).
+                * objects - a generator of (ID, object) pairs (default).
                 * dataframe - a dataframe (Pandas must be installed).
+            use of the generator is recommended.
         count_limit : int, optional
             maximum number of entries to return. Default is 100.
         start_index : int, optional
@@ -392,6 +393,7 @@ class Client:
     def delete_folder(
         self,
         folder_path: typing.Annotated[str, pydantic.Field(pattern=FOLDER_REGEX)],
+        *,
         recursive: bool = False,
         remove_runs: bool = False,
         allow_missing: bool = False,
@@ -628,7 +630,8 @@ class Client:
             if there was a failure retrieving artifacts from the server
         """
         _artifacts: Generator[tuple[str, Artifact]] = Artifact.from_run(
-            run_id=run_id, category=category
+            run_id=run_id,
+            category=category,
         )
 
         with ThreadPoolExecutor(
