@@ -33,13 +33,13 @@ import psutil
 from simvue.api.objects.alert.fetch import Alert
 from simvue.api.objects.folder import Folder
 from simvue.api.objects.grids import GridMetrics
-from simvue.exception import ObjectNotFoundError, SimvueRunError
+from simvue.exception import ObjectNotFoundError, SimvueRunError, ObjectDispatchError
 from simvue.utilities import prettify_pydantic
 
 
 from .config.user import SimvueConfiguration
 
-from .factory.dispatch import Dispatcher
+from .dispatch import Dispatcher
 from .executor import Executor, get_current_shell
 from .metrics import SystemResourceMeasurement
 from .models import (
@@ -75,10 +75,12 @@ except ImportError:
 
 
 if typing.TYPE_CHECKING:
-    from .factory.dispatch import DispatcherBaseClass
+    from .dispatch import DispatcherBaseClass
 
 HEARTBEAT_INTERVAL: int = 60
 RESOURCES_METRIC_PREFIX: str = "resources"
+TOTAL_GRID_METRIC_SIZE: int = 1e6
+MAXIMUM_GRID_METRIC_SIZE: int = 5 * 10**4
 
 logger = logging.getLogger(__name__)
 
@@ -181,6 +183,7 @@ class Run:
         self._grids: dict[str, str] = {}
         self._suppress_errors: bool = False
         self._queue_blocking: bool = False
+        self._failed_metric_counter: int = 0
         self._status: (
             typing.Literal[
                 "created", "running", "completed", "failed", "terminated", "lost"
@@ -554,6 +557,7 @@ class Run:
                 mode=self._dispatch_mode,
                 termination_trigger=self._shutdown_event,
                 object_types=["events", "metrics_regular", "metrics_tensor"],
+                thresholds=dict(object_size=TOTAL_GRID_METRIC_SIZE),
                 callback=self._create_dispatch_callback(),
             )
 
@@ -590,12 +594,6 @@ class Run:
         RuntimeError
             exception throw
         """
-        # Stop heartbeat
-        if self._heartbeat_termination_trigger and self._heartbeat_thread:
-            self._heartbeat_termination_trigger.set()
-            if join_threads:
-                self._heartbeat_thread.join()
-
         # Finish stopping all threads
         if self._shutdown_event:
             self._shutdown_event.set()
@@ -605,6 +603,12 @@ class Run:
             self._dispatcher.purge()
             if join_threads:
                 self._dispatcher.join()
+
+        # Stop heartbeat
+        if self._heartbeat_termination_trigger and self._heartbeat_thread:
+            self._heartbeat_termination_trigger.set()
+            if join_threads:
+                self._heartbeat_thread.join()
 
         if not self._suppress_errors:
             raise SimvueRunError(message)
@@ -1298,7 +1302,9 @@ class Run:
             return False
 
         _data = {"message": message, "timestamp": timestamp}
-        self._dispatcher.add_item(_data, "events", self._queue_blocking)
+        self._dispatcher.add_item(
+            _data, object_type="events", blocking=self._queue_blocking
+        )
 
         return True
 
@@ -1342,13 +1348,23 @@ class Run:
             "timestamp": simvue_timestamp(timestamp),
             "step": step if step is not None else self._step,
         }
-        self._dispatcher.add_item(_data, "metrics_regular", self._queue_blocking)
+
+        try:
+            self._dispatcher.add_item(
+                _data,
+                object_type="metrics_regular",
+                blocking=self._queue_blocking,
+                metadata=dict(object_size=len(metrics)),
+            )
+        except ObjectDispatchError as e:
+            logger.warning(f"Failed to log metric {id(_data)}: {e.msg}")
+            self._failed_metric_counter += 1
 
         return True
 
     def _add_tensors_to_dispatch(
         self,
-        tensors: dict[str, int | float],
+        tensors: dict[str, numpy.ndarray],
         *,
         step: int | None = None,
         time: float | None = None,
@@ -1390,7 +1406,16 @@ class Run:
                 "metric": tensor,
             }
 
-            self._dispatcher.add_item(_data, "metrics_tensor", self._queue_blocking)
+            try:
+                self._dispatcher.add_item(
+                    _data,
+                    object_type="metrics_tensor",
+                    blocking=self._queue_blocking,
+                    metadata=dict(object_size=array.size),
+                )
+            except ObjectDispatchError as e:
+                logger.warning(f"Failed to grid metric {id(_data)}: {e.msg}")
+                self._failed_metric_counter += 1
 
         return True
 
@@ -1510,17 +1535,23 @@ class Run:
         # TODO: When metrics and grids are combined into a single entity
         # this can be removed. For now need to separate tensor based metrics
         # from regular
-        _tensor_metrics: list[numpy.ndarray] = {}
-        _regular_metrics: list[numpy.ndarray] = {}
+        _tensor_metrics: dict[str, numpy.ndarray] = {}
+        _regular_metrics: dict[str, int | float] = {}
 
         # Classify metrics into regular and tensor based
         for label, metric in metrics.items():
             if isinstance(metric, numpy.ndarray):
+                if metric.size > MAXIMUM_GRID_METRIC_SIZE:
+                    logger.warning(
+                        f"Cannot log grid metric {label}, "
+                        + f"size {metric.size} exceeds limit of {MAXIMUM_GRID_METRIC_SIZE}"
+                    )
+                    continue
                 if label not in self._grids:
                     logger.warning(
                         f"Metric '{label}' is not assigned to a grid, "
-                        "using default axis range [0, 1] for all axes "
-                        "and assuming constant interval."
+                        + "using default axis range [0, 1] for all axes "
+                        + "and assuming constant interval."
                     )
                     _axes_ticks = [numpy.linspace(0, 1, n) for n in metric.shape]
                     self.assign_metric_to_grid(
@@ -1532,7 +1563,7 @@ class Run:
                 if metric.ndim != (_ndims := self._grids[label]["dimensionality"]):
                     self._error(
                         f"Cannot log tensor '{label}', "
-                        f"dimensionality incompatibility: {metric.ndim} != {_ndims}"
+                        + f"dimensionality incompatibility: {metric.ndim} != {_ndims}"
                     )
                 _tensor_metrics[label] = metric
             else:
@@ -1839,10 +1870,6 @@ class Run:
     def _tidy_run(self) -> None:
         self._executor.wait_for_completion()
 
-        if self._heartbeat_thread and self._heartbeat_termination_trigger:
-            self._heartbeat_termination_trigger.set()
-            self._heartbeat_thread.join()
-
         if self._shutdown_event:
             self._shutdown_event.set()
 
@@ -1854,6 +1881,10 @@ class Run:
         elif self._dispatcher:
             self._dispatcher.purge()
             self._dispatcher.join()
+
+        if self._heartbeat_thread and self._heartbeat_termination_trigger:
+            self._heartbeat_termination_trigger.set()
+            self._heartbeat_thread.join()
 
         if (
             self._sv_obj
@@ -1873,11 +1904,18 @@ class Run:
                 _error_msg = f":\n{_error_msg}"
             click.secho(
                 "[simvue] Process executor terminated with non-zero exit status "
-                f"{_non_zero}{_error_msg}",
+                + f"{_non_zero}{_error_msg}",
                 fg="red" if self._term_color else None,
                 bold=self._term_color,
             )
             sys.exit(_non_zero)
+        if self._failed_metric_counter:
+            click.secho(
+                "[simvue] Run completed with {self._failed_metric_counter} failed metrics.",
+                fg="yellow" if self._term_color else None,
+                bold=self._term_color,
+            )
+            sys.exit(1)
 
     @skip_if_failed("_aborted", "_suppress_errors", False)
     def close(self) -> bool:

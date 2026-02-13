@@ -49,7 +49,10 @@ SIMVUE_SERVER_LOWER_CONSTRAINT: semver.Version | None = semver.Version.parse("1.
 class SimvueConfiguration(pydantic.BaseModel):
     # Hide values as they contain token and URL
     model_config = pydantic.ConfigDict(
-        hide_input_in_errors=True, revalidate_instances="always"
+        hide_input_in_errors=True,
+        revalidate_instances="always",
+        extra="forbid",
+        strict=True,
     )
     client: ClientGeneralOptions = ClientGeneralOptions()
     server: ServerSpecifications = pydantic.Field(

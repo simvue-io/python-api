@@ -15,6 +15,7 @@ import pydantic_extra_types.color as pyd_color
 
 from simvue.api.objects.base import SimvueObject, Sort, staging_check, write_only
 from simvue.models import DATETIME_FORMAT
+from collections.abc import Generator
 
 try:
     from typing import Self
@@ -116,7 +117,7 @@ class Tag(SimvueObject):
         offset: int | None = None,
         sorting: list[TagSort] | None = None,
         **kwargs,
-    ) -> typing.Generator[tuple[str, "SimvueObject"], None, None]:
+    ) -> Generator[tuple[str, "SimvueObject"]]:
         """Get tags from the server.
 
         Parameters
