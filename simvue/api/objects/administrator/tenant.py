@@ -19,7 +19,32 @@ from simvue.models import DATETIME_FORMAT
 
 
 class Tenant(SimvueObject):
-    """Class for interacting with a tenant instance on the server."""
+    """
+    Simvue Tenant
+    =============
+
+    This class is used to connect to/create tenant objects on the Simvue server,
+    any modification of instance attributes is mirrored on the remote object.
+
+    """
+
+    def __init__(self, identifier: str | None = None, **kwargs) -> None:
+        """Initialise a Tenant
+
+        If an identifier is provided a connection will be made to the
+        object matching the identifier on the target server.
+        Else a new Tenant will be created using arguments provided in kwargs.
+
+        **Assumes the current user is an Administrator of the system.**
+
+        Parameters
+        ----------
+        identifier : str, optional
+            the remote server unique id for the target folder
+        **kwargs : dict
+            any additional arguments to be passed to the object initialiser
+        """
+        super().__init__(identifier, **kwargs)
 
     @classmethod
     @pydantic.validate_call

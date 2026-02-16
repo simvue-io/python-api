@@ -33,7 +33,23 @@ class AlertSort(Sort):
 
 
 class Alert:
-    """Generic Simvue alert retrieval class"""
+    """
+    Simvue Alert
+    ============
+
+    Generic Simvue alert retrieval class.
+
+    """
+
+    def __init__(self, identifier: str | None = None, *args, **kwargs) -> None:
+        """Initialise an instance of generic alert retriever.
+
+        Parameters
+        ----------
+        identifier : str
+            identifier of alert object to retrieve
+        """
+        super().__init__(identifier=identifier, *args, **kwargs)
 
     @pydantic.validate_call()
     def __new__(cls, identifier: str, **kwargs) -> AlertType:

@@ -76,7 +76,14 @@ class RunBatchArgs(ObjectBatchArgs):
 
 
 class Run(SimvueObject):
-    """Class for directly interacting with/creating runs on the server."""
+    """
+    Simvue Run
+    ==========
+
+    This class is used to connect to/create run objects on the Simvue server,
+    any modification of instance attributes is mirrored on the remote object.
+
+    """
 
     def __init__(self, identifier: str | None = None, **kwargs) -> None:
         """Initialise a Run.

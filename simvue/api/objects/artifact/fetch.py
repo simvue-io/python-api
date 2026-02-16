@@ -28,7 +28,13 @@ class ArtifactSort(Sort):
 
 
 class Artifact:
-    """Generic Simvue artifact retrieval class"""
+    """
+    Simvue Artifact
+    ===============
+
+    Generic Simvue artifact retrieval class.
+
+    """
 
     def __init__(self, identifier: str | None = None, *args, **kwargs) -> None:
         """Initialise an instance of generic artifact retriever.

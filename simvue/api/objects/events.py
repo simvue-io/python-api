@@ -29,12 +29,22 @@ __all__ = ["Events"]
 
 
 class Events(SimvueObject):
+    """
+    Simvue Events
+    =============
+
+    This class is used to connect to/create events objects on the Simvue server,
+    any modification of instance attributes is mirrored on the remote object.
+
+    """
+
     def __init__(
         self,
         _read_only: bool = True,
         _local: bool = False,
         **kwargs,
     ) -> None:
+        """Initialise an Events object instance for creation/retrieval."""
         self._label = "event"
         super().__init__(_read_only=_read_only, _local=_local, **kwargs)
         self._run_id = self._staging.get("run")

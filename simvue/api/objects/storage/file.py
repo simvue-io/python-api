@@ -19,7 +19,34 @@ from simvue.models import NAME_REGEX
 
 
 class FileStorage(StorageBase):
-    """Class for defining/accessing a File based storage system on the server."""
+    """
+    Simvue File Storage
+    ===================
+
+    This class is used to connect to/create file storage objects on the Simvue server,
+    any modification of instance attributes is mirrored on the remote object.
+
+    """
+
+    def __init__(
+        self,
+        identifier: str | None = None,
+        _read_only: bool = False,
+        **kwargs,
+    ) -> None:
+        """Initialise a File Storage
+
+        If an identifier is provided a connection will be made to the
+        object matching the identifier on the target server.
+        Else a new FileStorage instance will be created using arguments provided in kwargs.
+
+        Parameters
+        ----------
+        identifier : str, optional
+            the remote server unique id for the target folder
+        **kwargs : dict
+            any additional arguments to be passed to the object initialiser
+        """
 
     @classmethod
     @pydantic.validate_call

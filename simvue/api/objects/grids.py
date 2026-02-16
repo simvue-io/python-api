@@ -51,7 +51,30 @@ def check_ordered_array(
 
 
 class Grid(SimvueObject):
-    """Class for retrieving grids stored on the server."""
+    """
+    Simvue Grid
+    ===========
+
+    This class is used to connect to/create grid objects on the Simvue server,
+    any modification of instance attributes is mirrored on the remote object.
+
+    """
+
+    def __init__(self, identifier: str | None = None, **kwargs) -> None:
+        """Initialise a Grid
+
+        If an identifier is provided a connection will be made to the
+        object matching the identifier on the target server.
+        Else a new Grid will be created using arguments provided in kwargs.
+
+        Parameters
+        ----------
+        identifier : str, optional
+            the remote server unique id for the target folder
+        **kwargs : dict
+            any additional arguments to be passed to the object initialiser
+        """
+        super().__init__(identifier, **kwargs)
 
     @pydantic.validate_call
     @write_only
@@ -256,6 +279,15 @@ class Grid(SimvueObject):
 
 
 class GridMetrics(SimvueObject):
+    """
+    Simvue Grid Metrics
+    ===================
+
+    This class is used to connect to/create grid metrics on the Simvue server,
+    any modification of instance attributes is mirrored on the remote object.
+
+    """
+
     def __init__(
         self,
         _read_only: bool = True,

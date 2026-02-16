@@ -19,7 +19,13 @@ from .base import StorageBase
 
 
 class Storage:
-    """Generic Simvue storage retrieval class"""
+    """
+    Simvue Storage
+    ==============
+
+    Generic Simvue storage retrieval class.
+
+    """
 
     def __init__(self, identifier: str | None = None, *args, **kwargs) -> None:
         """Initialise an instance of generic storage retriever.

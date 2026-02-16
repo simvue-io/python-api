@@ -28,7 +28,13 @@ __all__ = ["Metrics"]
 
 
 class Metrics(SimvueObject):
-    """Class for retrieving metrics stored on the server."""
+    """
+    Simvue Metrics
+    ==============
+
+    Class for retrieving metrics stored on the server.
+
+    """
 
     def __init__(
         self,
@@ -36,7 +42,7 @@ class Metrics(SimvueObject):
         _local: bool = False,
         **kwargs,
     ) -> None:
-        """Initialise a Metrics object instance."""
+        """Initialise a Metrics object instance for creation/retrieval."""
         self._label = "metric"
         super().__init__(_read_only=_read_only, _local=_local, **kwargs)
         self._run_id = self._staging.get("run")
