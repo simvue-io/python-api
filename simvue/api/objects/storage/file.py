@@ -47,6 +47,7 @@ class FileStorage(StorageBase):
         **kwargs : dict
             any additional arguments to be passed to the object initialiser
         """
+        super().__init__(identifier, **kwargs)
 
     @classmethod
     @pydantic.validate_call
