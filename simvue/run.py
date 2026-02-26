@@ -379,7 +379,9 @@ class Run:
         # Set join on fail to false as if an error is thrown
         # join would be called on this thread and a thread cannot
         # join itself!
-        if self.status == "running":
+        if self.status == "running" and (
+            self._shutdown_event and not self._shutdown_event.is_set()
+        ):
             self._add_metrics_to_dispatch(
                 _current_system_measure.to_dict(),
                 join_on_fail=False,
