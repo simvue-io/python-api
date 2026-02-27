@@ -16,7 +16,7 @@ import http
 import requests
 from tenacity import (
     retry,
-    retry_if_exception,
+    retry_if_exception_type,
     stop_after_attempt,
     wait_exponential,
 )
@@ -29,14 +29,7 @@ RETRY_MIN = 4
 RETRY_MAX = 10
 RETRY_STOP = 5
 MAX_ENTRIES_PER_PAGE: int = 100
-RETRY_STATUS_CODES = (
-    http.HTTPStatus.BAD_REQUEST,
-    http.HTTPStatus.SERVICE_UNAVAILABLE,
-    http.HTTPStatus.GATEWAY_TIMEOUT,
-    http.HTTPStatus.REQUEST_TIMEOUT,
-    http.HTTPStatus.TOO_EARLY,
-)
-RETRY_EXCEPTION_TYPES = (RuntimeError, requests.exceptions.ConnectionError)
+RETRY_STATUSES = {502, 503, 504}
 
 
 def set_json_header(headers: dict[str, str]) -> dict[str, str]:
@@ -49,18 +42,20 @@ def set_json_header(headers: dict[str, str]) -> dict[str, str]:
     return headers
 
 
-def is_retryable_exception(exception: Exception) -> bool:
-    """Returns if the given exception should lead to a retry being called"""
-    if isinstance(exception, requests.HTTPError):
-        return exception.response.status_code in RETRY_STATUS_CODES
-
-    return isinstance(exception, RETRY_EXCEPTION_TYPES)
+class RetryableHTTPError(Exception):
+    pass
 
 
 @retry(
     wait=wait_exponential(multiplier=RETRY_MULTIPLIER, min=RETRY_MIN, max=RETRY_MAX),
     stop=stop_after_attempt(RETRY_STOP),
-    retry=retry_if_exception(is_retryable_exception),
+    retry=retry_if_exception_type(
+        (
+            RetryableHTTPError,
+            requests.exceptions.Timeout,
+            requests.exceptions.ConnectionError,
+        )
+    ),
     reraise=True,
 )
 def post(
@@ -114,12 +109,23 @@ def post(
             f"Validation error for '{url}' [{response.status_code}]:\n{_parsed_response}"
         )
 
+    if response.status_code in RETRY_STATUSES:
+        raise RetryableHTTPError(
+            f"Received status code {response.status_code} from server"
+        )
+
     return response
 
 
 @retry(
     wait=wait_exponential(multiplier=RETRY_MULTIPLIER, min=RETRY_MIN, max=RETRY_MAX),
-    retry=retry_if_exception(is_retryable_exception),
+    retry=retry_if_exception_type(
+        (
+            RetryableHTTPError,
+            requests.exceptions.Timeout,
+            requests.exceptions.ConnectionError,
+        )
+    ),
     stop=stop_after_attempt(RETRY_STOP),
     reraise=True,
 )
@@ -161,14 +167,27 @@ def put(
 
     logging.debug(f"PUT: {url}\n\tdata={data_sent}\n\tjson={json}")
 
-    return requests.put(
+    response = requests.put(
         url, headers=headers, data=data_sent, timeout=timeout, json=json
     )
+
+    if response.status_code in RETRY_STATUSES:
+        raise RetryableHTTPError(
+            f"Received status code {response.status_code} from server"
+        )
+
+    return response
 
 
 @retry(
     wait=wait_exponential(multiplier=RETRY_MULTIPLIER, min=RETRY_MIN, max=RETRY_MAX),
-    retry=retry_if_exception(is_retryable_exception),
+    retry=retry_if_exception_type(
+        (
+            RetryableHTTPError,
+            requests.exceptions.Timeout,
+            requests.exceptions.ConnectionError,
+        )
+    ),
     stop=stop_after_attempt(RETRY_STOP),
     reraise=True,
 )
@@ -198,12 +217,27 @@ def get(
         response from executing GET
     """
     logging.debug(f"GET: {url}\n\tparams={params}")
-    return requests.get(url, headers=headers, timeout=timeout, params=params, json=json)
+    response = requests.get(
+        url, headers=headers, timeout=timeout, params=params, json=json
+    )
+
+    if response.status_code in RETRY_STATUSES:
+        raise RetryableHTTPError(
+            f"Received status code {response.status_code} from server"
+        )
+
+    return response
 
 
 @retry(
     wait=wait_exponential(multiplier=RETRY_MULTIPLIER, min=RETRY_MIN, max=RETRY_MAX),
-    retry=retry_if_exception(is_retryable_exception),
+    retry=retry_if_exception_type(
+        (
+            RetryableHTTPError,
+            requests.exceptions.Timeout,
+            requests.exceptions.ConnectionError,
+        )
+    ),
     stop=stop_after_attempt(RETRY_STOP),
     reraise=True,
 )
@@ -232,7 +266,14 @@ def delete(
         response from executing DELETE
     """
     logging.debug(f"DELETE: {url}\n\tparams={params}")
-    return requests.delete(url, headers=headers, timeout=timeout, params=params)
+    response = requests.delete(url, headers=headers, timeout=timeout, params=params)
+
+    if response.status_code in RETRY_STATUSES:
+        raise RetryableHTTPError(
+            f"Received status code {response.status_code} from server"
+        )
+
+    return response
 
 
 def get_json_from_response(
