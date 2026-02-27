@@ -1,7 +1,8 @@
 # Change Log
 
-## Unreleased
+## [v2.3.6](https://github.com/simvue-io/python-api/releases/tag/v2.3.6) - 2026-02-27
 
+- Fixed retry capability allowing metrics to be re-sent if specific server errors are returned.
 - Added ability to specify above one server in the `simvue.toml` file using `profiles`.
 - Enforced keyword arguments for readability and certainty in intent within initialiser for `simvue.Run`.
 
