@@ -297,6 +297,16 @@ def test_log_metrics_online(
 
 
 @pytest.mark.run
+@pytest.mark.online
+def test_log_grid_metric_auto_grid() -> None:
+    with sv_run.Run() as run_final:
+        run_final.init("test")
+        run_final.log_metrics({"test": numpy.ones((20, 30))}) # see issue #921
+        time.sleep(1)
+
+
+
+@pytest.mark.run
 @pytest.mark.offline
 @pytest.mark.parametrize("metric_type", ("regular", "tensor"))
 def test_log_metrics_offline(
@@ -318,7 +328,7 @@ def test_log_metrics_offline(
         )
     else:
         METRICS = {"a": 10, "aB0-_/.:=><+()": 1.2, "c": 2}
-        
+
     run.log_metrics(METRICS)
     
     time.sleep(1)

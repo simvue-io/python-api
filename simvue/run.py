@@ -1688,7 +1688,9 @@ class Run:
                         + "using default axis range [0, 1] for all axes "
                         + "and assuming constant interval."
                     )
-                    _axes_ticks = [numpy.linspace(0, 1, n) for n in metric.shape]
+                    _axes_ticks = [
+                        numpy.linspace(0, 1, n) for n in reversed(metric.shape)
+                    ]
                     self.assign_metric_to_grid(
                         metric_name=label,
                         grid_name=label,
