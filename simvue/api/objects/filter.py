@@ -1,22 +1,30 @@
+"""Simvue Object Filters.
+
+Provides an interface for the creation and use of filters when retrieving
+objects from the Simvue server.
+"""
+
 import abc
 from collections.abc import Generator
 import enum
 import json
-import sys
+import typing
 
 import pydantic
 
-if sys.version_info < (3, 11):
-    from typing_extensions import Self, TYPE_CHECKING
-else:
-    from typing import Self, TYPE_CHECKING
+try:
+    from typing import Self
+except ImportError:
+    from typing_extensions import Self
 
 
-if TYPE_CHECKING:
+if typing.TYPE_CHECKING:
     from .base import SimvueObject
 
 
 class Status(str, enum.Enum):
+    """Status of run."""
+
     Created = "created"
     Running = "running"
     Completed = "completed"
@@ -26,6 +34,8 @@ class Status(str, enum.Enum):
 
 
 class Time(str, enum.Enum):
+    """Run stage."""
+
     Created = "created"
     Started = "started"
     Modified = "modified"
@@ -33,6 +43,8 @@ class Time(str, enum.Enum):
 
 
 class System(str, enum.Enum):
+    """System metadata filtering."""
+
     Working_Directory = "cwd"
     Hostname = "hostname"
     Python_Version = "pythonversion"
@@ -135,6 +147,7 @@ class RestAPIFilter(abc.ABC):
         )
 
     def count(self, **kwargs) -> int:
+        """Return object count."""
         if not self._sv_object:
             raise RuntimeError("No object type associated with filter.")
         _ = kwargs.pop("count", None)
@@ -143,11 +156,15 @@ class RestAPIFilter(abc.ABC):
 
 
 class FoldersFilter(RestAPIFilter):
+    """Filter for Folders."""
+
     def has_path(self, name: str) -> "FoldersFilter":
+        """Check if a folder has the given path."""
         self._filters.append(f"path == {name}")
         return self
 
     def has_path_containing(self, name: str) -> "FoldersFilter":
+        """Check if the folder path contains a search term."""
         self._filters.append(f"path contains {name}")
         return self
 
@@ -156,6 +173,8 @@ class FoldersFilter(RestAPIFilter):
 
 
 class RunsFilter(RestAPIFilter):
+    """Filter for Runs."""
+
     def _generate_members(self) -> None:
         _global_comparators = [self._value_contains, self._value_eq, self._value_neq]
 
@@ -189,32 +208,40 @@ class RunsFilter(RestAPIFilter):
             setattr(self, _func_name, _out_func)
 
     def owner(self, username: str = "self") -> "RunsFilter":
+        """Filter by run owner."""
         self._filters.append(f"user == {username}")
         return self
 
     def exclude_owner(self, username: str = "self") -> "RunsFilter":
+        """Veto by run owner."""
         self._filters.append(f"user != {username}")
         return self
 
     def has_status(self, status: Status) -> "RunsFilter":
+        """Filter by run status."""
         self._filters.append(f"status == {status.value}")
         return self
 
     def is_running(self) -> "RunsFilter":
+        """Filter by if run is running."""
         return self.has_status(Status.Running)
 
     def is_lost(self) -> "RunsFilter":
+        """Filter by if run is lost."""
         return self.has_status(Status.Lost)
 
     def has_completed(self) -> "RunsFilter":
+        """Filter by if run has completed."""
         return self.has_status(Status.Completed)
 
     def has_failed(self) -> "RunsFilter":
+        """Filter by if run has failed."""
         return self.has_status(Status.Failed)
 
     def has_alert(
         self, alert_name: str, is_critical: bool | None = None
     ) -> "RunsFilter":
+        """Filter by if run has a given alert."""
         self._filters.append(f"alert.name == {alert_name}")
         if is_critical is True:
             self._filters.append("alert.status == critical")
@@ -225,27 +252,33 @@ class RunsFilter(RestAPIFilter):
     def started_within(
         self, *, hours: int = 0, days: int = 0, years: int = 0
     ) -> "RunsFilter":
+        """Filter by run start time interval."""
         return self._time_within(Time.Started, hours=hours, days=days, years=years)
 
     def modified_within(
         self, *, hours: int = 0, days: int = 0, years: int = 0
     ) -> "RunsFilter":
+        """Filter by run modified time interval."""
         return self._time_within(Time.Modified, hours=hours, days=days, years=years)
 
     def ended_within(
         self, *, hours: int = 0, days: int = 0, years: int = 0
     ) -> "RunsFilter":
+        """Filter by run end time interval."""
         return self._time_within(Time.Ended, hours=hours, days=days, years=years)
 
     def in_folder(self, folder_name: str) -> "RunsFilter":
+        """Filter by whether run is within the given folder."""
         self._filters.append(f"folder.path == {folder_name}")
         return self
 
     def has_metadata_attribute(self, attribute: str) -> "RunsFilter":
+        """Filter by whether run has the given metadata attribute."""
         self._filters.append(f"metadata.{attribute} exists")
         return self
 
     def exclude_metadata_attribute(self, attribute: str) -> "RunsFilter":
+        """Veto by whether run has the given metadata attribute."""
         self._filters.append(f"metadata.{attribute} not exists")
         return self
 
