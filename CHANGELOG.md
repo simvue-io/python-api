@@ -3,6 +3,7 @@
 ## Unreleased
 
 - Added search for Simvue configuration within the parent file hierarchy of the current directory.
+- Added advanced filtering LLAPI functionality allowing users to construct filters programmatically.
 
 ## [v2.3.6](https://github.com/simvue-io/python-api/releases/tag/v2.3.6) - 2026-02-27
 
