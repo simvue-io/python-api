@@ -18,6 +18,7 @@ except ImportError:
     from typing_extensions import Self  # noqa: F401
 
 from simvue.api.url import URL
+from collections.abc import Generator
 from simvue.exception import ObjectNotFoundError
 from simvue.models import DATETIME_FORMAT
 from simvue.api.objects.base import SimvueObject, staging_check, write_only
@@ -282,7 +283,7 @@ class ArtifactBase(SimvueObject):
         return self._get_attribute("url")
 
     @property
-    def runs(self) -> typing.Generator[str, None, None]:
+    def runs(self) -> Generator[str]:
         """Retrieve all runs for which this artifact is related.
 
         Yields
@@ -322,7 +323,7 @@ class ArtifactBase(SimvueObject):
         return _json_response["category"]
 
     @pydantic.validate_call
-    def download_content(self) -> typing.Generator[bytes, None, None]:
+    def download_content(self) -> Generator[bytes]:
         """Stream artifact content.
 
         Yields

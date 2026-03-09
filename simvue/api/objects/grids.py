@@ -16,6 +16,7 @@ import pydantic
 
 from simvue.api.url import URL
 from simvue.models import GridMetricSet
+from collections.abc import Generator
 
 
 from .base import SimvueObject, write_only
@@ -50,7 +51,30 @@ def check_ordered_array(
 
 
 class Grid(SimvueObject):
-    """Class for retrieving grids stored on the server."""
+    """
+    Simvue Grid
+    ===========
+
+    This class is used to connect to/create grid objects on the Simvue server,
+    any modification of instance attributes is mirrored on the remote object.
+
+    """
+
+    def __init__(self, identifier: str | None = None, **kwargs) -> None:
+        """Initialise a Grid
+
+        If an identifier is provided a connection will be made to the
+        object matching the identifier on the target server.
+        Else a new Grid will be created using arguments provided in kwargs.
+
+        Parameters
+        ----------
+        identifier : str, optional
+            the remote server unique id for the target folder
+        **kwargs : dict
+            any additional arguments to be passed to the object initialiser
+        """
+        super().__init__(identifier, **kwargs)
 
     @pydantic.validate_call
     @write_only
@@ -194,7 +218,7 @@ class Grid(SimvueObject):
             dictionary containing values from this for the run at specified step.
         """
         _response = sv_get(
-            url=f"{self.run_metric_values_url(run_id, metric_name) / 'values'}",
+            url=f"{self.run_metric_url(run_id, metric_name) / 'values'}",
             headers=self._headers,
             params={"step": step},
         )
@@ -205,7 +229,7 @@ class Grid(SimvueObject):
             expected_type=dict,
             scenario=(
                 f"Retrieving '{metric_name}' grid values "
-                f"for run '{self._run_id}' at step {step}",
+                f"for run '{run_id}' at step {step}",
             ),
         )
 
@@ -221,32 +245,49 @@ class Grid(SimvueObject):
             metric to retrieve span information for.
 
         Returns
-        ------
+        -------
         dict[str, list[dict[str, float]]
             dictionary containing span from this for the run at specified step.
         """
         _response = sv_get(
-            url=f"{self.run_metric_values_url(run_id, metric_name) / 'span'}",
+            url=f"{self.run_metric_url(run_id, metric_name) / 'span'}",
             headers=self._headers,
         )
 
-        return get_json_from_response(
-            response=_response,
-            expected_status=[http.HTTPStatus.OK],
-            expected_type=dict,
-            scenario=f"Retrieving grid span for run '{run_id}'",
+        _response = typing.cast(
+            "list[dict[str, int | float | str]]",
+            get_json_from_response(
+                response=_response,
+                expected_status=[http.HTTPStatus.OK],
+                expected_type=list,
+                scenario=f"Retrieving grid span for run '{run_id}'",
+            ),
         )
+
+        if not _response:
+            raise RuntimeError("Failed to retrieve span, no data.")
+
+        return _response[0]
 
     @classmethod
     def get(
         cls,
         *_,
         **__,
-    ) -> typing.Generator[tuple[str, Self | None], None, None]:
+    ) -> Generator[tuple[str, Self | None]]:
         raise NotImplementedError
 
 
 class GridMetrics(SimvueObject):
+    """
+    Simvue Grid Metrics
+    ===================
+
+    This class is used to connect to/create grid metrics on the Simvue server,
+    any modification of instance attributes is mirrored on the remote object.
+
+    """
+
     def __init__(
         self,
         _read_only: bool = True,
@@ -309,7 +350,7 @@ class GridMetrics(SimvueObject):
         step: pydantic.NonNegativeInt,
         spans: bool = False,
         **kwargs,
-    ) -> typing.Generator[dict[str, dict[str, list[dict[str, float]]]], None, None]:
+    ) -> Generator[dict[str, dict[str, list[dict[str, float]]]]]:
         """Retrieve tensor-metrics from the server for a given set of runs.
 
         Parameters

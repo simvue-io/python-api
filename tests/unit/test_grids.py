@@ -132,6 +132,8 @@ def test_grid_metrics_creation_online() -> None:
     time.sleep(1)
     # Online metrics
     assert list(GridMetrics.get(runs=[_run.id], metrics=["A"], step=_step))
+    assert _grid.get_run_metric_values(run_id=_run.id, metric_name="A", step=_step)
+    assert _grid.get_run_metric_span(run_id=_run.id, metric_name="A").get("max_timestamp")
     _run.delete()
     _folder.delete(recursive=True, delete_runs=True, runs_only=False)
 

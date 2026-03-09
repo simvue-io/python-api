@@ -6,12 +6,12 @@ To simplify case whereby user does not know the storage type associated
 with an identifier, use a generic storage object.
 """
 
-import typing
 import http
 import pydantic
 
 from simvue.api.request import get_json_from_response
 from simvue.api.request import get as sv_get
+from collections.abc import Generator
 
 from .s3 import S3Storage
 from .file import FileStorage
@@ -19,7 +19,13 @@ from .base import StorageBase
 
 
 class Storage:
-    """Generic Simvue storage retrieval class"""
+    """
+    Simvue Storage
+    ==============
+
+    Generic Simvue storage retrieval class.
+
+    """
 
     def __init__(self, identifier: str | None = None, *args, **kwargs) -> None:
         """Initialise an instance of generic storage retriever.
@@ -45,7 +51,7 @@ class Storage:
     @pydantic.validate_call
     def get(
         cls, count: int | None = None, offset: int | None = None, **kwargs
-    ) -> typing.Generator[tuple[str, FileStorage | S3Storage], None, None]:
+    ) -> Generator[tuple[str, FileStorage | S3Storage]]:
         """Returns storage systems accessible to the current user.
 
         Parameters

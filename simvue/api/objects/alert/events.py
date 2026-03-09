@@ -19,10 +19,29 @@ from simvue.models import NAME_REGEX
 
 
 class EventsAlert(AlertBase):
-    """Connect to an event-based alert either locally or on a server"""
+    """
+    Simvue Events Alert
+    ===================
+
+    This class is used to connect to/create event-based alert objects on the Simvue server,
+    any modification of EventsAlert instance attributes is mirrored on the remote object.
+
+    """
 
     def __init__(self, identifier: str | None = None, **kwargs) -> None:
-        """Initialise a connection to an event alert by identifier"""
+        """Initialise an Events Alert
+
+        If an identifier is provided a connection will be made to the
+        object matching the identifier on the target server.
+        Else a new EventsAlert instance will be created using arguments provided in kwargs.
+
+        Parameters
+        ----------
+        identifier : str, optional
+            the remote server unique id for the target folder
+        **kwargs : dict
+            any additional arguments to be passed to the object initialiser
+        """
         self.alert = EventAlertDefinition(self)
         super().__init__(identifier, **kwargs)
 

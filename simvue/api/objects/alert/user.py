@@ -21,9 +21,29 @@ from simvue.models import NAME_REGEX
 
 
 class UserAlert(AlertBase):
-    """Connect to/create a user defined alert either locally or on server"""
+    """
+    Simvue User Alert
+    =================
+
+    This class is used to connect to/create user alert objects on the Simvue server,
+    any modification of UserAlert instance attributes is mirrored on the remote object.
+
+    """
 
     def __init__(self, identifier: str | None = None, **kwargs) -> None:
+        """Initialise a User Alert
+
+        If an identifier is provided a connection will be made to the
+        object matching the identifier on the target server.
+        Else a new UserAlert instance will be created using arguments provided in kwargs.
+
+        Parameters
+        ----------
+        identifier : str, optional
+            the remote server unique id for the target folder
+        **kwargs : dict
+            any additional arguments to be passed to the object initialiser
+        """
         super().__init__(identifier, **kwargs)
         self._local_status: dict[str, str | None] = kwargs.pop("status", {})
 

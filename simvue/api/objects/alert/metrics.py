@@ -24,10 +24,29 @@ Rule = typing.Literal["is above", "is below", "is inside range", "is outside ran
 
 
 class MetricsThresholdAlert(AlertBase):
-    """Class for connecting to/creating a local or remotely defined metric threshold alert"""
+    """
+    Simvue Metrics Threshold Alert
+    ==============================
+
+    This class is used to connect to/create metrics threshold alert objects on the Simvue server,
+    any modification of MetricsThresholdAlert instance attributes is mirrored on the remote object.
+
+    """
 
     def __init__(self, identifier: str | None = None, **kwargs) -> None:
-        """Connect to a local or remote threshold alert by identifier"""
+        """Initialise a Metrics Threshold Alert
+
+        If an identifier is provided a connection will be made to the
+        object matching the identifier on the target server.
+        Else a new MetricsThresholdAlert instance will be created using arguments provided in kwargs.
+
+        Parameters
+        ----------
+        identifier : str, optional
+            the remote server unique id for the target folder
+        **kwargs : dict
+            any additional arguments to be passed to the object initialiser
+        """
         self.alert = MetricThresholdAlertDefinition(self)
         super().__init__(identifier, **kwargs)
         self._local_only_args += [
@@ -117,10 +136,29 @@ class MetricsThresholdAlert(AlertBase):
 
 
 class MetricsRangeAlert(AlertBase):
-    """Class for connecting to/creating a local or remotely defined metric range alert"""
+    """
+    Simvue Metrics Range Alert
+    ==========================
+
+    This class is used to connect to/create metrics range alert objects on the Simvue server,
+    any modification of MetricsRangeAlert instance attributes is mirrored on the remote object.
+
+    """
 
     def __init__(self, identifier: str | None = None, **kwargs) -> None:
-        """Connect to a local or remote threshold alert by identifier"""
+        """Initialise a Metrics Range Alert
+
+        If an identifier is provided a connection will be made to the
+        object matching the identifier on the target server.
+        Else a new MetricsRangeAlert instance will be created using arguments provided in kwargs.
+
+        Parameters
+        ----------
+        identifier : str, optional
+            the remote server unique id for the target folder
+        **kwargs : dict
+            any additional arguments to be passed to the object initialiser
+        """
         self.alert = MetricRangeAlertDefinition(self)
         super().__init__(identifier, **kwargs)
         self._local_only_args += [
