@@ -15,6 +15,7 @@ import pydantic_extra_types.color as pyd_color
 
 from simvue.api.objects.base import SimvueObject, Sort, staging_check, write_only
 from simvue.models import DATETIME_FORMAT
+from collections.abc import Generator
 
 try:
     from typing import Self
@@ -34,7 +35,30 @@ class TagSort(Sort):
 
 
 class Tag(SimvueObject):
-    """Class for creation/interaction with tag object on server"""
+    """
+    Simvue Tag
+    ==========
+
+    This class is used to connect to/create tag objects on the Simvue server,
+    any modification of instance attributes is mirrored on the remote object.
+
+    """
+
+    def __init__(self, identifier: str | None = None, **kwargs) -> None:
+        """Initialise a Tag
+
+        If an identifier is provided a connection will be made to the
+        object matching the identifier on the target server.
+        Else a new Tag will be created using arguments provided in kwargs.
+
+        Parameters
+        ----------
+        identifier : str, optional
+            the remote server unique id for the target folder
+        **kwargs : dict
+            any additional arguments to be passed to the object initialiser
+        """
+        super().__init__(identifier, **kwargs)
 
     @classmethod
     @pydantic.validate_call
@@ -116,7 +140,7 @@ class Tag(SimvueObject):
         offset: int | None = None,
         sorting: list[TagSort] | None = None,
         **kwargs,
-    ) -> typing.Generator[tuple[str, "SimvueObject"], None, None]:
+    ) -> Generator[tuple[str, "SimvueObject"]]:
         """Get tags from the server.
 
         Parameters

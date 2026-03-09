@@ -20,7 +20,32 @@ from simvue.api.objects.base import SimvueObject, staging_check, write_only
 
 
 class User(SimvueObject):
-    """Class for interacting with a user instance on the server."""
+    """
+    Simvue User
+    ===========
+
+    This class is used to connect to/create user objects on the Simvue server,
+    any modification of instance attributes is mirrored on the remote object.
+
+    """
+
+    def __init__(self, identifier: str | None = None, **kwargs) -> None:
+        """Initialise a User
+
+        If an identifier is provided a connection will be made to the
+        object matching the identifier on the target server.
+        Else a new User will be created using arguments provided in kwargs.
+
+        **Assumes the current user is an Administrator of the system.**
+
+        Parameters
+        ----------
+        identifier : str, optional
+            the remote server unique id for the target folder
+        **kwargs : dict
+            any additional arguments to be passed to the object initialiser
+        """
+        super().__init__(identifier, **kwargs)
 
     @classmethod
     @pydantic.validate_call

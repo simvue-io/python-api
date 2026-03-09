@@ -27,7 +27,7 @@ class StorageBase(SimvueObject):
         _read_only: bool = False,
         **kwargs,
     ) -> None:
-        """Retrieve an alert from the Simvue server by identifier"""
+        """Retrieve a storage instance from the Simvue server by identifier"""
         self._label = "storage"
         self._endpoint = self._label
         super().__init__(identifier, _read_only=_read_only, **kwargs)

@@ -18,6 +18,7 @@ from simvue.api.url import URL
 from .base import SimvueObject
 from simvue.models import EventSet, simvue_timestamp
 from simvue.api.request import get as sv_get, get_json_from_response
+from collections.abc import Generator
 
 try:
     from typing import Self
@@ -28,12 +29,22 @@ __all__ = ["Events"]
 
 
 class Events(SimvueObject):
+    """
+    Simvue Events
+    =============
+
+    This class is used to connect to/create events objects on the Simvue server,
+    any modification of instance attributes is mirrored on the remote object.
+
+    """
+
     def __init__(
         self,
         _read_only: bool = True,
         _local: bool = False,
         **kwargs,
     ) -> None:
+        """Initialise an Events object instance for creation/retrieval."""
         self._label = "event"
         super().__init__(_read_only=_read_only, _local=_local, **kwargs)
         self._run_id = self._staging.get("run")
@@ -48,7 +59,7 @@ class Events(SimvueObject):
         count: pydantic.PositiveInt | None = None,
         offset: pydantic.PositiveInt | None = None,
         **kwargs,
-    ) -> typing.Generator[EventSet, None, None]:
+    ) -> Generator[EventSet]:
         _class_instance = cls(_read_only=True, _local=True)
         _count: int = 0
 

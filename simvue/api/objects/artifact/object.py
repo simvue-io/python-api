@@ -15,17 +15,30 @@ except ImportError:
 
 
 class ObjectArtifact(ArtifactBase):
-    """Object based artifact modification and creation class."""
+    """
+    Simvue Object Artifact
+    ======================
+
+    This class is used to connect to/create file object artifact objects on the Simvue server,
+    any modification of instance attributes is mirrored on the remote object.
+
+    """
 
     def __init__(
         self, identifier: str | None = None, _read_only: bool = True, **kwargs
     ) -> None:
-        """Initialise a new object artifact connection.
+        """Initialise a Object Artifact
+
+        If an identifier is provided a connection will be made to the
+        object matching the identifier on the target server.
+        Else a new ObjectArtifact instance will be created using arguments provided in kwargs.
 
         Parameters
         ----------
         identifier : str, optional
-            the identifier of this object on the server.
+            the remote server unique id for the target folder
+        **kwargs : dict
+            any additional arguments to be passed to the object initialiser
         """
         kwargs.pop("original_path", None)
         super().__init__(identifier, _read_only, original_path="", **kwargs)

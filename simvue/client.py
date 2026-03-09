@@ -14,6 +14,7 @@ import typing
 import http
 import pydantic
 from concurrent.futures import ThreadPoolExecutor, as_completed
+from collections.abc import Generator
 from pandas import DataFrame
 
 import requests
@@ -195,7 +196,7 @@ class Client:
         start_index: pydantic.NonNegativeInt = 0,
         show_shared: bool = True,
         sort_by_columns: list[tuple[str, bool]] | None = None,
-    ) -> DataFrame | typing.Generator[tuple[str, Run], None, None] | None:
+    ) -> DataFrame | Generator[tuple[str, Run]] | dict[str, object] | None:
         """Retrieve all runs matching filters.
 
         Parameters
@@ -224,8 +225,9 @@ class Client:
         output_format : Literal['dict', objects', 'dataframe'], optional
             the structure of the response
                 * dict - dictionary of values.
-                * objects - a dictionary of objects (default).
+                * objects - a generator of (ID, object) pairs (default).
                 * dataframe - a dataframe (Pandas must be installed).
+            use of the generator is recommended.
         count_limit : int, optional
             maximum number of entries to return. Default is 100.
         start_index : int, optional
@@ -390,6 +392,7 @@ class Client:
     def delete_folder(
         self,
         folder_path: typing.Annotated[str, pydantic.Field(pattern=FOLDER_REGEX)],
+        *,
         recursive: bool = False,
         remove_runs: bool = False,
         allow_missing: bool = False,
@@ -454,7 +457,7 @@ class Client:
     @pydantic.validate_call
     def list_artifacts(
         self, run_id: str, sort_by_columns: list[tuple[str, bool]] | None = None
-    ) -> typing.Generator[Artifact, None, None]:
+    ) -> Generator[Artifact]:
         """Retrieve artifacts for a given run
 
         Parameters
@@ -625,8 +628,9 @@ class Client:
         RuntimeError
             if there was a failure retrieving artifacts from the server
         """
-        _artifacts: typing.Generator[tuple[str, Artifact], None, None] = (
-            Artifact.from_run(run_id=run_id, category=category)
+        _artifacts: Generator[tuple[str, Artifact]] = Artifact.from_run(
+            run_id=run_id,
+            category=category,
         )
 
         with ThreadPoolExecutor(
@@ -689,7 +693,7 @@ class Client:
         count: pydantic.PositiveInt = 100,
         start_index: pydantic.NonNegativeInt = 0,
         sort_by_columns: list[tuple[str, bool]] | None = None,
-    ) -> typing.Generator[tuple[str, Folder], None, None]:
+    ) -> Generator[tuple[str, Folder]]:
         """Retrieve folders from the server
 
         Parameters
@@ -726,7 +730,7 @@ class Client:
 
     @prettify_pydantic
     @pydantic.validate_call
-    def get_metrics_names(self, run_id: str) -> typing.Generator[str, None, None]:
+    def get_metrics_names(self, run_id: str) -> Generator[str]:
         """Return information on all metrics within a run
 
         Parameters
@@ -1106,7 +1110,7 @@ class Client:
         start_index: pydantic.NonNegativeInt | None = None,
         count_limit: pydantic.PositiveInt | None = None,
         sort_by_columns: list[tuple[str, bool]] | None = None,
-    ) -> typing.Generator[Tag, None, None]:
+    ) -> Generator[Tag]:
         """Retrieve tags
 
         Parameters
