@@ -178,6 +178,7 @@ def check_extra(extra_name: str) -> typing.Callable:
 
 
 def parse_pydantic_error(error: pydantic.ValidationError) -> str:
+    """Parse the validation error returned by Pydantic."""
     out_table: list[str] = []
     for data in json.loads(error.json()):
         _input = data.get("input") if data["input"] is not None else "None"

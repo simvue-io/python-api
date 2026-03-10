@@ -383,7 +383,7 @@ class SimvueObject(abc.ABC):
     @classmethod
     def ids(
         cls, count: int | None = None, offset: int | None = None, **kwargs
-    ) -> Generator[str, None, None]:
+    ) -> Generator[str]:
         """Retrieve a list of all object identifiers.
 
         Parameters

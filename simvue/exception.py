@@ -7,7 +7,11 @@ Custom exceptions for handling of Simvue request scenarions.
 """
 
 
-class ObjectNotFoundError(Exception):
+class SimvueException(Exception):
+    """Base class for Simvue based exceptions."""
+
+
+class ObjectNotFoundError(SimvueException):
     """For failure retrieving Simvue object from server"""
 
     def __init__(self, obj_type: str, name: str, extra: str | None = None) -> None:
@@ -18,11 +22,11 @@ class ObjectNotFoundError(Exception):
         )
 
 
-class SimvueRunError(RuntimeError):
+class SimvueRunError(SimvueException):
     """A special sub-class of runtime error specifically for Simvue run errors"""
 
 
-class ObjectDispatchError(Exception):
+class ObjectDispatchError(SimvueException):
     """Raised if object dispatch failed due to condition."""
 
     def __init__(self, label: str, threshold: int | float, value: int | float) -> None:
@@ -31,3 +35,7 @@ class ObjectDispatchError(Exception):
             + f"of {value} exceeds maximum permitted value of {threshold}"
         )
         super().__init__(self.msg)
+
+
+class InvalidQueryError(SimvueException):
+    """Exception raised if the parameters for a query are invalid."""

@@ -11,6 +11,7 @@ import time
 import tempfile
 import simvue.client as svc
 from simvue.exception import ObjectNotFoundError
+from simvue.models import XAxis
 import simvue.run as sv_run
 import simvue.api.objects as sv_api_obj
 from simvue.api.objects.alert.base import AlertBase
@@ -491,7 +492,7 @@ def test_multiple_metric_retrieval(
     create_test_run: tuple[sv_run.Run, dict],
     aggregate: bool,
     output_format: typing.Literal["dict", "dataframe"],
-    xaxis: typing.Literal["step", "time", "timestamp"],
+    xaxis: XAxis,
 ) -> None:
     client = svc.Client()
     if output_format == "dataframe":

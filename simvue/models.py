@@ -19,6 +19,8 @@ MetricKeyString = typing.Annotated[
     str, pydantic.StringConstraints(pattern=METRIC_KEY_REGEX)
 ]
 ObjectID = typing.Annotated[str, pydantic.StringConstraints(pattern=OBJECT_ID)]
+XAxis = typing.Literal["step", "time", "timestamp"]
+PerRunMetrics = dict[str, list[dict[typing.Literal[XAxis, "value"], float]]]
 
 
 def validate_timestamp(timestamp: str, raise_except: bool = True) -> bool:
@@ -85,7 +87,7 @@ class RunInput(pydantic.BaseModel):
 
 class MetricSet(pydantic.BaseModel):
     model_config = pydantic.ConfigDict(extra="forbid")
-    time: float | int
+    time: pydantic.NonNegativeFloat | pydantic.NonNegativeInt
     timestamp: typing.Annotated[str | None, pydantic.BeforeValidator(simvue_timestamp)]
     step: pydantic.NonNegativeInt
     values: dict[str, int | float | bool]
@@ -95,7 +97,7 @@ class GridMetricSet(pydantic.BaseModel):
     model_config = pydantic.ConfigDict(
         arbitrary_types_allowed=True, extra="forbid", validate_default=True
     )
-    time: float | int
+    time: pydantic.NonNegativeFloat | pydantic.NonNegativeInt
     timestamp: typing.Annotated[str | None, pydantic.BeforeValidator(simvue_timestamp)]
     step: pydantic.NonNegativeInt
     array: list[float] | list[list[float]] | numpy.ndarray

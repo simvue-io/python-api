@@ -16,7 +16,7 @@ import pydantic
 from collections.abc import Generator
 
 from .base import SimvueObject
-from simvue.models import MetricSet
+from simvue.models import MetricSet, PerRunMetrics
 from simvue.api.request import get as sv_get, get_json_from_response
 
 try:
@@ -87,7 +87,7 @@ class Metrics(SimvueObject):
         count: pydantic.PositiveInt | None = None,
         offset: pydantic.PositiveInt | None = None,
         **kwargs,
-    ) -> Generator[dict[str, dict[str, list[dict[str, float]]]]]:
+    ) -> Generator[dict[str, PerRunMetrics]]:
         """Retrieve metrics from the server for a given set of runs.
 
         Parameters

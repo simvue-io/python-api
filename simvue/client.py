@@ -30,7 +30,7 @@ from .converters import (
 from .serialization import deserialize_data
 from .simvue_types import DeserializedContent
 from .utilities import check_extra, prettify_pydantic
-from .models import FOLDER_REGEX, NAME_REGEX
+from .models import FOLDER_REGEX, NAME_REGEX, XAxis
 from .config.user import SimvueConfiguration
 from .api.request import get_json_from_response
 from .api.objects import (
@@ -786,7 +786,7 @@ class Client:
     def get_metric_values(
         self,
         metric_names: list[str],
-        xaxis: typing.Literal["step", "time", "timestamp"],
+        xaxis: XAxis,
         *,
         output_format: typing.Literal["dataframe", "dict"] = "dict",
         run_ids: list[str] | None = None,
