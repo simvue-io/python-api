@@ -11,6 +11,7 @@ import logging
 import pathlib
 import mimetypes
 import multiprocessing.synchronize
+import shlex
 import threading
 import humanfriendly
 import datetime
@@ -954,7 +955,7 @@ class Run:
                     cmd_list += [f"--{kwarg}{(f' {_quoted_val}') if val else ''}"]
 
         cmd_list += pos_args
-        cmd_str = " ".join(cmd_list)
+        cmd_str = shlex.join(cmd_list)
 
         # Store the command executed in metadata
         self.update_metadata({f"{identifier}_command": cmd_str})
