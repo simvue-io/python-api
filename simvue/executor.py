@@ -12,7 +12,6 @@ __date__ = "2023-11-15"
 
 import logging
 import multiprocessing.synchronize
-import shlex
 import sys
 import multiprocessing
 import threading
@@ -284,7 +283,7 @@ class Executor:
 
         command += pos_args
 
-        self.command_str[identifier] = shlex.join(command)
+        self.command_str[identifier] = " ".join(command)
         self._completion_callbacks[identifier] = completion_callback
         self._completion_triggers[identifier] = completion_trigger
 
