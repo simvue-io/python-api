@@ -125,15 +125,12 @@ class Client:
         """
         _runs = Run.get(filters=json.dumps([f"name == {name}"]))
 
-        try:
-            _id, _ = next(_runs)
-        except StopIteration as e:
-            raise RuntimeError(
-                "Could not collect ID - no run found with this name."
-            ) from e
+        if not (_first_entry := next(_runs, None)):
+            raise RuntimeError("Could not collect ID - no run found with this name.")
 
-        with contextlib.suppress(StopIteration):
-            next(_runs)
+        _id, _ = _first_entry
+
+        if next(_runs, None):
             raise RuntimeError(
                 "Could not collect ID - more than one run exists with this name."
             )
@@ -325,11 +322,9 @@ class Client:
         """
         _folders = Folder.get(filters=json.dumps([f"path == {path}"]))
 
-        try:
-            _, _folder = next(_folders)
-            return _folder  # type: ignore
-        except StopIteration:
-            return None
+        _, _folder = next(_folders, (None, None))
+
+        return _folder
 
     def _get_folder_id_from_path(self, path: str) -> str | None:
         """Retrieve folder identifier for the specified path if found
@@ -346,13 +341,10 @@ class Client:
         """
         _ids = Folder.ids(filters=json.dumps([f"path == {path}"]))
 
-        try:
-            _id = next(_ids)
-        except StopIteration:
+        if not (_id := next(_ids, None)):
             return None
 
-        with contextlib.suppress(StopIteration):
-            next(_ids)
+        if next(_ids, None):
             raise RuntimeError(
                 f"Expected single folder match for '{path}', but found duplicate."
             )
