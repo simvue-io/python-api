@@ -22,6 +22,7 @@ import re
 import sys
 import traceback as tb
 import time
+import types
 import functools
 import platform
 import typing
@@ -234,9 +235,9 @@ class Run:
 
     def _handle_exception_throw(
         self,
-        exc_type: typing.Type[BaseException] | None,
-        value: BaseException,
-        traceback: typing.Type[BaseException] | BaseException | None,
+        exc_type: type[BaseException] | None,
+        value: BaseException | None,
+        traceback: types.TracebackType | None,
     ) -> None:
         _exception_thrown: str | None = exc_type.__name__ if exc_type else None
         _is_running: bool = self._status == "running"
@@ -272,9 +273,9 @@ class Run:
 
     def __exit__(
         self,
-        exc_type: typing.Type[BaseException] | None,
-        value: BaseException,
-        traceback: typing.Type[BaseException] | BaseException | None,
+        exc_type: type[BaseException] | None,
+        value: BaseException | None,
+        traceback: types.TracebackType | None,
     ) -> None:
         logger.debug(
             "Automatically closing run '%s' in status %s",
