@@ -190,8 +190,6 @@ def test_download_duplicate_artifact(force_overwrite: bool) -> None:
     _folder.commit()
     _run.commit()
 
-    _failed = []
-
     with tempfile.NamedTemporaryFile(delete=False, suffix=".txt") as temp_f:
         _path = pathlib.Path(temp_f.name)
         with _path.open("w") as out_f:
