@@ -175,3 +175,50 @@ def test_file_artifact_creation_offline_updated(offline_cache_setup, caplog, sna
     _run.delete()
     _folder.delete()
 
+
+@pytest.mark.api
+@pytest.mark.online
+@pytest.mark.parametrize(
+    "force_overwrite", (True, False),
+    ids=("allow_overwrite", "raise_exception")
+)
+def test_download_duplicate_artifact(force_overwrite: bool) -> None:
+    _uuid: str = f"{uuid.uuid4()}".split("-")[0]
+    _folder_name = f"/simvue_unit_testing/{_uuid}"
+    _folder = Folder.new(path=_folder_name)
+    _run = Run.new(folder=_folder_name) 
+    _folder.commit()
+    _run.commit()
+
+    _failed = []
+
+    with tempfile.NamedTemporaryFile(delete=False, suffix=".txt") as temp_f:
+        _path = pathlib.Path(temp_f.name)
+        with _path.open("w") as out_f:
+            out_f.write(f"Hello World! {_uuid}")
+        for _ in range(2):
+            _artifact = FileArtifact.new(
+                name=f"test_file_artifact_{_uuid}",
+                file_path=_path,
+                storage=None,
+                mime_type=None,
+                metadata=None,
+            )
+            _artifact.attach_to_run(_run.id, "input")
+            time.sleep(1)
+
+    if force_overwrite:
+        assert Artifact.from_name(
+            run_id=_run.id,
+            name=f"test_file_artifact_{_uuid}",
+            force_overwrite=True
+        )
+    else:
+        with pytest.raises(RuntimeError):
+            assert Artifact.from_name(
+                run_id=_run.id,
+                name=f"test_file_artifact_{_uuid}",
+                force_overwrite=False
+            )
+    _run.delete()
+    _folder.delete()

@@ -115,7 +115,7 @@ class Artifact:
 
     @classmethod
     def from_name(
-        cls, run_id: str, name: str, **kwargs
+        cls, run_id: str, name: str, force_overwrite: bool = False, **kwargs
     ) -> typing.Union[FileArtifact | ObjectArtifact, None]:
         """Retrieve an artifact by name.
 
@@ -125,11 +125,20 @@ class Artifact:
             the identifier of the run to retrieve from.
         name : str
             the name of the artifact to retrieve.
+        force_overwrite : bool, optional
+            if duplicates are detected force download
+            the first match, default of False
+            will raise an exception
 
         Returns
         -------
         FileArtifact | ObjectArtifact | None
             the artifact if found
+
+        Raises
+        ------
+        RuntimeError
+            when duplicate artifacts are found within a single run
         """
         _temp = ArtifactBase(**kwargs)
         _url = URL(_temp._user_config.server.url) / f"runs/{run_id}/artifacts"
@@ -144,7 +153,7 @@ class Artifact:
         if _response.status_code == http.HTTPStatus.NOT_FOUND or not _json_response:
             raise ObjectNotFoundError(_temp._label, name, extra=f"for run '{run_id}'")
 
-        if (_n_res := len(_json_response)) > 1:
+        if (_n_res := len(_json_response)) > 1 and not force_overwrite:
             raise RuntimeError(
                 f"Expected single result for artifact '{name}' for run '{run_id}'"
                 f" but got {_n_res}"
