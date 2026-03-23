@@ -1,9 +1,10 @@
 # Change Log
 
-## Unreleased
+## [v2.4.0](https://github.com/simvue-io/python-api/releases/tag/v2.4.0) - 2026-03-23
 
 - Added search for Simvue configuration within the parent file hierarchy of the current directory.
 - Added advanced filtering LLAPI functionality allowing users to construct filters programmatically.
+- Allow user of LLAPI to force download of duplicate artifacts.
 
 ## [v2.3.6](https://github.com/simvue-io/python-api/releases/tag/v2.3.6) - 2026-02-27
 
