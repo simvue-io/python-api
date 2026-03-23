@@ -213,7 +213,7 @@ def test_download_duplicate_artifact(force_overwrite: bool) -> None:
         )
     else:
         with pytest.raises(RuntimeError):
-            assert Artifact.from_name(
+            Artifact.from_name(
                 run_id=_run.id,
                 name=f"test_file_artifact_{_uuid}",
                 force_overwrite=False
