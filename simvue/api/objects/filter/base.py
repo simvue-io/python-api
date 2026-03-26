@@ -55,10 +55,6 @@ class RestAPIFilter(abc.ABC):
             self._filters.append(f"{time_type.value} < {years}y")
         return self
 
-    @abc.abstractmethod
-    def _generate_members(self) -> None:
-        """Generate filters using specified definitions."""
-
     def has_name(self, name: str) -> Self:
         """Filter based on absolute object name."""
         self._filters.append(f"name == {name}")
@@ -67,6 +63,11 @@ class RestAPIFilter(abc.ABC):
     def has_name_containing(self, name: str) -> Self:
         """Filter base on object name containing a term."""
         self._filters.append(f"name contains {name}")
+        return self
+
+    def exclude_name(self, name: str) -> Self:
+        """Veto by object name."""
+        self._filters.append(f"name != {name}")
         return self
 
     def created_within(self, *, hours: int = 0, days: int = 0, years: int = 0) -> Self:

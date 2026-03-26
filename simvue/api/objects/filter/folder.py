@@ -15,6 +15,3 @@ class FoldersFilter(RestAPIFilter):
         """Check if the folder path contains a search term."""
         self._filters.append(f"path contains {name}")
         return self
-
-    def _generate_members(self) -> None:
-        return super()._generate_members()

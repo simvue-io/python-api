@@ -1,69 +1,17 @@
 """Simvue RestAPI Runs Filter."""
 
-import enum
 import typing
+import semver
 
 from .base import RestAPIFilter, Time
-
-try:
-    from typing import Self
-except ImportError:
-    from typing_extensions import Self  # noqa: UP035
 
 Status = typing.Literal[
     "lost", "failed", "completed", "terminated", "running", "created"
 ]
 
 
-class System(str, enum.Enum):
-    """System metadata filtering."""
-
-    Working_Directory = "cwd"
-    Hostname = "hostname"
-    Python_Version = "pythonversion"
-    Platform_System = "platform.system"
-    Platform_Release = "platform.release"
-    Platform_Version = "platform.version"
-    CPU_Architecture = "cpu.arch"
-    CPU_Processor = "cpu.processor"
-    GPU_Name = "gpu.name"
-    GPU_Driver = "gpu.driver"
-
-
 class RunsFilter(RestAPIFilter):
     """Filter for searching runs on the Simvue server."""
-
-    def _generate_members(self) -> None:
-        _global_comparators = [self._value_contains, self._value_eq, self._value_neq]
-
-        _numeric_comparators = [
-            self._value_geq,
-            self._value_leq,
-            self._value_lt,
-            self._value_gt,
-        ]
-
-        for label, system_spec in System.__members__.items():
-            for function in _global_comparators:
-                _label: str = label.lower()
-                _func_name: str = function.__name__.replace("_value", _label)
-
-                def _out_func(value: str | int | float, func=function) -> Self:
-                    return func("system", system_spec.value, value)
-
-                _out_func.__name__ = _func_name
-                setattr(self, _func_name, _out_func)
-
-        for function in _global_comparators + _numeric_comparators:
-            _func_name = function.__name__.replace("_value", "metadata")
-
-            def _out_func(
-                attribute: str, value: str | int | float, func=function
-            ) -> Self:
-                return func("metadata", attribute, value)
-
-            _out_func.__name__ = _func_name
-            setattr(self, _func_name, _out_func)
 
     def owner(self, username: str = "self") -> "RunsFilter":
         """Filter by run owner."""
@@ -130,6 +78,16 @@ class RunsFilter(RestAPIFilter):
         self._filters.append(f"folder.path == {folder_name}")
         return self
 
+    def in_folder_containing(self, folder_name: str) -> "RunsFilter":
+        """Filter by whether run is in folder path with expression."""
+        self._filters.append(f"folder.path contains {folder_name}")
+        return self
+
+    def exclude_in_folder(self, folder_name: str) -> "RunsFilter":
+        """Filter by whether run is not within the given folder."""
+        self._filters.append(f"folder.path != {folder_name}")
+        return self
+
     def has_metadata_attribute(self, attribute: str) -> "RunsFilter":
         """Filter by whether run has the given metadata attribute."""
         self._filters.append(f"metadata.{attribute} exists")
@@ -138,6 +96,163 @@ class RunsFilter(RestAPIFilter):
     def exclude_metadata_attribute(self, attribute: str) -> "RunsFilter":
         """Veto by whether run has the given metadata attribute."""
         self._filters.append(f"metadata.{attribute} not exists")
+        return self
+
+    def has_metadata_value(
+        self, attribute: str, value: str | float | int
+    ) -> "RunsFilter":
+        """Filter by the value of a metadata attribute."""
+        self._filters.append(f"metadata.{attribute} == {value}")
+        return self
+
+    def exclude_metadata_value(
+        self, attribute: str, value: str | float | int
+    ) -> "RunsFilter":
+        """Veto by the value of a metadata attribute."""
+        self._filters.append(f"metadata.{attribute} != {value}")
+        return self
+
+    def has_metadata_value_greater_than(
+        self, attribute: str, value: float | int
+    ) -> "RunsFilter":
+        """Filter by the value of a metadata value threshold."""
+        self._filters.append(f"metadata.{attribute} > {value}")
+        return self
+
+    def has_metadata_value_less_than(
+        self, attribute: str, value: float | int
+    ) -> "RunsFilter":
+        """Filter by the value of a metadata value threshold."""
+        self._filters.append(f"metadata.{attribute} < {value}")
+        return self
+
+    def has_metadata_value_greater_than_or_equal_to(
+        self, attribute: str, value: float | int
+    ) -> "RunsFilter":
+        """Filter by the value of a metadata value threshold."""
+        self._filters.append(f"metadata.{attribute} >= {value}")
+        return self
+
+    def has_metadata_value_less_than_or_equal_to(
+        self, attribute: str, value: float | int
+    ) -> "RunsFilter":
+        """Filter by the value of a metadata value threshold."""
+        self._filters.append(f"metadata.{attribute} <= {value}")
+        return self
+
+    def has_working_directory(self, working_dir: str) -> "RunsFilter":
+        """Filter by whether run was executed in a given directory."""
+        self._filters.append(f"system.cwd == {working_dir}")
+        return self
+
+    def exclude_working_directory(self, working_dir: str) -> "RunsFilter":
+        """Veto by whether run was executed in a given directory."""
+        self._filters.append(f"system.cwd != {working_dir}")
+        return self
+
+    def has_hostname(self, hostname: str) -> "RunsFilter":
+        """Filter by simulation host machine."""
+        self._filters.append(f"system.hostname == {hostname}")
+        return self
+
+    def exclude_hostname(self, hostname: str) -> "RunsFilter":
+        """Veto by simulation host machine."""
+        self._filters.append(f"system.hostname != {hostname}")
+        return self
+
+    def has_cpu(
+        self, *, architecture: str | None = None, processor: str | None = None
+    ) -> "RunsFilter":
+        """Filter by CPU architecture and processor."""
+        if architecture:
+            self._filters.append(f"system.cpu.arch == {architecture}")
+        if processor:
+            self._filters.append(f"system.cpu.processor == {processor}")
+        return self
+
+    def exclude_cpu(
+        self, *, architecture: str | None = None, processor: str | None = None
+    ) -> "RunsFilter":
+        """Veto by CPU architecture and processor."""
+        if architecture:
+            self._filters.append(f"system.cpu.arch != {architecture}")
+        if processor:
+            self._filters.append(f"system.cpu.processor != {processor}")
+        return self
+
+    def has_gpu(
+        self, *, name: str | None = None, processor: str | None = None
+    ) -> "RunsFilter":
+        """Filter by GPU name or processor.
+
+        If no arguments are given this filters by runs which are on a
+        system which has GPU capability.
+        """
+        if name:
+            self._filters.append(f"system.gpu.name == {name}")
+        if processor:
+            self._filters.append(f"system.gpu.processor == {name}")
+        return self
+
+    def exclude_gpu(
+        self, *, name: str | None = None, processor: str | None = None
+    ) -> "RunsFilter":
+        """Veto by GPU name or processor."""
+        if name:
+            self._filters.append(f"system.gpu.name != {name}")
+        if processor:
+            self._filters.append(f"system.gpu.processor != {name}")
+        return self
+
+    def has_python_version(self, python_version: str) -> "RunsFilter":
+        try:
+            _ = semver.Version.parse(python_version)
+        except ValueError as e:
+            raise ValueError(
+                f"'{python_version}' is not a valid semantic version."
+            ) from e
+        self._filters.append(f"system.pythonversion == {python_version}")
+        return self
+
+    def exclude_python_version(self, python_version: str) -> "RunsFilter":
+        try:
+            _ = semver.Version.parse(python_version)
+        except ValueError as e:
+            raise ValueError(
+                f"'{python_version}' is not a valid semantic version."
+            ) from e
+        self._filters.append(f"system.pythonversion != {python_version}")
+        return self
+
+    def has_platform(
+        self, platform: str, *, release: str | None = None, version: str | None = None
+    ) -> "RunsFilter":
+        """Filter by simulation host platform."""
+        self._filters.append(f"system.platform.system == {platform}")
+        if release:
+            self._filters.append(f"system.platform.release == {release}")
+        if version:
+            self._filters.append(f"system.platform.version == {version}")
+        return self
+
+    def exclude_platform(
+        self, platform: str, *, release: str | None = None, version: str | None = None
+    ) -> "RunsFilter":
+        """Veto by simulation host platform.
+
+        If platform is specified then results WITHOUT this platform are returned.
+        However if a version and/or release is given then results WITH the given platform
+        but NOT the given release/version are returned.
+        """
+        self._filters.append(
+            "system.platform.system " + "!="
+            if not release and not version
+            else "==" + " " + platform
+        )
+        if release:
+            self._filters.append(f"system.platform.release != {release}")
+        if version:
+            self._filters.append(f"system.platform.version != {version}")
         return self
 
     def _value_eq(
