@@ -5,6 +5,11 @@ import semver
 
 from .base import RestAPIFilter, Time
 
+try:
+    from typing import override
+except ImportError:
+    from typing_extensions import override  # noqa: UP035
+
 Status = typing.Literal[
     "lost", "failed", "completed", "terminated", "running", "created"
 ]
@@ -12,6 +17,21 @@ Status = typing.Literal[
 
 class RunsFilter(RestAPIFilter):
     """Filter for searching runs on the Simvue server."""
+
+    def has_name(self, name: str) -> "RunsFilter":
+        """Filter based on absolute object name."""
+        self._filters.append(f"name == {name}")
+        return self
+
+    def has_name_containing(self, name: str) -> "RunsFilter":
+        """Filter base on object name containing a term."""
+        self._filters.append(f"name contains {name}")
+        return self
+
+    def exclude_name(self, name: str) -> "RunsFilter":
+        """Veto by object name."""
+        self._filters.append(f"name != {name}")
+        return self
 
     def owner(self, username: str = "self") -> "RunsFilter":
         """Filter by run owner."""
@@ -86,58 +106,6 @@ class RunsFilter(RestAPIFilter):
     def exclude_in_folder(self, folder_name: str) -> "RunsFilter":
         """Filter by whether run is not within the given folder."""
         self._filters.append(f"folder.path != {folder_name}")
-        return self
-
-    def has_metadata_attribute(self, attribute: str) -> "RunsFilter":
-        """Filter by whether run has the given metadata attribute."""
-        self._filters.append(f"metadata.{attribute} exists")
-        return self
-
-    def exclude_metadata_attribute(self, attribute: str) -> "RunsFilter":
-        """Veto by whether run has the given metadata attribute."""
-        self._filters.append(f"metadata.{attribute} not exists")
-        return self
-
-    def has_metadata_value(
-        self, attribute: str, value: str | float | int
-    ) -> "RunsFilter":
-        """Filter by the value of a metadata attribute."""
-        self._filters.append(f"metadata.{attribute} == {value}")
-        return self
-
-    def exclude_metadata_value(
-        self, attribute: str, value: str | float | int
-    ) -> "RunsFilter":
-        """Veto by the value of a metadata attribute."""
-        self._filters.append(f"metadata.{attribute} != {value}")
-        return self
-
-    def has_metadata_value_greater_than(
-        self, attribute: str, value: float | int
-    ) -> "RunsFilter":
-        """Filter by the value of a metadata value threshold."""
-        self._filters.append(f"metadata.{attribute} > {value}")
-        return self
-
-    def has_metadata_value_less_than(
-        self, attribute: str, value: float | int
-    ) -> "RunsFilter":
-        """Filter by the value of a metadata value threshold."""
-        self._filters.append(f"metadata.{attribute} < {value}")
-        return self
-
-    def has_metadata_value_greater_than_or_equal_to(
-        self, attribute: str, value: float | int
-    ) -> "RunsFilter":
-        """Filter by the value of a metadata value threshold."""
-        self._filters.append(f"metadata.{attribute} >= {value}")
-        return self
-
-    def has_metadata_value_less_than_or_equal_to(
-        self, attribute: str, value: float | int
-    ) -> "RunsFilter":
-        """Filter by the value of a metadata value threshold."""
-        self._filters.append(f"metadata.{attribute} <= {value}")
         return self
 
     def has_working_directory(self, working_dir: str) -> "RunsFilter":
@@ -255,50 +223,10 @@ class RunsFilter(RestAPIFilter):
             self._filters.append(f"system.platform.version != {version}")
         return self
 
-    def _value_eq(
-        self, category: str, attribute: str, value: str | int | float
-    ) -> "RunsFilter":
-        self._filters.append(f"{category}.{attribute} == {value}")
-        return self
-
-    def _value_neq(
-        self, category: str, attribute: str, value: str | int | float
-    ) -> "RunsFilter":
-        self._filters.append(f"{category}.{attribute} != {value}")
-        return self
-
-    def _value_contains(
-        self, category: str, attribute: str, value: str | int | float
-    ) -> "RunsFilter":
-        self._filters.append(f"{category}.{attribute} contains {value}")
-        return self
-
-    def _value_leq(
-        self, category: str, attribute: str, value: int | float
-    ) -> "RunsFilter":
-        self._filters.append(f"{category}.{attribute} <= {value}")
-        return self
-
-    def _value_geq(
-        self, category: str, attribute: str, value: int | float
-    ) -> "RunsFilter":
-        self._filters.append(f"{category}.{attribute} >= {value}")
-        return self
-
-    def _value_lt(
-        self, category: str, attribute: str, value: int | float
-    ) -> "RunsFilter":
-        self._filters.append(f"{category}.{attribute} < {value}")
-        return self
-
-    def _value_gt(
-        self, category: str, attribute: str, value: int | float
-    ) -> "RunsFilter":
-        self._filters.append(f"{category}.{attribute} > {value}")
-        return self
-
+    @override
     def __str__(self) -> str:
         return " && ".join(self._filters) if self._filters else "None"
 
+    @override
     def __repr__(self) -> str:
         return f"{super().__repr__()[:-1]}, filters={self._filters}>"

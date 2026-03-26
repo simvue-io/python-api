@@ -32,7 +32,6 @@ class RestAPIFilter(abc.ABC):
         """Initialise a query object using a Simvue object class."""
         self._sv_object: "type[SimvueObject] | None" = simvue_object
         self._filters: list[str] = []
-        self._generate_members()
 
     def _time_within(
         self, time_type: Time, *, hours: int = 0, days: int = 0, years: int = 0
@@ -55,21 +54,6 @@ class RestAPIFilter(abc.ABC):
             self._filters.append(f"{time_type.value} < {years}y")
         return self
 
-    def has_name(self, name: str) -> Self:
-        """Filter based on absolute object name."""
-        self._filters.append(f"name == {name}")
-        return self
-
-    def has_name_containing(self, name: str) -> Self:
-        """Filter base on object name containing a term."""
-        self._filters.append(f"name contains {name}")
-        return self
-
-    def exclude_name(self, name: str) -> Self:
-        """Veto by object name."""
-        self._filters.append(f"name != {name}")
-        return self
-
     def created_within(self, *, hours: int = 0, days: int = 0, years: int = 0) -> Self:
         """Find objects created within the last specified time period."""
         return self._time_within(Time.Created, hours=hours, days=days, years=years)
@@ -89,6 +73,11 @@ class RestAPIFilter(abc.ABC):
         self._filters.append(f"has tag.{tag}")
         return self
 
+    def exclude_tag(self, tag: str) -> Self:
+        """Find objects with the given tag."""
+        self._filters.append(f"does not have tag.{tag}")
+        return self
+
     def starred(self) -> Self:
         self._filters.append("starred")
         return self
@@ -100,6 +89,52 @@ class RestAPIFilter(abc.ABC):
     def clear(self) -> None:
         """Clear all current filters."""
         self._filters = []
+
+    def has_metadata_attribute(self, attribute: str) -> Self:
+        """Filter by whether run has the given metadata attribute."""
+        self._filters.append(f"metadata.{attribute} exists")
+        return self
+
+    def exclude_metadata_attribute(self, attribute: str) -> Self:
+        """Veto by whether run has the given metadata attribute."""
+        self._filters.append(f"metadata.{attribute} not exists")
+        return self
+
+    def has_metadata_value(self, attribute: str, value: str | float | int) -> Self:
+        """Filter by the value of a metadata attribute."""
+        self._filters.append(f"metadata.{attribute} == {value}")
+        return self
+
+    def exclude_metadata_value(self, attribute: str, value: str | float | int) -> Self:
+        """Veto by the value of a metadata attribute."""
+        self._filters.append(f"metadata.{attribute} != {value}")
+        return self
+
+    def has_metadata_value_greater_than(
+        self, attribute: str, value: float | int
+    ) -> Self:
+        """Filter by the value of a metadata value threshold."""
+        self._filters.append(f"metadata.{attribute} > {value}")
+        return self
+
+    def has_metadata_value_less_than(self, attribute: str, value: float | int) -> Self:
+        """Filter by the value of a metadata value threshold."""
+        self._filters.append(f"metadata.{attribute} < {value}")
+        return self
+
+    def has_metadata_value_greater_than_or_equal_to(
+        self, attribute: str, value: float | int
+    ) -> Self:
+        """Filter by the value of a metadata value threshold."""
+        self._filters.append(f"metadata.{attribute} >= {value}")
+        return self
+
+    def has_metadata_value_less_than_or_equal_to(
+        self, attribute: str, value: float | int
+    ) -> Self:
+        """Filter by the value of a metadata value threshold."""
+        self._filters.append(f"metadata.{attribute} <= {value}")
+        return self
 
     def get(
         self,
