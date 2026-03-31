@@ -140,10 +140,10 @@ class MetricsThresholdAlert(AlertBase):
         return _alert
 
     @override
-    def __eq__(self, other: "AlertBase") -> bool:
+    def _compare_objects(self, other: "AlertBase") -> bool:
         if not isinstance(other, MetricsThresholdAlert):
             return False
-        return super().__eq__(other) and self.alert == other.alert
+        return super()._compare_objects(other) and self.alert == other.alert
 
 
 class MetricsRangeAlert(AlertBase):
@@ -181,11 +181,11 @@ class MetricsRangeAlert(AlertBase):
         ]
 
     @override
-    def __eq__(self, other: "AlertBase") -> bool:
+    def _compare_objects(self, other: "AlertBase") -> bool:
         """Compare two MetricRangeAlerts"""
         if not isinstance(other, MetricsRangeAlert):
             return False
-        return super().__eq__(other) and self.alert == other.alert
+        return super()._compare_objects(other) and self.alert == other.alert
 
     @classmethod
     @pydantic.validate_call

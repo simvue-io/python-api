@@ -110,11 +110,11 @@ class EventsAlert(AlertBase):
         return _alert
 
     @override
-    def __eq__(self, other: "AlertBase") -> bool:
+    def _compare_objects(self, other: "AlertBase") -> bool:
         """Compare Events Alerts."""
         if not isinstance(other, EventsAlert):
             return False
-        return super().__eq__(other) and self.alert == other.alert
+        return super()._compare_objects(other) and self.alert == other.alert
 
 
 class EventAlertDefinition:
