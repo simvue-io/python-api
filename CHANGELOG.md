@@ -2,6 +2,7 @@
 
 ## [v2.4.1](https://github.com/simvue-io/python-api/releases/tag/v2.4.1) - 2026-03-31
 
+- Moved to using `threading.Event` as termination trigger events and added deprecation notice for `multiprocessing.Event`.
 - Fixed creation of duplicate alerts.
 - Fixed case where alert specifications being `0` led to incorrect falsification.
 
