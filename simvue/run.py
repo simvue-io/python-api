@@ -17,6 +17,7 @@ import humanfriendly
 import datetime
 import os
 import multiprocessing
+
 import pydantic
 import re
 import sys
@@ -70,6 +71,7 @@ from .api.objects import (
     Metrics,
     Grid,
 )
+
 
 try:
     from typing import Self
@@ -2202,7 +2204,9 @@ class Run:
     def _check_if_alert_exists(self, alert: "AlertBase") -> str | None:
         """Check if an existing alert matches definition."""
         # If the alert already exists just add the existing one
-        for _id, _existing_alert in Alert.get():
+        for _id, _existing_alert in Alert.get(
+            offline=self._user_config.run.mode == "offline"
+        ):
             if _existing_alert == alert:
                 return _id
         return None
