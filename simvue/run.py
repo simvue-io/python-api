@@ -13,10 +13,10 @@ import mimetypes
 import multiprocessing.synchronize
 import shlex
 import threading
+import warnings
 import humanfriendly
 import datetime
 import os
-import multiprocessing
 
 import pydantic
 import re
@@ -820,7 +820,9 @@ class Run:
         completion_callback: typing.Optional[
             typing.Callable[[int, str, str], None]
         ] = None,
-        completion_trigger: multiprocessing.synchronize.Event | None = None,
+        completion_trigger: threading.Event
+        | multiprocessing.synchronize.Event
+        | None = None,
         env: dict[str, str] | None = None,
         cwd: pathlib.Path | None = None,
         **cmd_kwargs,
@@ -883,7 +885,7 @@ class Run:
             you should provide it as such and perform the upload manually, by default None
         completion_callback : typing.Callable | None, optional
             callback to run when process terminates (not supported on Windows)
-        completion_trigger : multiprocessing.Event | None, optional
+        completion_trigger : threading.Event | None, optional
             this trigger event is set when the processes completes
         env : dict[str, str], optional
             environment variables for process
@@ -920,6 +922,12 @@ class Run:
             )
         ```
         """
+        if isinstance(completion_trigger, multiprocessing.synchronize.Event):
+            warnings.warn(
+                "Use of a 'multiprocessing.Event' as a termination trigger will be deprecated in v2.5, "
+                + "use an instance of 'threading.Event' instead."
+            )
+
         if platform.system() == "Windows" and completion_trigger:
             raise RuntimeError(
                 "Use of 'completion_trigger' on Windows based operating systems is unsupported "

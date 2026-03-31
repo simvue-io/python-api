@@ -13,7 +13,6 @@ __date__ = "2023-11-15"
 import logging
 import multiprocessing.synchronize
 import sys
-import multiprocessing
 import threading
 import os
 import shutil
@@ -49,7 +48,7 @@ def _execute_process(
     command: list[str],
     runner_name: str,
     completion_callback: CompletionCallback | None = None,
-    completion_trigger: multiprocessing.synchronize.Event | None = None,
+    completion_trigger: threading.Event | None = None,
     environment: dict[str, str] | None = None,
     cwd: pathlib.Path | None = None,
 ) -> tuple[subprocess.Popen, threading.Thread | None]:
@@ -179,7 +178,9 @@ class Executor:
         env: dict[str, str] | None = None,
         cwd: pathlib.Path | None = None,
         completion_callback: CompletionCallback | None = None,
-        completion_trigger: multiprocessing.synchronize.Event | None = None,
+        completion_trigger: threading.Event
+        | multiprocessing.synchronize.Event
+        | None = None,
         **kwargs,
     ) -> None:
         """Add a process to be executed to the executor.
@@ -230,7 +231,7 @@ class Executor:
             working directory to execute the process within
         completion_callback : typing.Callable | None, optional
             callback to run when process terminates
-        completion_trigger : multiprocessing.Event | None, optional
+        completion_trigger : threading.Event | None, optional
             this trigger event is set when the processes completes (not supported on Windows)
         """
         pos_args = list(args)
