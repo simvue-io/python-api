@@ -32,6 +32,7 @@ import randomname
 import click
 import psutil
 
+from simvue.api.objects.alert.base import AlertBase
 from simvue.api.objects.alert.fetch import Alert
 from simvue.api.objects.folder import Folder
 from simvue.api.objects.grids import GridMetrics
@@ -2198,6 +2199,14 @@ class Run:
 
         return True
 
+    def _check_if_alert_exists(self, alert: "AlertBase") -> str | None:
+        """Check if an existing alert matches definition."""
+        # If the alert already exists just add the existing one
+        for _id, _existing_alert in Alert.get():
+            if _existing_alert == alert:
+                return _id
+        return None
+
     @skip_if_failed("_aborted", "_suppress_errors", None)
     @pydantic.validate_call
     def create_metric_range_alert(
@@ -2276,6 +2285,13 @@ class Run:
             frequency=frequency or 60,
             offline=self._user_config.run.mode == "offline",
         )
+
+        # If the alert already exists just add the existing one
+        if _existing_id := self._check_if_alert_exists(_alert):
+            if attach_to_run:
+                self.add_alerts(ids=[_existing_id])
+            return _existing_id
+
         _alert.abort = trigger_abort
         _alert.commit()
         if attach_to_run:
@@ -2358,6 +2374,12 @@ class Run:
             offline=self._user_config.run.mode == "offline",
         )
 
+        # If the alert already exists just add the existing one
+        if _existing_id := self._check_if_alert_exists(_alert):
+            if attach_to_run:
+                self.add_alerts(ids=[_existing_id])
+            return _existing_id
+
         _alert.abort = trigger_abort
         _alert.commit()
         if attach_to_run:
@@ -2412,10 +2434,19 @@ class Run:
             frequency=frequency,
             offline=self._user_config.run.mode == "offline",
         )
+
+        # If the alert already exists just add the existing one
+        if _existing_id := self._check_if_alert_exists(_alert):
+            if attach_to_run:
+                self.add_alerts(ids=[_existing_id])
+            return _existing_id
+
         _alert.abort = trigger_abort
         _alert.commit()
+
         if attach_to_run:
             self.add_alerts(ids=[_alert.id])
+
         return _alert.id
 
     @skip_if_failed("_aborted", "_suppress_errors", None)
@@ -2428,7 +2459,7 @@ class Run:
         notification: typing.Literal["email", "none"] = "none",
         trigger_abort: bool = False,
         attach_to_run: bool = True,
-    ) -> None:
+    ) -> str | None:
         """Creates a user alert with the specified name (if it doesn't exist)
         and applies it to the current run. If alert already exists it will
         not be duplicated.
@@ -2454,12 +2485,20 @@ class Run:
             returns the created alert ID if successful
 
         """
+
         _alert = UserAlert.new(
             name=name,
             notification=notification,
             description=description,
             offline=self._user_config.run.mode == "offline",
         )
+
+        # If the alert already exists just add the existing one
+        if _existing_id := self._check_if_alert_exists(_alert):
+            if attach_to_run:
+                self.add_alerts(ids=[_existing_id])
+            return _existing_id
+
         _alert.abort = trigger_abort
         _alert.commit()
         if attach_to_run:

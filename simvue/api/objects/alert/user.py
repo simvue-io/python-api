@@ -10,9 +10,9 @@ import pydantic
 import typing
 
 try:
-    from typing import Self
+    from typing import Self, override
 except ImportError:
-    from typing_extensions import Self
+    from typing_extensions import Self, override
 import http
 
 from simvue.api.request import get_json_from_response, put as sv_put
@@ -88,6 +88,12 @@ class UserAlert(AlertBase):
         )
         _alert._params = {"deduplicate": True}
         return _alert
+
+    @override
+    def __eq__(self, other: "AlertBase") -> bool:
+        if not isinstance(other, UserAlert):
+            return False
+        return super().__eq__(other)
 
     @classmethod
     def get(

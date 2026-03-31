@@ -19,7 +19,7 @@ import concurrent.futures
 import random
 import datetime
 import simvue
-from simvue.api.objects import Alert, Metrics
+from simvue.api.objects import Alert, EventsAlert, Metrics, MetricsRangeAlert, MetricsThresholdAlert, UserAlert
 from simvue.api.objects.grids import GridMetrics
 from simvue.exception import ObjectNotFoundError, SimvueRunError
 from simvue.sender import Sender
@@ -1592,4 +1592,63 @@ def test_run_environment_metadata(environment: str, mocker: pytest_mock.MockerFi
             visibility="tenant" if os.environ.get("CI") else None,
         )
         run.update_metadata(env_func(_target_dir))
+
+
+@pytest.mark.online
+@pytest.mark.parametrize(
+    "alert_type", ("user", "events", "metric_threshold", "metric_range")
+)
+def test_no_alert_dupes(alert_type: Literal["user", "events", "metric_threshold", "metric_range"]) -> None:
+    """Test there are no duplicate alerts."""
+    N_DUPLICATES: int = 2
+    _uuid = f"{uuid.uuid4()}".split("-")[0]
+    _alert_id: str | None = None
+
+    with simvue.Run() as run:
+        run.init(
+            name="test_no_alert_dupes",
+            folder=f"/simvue_unit_testing/{_uuid}",
+            retention_period=os.environ.get("SIMVUE_TESTING_RETENTION_PERIOD", "2 mins"),
+            running=False,
+            visibility="tenant" if os.environ.get("CI") else None,
+        )
+        if alert_type == "user":
+            for _ in range(N_DUPLICATES):
+                _alert_id = run.create_user_alert(name="duplicate_alert_test_user")
+        elif alert_type == "events":
+            for _ in range(N_DUPLICATES):
+                _alert_id = run.create_event_alert(
+                    name="duplicate_alert_test_events",
+                    pattern="no-pattern",
+
+                )
+        elif alert_type == "metric_threshold":
+            for _ in range(N_DUPLICATES):
+                    _alert_id = run.create_metric_threshold_alert(
+                    name="duplicate_alert_test_metric_threshold",
+                    threshold=0,
+                    rule="is above",
+                    metric="x"
+                )
+        else:
+            for _ in range(N_DUPLICATES):
+                _alert_id = run.create_metric_range_alert(
+                    name="duplicate_alert_test_metric_range",
+                    range_low=0,
+                    range_high=1,
+                    rule="is inside range",
+                    metric="x"
+                )
+    time.sleep(1)
+    assert len(RunObject(identifier=run.id).alerts) < 2
+    RunObject(identifier=run.id).delete()
+
+    if alert_type == "user" and _alert_id:
+        UserAlert(identifier=_alert_id).delete()
+    elif alert_type == "events" and _alert_id:
+        EventsAlert(identifier=_alert_id).delete()
+    elif alert_type == "metric_threshold":
+        MetricsThresholdAlert(identifier=_alert_id).delete()
+    else:
+        MetricsRangeAlert(identifier=_alert_id).delete()
 

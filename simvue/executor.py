@@ -476,7 +476,7 @@ class Executor:
             if process_id is an integer, whether to kill only its children
         """
         if isinstance(process_id, str):
-            if not (process := self._processes.get(process_id)):
+            if (process := self._processes.get(process_id)) is None:
                 logger.error(
                     f"Failed to terminate process '{process_id}', no such identifier."
                 )

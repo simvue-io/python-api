@@ -22,6 +22,11 @@ from simvue.models import NAME_REGEX
 Aggregate = typing.Literal["average", "sum", "at least one", "all"]
 Rule = typing.Literal["is above", "is below", "is inside range", "is outside range"]
 
+try:
+    from typing import override
+except ImportError:
+    from typing_extensions import override  # noqa: UP035
+
 
 class MetricsThresholdAlert(AlertBase):
     """
@@ -134,6 +139,12 @@ class MetricsThresholdAlert(AlertBase):
 
         return _alert
 
+    @override
+    def __eq__(self, other: "AlertBase") -> bool:
+        if not isinstance(other, MetricsThresholdAlert):
+            return False
+        return super().__eq__(other) and self.alert == other.alert
+
 
 class MetricsRangeAlert(AlertBase):
     """
@@ -169,9 +180,12 @@ class MetricsRangeAlert(AlertBase):
             "range_high",
         ]
 
-    def compare(self, other: "MetricsRangeAlert") -> bool:
+    @override
+    def __eq__(self, other: "AlertBase") -> bool:
         """Compare two MetricRangeAlerts"""
-        return self.alert.compare(other) if super().compare(other) else False
+        if not isinstance(other, MetricsRangeAlert):
+            return False
+        return super().__eq__(other) and self.alert == other.alert
 
     @classmethod
     @pydantic.validate_call
@@ -258,7 +272,7 @@ class MetricsAlertDefinition:
         """Initialise definition with target alert"""
         self._sv_obj = alert
 
-    def compare(self, other: "MetricsAlertDefinition") -> bool:
+    def __eq__(self, other: "MetricsAlertDefinition") -> bool:
         """Compare a MetricsAlertDefinition with another"""
         return all(
             [
@@ -272,7 +286,7 @@ class MetricsAlertDefinition:
     @property
     def aggregation(self) -> Aggregate:
         """Retrieve the aggregation strategy for this alert"""
-        if not (_aggregation := self._sv_obj.get_alert().get("aggregation")):
+        if (_aggregation := self._sv_obj.get_alert().get("aggregation")) is None:
             raise RuntimeError(
                 "Expected key 'aggregation' in alert definition retrieval"
             )
@@ -281,14 +295,14 @@ class MetricsAlertDefinition:
     @property
     def rule(self) -> Rule:
         """Retrieve the rule for this alert"""
-        if not (_rule := self._sv_obj.get_alert().get("rule")):
+        if (_rule := self._sv_obj.get_alert().get("rule")) is None:
             raise RuntimeError("Expected key 'rule' in alert definition retrieval")
         return _rule
 
     @property
     def window(self) -> int:
         """Retrieve the aggregation window for this alert"""
-        if not (_window := self._sv_obj.get_alert().get("window")):
+        if (_window := self._sv_obj.get_alert().get("window")) is None:
             raise RuntimeError("Expected key 'window' in alert definition retrieval")
         return _window
 
@@ -315,17 +329,17 @@ class MetricsAlertDefinition:
 class MetricThresholdAlertDefinition(MetricsAlertDefinition):
     """Alert definition for metric threshold alerts"""
 
-    def compare(self, other: "MetricThresholdAlertDefinition") -> bool:
+    def __eq__(self, other: "MetricThresholdAlertDefinition") -> bool:
         """Compare this MetricThresholdAlertDefinition with another"""
-        if not isinstance(other, MetricThresholdAlertDefinition):
+        if not super().__eq__(other):
             return False
 
-        return all([super().compare(other), self.threshold == other.threshold])
+        return self.threshold == other.threshold
 
     @property
     def threshold(self) -> float:
         """Retrieve the threshold value for this alert"""
-        if not (threshold_l := self._sv_obj.get_alert().get("threshold")):
+        if (threshold_l := self._sv_obj.get_alert().get("threshold")) is None:
             raise RuntimeError("Expected key 'threshold' in alert definition retrieval")
         return threshold_l
 
@@ -333,14 +347,13 @@ class MetricThresholdAlertDefinition(MetricsAlertDefinition):
 class MetricRangeAlertDefinition(MetricsAlertDefinition):
     """Alert definition for metric range alerts"""
 
-    def compare(self, other: "MetricRangeAlertDefinition") -> bool:
+    def __eq__(self, other: "MetricRangeAlertDefinition") -> bool:
         """Compare a MetricRangeAlertDefinition with another"""
-        if not isinstance(other, MetricRangeAlertDefinition):
+        if not super().__eq__(other):
             return False
 
         return all(
             [
-                super().compare(other),
                 self.range_high == other.range_high,
                 self.range_low == other.range_low,
             ]
@@ -349,14 +362,14 @@ class MetricRangeAlertDefinition(MetricsAlertDefinition):
     @property
     def range_low(self) -> float:
         """Retrieve the lower limit for metric range"""
-        if not (range_l := self._sv_obj.get_alert().get("range_low")):
+        if (range_l := self._sv_obj.get_alert().get("range_low")) is None:
             raise RuntimeError("Expected key 'range_low' in alert definition retrieval")
         return range_l
 
     @property
     def range_high(self) -> float:
         """Retrieve upper limit for metric range"""
-        if not (range_u := self._sv_obj.get_alert().get("range_high")):
+        if (range_u := self._sv_obj.get_alert().get("range_high")) is None:
             raise RuntimeError(
                 "Expected key 'range_high' in alert definition retrieval"
             )

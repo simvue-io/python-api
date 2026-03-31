@@ -15,6 +15,11 @@ from simvue.api.request import get as sv_get, get_json_from_response
 from simvue.api.url import URL
 from simvue.models import NAME_REGEX, DATETIME_FORMAT
 
+try:
+    from typing import override
+except ImportError:
+    from typing_extensions import override  # noqa: UP035
+
 
 class AlertBase(SimvueObject):
     """Class for interfacing with Simvue alerts
@@ -37,6 +42,18 @@ class AlertBase(SimvueObject):
             "aggregation",
             "status",
         ]
+
+    @override
+    def __eq__(self, other: "AlertBase") -> bool:
+        """Check if alerts are the same."""
+        return all(
+            [
+                self.name == other.name,
+                self.description == other.description,
+                self.source == other.source,
+                self.notification == other.notification,
+            ]
+        )
 
     def compare(self, other: "AlertBase") -> bool:
         """Compare this alert to another"""
