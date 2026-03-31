@@ -28,7 +28,7 @@ class AlertBase(SimvueObject):
     """
 
     @classmethod
-    def new(cls, **kwargs):
+    def new(cls, read_only: bool = False, **kwargs):
         """Create a new alert"""
         pass
 

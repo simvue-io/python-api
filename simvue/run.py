@@ -2212,11 +2212,18 @@ class Run:
     def _check_if_alert_exists(self, alert: "AlertBase") -> str | None:
         """Check if an existing alert matches definition."""
         # If the alert already exists just add the existing one
+        # set to read only so commit checks are not performed
+        alert.read_only(True)
         for _id, _existing_alert in Alert.get(
             offline=self._user_config.run.mode == "offline"
         ):
             if _existing_alert == alert:
                 return _id
+
+        # Return alert to writable so it can be sent to the server
+        # remembering to not wipe any staged attributes
+        alert.read_only(False, clear_staged=False)
+
         return None
 
     @skip_if_failed("_aborted", "_suppress_errors", None)
