@@ -55,6 +55,7 @@ dependencies = [
   "pydantic-extra-types (>=2.10.5,<3.0.0)",
   "pyyaml (>=6.0.2,<7.0.0)",
   "flatdict (==4.0.0)",
+  "pytest (>=9.0.3,<10.0.0)",
 ]
 
 [project.urls]
@@ -69,7 +70,6 @@ plot = ["plotly (>=6.0.0,<7.0.0)", "matplotlib (>=3.10.0,<4.0.0)"]
 simvue-sender = "simvue.bin.sender:run"
 
 [tool.poetry.group.dev.dependencies]
-pytest = "^8.0.0"
 ruff = ">=0.5.0,<0.10.0"
 pytest-cov = ">=4.1,<7.0"
 pytest-mock = "^3.14.0"
