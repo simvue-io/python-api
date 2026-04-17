@@ -284,8 +284,12 @@ def get_folder_from_path(
 ) -> Folder:
     _folders = Folder.get(filters=json.dumps([f"path == {path}"]), count=1)
 
-    try:
-        _, _folder = next(_folders)
-    except StopIteration as e:
-        raise ObjectNotFoundError(obj_type="folder", name=path) from e
+    if not (_first_entry := next(_folders, None)):
+        raise ObjectNotFoundError(obj_type="folder", name=path)
+
+    _, _folder = _first_entry
+
+    if not _folder:
+        raise ObjectNotFoundError(obj_type="folder", name=path)
+
     return _folder  # type: ignore
