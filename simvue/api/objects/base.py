@@ -33,9 +33,9 @@ from simvue.api.request import (
 from simvue.api.url import URL
 
 try:
-    from typing import Self
+    from typing import Self, override
 except ImportError:
-    from typing_extensions import Self
+    from typing_extensions import Self, override  # noqa: UP035
 
 # Need to use this inside of Generator typing to fix bug present in Python 3.10 - see issue #745
 T = typing.TypeVar("T", bound="SimvueObject")
@@ -806,18 +806,25 @@ class SimvueObject(abc.ABC):
         """
         return self._staging or None
 
+    @override
     def __str__(self) -> str:
         """String representation of Simvue object."""
         return f"{self.__class__.__name__}({self.id=})"
 
+    @override
     def __repr__(self) -> str:
         _out_str = f"{self.__class__.__module__}.{self.__class__.__qualname__}("
         _property_values: list[str] = []
+        _property_warn_list: list[str] = []
 
         for property in self._properties:
             try:
                 _value = getattr(self, property)
-            except KeyError:
+            except (KeyError, Exception):
+                # Display a warning only once if a property could not be retrieved
+                if property not in _property_warn_list:
+                    self._logger.warning(f"Failed to retrieve property '{property}'")
+                _property_warn_list.append(property)
                 continue
 
             if isinstance(_value, types.GeneratorType):
