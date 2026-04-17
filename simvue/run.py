@@ -13,10 +13,11 @@ import mimetypes
 import multiprocessing.synchronize
 import shlex
 import threading
+import warnings
 import humanfriendly
 import datetime
 import os
-import multiprocessing
+
 import pydantic
 import re
 import sys
@@ -32,6 +33,7 @@ import randomname
 import click
 import psutil
 
+from simvue.api.objects.alert.base import AlertBase
 from simvue.api.objects.alert.fetch import Alert
 from simvue.api.objects.folder import Folder
 from simvue.api.objects.grids import GridMetrics
@@ -69,6 +71,7 @@ from .api.objects import (
     Metrics,
     Grid,
 )
+
 
 try:
     from typing import Self
@@ -817,7 +820,9 @@ class Run:
         completion_callback: typing.Optional[
             typing.Callable[[int, str, str], None]
         ] = None,
-        completion_trigger: multiprocessing.synchronize.Event | None = None,
+        completion_trigger: threading.Event
+        | multiprocessing.synchronize.Event
+        | None = None,
         env: dict[str, str] | None = None,
         cwd: pathlib.Path | None = None,
         **cmd_kwargs,
@@ -880,7 +885,7 @@ class Run:
             you should provide it as such and perform the upload manually, by default None
         completion_callback : typing.Callable | None, optional
             callback to run when process terminates (not supported on Windows)
-        completion_trigger : multiprocessing.Event | None, optional
+        completion_trigger : threading.Event | None, optional
             this trigger event is set when the processes completes
         env : dict[str, str], optional
             environment variables for process
@@ -917,6 +922,12 @@ class Run:
             )
         ```
         """
+        if isinstance(completion_trigger, multiprocessing.synchronize.Event):
+            warnings.warn(
+                "Use of a 'multiprocessing.Event' as a termination trigger will be deprecated in v2.5, "
+                + "use an instance of 'threading.Event' instead."
+            )
+
         if platform.system() == "Windows" and completion_trigger:
             raise RuntimeError(
                 "Use of 'completion_trigger' on Windows based operating systems is unsupported "
@@ -2198,6 +2209,16 @@ class Run:
 
         return True
 
+    def _check_if_alert_exists(self, alert: "AlertBase") -> str | None:
+        """Check if an existing alert matches definition."""
+        # If the alert already exists just add the existing one
+        for _id, _existing_alert in Alert.get(
+            offline=self._user_config.run.mode == "offline"
+        ):
+            if _existing_alert == alert:
+                return _id
+        return None
+
     @skip_if_failed("_aborted", "_suppress_errors", None)
     @pydantic.validate_call
     def create_metric_range_alert(
@@ -2276,6 +2297,13 @@ class Run:
             frequency=frequency or 60,
             offline=self._user_config.run.mode == "offline",
         )
+
+        # If the alert already exists just add the existing one
+        if _existing_id := self._check_if_alert_exists(_alert):
+            if attach_to_run:
+                self.add_alerts(ids=[_existing_id])
+            return _existing_id
+
         _alert.abort = trigger_abort
         _alert.commit()
         if attach_to_run:
@@ -2358,6 +2386,12 @@ class Run:
             offline=self._user_config.run.mode == "offline",
         )
 
+        # If the alert already exists just add the existing one
+        if _existing_id := self._check_if_alert_exists(_alert):
+            if attach_to_run:
+                self.add_alerts(ids=[_existing_id])
+            return _existing_id
+
         _alert.abort = trigger_abort
         _alert.commit()
         if attach_to_run:
@@ -2412,10 +2446,19 @@ class Run:
             frequency=frequency,
             offline=self._user_config.run.mode == "offline",
         )
+
+        # If the alert already exists just add the existing one
+        if _existing_id := self._check_if_alert_exists(_alert):
+            if attach_to_run:
+                self.add_alerts(ids=[_existing_id])
+            return _existing_id
+
         _alert.abort = trigger_abort
         _alert.commit()
+
         if attach_to_run:
             self.add_alerts(ids=[_alert.id])
+
         return _alert.id
 
     @skip_if_failed("_aborted", "_suppress_errors", None)
@@ -2428,7 +2471,7 @@ class Run:
         notification: typing.Literal["email", "none"] = "none",
         trigger_abort: bool = False,
         attach_to_run: bool = True,
-    ) -> None:
+    ) -> str | None:
         """Creates a user alert with the specified name (if it doesn't exist)
         and applies it to the current run. If alert already exists it will
         not be duplicated.
@@ -2454,12 +2497,20 @@ class Run:
             returns the created alert ID if successful
 
         """
+
         _alert = UserAlert.new(
             name=name,
             notification=notification,
             description=description,
             offline=self._user_config.run.mode == "offline",
         )
+
+        # If the alert already exists just add the existing one
+        if _existing_id := self._check_if_alert_exists(_alert):
+            if attach_to_run:
+                self.add_alerts(ids=[_existing_id])
+            return _existing_id
+
         _alert.abort = trigger_abort
         _alert.commit()
         if attach_to_run:

@@ -15,6 +15,11 @@ from simvue.api.request import get as sv_get, get_json_from_response
 from simvue.api.url import URL
 from simvue.models import NAME_REGEX, DATETIME_FORMAT
 
+try:
+    from typing import override
+except ImportError:
+    from typing_extensions import override  # noqa: UP035
+
 
 class AlertBase(SimvueObject):
     """Class for interfacing with Simvue alerts
@@ -23,7 +28,7 @@ class AlertBase(SimvueObject):
     """
 
     @classmethod
-    def new(cls, **kwargs):
+    def new(cls, read_only: bool = False, **kwargs):
         """Create a new alert"""
         pass
 
@@ -37,6 +42,38 @@ class AlertBase(SimvueObject):
             "aggregation",
             "status",
         ]
+
+    def _compare_objects(self, other: "AlertBase") -> bool:
+        return all(
+            [
+                self.name == other.name,
+                self.description == other.description,
+                self.source == other.source,
+                self.notification == other.notification,
+            ]
+        )
+
+    @override
+    def __eq__(self, other: "AlertBase") -> bool:
+        """Check if alerts are the same."""
+
+        # Need to ensure objects are read-only for this
+        # operation as we do not want staging to alter
+        _self_is_read_only: bool = self._read_only
+        _other_is_read_only: bool = other._read_only
+        self.read_only(True)
+        other.read_only(True)
+
+        _comparison = self._compare_objects(other)
+
+        # Restore to write allowed unless the input object
+        # was read-only to begin with
+        if not _self_is_read_only:
+            self.read_only(False, clear_staged=False)
+        if not _other_is_read_only:
+            other.read_only(False, clear_staged=False)
+
+        return _comparison
 
     def compare(self, other: "AlertBase") -> bool:
         """Compare this alert to another"""

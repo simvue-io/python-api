@@ -10,9 +10,9 @@ import typing
 import pydantic
 
 try:
-    from typing import Self
+    from typing import Self, override
 except ImportError:
-    from typing_extensions import Self
+    from typing_extensions import Self, override
 from simvue.api.objects.base import write_only
 from .base import AlertBase, staging_check
 from simvue.models import NAME_REGEX
@@ -109,6 +109,13 @@ class EventsAlert(AlertBase):
         _alert._params = {"deduplicate": True}
         return _alert
 
+    @override
+    def _compare_objects(self, other: "AlertBase") -> bool:
+        """Compare Events Alerts."""
+        if not isinstance(other, EventsAlert):
+            return False
+        return super()._compare_objects(other) and self.alert == other.alert
+
 
 class EventAlertDefinition:
     """Event alert definition sub-class"""
@@ -117,11 +124,8 @@ class EventAlertDefinition:
         """Initialise an alert definition with its parent alert"""
         self._sv_obj = alert
 
-    def compare(self, other: "EventAlertDefinition") -> bool:
+    def __eq__(self, other: "EventAlertDefinition") -> bool:
         """Compare this definition with that of another EventAlert"""
-        if not isinstance(other, EventAlertDefinition):
-            return False
-
         return all(
             [
                 self.frequency == other.frequency,
