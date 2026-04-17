@@ -175,6 +175,7 @@ class Run(SimvueObject):
         folder: typing.Annotated[str, pydantic.StringConstraints(pattern=FOLDER_REGEX)]
         | None = None,
         metadata: dict[str, str | int | float | bool] | None = None,
+        **kwargs,
     ) -> Generator[str]:
         """Create a batch of Runs as a single request.
 
@@ -205,7 +206,7 @@ class Run(SimvueObject):
             | {"metadata": (entry.metadata or {}) | (metadata or {})}
             for entry in entries
         ]
-        for entry in Run(batch=_data, _read_only=False).commit() or []:
+        for entry in Run(batch=_data, _read_only=False, **kwargs).commit() or []:
             _id: str = entry["id"]
             yield _id
 

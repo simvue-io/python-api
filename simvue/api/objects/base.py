@@ -398,12 +398,11 @@ class SimvueObject(abc.ABC):
         str
             identifiers for all objects of this type.
         """
-        _class_instance = cls(_read_only=True, _local=True)
         _count: int = 0
         for response in cls._get_all_objects(offset, count=count, **kwargs):
             if (_data := response.get("data")) is None:
                 raise RuntimeError(
-                    f"Expected key 'data' for retrieval of {_class_instance.__class__.__name__.lower()}s"
+                    f"Expected key 'data' for retrieval of {cls.__name__.lower()}s"
                 )
             for entry in _data:
                 yield entry["id"]
@@ -437,14 +436,13 @@ class SimvueObject(abc.ABC):
         -------
         Generator[tuple[str, SimvueObject | None], None, None]
         """
-        _class_instance = cls(_read_only=True, _local=True)
         _count: int = 0
         for _response in cls._get_all_objects(offset, count=count, **kwargs):
             if count and _count > count:
                 return
             if (_data := _response.get("data")) is None:
                 raise RuntimeError(
-                    f"Expected key 'data' for retrieval of {_class_instance.__class__.__name__.lower()}s"
+                    f"Expected key 'data' for retrieval of {cls.__name__.lower()}s"
                 )
 
             # If data is an empty list
@@ -465,12 +463,11 @@ class SimvueObject(abc.ABC):
         int
             total from server database for current user.
         """
-        _class_instance = cls(_read_only=True)
         _count_total: int = 0
         for _data in cls._get_all_objects(count=None, offset=None, **kwargs):
             if not (_count := _data.get("count")):
                 raise RuntimeError(
-                    f"Expected key 'count' for retrieval of {_class_instance.__class__.__name__.lower()}s"
+                    f"Expected key 'count' for retrieval of {cls.__name__.lower()}s"
                 )
             _count_total += _count
         return _count_total
@@ -482,9 +479,13 @@ class SimvueObject(abc.ABC):
         count: int | None,
         endpoint: str | None = None,
         expected_type: type = dict,
+        server_url: str | None = None,
+        server_token: str | None = None,
         **kwargs,
     ) -> Generator[dict, None, None]:
-        _class_instance = cls(_read_only=True)
+        _class_instance = cls(
+            _read_only=True, server_token=server_token, server_url=server_url
+        )
 
         # Allow the possibility of paginating a URL that is not the
         # main class endpoint
