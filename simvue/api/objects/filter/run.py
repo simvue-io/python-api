@@ -2,6 +2,15 @@
 
 import typing
 import semver
+import pydantic as pyd
+
+try:
+    from typing import Self
+except ImportError:
+    from typing_extensions import Self  # noqa: UP035
+
+from simvue.models import FOLDER_REGEX
+from simvue.utilities import prettify_pydantic
 
 from .base import RestAPIFilter, Time
 
@@ -18,55 +27,67 @@ Status = typing.Literal[
 class RunsFilter(RestAPIFilter):
     """Filter for searching runs on the Simvue server."""
 
-    def has_name(self, name: str) -> "RunsFilter":
+    @prettify_pydantic
+    @pyd.validate_call
+    def has_name(self, name: str) -> Self:
         """Filter based on absolute object name."""
         self._filters.append(f"name == {name}")
         return self
 
-    def has_name_containing(self, name: str) -> "RunsFilter":
+    @prettify_pydantic
+    @pyd.validate_call
+    def has_name_containing(self, name: str) -> Self:
         """Filter base on object name containing a term."""
         self._filters.append(f"name contains {name}")
         return self
 
-    def exclude_name(self, name: str) -> "RunsFilter":
+    @prettify_pydantic
+    @pyd.validate_call
+    def exclude_name(self, name: str) -> Self:
         """Veto by object name."""
         self._filters.append(f"name != {name}")
         return self
 
-    def owner(self, username: str = "self") -> "RunsFilter":
+    @prettify_pydantic
+    @pyd.validate_call
+    def owner(self, username: str = "self") -> Self:
         """Filter by run owner."""
         self._filters.append(f"user == {username}")
         return self
 
-    def exclude_owner(self, username: str = "self") -> "RunsFilter":
+    @prettify_pydantic
+    @pyd.validate_call
+    def exclude_owner(self, username: str = "self") -> Self:
         """Veto by run owner."""
         self._filters.append(f"user != {username}")
         return self
 
-    def has_status(self, status: Status) -> "RunsFilter":
+    @prettify_pydantic
+    @pyd.validate_call
+    def has_status(self, status: Status) -> Self:
         """Filter by run status."""
         self._filters.append(f"status == {status}")
         return self
 
-    def is_running(self) -> "RunsFilter":
+    def is_running(self) -> Self:
         """Filter by if run is running."""
         return self.has_status("running")
 
-    def is_lost(self) -> "RunsFilter":
+    def is_lost(self) -> Self:
         """Filter by if run is lost."""
         return self.has_status("lost")
 
-    def has_completed(self) -> "RunsFilter":
+    def has_completed(self) -> Self:
         """Filter by if run has completed."""
         return self.has_status("completed")
 
-    def has_failed(self) -> "RunsFilter":
+    def has_failed(self) -> Self:
         """Filter by if run has failed."""
         return self.has_status("failed")
 
-    def has_alert(
-        self, alert_name: str, is_critical: bool | None = None
-    ) -> "RunsFilter":
+    @prettify_pydantic
+    @pyd.validate_call
+    def has_alert(self, alert_name: str, *, is_critical: bool | None = None) -> Self:
         """Filter by if run has a given alert."""
         self._filters.append(f"alert.name == {alert_name}")
         if is_critical is True:
@@ -75,62 +96,100 @@ class RunsFilter(RestAPIFilter):
             self._filters.append("alert.status == ok")
         return self
 
+    @prettify_pydantic
+    @pyd.validate_call
     def started_within(
-        self, *, hours: int = 0, days: int = 0, years: int = 0
-    ) -> "RunsFilter":
+        self,
+        *,
+        hours: pyd.NonNegativeInt = 0,
+        days: pyd.NonNegativeInt = 0,
+        years: pyd.NonNegativeInt = 0,
+    ) -> Self:
         """Filter by run start time interval."""
         return self._time_within(Time.Started, hours=hours, days=days, years=years)
 
+    @prettify_pydantic
+    @pyd.validate_call
     def modified_within(
-        self, *, hours: int = 0, days: int = 0, years: int = 0
-    ) -> "RunsFilter":
+        self,
+        *,
+        hours: pyd.NonNegativeInt = 0,
+        days: pyd.NonNegativeInt = 0,
+        years: pyd.NonNegativeInt = 0,
+    ) -> Self:
         """Filter by run modified time interval."""
         return self._time_within(Time.Modified, hours=hours, days=days, years=years)
 
+    @prettify_pydantic
+    @pyd.validate_call
     def ended_within(
-        self, *, hours: int = 0, days: int = 0, years: int = 0
-    ) -> "RunsFilter":
+        self,
+        *,
+        hours: pyd.NonNegativeInt = 0,
+        days: pyd.NonNegativeInt = 0,
+        years: pyd.NonNegativeInt = 0,
+    ) -> Self:
         """Filter by run end time interval."""
         return self._time_within(Time.Ended, hours=hours, days=days, years=years)
 
-    def in_folder(self, folder_name: str) -> "RunsFilter":
+    @prettify_pydantic
+    @pyd.validate_call
+    def in_folder(
+        self, folder_path: typing.Annotated[str, pyd.Field(pattern=FOLDER_REGEX)]
+    ) -> Self:
         """Filter by whether run is within the given folder."""
-        self._filters.append(f"folder.path == {folder_name}")
+        self._filters.append(f"folder.path == {folder_path}")
         return self
 
-    def in_folder_containing(self, folder_name: str) -> "RunsFilter":
+    @prettify_pydantic
+    @pyd.validate_call
+    def in_folder_containing(self, folder_path: str) -> Self:
         """Filter by whether run is in folder path with expression."""
-        self._filters.append(f"folder.path contains {folder_name}")
+        self._filters.append(f"folder.path contains {folder_path}")
         return self
 
-    def exclude_in_folder(self, folder_name: str) -> "RunsFilter":
+    @prettify_pydantic
+    @pyd.validate_call
+    def exclude_in_folder(
+        self, folder_path: typing.Annotated[str, pyd.Field(pattern=FOLDER_REGEX)]
+    ) -> Self:
         """Filter by whether run is not within the given folder."""
-        self._filters.append(f"folder.path != {folder_name}")
+        self._filters.append(f"folder.path != {folder_path}")
         return self
 
-    def has_working_directory(self, working_dir: str) -> "RunsFilter":
+    @prettify_pydantic
+    @pyd.validate_call
+    def has_working_directory(self, working_dir: str) -> Self:
         """Filter by whether run was executed in a given directory."""
         self._filters.append(f"system.cwd == {working_dir}")
         return self
 
-    def exclude_working_directory(self, working_dir: str) -> "RunsFilter":
+    @prettify_pydantic
+    @pyd.validate_call
+    def exclude_working_directory(self, working_dir: str) -> Self:
         """Veto by whether run was executed in a given directory."""
         self._filters.append(f"system.cwd != {working_dir}")
         return self
 
-    def has_hostname(self, hostname: str) -> "RunsFilter":
+    @prettify_pydantic
+    @pyd.validate_call
+    def has_hostname(self, hostname: str) -> Self:
         """Filter by simulation host machine."""
         self._filters.append(f"system.hostname == {hostname}")
         return self
 
-    def exclude_hostname(self, hostname: str) -> "RunsFilter":
+    @prettify_pydantic
+    @pyd.validate_call
+    def exclude_hostname(self, hostname: str) -> Self:
         """Veto by simulation host machine."""
         self._filters.append(f"system.hostname != {hostname}")
         return self
 
+    @prettify_pydantic
+    @pyd.validate_call
     def has_cpu(
         self, *, architecture: str | None = None, processor: str | None = None
-    ) -> "RunsFilter":
+    ) -> Self:
         """Filter by CPU architecture and processor."""
         if architecture:
             self._filters.append(f"system.cpu.arch == {architecture}")
@@ -138,9 +197,11 @@ class RunsFilter(RestAPIFilter):
             self._filters.append(f"system.cpu.processor == {processor}")
         return self
 
+    @prettify_pydantic
+    @pyd.validate_call
     def exclude_cpu(
         self, *, architecture: str | None = None, processor: str | None = None
-    ) -> "RunsFilter":
+    ) -> Self:
         """Veto by CPU architecture and processor."""
         if architecture:
             self._filters.append(f"system.cpu.arch != {architecture}")
@@ -148,9 +209,9 @@ class RunsFilter(RestAPIFilter):
             self._filters.append(f"system.cpu.processor != {processor}")
         return self
 
-    def has_gpu(
-        self, *, name: str | None = None, processor: str | None = None
-    ) -> "RunsFilter":
+    @prettify_pydantic
+    @pyd.validate_call
+    def has_gpu(self, *, name: str | None = None, processor: str | None = None) -> Self:
         """Filter by GPU name or processor.
 
         If no arguments are given this filters by runs which are on a
@@ -162,9 +223,11 @@ class RunsFilter(RestAPIFilter):
             self._filters.append(f"system.gpu.processor == {name}")
         return self
 
+    @prettify_pydantic
+    @pyd.validate_call
     def exclude_gpu(
         self, *, name: str | None = None, processor: str | None = None
-    ) -> "RunsFilter":
+    ) -> Self:
         """Veto by GPU name or processor."""
         if name:
             self._filters.append(f"system.gpu.name != {name}")
@@ -172,7 +235,9 @@ class RunsFilter(RestAPIFilter):
             self._filters.append(f"system.gpu.processor != {name}")
         return self
 
-    def has_python_version(self, python_version: str) -> "RunsFilter":
+    @prettify_pydantic
+    @pyd.validate_call
+    def has_python_version(self, python_version: str) -> Self:
         try:
             _ = semver.Version.parse(python_version)
         except ValueError as e:
@@ -182,7 +247,9 @@ class RunsFilter(RestAPIFilter):
         self._filters.append(f"system.pythonversion == {python_version}")
         return self
 
-    def exclude_python_version(self, python_version: str) -> "RunsFilter":
+    @prettify_pydantic
+    @pyd.validate_call
+    def exclude_python_version(self, python_version: str) -> Self:
         try:
             _ = semver.Version.parse(python_version)
         except ValueError as e:
@@ -192,9 +259,11 @@ class RunsFilter(RestAPIFilter):
         self._filters.append(f"system.pythonversion != {python_version}")
         return self
 
+    @prettify_pydantic
+    @pyd.validate_call
     def has_platform(
         self, platform: str, *, release: str | None = None, version: str | None = None
-    ) -> "RunsFilter":
+    ) -> Self:
         """Filter by simulation host platform."""
         self._filters.append(f"system.platform.system == {platform}")
         if release:
@@ -203,9 +272,11 @@ class RunsFilter(RestAPIFilter):
             self._filters.append(f"system.platform.version == {version}")
         return self
 
+    @prettify_pydantic
+    @pyd.validate_call
     def exclude_platform(
         self, platform: str, *, release: str | None = None, version: str | None = None
-    ) -> "RunsFilter":
+    ) -> Self:
         """Veto by simulation host platform.
 
         If platform is specified then results WITHOUT this platform are returned.
