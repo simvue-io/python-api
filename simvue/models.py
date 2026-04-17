@@ -19,6 +19,7 @@ MetricKeyString = typing.Annotated[
     str, pydantic.StringConstraints(pattern=METRIC_KEY_REGEX)
 ]
 ObjectID = typing.Annotated[str, pydantic.StringConstraints(pattern=OBJECT_ID)]
+LogLevel = typing.Literal["debug", "info", "warning", "error", "critical"]
 
 
 def validate_timestamp(timestamp: str, raise_except: bool = True) -> bool:
@@ -114,4 +115,5 @@ class GridMetricSet(pydantic.BaseModel):
 class EventSet(pydantic.BaseModel):
     model_config = pydantic.ConfigDict(extra="forbid")
     message: str
+    log_level: typing.Literal["info", "warning", "debug", "error", "critical"]
     timestamp: typing.Annotated[str | None, pydantic.BeforeValidator(simvue_timestamp)]
