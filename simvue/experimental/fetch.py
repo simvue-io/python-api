@@ -6,8 +6,9 @@ import pydantic as pyd
 import typing
 
 from collections.abc import Generator
-from simvue.exception import InvalidQueryError
+from simvue.exception import InvalidQueryError, ObjectNotFoundError
 from simvue.models import MetricKeyString, ObjectID, XAxis, PerRunMetrics
+from simvue.utilities import prettify_pydantic
 
 
 @pyd.validate_call
@@ -86,3 +87,53 @@ def get_metric_values(
             runs=run_ids, metrics=metric_names, xaxis=x_axis
         ):
             yield from result.items()
+
+
+@prettify_pydantic
+@pyd.validate_call
+def get_run_id_from_name(
+    name: str,
+    *,
+    server_url: pyd.HttpUrl | None = None,
+    server_token: pyd.SecretStr | None = None,
+    missing_ok: bool = False,
+) -> ObjectID | None:
+    """Retrieve the identifier for a run given its name.
+
+    Parameters
+    ----------
+    name : str
+        The name of the run to retrieve.
+    server_url : str | None, optional
+        alternative server URL to use for item retrieval
+    server_token : str | None, optional
+        token for the alternative URL
+    missing_ok : bool, optional
+        whether failure to find a match raises an exception
+        or returns None, default False.
+
+    Returns
+    -------
+    str | None
+        identifier for the run if name is found.
+
+    Raises
+    ------
+    ObjectNotFoundError
+        if no match and exception is enabled.
+    """
+    if server_url and not server_token:
+        raise ValueError("A token must be provided for the alternative URL")
+
+    _kwargs: dict[str, str] = {}
+
+    if server_url and server_token:
+        _kwargs["server_url"] = server_url.encoded_string()
+        _kwargs["server_token"] = server_token.get_secret_value()
+
+    _id, _ = next(sv_obj.Run.filter().has_name(name).get(**_kwargs), (None, None))
+
+    if not _id and not missing_ok:
+        raise ObjectNotFoundError(obj_type="run", name=name)
+
+    return typing.cast("str | None", _id)
