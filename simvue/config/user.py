@@ -13,9 +13,9 @@ import typing
 from collections.abc import Mapping
 
 import pydantic
-from requests import Response
 import semver
 import toml
+from requests import Response
 
 try:
     from typing import Self
@@ -67,10 +67,14 @@ class SimvueConfiguration(pydantic.BaseModel):
     server: ServerSpecifications = pydantic.Field(
         ..., description="Specifications for Simvue server"
     )
+    profiles: dict[str, ServerSpecifications] = pydantic.Field(
+        default_factory=dict[str, ServerSpecifications]
+    )
     run: DefaultRunSpecifications = DefaultRunSpecifications()
     offline: OfflineSpecifications = OfflineSpecifications()
     metrics: MetricsSpecifications = MetricsSpecifications()
     eco: EcoConfig = EcoConfig()
+    current_profile: str | None = None
 
     @classmethod
     def _load_pyproject_configs(cls) -> Mapping[str, object] | None:
@@ -187,7 +191,8 @@ class SimvueConfiguration(pydantic.BaseModel):
         mode: typing.Literal["offline", "online", "disabled"],
         server_url: str | None = None,
         server_token: str | None = None,
-    ) -> Self:
+        profile: str | None = None,
+    ) -> "SimvueConfiguration":
         """Retrieve the Simvue configuration from this project.
 
         Will retrieve the configuration options set for this project either using
@@ -204,6 +209,8 @@ class SimvueConfiguration(pydantic.BaseModel):
                 * online - send metrics and data to a server.
                 * offline - run in offline mode.
                 * disabled - run in disabled mode.
+        profile : str | None, optional
+            specify server profile to user for URL and token.
 
         Return
         ------
@@ -213,16 +220,27 @@ class SimvueConfiguration(pydantic.BaseModel):
         """
         _config_dict: dict[str, dict[str, str]] = cls._load_pyproject_configs() or {}
 
+        profile = os.environ.get("SIMVUE_SERVER_PROFILE", profile)
+
         try:
             # NOTE: Legacy INI support has been removed
             _config_dict |= toml.load(cls.config_file())
 
         except FileNotFoundError:
             if not server_token or not server_url:
-                _config_dict = {"server": {}}
+                _config_dict |= {"server": {}}
                 logger.debug("No config file found, checking environment variables")
 
-        _config_dict["server"] = _config_dict.get("server", {})
+        if not profile:
+            _config_dict["server"] = _config_dict.get("server", {})
+        elif not _config_dict.get("profiles", {}).get(profile):
+            _exc_msg: str = (
+                f"Cannot load server configuration for '{profile}', "
+                "profile not found in configurations."
+            )
+            raise RuntimeError(_exc_msg)
+        else:
+            _config_dict["server"] = _config_dict["profiles"][profile]
 
         _config_dict["offline"] = _config_dict.get("offline", {})
 
@@ -263,7 +281,7 @@ class SimvueConfiguration(pydantic.BaseModel):
         _config_dict["server"]["url"] = _server_url
         _config_dict["run"]["mode"] = _run_mode
 
-        return SimvueConfiguration(**_config_dict)
+        return SimvueConfiguration(current_profile=profile, **_config_dict)
 
     @classmethod
     @functools.lru_cache

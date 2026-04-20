@@ -10,44 +10,42 @@ from collections.abc import Generator
 import pydantic
 
 try:
-    from typing import Self
+    from typing import Self, override
 except ImportError:
-    from typing_extensions import Self  # noqa: UP035
-
-try:
-    from typing import override
-except ImportError:
-    from typing_extensions import override  # noqa: UP035
+    from typing_extensions import Self, override  # noqa: UP035
 
 from simvue.api.objects.base import staging_check, write_only
 from simvue.models import NAME_REGEX
 
-from .base import AlertBase
+from .base import AlertBase, staging_check
 
 
 class EventsAlert(AlertBase):
-    """Connect to an event-based alert either locally or on a server."""
+    """
+    Simvue Events Alert
+    ===================
 
-    def __init__(
-        self,
-        identifier: str | None = None,
-        *,
-        _offline: bool = False,
-        _local: bool = False,
-        _user_agent: str | None = None,
-        _read_only: bool = True,
-        **kwargs: object,
-    ) -> None:
-        """Initialise a connection to an event alert by identifier."""
-        self.alert: EventAlertDefinition = EventAlertDefinition(self)
-        super().__init__(
-            identifier=identifier,
-            _offline=_offline,
-            _local=_local,
-            _user_agent=_user_agent,
-            _read_only=_read_only,
-            **kwargs,
-        )
+    This class is used to connect to/create event-based alert objects on the Simvue server,
+    any modification of EventsAlert instance attributes is mirrored on the remote object.
+
+    """
+
+    def __init__(self, identifier: str | None = None, **kwargs: object) -> None:
+        """Initialise an Events Alert
+
+        If an identifier is provided a connection will be made to the
+        object matching the identifier on the target server.
+        Else a new EventsAlert instance will be created using arguments provided in kwargs.
+
+        Parameters
+        ----------
+        identifier : str, optional
+            the remote server unique id for the target folder
+        **kwargs : dict
+            any additional arguments to be passed to the object initialiser
+        """
+        self.alert = EventAlertDefinition(self)
+        super().__init__(identifier, **kwargs)
 
     @classmethod
     @override
@@ -118,6 +116,13 @@ class EventsAlert(AlertBase):
         _alert._params = {"deduplicate": True}  # pyright: ignore[reportAttributeAccessIssue]
         return _alert
 
+    @override
+    def _compare_objects(self, other: "AlertBase") -> bool:
+        """Compare Events Alerts."""
+        if not isinstance(other, EventsAlert):
+            return False
+        return super()._compare_objects(other) and self.alert == other.alert
+
 
 class EventAlertDefinition:
     """Event alert definition sub-class."""
@@ -126,11 +131,9 @@ class EventAlertDefinition:
         """Initialise an alert definition with its parent alert."""
         self._sv_obj: EventsAlert = alert
 
-    def compare(self, other: "EventAlertDefinition | object") -> bool:
-        """Compare this definition with that of another EventAlert."""
-        if not isinstance(other, EventAlertDefinition):
-            return False
-
+    @override
+    def __eq__(self, other: "EventAlertDefinition") -> bool:
+        """Compare this definition with that of another EventAlert"""
         return all(
             [
                 self.frequency == other.frequency,

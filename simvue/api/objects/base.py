@@ -596,13 +596,15 @@ class SimvueObject(abc.ABC):
             else:
                 yield from typing.cast("list[dict[str, object]]", _generator)
 
-    def read_only(self, is_read_only: bool) -> None:  # noqa: FBT001
+    def read_only(self, is_read_only: bool, *, clear_staged: bool = True) -> None:
         """Set whether this object is in read only state.
 
         Parameters
         ----------
         is_read_only : bool
             whether object is read only.
+        clear_staged : bool, optional
+            whether to clear staging data, default is True.
         """
         self._read_only = is_read_only
 
@@ -610,7 +612,7 @@ class SimvueObject(abc.ABC):
         # in this context it contains existing data retrieved
         # from the server/local entry which we dont want to
         # re-push unnecessarily, then read any locally staged changes
-        if not self._read_only:
+        if not self._read_only and clear_staged:
             self._staging = self._get_local_staged()
 
     def commit(self) -> list[dict[str, str]] | dict[str, str] | None:

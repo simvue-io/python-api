@@ -55,7 +55,30 @@ def check_ordered_array(
 
 
 class Grid(SimvueObject):
-    """Class for retrieving grids stored on the server."""
+    """
+    Simvue Grid
+    ===========
+
+    This class is used to connect to/create grid objects on the Simvue server,
+    any modification of instance attributes is mirrored on the remote object.
+
+    """
+
+    def __init__(self, identifier: str | None = None, **kwargs) -> None:
+        """Initialise a Grid
+
+        If an identifier is provided a connection will be made to the
+        object matching the identifier on the target server.
+        Else a new Grid will be created using arguments provided in kwargs.
+
+        Parameters
+        ----------
+        identifier : str, optional
+            the remote server unique id for the target folder
+        **kwargs : dict
+            any additional arguments to be passed to the object initialiser
+        """
+        super().__init__(identifier, **kwargs)
 
     @pydantic.validate_call
     @write_only
@@ -260,13 +283,22 @@ class Grid(SimvueObject):
     @override
     def get(
         cls,
-        *_: object,
-        **__: object,
+        *_,
+        **__,
     ) -> Generator[tuple[str, Self | None]]:
         raise NotImplementedError
 
 
 class GridMetrics(SimvueObject):
+    """
+    Simvue Grid Metrics
+    ===================
+
+    This class is used to connect to/create grid metrics on the Simvue server,
+    any modification of instance attributes is mirrored on the remote object.
+
+    """
+
     def __init__(
         self,
         *,
@@ -336,7 +368,8 @@ class GridMetrics(SimvueObject):
         runs: list[str],
         metrics: list[str],
         step: pydantic.NonNegativeInt,
-        **kwargs: object,
+        spans: bool = False,
+        **kwargs,
     ) -> Generator[dict[str, dict[str, list[dict[str, float]]]]]:
         """Retrieve tensor-metrics from the server for a given set of runs.
 

@@ -1,30 +1,29 @@
-"""
-Dispatch
-========
+"""Dispatch
 
 Contains factory method for selecting dispatcher type based on Simvue Configuration
 """
 
-import typing
 import logging
+import typing
 
 if typing.TYPE_CHECKING:
-    from .base import DispatcherBaseClass
     from threading import Event
 
-from .queued import QueuedDispatcher
+    from .base import DispatcherBaseClass
+
 from .direct import DirectDispatcher
+from .queued import QueuedDispatcher
 
 logger = logging.getLogger(__name__)
 
 
 def Dispatcher(
     mode: typing.Literal["direct", "queued"],
-    callback: typing.Callable[[list[typing.Any], str, dict[str, typing.Any]], None],
+    callback: typing.Callable[[list[typing.Any], str], None],
     object_types: list[str],
     termination_trigger: "Event",
     name: str | None = None,
-    **kwargs,
+    thresholds: dict[str, int | float] | None = None,
 ) -> "DispatcherBaseClass":
     """Returns instance of dispatcher based on configuration
 
@@ -46,6 +45,10 @@ def Dispatcher(
         event which triggers termination of the dispatcher
     name : str | None, optional
         name for the underlying thread, default None
+    thresholds: dict[str, int | float] | None, default None
+        if metadata is provided during item addition, specify
+        thresholds under which dispatch of an item is permitted,
+        default is None
 
     Returns
     -------
@@ -58,14 +61,13 @@ def Dispatcher(
             callback=callback,
             object_types=object_types,
             termination_trigger=termination_trigger,
-            **kwargs,
+            thresholds=thresholds,
         )
-    else:
-        logger.debug("Using queued dispatch for metric and queue sending")
-        return QueuedDispatcher(
-            callback=callback,
-            object_types=object_types,
-            termination_trigger=termination_trigger,
-            name=name,
-            **kwargs,
-        )
+    logger.debug("Using queued dispatch for metric and queue sending")
+    return QueuedDispatcher(
+        callback=callback,
+        object_types=object_types,
+        termination_trigger=termination_trigger,
+        name=name,
+        thresholds=thresholds,
+    )

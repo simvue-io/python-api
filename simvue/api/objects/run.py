@@ -19,7 +19,7 @@ from simvue.utilities import simvue_timestamp
 try:
     from typing import Self, override
 except ImportError:
-    from typing import Self, override
+    from typing_extensions import Self, override  # noqa: UP035
 
 from simvue.api.request import (
     get as sv_get,
@@ -31,7 +31,7 @@ from simvue.api.request import (
     put as sv_put,
 )
 from simvue.api.url import URL
-from simvue.models import DATETIME_FORMAT, FOLDER_REGEX, NAME_REGEX
+from simvue.models import DATETIME_FORMAT, FOLDER_REGEX, NAME_REGEX, simvue_timestamp
 
 from .base import (
     ObjectBatchArgs,
@@ -42,6 +42,7 @@ from .base import (
     staging_check,
     write_only,
 )
+from .filter import RunsFilter
 
 Status = typing.Literal[
     "lost", "failed", "completed", "terminated", "running", "created"
@@ -84,7 +85,14 @@ class RunBatchArgs(ObjectBatchArgs):
 
 
 class Run(SimvueObject):
-    """Class for directly interacting with/creating runs on the server."""
+    """
+    Simvue Run
+    ==========
+
+    This class is used to connect to/create run objects on the Simvue server,
+    any modification of instance attributes is mirrored on the remote object.
+
+    """
 
     def __init__(self, identifier: str | None = None, **kwargs: object) -> None:
         """Initialise a Run.
@@ -102,6 +110,19 @@ class Run(SimvueObject):
         """
         self.visibility = Visibility(self)
         super().__init__(identifier, **kwargs)
+
+    @classmethod
+    def filter(cls) -> RunsFilter:
+        _run_filter = RunsFilter(cls)
+        _run_filter.get.__func__.__doc__ = cls.get.__func__.__doc__
+        return _run_filter
+
+    @override
+    def commit(self) -> dict | list[dict] | None:
+        if "starred" in self._staging:
+            _star_run: bool = self._staging.pop("starred")
+            self._set_favourite(starred=_star_run)
+        return super().commit()
 
     @classmethod
     @pydantic.validate_call
@@ -402,8 +423,8 @@ class Run(SimvueObject):
         count: pydantic.PositiveInt | None = None,
         offset: pydantic.NonNegativeInt | None = None,
         sorting: list[RunSort] | None = None,
-        **kwargs: object,
-    ) -> Generator[tuple[str, Self]]:
+        **kwargs,
+    ) -> Generator[tuple[str, T | None]]:
         """Get runs from the server.
 
         Parameters
@@ -434,7 +455,7 @@ class Run(SimvueObject):
     def alerts(self, alerts: list[str]) -> None:
         self._staging["alerts"] = list(set(self._staging.get("alerts", []) + alerts))
 
-    def get_alert_details(self) -> Generator[dict[str, object]]:
+    def get_alert_details(self) -> Generator[dict[str, typing.Any]]:
         """Retrieve the full details of alerts for this run.
 
         Yields
@@ -508,6 +529,31 @@ class Run(SimvueObject):
     @pydantic.validate_call
     def started(self, started: datetime.datetime) -> None:
         self._staging["started"] = simvue_timestamp(started)
+
+    @property
+    @staging_check
+    def star(self) -> bool:
+        """Return if this folder is starred"""
+        return self._get().get("starred", False)
+
+    @star.setter
+    @write_only
+    @pydantic.validate_call
+    def star(self, is_true: bool = True) -> None:
+        """Star this folder as a favourite"""
+        self._staging["starred"] = is_true
+
+    def _set_favourite(self, *, starred: bool) -> dict:
+        """Set starred status."""
+        _url = self.url / "starred"
+        _response = sv_put(
+            f"{_url}", headers=self._user_config.headers, data={"starred": starred}
+        )
+        return get_json_from_response(
+            expected_status=[http.HTTPStatus.OK],
+            response=_response,
+            scenario=f"Applying favourite preference to run '{self.id}'",
+        )
 
     @property
     @staging_check

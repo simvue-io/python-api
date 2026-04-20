@@ -6,16 +6,11 @@ Example of repeating simulation of a proton fired at a target of beryllium
 monitoring the yield of key particles of interest
 """
 
-import multiparser
-import multiparser.parsing.file as mp_file_parse
+import threading
 import simvue
-import uproot
-import multiprocessing
 import typing
 import click
 import pathlib
-import os
-import tempfile
 
 from particle import Particle
 
@@ -77,7 +72,7 @@ def geant4_simvue_example(
 
         for i in range(events):
             # Create new multiprocessing Trigger which will register when the simulation is complete
-            _trigger = multiprocessing.Event()
+            _trigger = threading.Event()
             
             if i % 10 == 0:
                 click.secho(

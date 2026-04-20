@@ -36,7 +36,14 @@ __all__ = ["Events"]
 
 
 class Events(SimvueObject):
-    """Object representing a set of run events on the Simvue Server."""
+    """
+    Simvue Events
+    =============
+
+    This class is used to connect to/create events objects on the Simvue server,
+    any modification of instance attributes is mirrored on the remote object.
+
+    """
 
     def __init__(
         self,
@@ -45,10 +52,11 @@ class Events(SimvueObject):
         _local: bool = False,
         **kwargs: object,
     ) -> None:
-        self._label: str = "event"
-        super().__init__(_read_only=_read_only, _local=_local, **kwargs)  # pyright: ignore[reportArgumentType]
-        self._run_id: str | None = self._staging.get("run")
-        self._is_set: bool = True
+        """Initialise an Events object instance for creation/retrieval."""
+        self._label = "event"
+        super().__init__(_read_only=_read_only, _local=_local, **kwargs)
+        self._run_id = self._staging.get("run")
+        self._is_set = True
 
     @classmethod
     @pydantic.validate_call
@@ -59,9 +67,8 @@ class Events(SimvueObject):
         *,
         count: pydantic.PositiveInt | None = None,
         offset: pydantic.PositiveInt | None = None,
-        **kwargs: object,
+        **kwargs,
     ) -> Generator[EventSet]:
-        """Retrieve objects from the Simvue server."""
         _class_instance = cls(_read_only=True, _local=True)
         _count: int = 0
 

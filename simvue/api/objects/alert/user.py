@@ -12,8 +12,7 @@ import pydantic
 try:
     from typing import Self, override
 except ImportError:
-    from typing import Self, override
-
+    from typing_extensions import Self, override  # noqa: UP035
 import http
 
 from simvue.api.request import get_json_from_response
@@ -24,11 +23,29 @@ from .base import AlertBase
 
 
 class UserAlert(AlertBase):
-    """Connect to/create a user defined alert either locally or on server."""
+    """
+    Simvue User Alert
+    =================
 
-    def __init__(
-        self, identifier: str | None = None, **kwargs: object | dict[str, str | None]
-    ) -> None:
+    This class is used to connect to/create user alert objects on the Simvue server,
+    any modification of UserAlert instance attributes is mirrored on the remote object.
+
+    """
+
+    def __init__(self, identifier: str | None = None, **kwargs) -> None:
+        """Initialise a User Alert
+
+        If an identifier is provided a connection will be made to the
+        object matching the identifier on the target server.
+        Else a new UserAlert instance will be created using arguments provided in kwargs.
+
+        Parameters
+        ----------
+        identifier : str, optional
+            the remote server unique id for the target folder
+        **kwargs : dict
+            any additional arguments to be passed to the object initialiser
+        """
         super().__init__(identifier, **kwargs)
         self._local_status: dict[str, str | None] = cast(
             "dict[str, str | None]", kwargs.pop("status", {})
@@ -76,6 +93,12 @@ class UserAlert(AlertBase):
         )
         _alert._params = {"deduplicate": True}
         return _alert
+
+    @override
+    def _compare_objects(self, other: "AlertBase") -> bool:
+        if not isinstance(other, UserAlert):
+            return False
+        return super()._compare_objects(other)
 
     @classmethod
     @override

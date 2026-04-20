@@ -15,7 +15,6 @@ from collections.abc import Generator
 from concurrent.futures import ThreadPoolExecutor, as_completed
 
 import pydantic
-import requests
 from pandas import DataFrame
 
 from simvue.api.objects.alert.fetch import AlertSort, AlertType
@@ -128,15 +127,12 @@ class Client:
         """
         _runs = Run.get(filters=json.dumps([f"name == {name}"]))
 
-        try:
-            _id, _ = next(_runs)
-        except StopIteration as e:
-            raise RuntimeError(
-                "Could not collect ID - no run found with this name."
-            ) from e
+        if not (_first_entry := next(_runs, None)):
+            raise RuntimeError("Could not collect ID - no run found with this name.")
 
-        with contextlib.suppress(StopIteration):
-            _ = next(_runs)
+        _id, _ = _first_entry
+
+        if next(_runs, None):
             raise RuntimeError(
                 "Could not collect ID - more than one run exists with this name."
             )
@@ -199,7 +195,7 @@ class Client:
         start_index: pydantic.NonNegativeInt = 0,
         show_shared: bool = True,
         sort_by_columns: list[tuple[str, bool]] | None = None,
-    ) -> DataFrame | list[dict[str, object]] | Generator[tuple[str, Run]] | None:
+    ) -> DataFrame | Generator[tuple[str, Run]] | dict[str, object] | None:
         """Retrieve all runs matching filters.
 
         Parameters
@@ -228,8 +224,9 @@ class Client:
         output_format : Literal['dict', objects', 'dataframe'], optional
             the structure of the response
                 * dict - dictionary of values.
-                * objects - a dictionary of objects (default).
+                * objects - a generator of (ID, object) pairs (default).
                 * dataframe - a dataframe (Pandas must be installed).
+            use of the generator is recommended.
         count_limit : int, optional
             maximum number of entries to return. Default is 100.
         start_index : int, optional
@@ -330,10 +327,7 @@ class Client:
         """
         _folders = Folder.get(filters=json.dumps([f"path == {path}"]))
 
-        try:
-            _, _folder = next(_folders)
-        except StopIteration:
-            return None
+        _, _folder = next(_folders, (None, None))
 
         return _folder
 
@@ -352,14 +346,11 @@ class Client:
         """
         _ids = Folder.ids(filters=json.dumps([f"path == {path}"]))
 
-        try:
-            _id = next(_ids)
-        except StopIteration:
+        if not (_id := next(_ids, None)):
             return None
 
-        with contextlib.suppress(StopIteration):
-            _ = next(_ids)
-            _out_msg: str = (
+        if next(_ids, None):
+            raise RuntimeError(
                 f"Expected single folder match for '{path}', but found duplicate."
             )
             raise RuntimeError(_out_msg)
@@ -464,8 +455,8 @@ class Client:
     @pydantic.validate_call
     def list_artifacts(
         self, run_id: str, sort_by_columns: list[tuple[str, bool]] | None = None
-    ) -> Generator[tuple[str, FileArtifact | ObjectArtifact]]:
-        """Retrieve artifacts for a given run.
+    ) -> Generator[Artifact]:
+        """Retrieve artifacts for a given run
 
         Parameters
         ----------
@@ -638,8 +629,9 @@ class Client:
         RuntimeError
             if there was a failure retrieving artifacts from the server
         """
-        _artifacts: Generator[tuple[str, FileArtifact | ObjectArtifact]] = (
-            Artifact.from_run(run_id=run_id, category=category)
+        _artifacts: Generator[tuple[str, Artifact]] = Artifact.from_run(
+            run_id=run_id,
+            category=category,
         )
 
         with ThreadPoolExecutor(
@@ -707,7 +699,7 @@ class Client:
         start_index: pydantic.NonNegativeInt = 0,
         sort_by_columns: list[tuple[str, bool]] | None = None,
     ) -> Generator[tuple[str, Folder]]:
-        """Retrieve folders from the server.
+        """Retrieve folders from the server
 
         Parameters
         ----------
@@ -747,7 +739,7 @@ class Client:
     @prettify_pydantic
     @pydantic.validate_call
     def get_metrics_names(self, run_id: str) -> Generator[str]:
-        """Return information on all metrics within a run.
+        """Return information on all metrics within a run
 
         Parameters
         ----------
@@ -1154,8 +1146,8 @@ class Client:
         start_index: pydantic.NonNegativeInt | None = None,
         count_limit: pydantic.PositiveInt | None = None,
         sort_by_columns: list[tuple[str, bool]] | None = None,
-    ) -> Generator[tuple[str, Tag]]:
-        """Retrieve tags.
+    ) -> Generator[Tag]:
+        """Retrieve tags
 
         Parameters
         ----------

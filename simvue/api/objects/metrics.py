@@ -12,10 +12,6 @@ from collections.abc import Generator
 
 import pydantic
 
-from simvue.api.request import get as sv_get
-from simvue.api.request import get_json_from_response
-from simvue.models import MetricSet
-
 from .base import SimvueObject
 
 try:
@@ -27,7 +23,13 @@ __all__ = ["Metrics"]
 
 
 class Metrics(SimvueObject):
-    """Class for retrieving metrics stored on the server."""
+    """
+    Simvue Metrics
+    ==============
+
+    Class for retrieving metrics stored on the server.
+
+    """
 
     def __init__(
         self,
@@ -36,7 +38,7 @@ class Metrics(SimvueObject):
         _local: bool = False,
         **kwargs: object,
     ) -> None:
-        """Initialise a Metrics object instance."""
+        """Initialise a Metrics object instance for creation/retrieval."""
         self._label = "metric"
         super().__init__(_read_only=_read_only, _local=_local, **kwargs)
         self._run_id = self._staging.get("run")
@@ -82,7 +84,7 @@ class Metrics(SimvueObject):
         *,
         count: pydantic.PositiveInt | None = None,
         offset: pydantic.PositiveInt | None = None,
-        **kwargs: object,
+        **kwargs,
     ) -> Generator[dict[str, dict[str, list[dict[str, float]]]]]:
         """Retrieve metrics from the server for a given set of runs.
 

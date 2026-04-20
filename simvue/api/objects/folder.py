@@ -6,12 +6,16 @@ a new folder given relevant arguments.
 """
 
 import datetime
+import http
 import json
 import typing
 from collections.abc import Generator
 
 import pydantic
 
+from simvue.api.objects.filter import FoldersFilter
+from simvue.api.request import get_json_from_response
+from simvue.api.request import put as sv_put
 from simvue.exception import ObjectNotFoundError
 from simvue.models import DATETIME_FORMAT, FOLDER_REGEX
 
@@ -20,9 +24,9 @@ from .base import SimvueObject, Sort, staging_check, write_only
 # Need to use this inside of Generator typing to fix bug
 # present in Python 3.10 - see issue #745
 try:
-    from typing import Self
+    from typing import Self, override
 except ImportError:
-    from typing import Self
+    from typing_extensions import Self, override  # noqa: UP035
 
 
 __all__ = ["Folder"]
@@ -64,8 +68,6 @@ class Folder(SimvueObject):
         ----------
         identifier : str, optional
             the remote server unique id for the target folder
-        read_only : bool, optional
-            create object in read-only mode
         **kwargs : dict
             any additional arguments to be passed to the object initialiser
         """
@@ -94,14 +96,44 @@ class Folder(SimvueObject):
         count: pydantic.PositiveInt | None = None,
         offset: pydantic.NonNegativeInt | None = None,
         sorting: list[FolderSort] | None = None,
-        **kwargs: str,
-    ) -> Generator[tuple[str, Self]]:
+        **kwargs,
+    ) -> Generator[tuple[str, T | None]]:
+        """Get folders from the server.
+
+        Parameters
+        ----------
+        count : int, optional
+            limit the number of objects returned, default no limit.
+        offset : int, optional
+            start index for results, default is 0.
+        sorting : list[dict] | None, optional
+            list of sorting definitions in the form {'column': str, 'descending': bool}
+
+        Yields
+        ------
+        tuple[str, Folder]
+            id of run
+            Folder object representing object on server
+        """
         _params: dict[str, str] = kwargs
 
         if sorting:
             _params["sorting"] = json.dumps([i.to_params() for i in sorting])
 
         return super().get(count=count, offset=offset, **_params)
+
+    @classmethod
+    def filter(cls) -> FoldersFilter:
+        _filter_instance: FoldersFilter = FoldersFilter(cls)
+        _filter_instance.get.__func__.__doc__ = cls.get.__func__.__doc__
+        return _filter_instance
+
+    @override
+    def commit(self) -> dict | list[dict] | None:
+        if "starred" in self._staging:
+            _star_run: bool = self._staging.pop("starred")
+            self._set_favourite(starred=_star_run)
+        return super().commit()
 
     @property
     def tree(self) -> dict[str, object]:
@@ -254,6 +286,18 @@ class Folder(SimvueObject):
             else None
         )
 
+    def _set_favourite(self, *, starred: bool) -> dict:
+        """Set starred status."""
+        _url = self.url / "starred"
+        _response = sv_put(
+            f"{_url}", headers=self._user_config.headers, data={"starred": starred}
+        )
+        return get_json_from_response(
+            expected_status=[http.HTTPStatus.OK],
+            response=_response,
+            scenario=f"Applying favourite preference to folder '{self.id}'",
+        )
+
 
 @pydantic.validate_call
 def get_folder_from_path(
@@ -261,8 +305,12 @@ def get_folder_from_path(
 ) -> Folder:
     _folders = Folder.get(filters=json.dumps([f"path == {path}"]), count=1)
 
-    try:
-        _, _folder = next(_folders)
-    except StopIteration as e:
-        raise ObjectNotFoundError(obj_type="folder", name=path) from e
-    return _folder
+    if not (_first_entry := next(_folders, None)):
+        raise ObjectNotFoundError(obj_type="folder", name=path)
+
+    _, _folder = _first_entry
+
+    if not _folder:
+        raise ObjectNotFoundError(obj_type="folder", name=path)
+
+    return _folder  # type: ignore

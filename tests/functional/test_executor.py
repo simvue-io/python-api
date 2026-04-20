@@ -9,8 +9,7 @@ import sys
 import tempfile
 import pathlib
 import os
-import multiprocessing
-import multiprocessing.synchronize
+import threading
 
 from simvue.api.objects.folder import Folder
 from simvue.exception import ObjectNotFoundError
@@ -23,7 +22,7 @@ def test_executor_add_process(
     request: pytest.FixtureRequest
 ) -> None:
     import logging
-    trigger = multiprocessing.Event()
+    trigger = threading.Event()
     folder_id = f"{uuid.uuid4()}".split("-")[0]
     folder = Folder.new(path=f"/simvue_unit_testing/{folder_id}")
     folder.commit()
@@ -79,7 +78,7 @@ def test_executor_multiprocess(request: pytest.FixtureRequest) -> None:
                 def callback(*_, evts=events, ident=i, **__):
                     evts[ident] = True
                 events[i] = False
-                triggers[i] = multiprocessing.Event()
+                triggers[i] = threading.Event()
                 callbacks[i] = callback
                 out_file = pathlib.Path(tempd).joinpath(f"out_file_{i}.dat")
                 run.add_process(
@@ -183,7 +182,7 @@ def test_completion_callbacks_var_change(request: pytest.FixtureRequest) -> None
 @pytest.mark.executor
 @pytest.mark.unix
 def test_completion_trigger_set(request: pytest.FixtureRequest) -> None:
-    trigger = multiprocessing.Event()
+    trigger = threading.Event()
     folder_id = f"{uuid.uuid4()}".split("-")[0]
     folder = Folder.new(path=f"/simvue_unit_testing/{folder_id}")
     folder.commit()
@@ -209,7 +208,7 @@ def test_completion_trigger_set(request: pytest.FixtureRequest) -> None:
 
 @pytest.mark.executor
 def test_completion_callbacks_trigger_set(request: pytest.FixtureRequest) -> None:
-    trigger = multiprocessing.Event()
+    trigger = threading.Event()
 
     def completion_callback(*_, trigger=trigger, **__):
         trigger.set()

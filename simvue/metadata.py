@@ -7,14 +7,15 @@ Contains functions for extracting additional metadata about the current project
 """
 
 import contextlib
-import typing
-import json
-import os
 import fnmatch
+import json
+import logging
+import os
+import pathlib
+import typing
+
 import toml
 import yaml
-import logging
-import pathlib
 
 from simvue.models import simvue_timestamp
 
@@ -86,7 +87,7 @@ def _conda_dependency_parse(dependency: str) -> tuple[str, str] | None:
             f"Skipping Conda specific channel definition '{dependency}' in Python environment metadata."
         )
         return None
-    elif ">=" in dependency:
+    if ">=" in dependency:
         module, version = dependency.split(">=")
         logger.warning(
             f"Ignoring '>=' constraint in Python package version, naively storing '{module}=={version}', "

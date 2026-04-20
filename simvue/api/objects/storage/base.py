@@ -40,18 +40,10 @@ class StorageBase(SimvueObject):
         _local: bool = False,
         **kwargs: object,
     ) -> None:
-        """Retrieve an alert from the Simvue server by identifier."""
-        self._label: str = "storage"
-        self._endpoint: str = self._label
-        self.type: str = obj_type
-        super().__init__(
-            identifier,
-            _read_only=_read_only,
-            _offline=_offline,
-            _user_agent=_user_agent,
-            _local=_local,
-            **kwargs,
-        )
+        """Retrieve a storage instance from the Simvue server by identifier"""
+        self._label = "storage"
+        self._endpoint = self._label
+        super().__init__(identifier, _read_only=_read_only, **kwargs)
 
     @classmethod
     @override

@@ -8,12 +8,13 @@ import datetime
 import logging
 import threading
 import typing
-import pydantic
-import psutil
 
-from simvue.sender.actions import UPLOAD_ACTION_ORDER
+import psutil
+import pydantic
+
 from simvue.config.user import SimvueConfiguration
 from simvue.run import Run
+from simvue.sender.actions import UPLOAD_ACTION_ORDER
 
 logger = logging.getLogger(__name__)
 

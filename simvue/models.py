@@ -1,9 +1,9 @@
 import datetime
 import typing
-import numpy
 import warnings
-import pydantic
 
+import numpy
+import pydantic
 
 FOLDER_REGEX: str = r"^/.*"
 NAME_REGEX: str = r"^[a-zA-Z0-9\-\_\s\/\.:]+$"
@@ -60,13 +60,13 @@ def simvue_timestamp(
             "Timestamps as strings for object recording will be deprecated in Python API >= 2.3"
         )
     if not date_time:
-        date_time = datetime.datetime.now(datetime.timezone.utc)
+        date_time = datetime.datetime.now(datetime.UTC)
     elif isinstance(date_time, str):
         _local_time = datetime.datetime.now().tzinfo
         date_time = (
             datetime.datetime.strptime(date_time, DATETIME_FORMAT)
             .replace(tzinfo=_local_time)
-            .astimezone(datetime.timezone.utc)
+            .astimezone(datetime.UTC)
         )
     return date_time.strftime(DATETIME_FORMAT)
 

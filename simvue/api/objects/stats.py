@@ -38,7 +38,13 @@ class UserStatistics(BaseModel):
 
 
 class Stats(SimvueObject):
-    """Class for accessing Server statistics."""
+    """
+    Simvue Stats
+    ============
+
+    Class for retrieving statistics stored on the server.
+
+    """
 
     _single: bool = True
     _tenant: str | None = None

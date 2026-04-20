@@ -27,29 +27,31 @@ from .base import StorageBase
 
 
 class S3Storage(StorageBase):
-    """Class for defining/accessing an S3 based storage system on the server."""
+    """
+    Simvue S3 Storage
+    ===================
 
-    def __init__(
-        self,
-        identifier: str | None = None,
-        *,
-        _read_only: bool = False,
-        _offline: bool = False,
-        _user_agent: str | None = None,
-        _local: bool = False,
-        **kwargs: object,
-    ) -> None:
-        """Initialise an S3Storage instance attaching a configuration."""
-        self.config: Config = Config(self)
-        super().__init__(
-            identifier,
-            obj_type="s3",
-            _local=_local,
-            _read_only=_read_only,
-            _offline=_offline,
-            _user_agent=_user_agent,
-            **kwargs,
-        )
+    This class is used to connect to/create S3 storage objects on the Simvue server,
+    any modification of instance attributes is mirrored on the remote object.
+
+    """
+
+    def __init__(self, identifier: str | None = None, **kwargs) -> None:
+        """Initialise a S3 Storage
+
+        If an identifier is provided a connection will be made to the
+        object matching the identifier on the target server.
+        Else a new S3Storage instance will be created using arguments provided in kwargs.
+
+        Parameters
+        ----------
+        identifier : str, optional
+            the remote server unique id for the target folder
+        **kwargs : dict
+            any additional arguments to be passed to the object initialiser
+        """
+        self.config = Config(self)
+        super().__init__(identifier, **kwargs)
         self._local_only_args += [
             "endpoint_url",
             "region_name",

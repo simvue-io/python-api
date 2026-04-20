@@ -1,28 +1,27 @@
-"""
-Simvue Client Executor
-======================
+"""Simvue Client Executor.
 
-Adds functionality for executing commands from the command line as part of a Simvue run, the executor
-monitors the exit code of the command setting the status to failure if non-zero.
-Stdout and Stderr are sent to Simvue as artifacts.
+Adds functionality for executing commands from the command line as part of a Simvue run,
+the executor monitors the exit code of the command setting the status to failure
+if non-zero. Stdout and Stderr are sent to Simvue as artifacts.
 """
 
 __author__ = "Kristian Zarebski"
 __date__ = "2023-11-15"
 
+import contextlib
 import logging
 import multiprocessing.synchronize
-import sys
-import multiprocessing
-import threading
 import os
-import shutil
-import psutil
-import subprocess
-import contextlib
 import pathlib
+import shutil
+import subprocess
+import sys
+import threading
 import time
 import typing
+
+import psutil
+
 from simvue.api.objects.alert.user import UserAlert
 
 if typing.TYPE_CHECKING:
@@ -32,7 +31,10 @@ logger = logging.getLogger(__name__)
 
 
 class CompletionCallback(typing.Protocol):
-    def __call__(self, *, status_code: int, std_out: str, std_err: str) -> None: ...
+    """Structure of callback executed on process completion."""
+
+    def __call__(self, *, status_code: int, std_out: str, std_err: str) -> None:
+        """Script executed on completion of a given process."""
 
 
 def get_current_shell() -> str | None:
@@ -49,7 +51,7 @@ def _execute_process(
     command: list[str],
     runner_name: str,
     completion_callback: CompletionCallback | None = None,
-    completion_trigger: multiprocessing.synchronize.Event | None = None,
+    completion_trigger: threading.Event | None = None,
     environment: dict[str, str] | None = None,
     cwd: pathlib.Path | None = None,
 ) -> tuple[subprocess.Popen, threading.Thread | None]:
@@ -179,7 +181,9 @@ class Executor:
         env: dict[str, str] | None = None,
         cwd: pathlib.Path | None = None,
         completion_callback: CompletionCallback | None = None,
-        completion_trigger: multiprocessing.synchronize.Event | None = None,
+        completion_trigger: threading.Event
+        | multiprocessing.synchronize.Event
+        | None = None,
         **kwargs,
     ) -> None:
         """Add a process to be executed to the executor.
@@ -230,7 +234,7 @@ class Executor:
             working directory to execute the process within
         completion_callback : typing.Callable | None, optional
             callback to run when process terminates
-        completion_trigger : multiprocessing.Event | None, optional
+        completion_trigger : threading.Event | None, optional
             this trigger event is set when the processes completes (not supported on Windows)
         """
         pos_args = list(args)
@@ -428,11 +432,8 @@ class Executor:
                     self._runner.log_alert(
                         identifier=self._alert_ids[proc_id], state="critical"
                     )
-            else:
-                if not _is_set:
-                    self._runner.log_alert(
-                        identifier=self._alert_ids[proc_id], state="ok"
-                    )
+            elif not _is_set:
+                self._runner.log_alert(identifier=self._alert_ids[proc_id], state="ok")
 
             _current_time: float = 0
             while (
@@ -440,7 +441,7 @@ class Executor:
                 and not self._runner._dispatcher.empty
                 and _current_time < _wait_limit
             ):
-                time.sleep((_current_time := _current_time + 0.1))
+                time.sleep(_current_time := _current_time + 0.1)
 
     def _save_output(self) -> None:
         """Save the output to Simvue"""
@@ -476,7 +477,7 @@ class Executor:
             if process_id is an integer, whether to kill only its children
         """
         if isinstance(process_id, str):
-            if not (process := self._processes.get(process_id)):
+            if (process := self._processes.get(process_id)) is None:
                 logger.error(
                     f"Failed to terminate process '{process_id}', no such identifier."
                 )

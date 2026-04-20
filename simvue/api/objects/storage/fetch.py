@@ -11,8 +11,6 @@ from collections.abc import Generator
 import pydantic
 
 from simvue.api.request import get as sv_get
-from simvue.api.request import get_json_from_response
-from simvue.config.user import SimvueConfiguration
 
 from .base import StorageBase
 from .file import FileStorage
@@ -20,7 +18,13 @@ from .s3 import S3Storage
 
 
 class Storage:
-    """Generic Simvue storage retrieval class."""
+    """
+    Simvue Storage
+    ==============
+
+    Generic Simvue storage retrieval class.
+
+    """
 
     def __init__(
         self,
@@ -83,12 +87,9 @@ class Storage:
     @classmethod
     @pydantic.validate_call
     def get(
-        cls,
-        count: int | None = None,
-        offset: int | None = None,
-        **kwargs: str | float | None,
+        cls, count: int | None = None, offset: int | None = None, **kwargs
     ) -> Generator[tuple[str, FileStorage | S3Storage]]:
-        """Return storage systems accessible to the current user.
+        """Returns storage systems accessible to the current user.
 
         Parameters
         ----------

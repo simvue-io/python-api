@@ -37,7 +37,13 @@ class AlertSort(Sort):
 
 
 class Alert:
-    """Generic Simvue alert retrieval class."""
+    """
+    Simvue Alert
+    ============
+
+    Generic Simvue alert retrieval class.
+
+    """
 
     @pydantic.validate_call()
     def __new__(

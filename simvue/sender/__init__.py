@@ -1,5 +1,5 @@
 """Simvue sender for sending locally cached data to the server."""
 
-from .base import Sender, UPLOAD_ORDER, UploadItem
+from .base import UPLOAD_ORDER, Sender, UploadItem
 
-__all__ = ["Sender", "UPLOAD_ORDER", "UploadItem"]
+__all__ = ["UPLOAD_ORDER", "Sender", "UploadItem"]

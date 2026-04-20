@@ -11,18 +11,19 @@ import datetime
 import functools
 import logging
 import mimetypes
-import multiprocessing
 import multiprocessing.synchronize
 import os
 import pathlib
 import platform
 import re
+import shlex
 import sys
 import threading
 import time
-import traceback as tb
+import types
 import typing
 import uuid
+import warnings
 
 import click
 import humanfriendly
@@ -31,10 +32,11 @@ import psutil
 import pydantic
 import randomname
 
+from simvue.api.objects.alert.base import AlertBase
 from simvue.api.objects.alert.fetch import Alert
 from simvue.api.objects.folder import Folder
 from simvue.api.objects.grids import GridMetrics
-from simvue.exception import ObjectNotFoundError, SimvueRunError
+from simvue.exception import ObjectDispatchError, ObjectNotFoundError, SimvueRunError
 from simvue.utilities import prettify_pydantic
 
 from .api.objects import (
@@ -52,7 +54,7 @@ from .api.objects import (
     Run as RunObject,
 )
 from .config.user import SimvueConfiguration
-from .eco import CO2Monitor
+from .dispatch import Dispatcher
 from .executor import Executor, get_current_shell
 from .factory.dispatch import Dispatcher
 from .metadata import environment, git_info
@@ -78,10 +80,12 @@ except ImportError:
 
 
 if typing.TYPE_CHECKING:
-    from .factory.dispatch import DispatcherBaseClass
+    from .dispatch import DispatcherBaseClass
 
 HEARTBEAT_INTERVAL: int = 60
 RESOURCES_METRIC_PREFIX: str = "resources"
+TOTAL_GRID_METRIC_SIZE: int = 1e6
+MAXIMUM_GRID_METRIC_SIZE: int = 5 * 10**4
 
 logger = logging.getLogger(__name__)
 
@@ -121,11 +125,13 @@ class Run:
     @pydantic.validate_call
     def __init__(
         self,
+        *,
         mode: typing.Literal["online", "offline", "disabled"] = "online",
         abort_callback: typing.Callable[[Self], None] | None = None,
         server_token: pydantic.SecretStr | None = None,
         server_url: str | None = None,
         debug: bool = False,
+        server_profile: str | None = None,
     ) -> None:
         """Initialise a new Simvue run
 
@@ -146,6 +152,10 @@ class Run:
             overwrite value for server URL, default is None
         debug : bool, optional
             run in debug mode, default is False
+        server_profile : str | None, optional
+            specify alternative profile to use for server, this assumes
+            additional profiles have been specified in the configuration.
+            Default is to use the main server.
 
         Examples
         --------
@@ -177,6 +187,7 @@ class Run:
         self._grids: dict[str, str] = {}
         self._suppress_errors: bool = False
         self._queue_blocking: bool = False
+        self._failed_metric_counter: int = 0
         self._status: (
             typing.Literal[
                 "created", "running", "completed", "failed", "terminated", "lost"
@@ -187,7 +198,10 @@ class Run:
         self._step: int = 0
         self._active: bool = False
         self._user_config: SimvueConfiguration = SimvueConfiguration.fetch(
-            server_url=server_url, server_token=server_token, mode=mode
+            server_url=server_url,
+            server_token=server_token,
+            mode=mode,
+            profile=server_profile,
         )
 
         logging.getLogger(self.__class__.__module__).setLevel(
@@ -224,8 +238,8 @@ class Run:
     def _handle_exception_throw(
         self,
         exc_type: type[BaseException] | None,
-        value: BaseException,
-        traceback: type[BaseException] | BaseException | None,
+        value: BaseException | None,
+        traceback: types.TracebackType | None,
     ) -> None:
         _exception_thrown: str | None = exc_type.__name__ if exc_type else None
         _is_running: bool = self._status == "running"
@@ -262,8 +276,8 @@ class Run:
     def __exit__(
         self,
         exc_type: type[BaseException] | None,
-        value: BaseException,
-        traceback: type[BaseException] | BaseException | None,
+        value: BaseException | None,
+        traceback: types.TracebackType | None,
     ) -> None:
         logger.debug(
             "Automatically closing run '%s' in status %s",
@@ -367,7 +381,9 @@ class Run:
         # Set join on fail to false as if an error is thrown
         # join would be called on this thread and a thread cannot
         # join itself!
-        if self.status == "running":
+        if self.status == "running" and (
+            self._shutdown_event and not self._shutdown_event.is_set()
+        ):
             self._add_metrics_to_dispatch(
                 _current_system_measure.to_dict(),
                 join_on_fail=False,
@@ -543,6 +559,7 @@ class Run:
                 mode=self._dispatch_mode,
                 termination_trigger=self._shutdown_event,
                 object_types=["events", "metrics_regular", "metrics_tensor"],
+                thresholds=dict(object_size=TOTAL_GRID_METRIC_SIZE),
                 callback=self._create_dispatch_callback(),
             )
 
@@ -579,12 +596,6 @@ class Run:
         RuntimeError
             exception throw
         """
-        # Stop heartbeat
-        if self._heartbeat_termination_trigger and self._heartbeat_thread:
-            self._heartbeat_termination_trigger.set()
-            if join_threads:
-                self._heartbeat_thread.join()
-
         # Finish stopping all threads
         if self._shutdown_event:
             self._shutdown_event.set()
@@ -594,6 +605,12 @@ class Run:
             self._dispatcher.purge()
             if join_threads:
                 self._dispatcher.join()
+
+        # Stop heartbeat
+        if self._heartbeat_termination_trigger and self._heartbeat_thread:
+            self._heartbeat_termination_trigger.set()
+            if join_threads:
+                self._heartbeat_thread.join()
 
         if not self._suppress_errors:
             raise SimvueRunError(message)
@@ -796,7 +813,9 @@ class Run:
         script: pydantic.FilePath | None = None,
         input_file: pydantic.FilePath | None = None,
         completion_callback: typing.Callable[[int, str, str], None] | None = None,
-        completion_trigger: multiprocessing.synchronize.Event | None = None,
+        completion_trigger: threading.Event
+        | multiprocessing.synchronize.Event
+        | None = None,
         env: dict[str, str] | None = None,
         cwd: pathlib.Path | None = None,
         **cmd_kwargs,
@@ -812,8 +831,18 @@ class Run:
         Provide explicitly the components of the command:
 
         ```python
-        executor.add_process("my_process", executable="bash", debug=True, c="return 1")
-        executor.add_process("my_process", executable="bash", script="my_script.sh", input="parameters.dat")
+        executor.add_process(
+            "my_process",
+            executable="bash",
+            debug=True,
+            c="return 1"
+        )
+        executor.add_process(
+            "my_process",
+            executable="bash",
+            script="my_script.sh",
+            input="parameters.dat"
+        )
         ```
 
         or a mixture of both. In the latter case arguments which are not 'executable', 'script', 'input'
@@ -824,8 +853,7 @@ class Run:
         this will be called, this callback is expected to take the following form:
 
         ```python
-        def callback_function(status_code: int, std_out: str, std_err: str) -> None:
-            ...
+        def callback_function(status_code: int, std_out: str, std_err: str) -> None: ...
         ```
 
         Note `completion_callback` is not supported on Windows operating systems.
@@ -850,7 +878,7 @@ class Run:
             you should provide it as such and perform the upload manually, by default None
         completion_callback : typing.Callable | None, optional
             callback to run when process terminates (not supported on Windows)
-        completion_trigger : multiprocessing.Event | None, optional
+        completion_trigger : threading.Event | None, optional
             this trigger event is set when the processes completes
         env : dict[str, str], optional
             environment variables for process
@@ -859,7 +887,39 @@ class Run:
             be absolute or relative to the directory where this method is called, not relative to the new working directory.
         **kwargs : Any, ..., optional
             all other keyword arguments are interpreted as options to the command
+
+        Examples
+        --------
+        `run_count.sh`
+        ```sh
+        #!/bin/bash
+
+        for i in ${0..100}; do
+            echo $i >> data.out
+            sleep 1
+        done
+        ```
+
+        `run_simvue.py`
+        ```python
+        with simvue.Run() as run:
+            run.init(
+                "execute_custom_process",
+                folder="/examples"
+            )
+            run.add_process(
+                identifier="count_up",
+                executable="bash",
+                script="run_count.sh"
+            )
+        ```
         """
+        if isinstance(completion_trigger, multiprocessing.synchronize.Event):
+            warnings.warn(
+                "Use of a 'multiprocessing.Event' as a termination trigger will be deprecated in v2.5, "
+                "use an instance of 'threading.Event' instead."
+            )
+
         if platform.system() == "Windows" and completion_trigger:
             raise RuntimeError(
                 "Use of 'completion_trigger' on Windows based operating systems is unsupported "
@@ -899,7 +959,7 @@ class Run:
                     cmd_list += [f"--{kwarg}{(f' {_quoted_val}') if val else ''}"]
 
         cmd_list += pos_args
-        cmd_str = " ".join(cmd_list)
+        cmd_str = shlex.join(cmd_list)
 
         # Store the command executed in metadata
         self.update_metadata({f"{identifier}_command": cmd_str})
@@ -1033,6 +1093,25 @@ class Run:
         ----------
         pid : int
             PID of the process to be monitored
+
+        Examples
+        --------
+        ```python
+        import subprocess
+
+        get_process_ids = subprocess.run(
+            ["pidof", "my_command"],
+            capture_output=True,
+            text=True,
+            shell=False
+        )
+
+        process, *_ = get_process_ids.stdout.split()
+        process_id = int(process)
+
+        with simvue.Run() as run:
+            run.init("pid_track")
+            run.set_pid(process_pid)
         """
         self._pid = pid
         self._parent_process = psutil.Process(self._pid)
@@ -1200,6 +1279,15 @@ class Run:
         -------
         bool
             whether the update was successful
+
+        Examples
+        --------
+        ```python
+
+        with simvue.Run() as run:
+            run.init(tags=["old", "tag", "set"])
+            run.set_tags(["new", "tag", "set"])
+        ```
         """
         if not self._sv_obj:
             self._error("Cannot update tags, run not initialised")
@@ -1225,6 +1313,15 @@ class Run:
         -------
         bool
             whether the update was successful
+
+        Examples
+        --------
+        ```python
+
+        with simvue.Run() as run:
+            run.init(tags=["current_tag"])
+            run.update_tags(["additional_tag"])
+        ```
         """
         if not self._sv_obj:
             return False
@@ -1267,6 +1364,21 @@ class Run:
         -------
         bool
             whether event log was successful
+
+        Examples
+        --------
+        ```python
+        with simvue.Run() as run:
+
+            run.init()
+
+            run.log_event(message="Hello World!")
+
+            run.log_event(
+                message="Good Night",
+                timestamp=datetime.datetime.now(datetime.UTC)
+            )
+        ```
         """
         if self._aborted:
             return False
@@ -1284,7 +1396,9 @@ class Run:
             return False
 
         _data = {"message": message, "timestamp": timestamp}
-        self._dispatcher.add_item(_data, "events", self._queue_blocking)
+        self._dispatcher.add_item(
+            _data, object_type="events", blocking=self._queue_blocking
+        )
 
         return True
 
@@ -1328,13 +1442,23 @@ class Run:
             "timestamp": simvue_timestamp(timestamp),
             "step": step if step is not None else self._step,
         }
-        self._dispatcher.add_item(_data, "metrics_regular", self._queue_blocking)
+
+        try:
+            self._dispatcher.add_item(
+                _data,
+                object_type="metrics_regular",
+                blocking=self._queue_blocking,
+                metadata=dict(object_size=len(metrics)),
+            )
+        except ObjectDispatchError as e:
+            logger.warning(f"Failed to log metric {id(_data)}: {e.msg}")
+            self._failed_metric_counter += 1
 
         return True
 
     def _add_tensors_to_dispatch(
         self,
-        tensors: dict[str, int | float],
+        tensors: dict[str, numpy.ndarray],
         *,
         step: int | None = None,
         time: float | None = None,
@@ -1376,7 +1500,16 @@ class Run:
                 "metric": tensor,
             }
 
-            self._dispatcher.add_item(_data, "metrics_tensor", self._queue_blocking)
+            try:
+                self._dispatcher.add_item(
+                    _data,
+                    object_type="metrics_tensor",
+                    blocking=self._queue_blocking,
+                    metadata=dict(object_size=array.size),
+                )
+            except ObjectDispatchError as e:
+                logger.warning(f"Failed to grid metric {id(_data)}: {e.msg}")
+                self._failed_metric_counter += 1
 
         return True
 
@@ -1413,6 +1546,24 @@ class Run:
         -------
         bool
             if the assignment was successful.
+
+        Examples
+        --------
+        ```python
+        with simvue.Run() as run:
+
+            run.assign_metric_to_grid(
+                metric_name="G",
+                axes_ticks=[
+                    numpy.linspace(0, 100, 100).tolist(),
+                    numpy.linspace(500, 1000, 100).tolist()
+                ],
+                axes_labels=["x", "y"],
+                name="G_grid"
+            )
+
+            run.log_metrics({"G": numpy.random.random(10000).reshape((100, 100))})
+        ```
         """
         if isinstance(axes_ticks, numpy.ndarray):
             axes_ticks = axes_ticks.tolist()
@@ -1492,23 +1643,56 @@ class Run:
         -------
         bool
             if the metric log was successful
+
+        Examples
+        --------
+        ```python
+        with simvue.Run() as run:
+
+            run.assign_metric_to_grid(
+                metric_name="G",
+                axes_ticks=[
+                    numpy.linspace(0, 100, 100).tolist(),
+                    numpy.linspace(500, 1000, 100).tolist()
+                ],
+                axes_labels=["x", "y"],
+                name="G_grid"
+            )
+
+            run.log_metrics(
+                metrics={
+                    "G": numpy.random.random(10000).reshape((100, 100)),
+                    "z": 55
+                },
+                step=2,
+                time=-10,
+            )
+        ```
         """
         # TODO: When metrics and grids are combined into a single entity
         # this can be removed. For now need to separate tensor based metrics
         # from regular
-        _tensor_metrics: list[numpy.ndarray] = {}
-        _regular_metrics: list[numpy.ndarray] = {}
+        _tensor_metrics: dict[str, numpy.ndarray] = {}
+        _regular_metrics: dict[str, int | float] = {}
 
         # Classify metrics into regular and tensor based
         for label, metric in metrics.items():
             if isinstance(metric, numpy.ndarray):
+                if metric.size > MAXIMUM_GRID_METRIC_SIZE:
+                    logger.warning(
+                        f"Cannot log grid metric {label}, "
+                        f"size {metric.size} exceeds limit of {MAXIMUM_GRID_METRIC_SIZE}"
+                    )
+                    continue
                 if label not in self._grids:
                     logger.warning(
                         f"Metric '{label}' is not assigned to a grid, "
                         "using default axis range [0, 1] for all axes "
                         "and assuming constant interval."
                     )
-                    _axes_ticks = [numpy.linspace(0, 1, n) for n in metric.shape]
+                    _axes_ticks = [
+                        numpy.linspace(0, 1, n) for n in reversed(metric.shape)
+                    ]
                     self.assign_metric_to_grid(
                         metric_name=label,
                         grid_name=label,
@@ -1588,8 +1772,21 @@ class Run:
 
         Returns
         -------
-        bool
+        bool:
             whether object upload was successful
+
+        Examples
+        --------
+        ```python
+        with simvue.Run() as run:
+            run.init()
+            x = numpy.random.random(10000).reshape((100, 100))
+            run.save_object(
+                obj=x,
+                category="input",
+                name="x"
+            )
+        ```
         """
         if not self._sv_obj or not self.id:
             self._error("Cannot save files, run not initialised")
@@ -1821,10 +2018,6 @@ class Run:
     def _tidy_run(self) -> None:
         self._executor.wait_for_completion()
 
-        if self._heartbeat_thread and self._heartbeat_termination_trigger:
-            self._heartbeat_termination_trigger.set()
-            self._heartbeat_thread.join()
-
         if self._shutdown_event:
             self._shutdown_event.set()
 
@@ -1836,6 +2029,10 @@ class Run:
         elif self._dispatcher:
             self._dispatcher.purge()
             self._dispatcher.join()
+
+        if self._heartbeat_thread and self._heartbeat_termination_trigger:
+            self._heartbeat_termination_trigger.set()
+            self._heartbeat_thread.join()
 
         if (
             self._sv_obj
@@ -1860,6 +2057,13 @@ class Run:
                 bold=self._term_color,
             )
             sys.exit(_non_zero)
+        if self._failed_metric_counter:
+            click.secho(
+                "[simvue] Run completed with {self._failed_metric_counter} failed metrics.",
+                fg="yellow" if self._term_color else None,
+                bold=self._term_color,
+            )
+            sys.exit(1)
 
     @skip_if_failed("_aborted", "_suppress_errors", False)
     def close(self) -> bool:
@@ -1990,6 +2194,16 @@ class Run:
 
         return True
 
+    def _check_if_alert_exists(self, alert: "AlertBase") -> str | None:
+        """Check if an existing alert matches definition."""
+        # If the alert already exists just add the existing one
+        for _id, _existing_alert in Alert.get(
+            offline=self._user_config.run.mode == "offline"
+        ):
+            if _existing_alert == alert:
+                return _id
+        return None
+
     @skip_if_failed("_aborted", "_suppress_errors", None)
     @pydantic.validate_call
     def create_metric_range_alert(
@@ -2068,6 +2282,13 @@ class Run:
             frequency=frequency or 60,
             offline=self._user_config.run.mode == "offline",
         )
+
+        # If the alert already exists just add the existing one
+        if _existing_id := self._check_if_alert_exists(_alert):
+            if attach_to_run:
+                self.add_alerts(ids=[_existing_id])
+            return _existing_id
+
         _alert.abort = trigger_abort
         _alert.commit()
         if attach_to_run:
@@ -2150,6 +2371,12 @@ class Run:
             offline=self._user_config.run.mode == "offline",
         )
 
+        # If the alert already exists just add the existing one
+        if _existing_id := self._check_if_alert_exists(_alert):
+            if attach_to_run:
+                self.add_alerts(ids=[_existing_id])
+            return _existing_id
+
         _alert.abort = trigger_abort
         _alert.commit()
         if attach_to_run:
@@ -2204,10 +2431,19 @@ class Run:
             frequency=frequency,
             offline=self._user_config.run.mode == "offline",
         )
+
+        # If the alert already exists just add the existing one
+        if _existing_id := self._check_if_alert_exists(_alert):
+            if attach_to_run:
+                self.add_alerts(ids=[_existing_id])
+            return _existing_id
+
         _alert.abort = trigger_abort
         _alert.commit()
+
         if attach_to_run:
             self.add_alerts(ids=[_alert.id])
+
         return _alert.id
 
     @skip_if_failed("_aborted", "_suppress_errors", None)
@@ -2220,7 +2456,7 @@ class Run:
         notification: typing.Literal["email", "none"] = "none",
         trigger_abort: bool = False,
         attach_to_run: bool = True,
-    ) -> None:
+    ) -> str | None:
         """Creates a user alert with the specified name (if it doesn't exist)
         and applies it to the current run. If alert already exists it will
         not be duplicated.
@@ -2252,6 +2488,13 @@ class Run:
             description=description,
             offline=self._user_config.run.mode == "offline",
         )
+
+        # If the alert already exists just add the existing one
+        if _existing_id := self._check_if_alert_exists(_alert):
+            if attach_to_run:
+                self.add_alerts(ids=[_existing_id])
+            return _existing_id
+
         _alert.abort = trigger_abort
         _alert.commit()
         if attach_to_run:

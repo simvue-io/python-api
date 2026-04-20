@@ -32,7 +32,14 @@ except AttributeError:
 
 
 class FileArtifact(ArtifactBase):
-    """File based artifact modification and creation class."""
+    """
+    Simvue File Artifact
+    ====================
+
+    This class is used to connect to/create file artifact objects on the Simvue server,
+    any modification of instance attributes is mirrored on the remote object.
+
+    """
 
     def __init__(
         self,
@@ -41,12 +48,18 @@ class FileArtifact(ArtifactBase):
         _read_only: bool = True,
         **kwargs: object,
     ) -> None:
-        """Initialise a new file artifact connection.
+        """Initialise a File Artifact
+
+        If an identifier is provided a connection will be made to the
+        object matching the identifier on the target server.
+        Else a new FileArtifact instance will be created using arguments provided in kwargs.
 
         Parameters
         ----------
         identifier : str, optional
-            the identifier of this object on the server.
+            the remote server unique id for the target folder
+        **kwargs : dict
+            any additional arguments to be passed to the object initialiser
         """
         super().__init__(identifier=identifier, _read_only=_read_only, **kwargs)
 

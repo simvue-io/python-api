@@ -154,13 +154,31 @@ def test_run_modification_offline(offline_cache_setup) -> None:
 
 @pytest.mark.api
 @pytest.mark.online
-def test_get_run_count() -> None:
+@pytest.mark.parametrize(
+    "subset", (True, False),
+    ids=("subset", "all")
+)
+def test_get_run_count(subset: bool) -> None:
     _uuid: str = f"{uuid.uuid4()}".split("-")[0]
     _folder_name = f"/simvue_unit_testing/{_uuid}"
     _folder = Folder.new(path=_folder_name)
+    _folder.commit()
     _run_1 = Run.new(folder=_folder_name)
     _run_2 = Run.new(folder=_folder_name)
-    assert len(list(Run.get(count=2, offset=None))) == 2
+    _run_1.tags = [f"run_1_{_uuid}"]
+    _run_1.metadata = {"uuid": _uuid}
+    _run_1.commit()
+    _run_1.star = True
+    _run_1.commit()
+    _run_2.commit()
+    if not subset:
+        assert len(list(Run.get(count=2, offset=None))) == 2
+    else:
+        _generator = Run.filter().has_tag(f"run_1_{_uuid}").in_folder(_folder_name)
+        _generator = _generator.has_metadata_attribute("uuid").metadata_eq("uuid", _uuid).starred()
+        assert len(list(_generator.get())) == 1
+        assert _generator.count() == 1
+    _folder.delete(recursive=True, delete_runs=True, runs_only=False)
 
 
 @pytest.mark.api

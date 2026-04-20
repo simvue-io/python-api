@@ -4,7 +4,6 @@ Defines methods for retrieving artifacts from the Simvue server.
 """
 
 import http
-import json
 import typing
 from collections.abc import Generator
 
@@ -37,7 +36,13 @@ class ArtifactSort(Sort):
 
 
 class Artifact:
-    """Generic Simvue artifact retrieval class."""
+    """
+    Simvue Artifact
+    ===============
+
+    Generic Simvue artifact retrieval class.
+
+    """
 
     def __init__(self, identifier: str | None = None, **kwargs: object) -> None:
         """Initialise an instance of generic artifact retriever.
@@ -62,8 +67,8 @@ class Artifact:
         cls,
         run_id: str,
         category: typing.Literal["input", "output", "code"] | None = None,
-        **kwargs: object,
-    ) -> Generator[tuple[str | None, FileArtifact | ObjectArtifact]]:
+        **kwargs,
+    ) -> Generator[tuple[str, FileArtifact | ObjectArtifact]]:
         """Return artifacts associated with a given run.
 
         Parameters
@@ -78,12 +83,12 @@ class Artifact:
 
         Returns
         -------
-        typing.Generator[tuple[str, FileArtifact | ObjectArtifact], None, None]
+        Generator[tuple[str, FileArtifact | ObjectArtifact]]
             The artifacts
 
         Yields
         ------
-        Iterator[Generator[tuple[str, FileArtifact | ObjectArtifact], None, None]]
+        Iterator[Generator[tuple[str, FileArtifact | ObjectArtifact]]]
             identifier for artifact
             the artifact itself as a class instance
 
@@ -125,7 +130,7 @@ class Artifact:
 
     @classmethod
     def from_name(
-        cls, run_id: str, name: str, **kwargs: object
+        cls, run_id: str, name: str, force_overwrite: bool = False, **kwargs
     ) -> FileArtifact | ObjectArtifact | None:
         """Retrieve an artifact by name.
 
@@ -135,11 +140,20 @@ class Artifact:
             the identifier of the run to retrieve from.
         name : str
             the name of the artifact to retrieve.
+        force_overwrite : bool, optional
+            if duplicates are detected force download
+            the first match, default of False
+            will raise an exception
 
         Returns
         -------
         FileArtifact | ObjectArtifact | None
             the artifact if found
+
+        Raises
+        ------
+        RuntimeError
+            when duplicate artifacts are found within a single run
         """
         _config: SimvueConfiguration = SimvueConfiguration.fetch()
         _obj_label: str = ArtifactBase(_local=True, **kwargs).label  # pyright: ignore[reportArgumentType]
@@ -164,8 +178,8 @@ class Artifact:
                 extra=f"for run '{run_id}'",
             )
 
-        if (_n_res := len(_json_response)) > 1:
-            _out_msg: str = (
+        if (_n_res := len(_json_response)) > 1 and not force_overwrite:
+            raise RuntimeError(
                 f"Expected single result for artifact '{name}' for run '{run_id}'"
                 f" but got {_n_res}"
             )
@@ -189,9 +203,9 @@ class Artifact:
         count: int | None = None,
         offset: int | None = None,
         sorting: list[ArtifactSort] | None = None,
-        **kwargs: object,
+        **kwargs,
     ) -> Generator[tuple[str, FileArtifact | ObjectArtifact]]:
-        """Return artifacts associated with the current user.
+        """Returns artifacts associated with the current user.
 
         Parameters
         ----------

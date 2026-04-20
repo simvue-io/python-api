@@ -8,8 +8,8 @@ Get information relating to the usage of the CPU and GPU (where applicable)
 
 import contextlib
 import logging
-import psutil
 
+import psutil
 
 from .pynvml import (
     nvmlDeviceGetComputeRunningProcesses,

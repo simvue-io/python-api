@@ -56,13 +56,28 @@ def test_folder_creation_offline(offline_cache_setup) -> None:
 
 @pytest.mark.api
 @pytest.mark.online
-def test_get_folder_count() -> None:
+@pytest.mark.parametrize(
+    "subset", (True, False),
+    ids=("subset", "all")
+)
+def test_get_folder_count(subset: bool) -> None:
     _uuid: str = f"{uuid.uuid4()}".split("-")[0]
     _folder_name = f"/simvue_unit_testing/{_uuid}"
     _folder_1 = Folder.new(path=f"{_folder_name}/dir_1")
+    _folder_1.tags = [f"simvue_{_uuid}"]
     _folder_2 = Folder.new(path=f"{_folder_name}/dir_2")
-    assert len(list(Folder.get(count=2, offset=None))) == 2
-
+    _folder_1.commit()
+    _folder_2.commit()
+    _folder_1.star = True
+    _folder_1.commit()
+    if not subset:
+        assert len(list(Folder.get(count=2, offset=None))) == 2
+    else:
+        _generator = Folder.filter().has_tag(f"simvue_{_uuid}").starred()
+        assert len(list(_generator.get())) == 1
+        assert _generator.count() == 1
+    _folder_1.delete()
+    _folder_2.delete()
 
 @pytest.mark.api
 @pytest.mark.online
