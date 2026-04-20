@@ -2,7 +2,7 @@
 import pytest
 
 from simvue.exception import ObjectNotFoundError
-from simvue.experimental.fetch import get_metric_values, get_run_id_from_name
+from simvue.experimental.fetch import get_metric_values, get_run_id_from_name, get_run
 from simvue.api.objects import Run
 
 @pytest.mark.online
@@ -36,3 +36,19 @@ def test_fetch_run_id_by_name(allow_failure: bool, run_exists: bool, create_plai
         with pytest.raises(ObjectNotFoundError) as e:
             get_run_id_from_name("run_not_found")
         assert all(i in f"{e}" for i in ("run", "run_not_found"))
+
+
+@pytest.mark.online
+@pytest.mark.experimental
+@pytest.mark.parametrize(
+    "run_exists", (True, False),
+        ids=("run_exists", "run_absent")
+)
+def test_fetch_run_by_id(run_exists: bool, create_plain_run: tuple[Run, dict]) -> None:
+    _run, _meta = create_plain_run
+    if run_exists:
+        assert get_run(run_id=_run.id)
+    else:
+        with pytest.raises(ObjectNotFoundError) as e:
+            get_run_id_from_name(22 * "X")
+        assert all(i in f"{e}" for i in ("run", 22 * "X"))

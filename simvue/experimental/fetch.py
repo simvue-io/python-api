@@ -131,9 +131,63 @@ def get_run_id_from_name(
         _kwargs["server_url"] = server_url.encoded_string()
         _kwargs["server_token"] = server_token.get_secret_value()
 
-    _id, _ = next(sv_obj.Run.filter().has_name(name).get(**_kwargs), (None, None))
+    _generator = sv_obj.Run.filter().has_name(name).get(**_kwargs)
+
+    _id, _ = next(_generator, (None, None))
+
+    if next(_generator, None):
+        _error_msg: str = (
+            f"Failed to retrieve run ID, multiple matches for name '{name}'."
+        )
+        raise RuntimeError(_error_msg)
 
     if not _id and not missing_ok:
         raise ObjectNotFoundError(obj_type="run", name=name)
 
     return typing.cast("str | None", _id)
+
+
+@prettify_pydantic
+@pyd.validate_call
+def get_run(
+    run_id: ObjectID,
+    *,
+    server_url: pyd.HttpUrl | None = None,
+    server_token: pyd.SecretStr | None = None,
+) -> sv_obj.Run:
+    """Retrieve a given run by its identifier.
+
+    Parameters
+    ----------
+    run_id: str
+        The idenfitier of the run to retrieve.
+    server_url : str | None, optional
+        alternative server URL to use for item retrieval
+    server_token : str | None, optional
+        token for the alternative URL
+
+    Returns
+    -------
+    simvue.api.objects.Run
+        A read-only object containing information relating to the given run.
+
+    Raises
+    ------
+    ObjectNotFoundError
+        if the object does not exist
+    """
+    if server_url and not server_token:
+        raise ValueError("A token must be provided for the alternative URL")
+
+    _kwargs: dict[str, str] = {}
+
+    if server_url and server_token:
+        _kwargs["server_url"] = server_url.encoded_string()
+        _kwargs["server_token"] = server_token.get_secret_value()
+
+    _, _run = next(sv_obj.Run(identifier=run_id).get(**_kwargs), (None, None))
+
+    if not _run:
+        raise ObjectNotFoundError(name=run_id, obj_type="run")
+
+    return _run
