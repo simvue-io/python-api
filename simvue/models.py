@@ -115,5 +115,7 @@ class GridMetricSet(pydantic.BaseModel):
 class EventSet(pydantic.BaseModel):
     model_config = pydantic.ConfigDict(extra="forbid")
     message: str
-    log_level: typing.Literal["info", "warning", "debug", "error", "critical"]
+    log_level: (
+        typing.Literal["info", "warning", "debug", "error", "critical"] | None
+    ) = None
     timestamp: typing.Annotated[str | None, pydantic.BeforeValidator(simvue_timestamp)]

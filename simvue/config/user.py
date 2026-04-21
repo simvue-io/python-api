@@ -43,7 +43,7 @@ from simvue.eco.config import EcoConfig
 logger = logging.getLogger(__name__)
 
 SIMVUE_SERVER_UPPER_CONSTRAINT: semver.Version | None = semver.Version.parse("2.0.0")
-SIMVUE_SERVER_LOWER_CONSTRAINT: semver.Version | None = semver.Version.parse("1.2.16")
+SIMVUE_SERVER_LOWER_CONSTRAINT: semver.Version | None = semver.Version.parse("1.1.0")
 
 
 class SimvueConfiguration(pydantic.BaseModel):
@@ -66,6 +66,14 @@ class SimvueConfiguration(pydantic.BaseModel):
     metrics: MetricsSpecifications = MetricsSpecifications()
     eco: EcoConfig = EcoConfig()
     current_profile: str | None = None
+    _server_version: semver.Version | None = None
+
+    @property
+    def server_version(self) -> semver.Version:
+        """Retrieve current Server version."""
+        if not self._server_version:
+            raise RuntimeError("Expected server version to be defined")
+        return self._server_version
 
     @classmethod
     def _load_pyproject_configs(cls) -> dict | None:
@@ -103,7 +111,7 @@ class SimvueConfiguration(pydantic.BaseModel):
     @functools.lru_cache
     def _check_server(
         cls, token: str, url: str, mode: typing.Literal["offline", "online", "disabled"]
-    ) -> None:
+    ) -> semver.Version:
         if mode in ("offline", "disabled"):
             return
 
@@ -143,6 +151,7 @@ class SimvueConfiguration(pydantic.BaseModel):
                 f"Python API v{_version_str} is not compatible with Simvue server versions "
                 f"< {SIMVUE_SERVER_LOWER_CONSTRAINT}"
             )
+        return _version
 
     @pydantic.validate_call
     def write(self, out_directory: pydantic.DirectoryPath) -> None:
@@ -154,7 +163,9 @@ class SimvueConfiguration(pydantic.BaseModel):
         if os.environ.get("SIMVUE_NO_SERVER_CHECK"):
             return self
 
-        self._check_server(self.server.token, self.server.url, self.run.mode)
+        self._server_version = self._check_server(
+            self.server.token, self.server.url, self.run.mode
+        )
 
         return self
 

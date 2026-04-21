@@ -1373,7 +1373,8 @@ class Run:
             manually specify the time stamp for this log, by default None
             if a string is provided, local time
         log_level : str, optional
-            the logging level for this event, default is 'info'.
+            the logging level for this event, default is 'info',
+            requires server with version >=1.2.16
 
         Returns
         -------
@@ -1409,6 +1410,14 @@ class Run:
 
         if self._status != "running":
             self._error("Cannot log events when not in the running state")
+            return False
+
+        # FIXME: Temporary, this will eventually be removed
+        import semver
+
+        _log_level_server_version = semver.parse("1.2.16")
+        if self._user_config.server_version < _log_level_server_version:
+            self._error("Log level is not supported on current server.")
             return False
 
         _data = {"message": message, "timestamp": timestamp, "log_level": log_level}
