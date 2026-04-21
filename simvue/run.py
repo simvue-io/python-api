@@ -17,6 +17,8 @@ import warnings
 import humanfriendly
 import datetime
 import os
+from unyt import unyt_quantity
+from unyt.exceptions import UnitParseError
 
 import pydantic
 import re
@@ -182,6 +184,8 @@ class Run:
 
         self._executor = Executor(self)
         self._dispatcher: DispatcherBaseClass | None = None
+
+        self._meta_cache: dict[str, typing.Any] = {}
 
         self._folder: Folder | None = None
         self._term_color: bool = True
@@ -1680,6 +1684,12 @@ class Run:
             )
         ```
         """
+
+        # If there are any metric units to be uploaded do so now
+        if _units := self._meta_cache.get("metrics"):
+            self.update_metadata({"simvue": {"metrics": _units}})
+            del self._meta_cache["metrics"]
+
         # TODO: When metrics and grids are combined into a single entity
         # this can be removed. For now need to separate tensor based metrics
         # from regular
@@ -2586,3 +2596,40 @@ class Run:
         _alert.commit()
 
         return True
+
+    @prettify_pydantic
+    @pydantic.validate_call
+    def set_metric_units(
+        self,
+        metric_name: MetricKeyString,
+        *,
+        units: str,
+        mks_unit: str | None = None,
+        mks_conversion: float | None = None,
+    ) -> None:
+        """Define units for metrics.
+
+        Parameters
+        ----------
+        metric_name : str
+            name of metric to assign units to
+        units : str
+            unit symbol
+        label : str | None, optional
+            alternative longer name for units
+        """
+        self._meta_cache.setdefault("metrics", {})
+
+        try:
+            _unit_obj = unyt_quantity.from_string(units)
+            self._meta_cache["metrics"][metric_name] = {
+                "units": units,
+                "mks_conversion": mks_conversion or float(_unit_obj.in_mks().value),
+                "mks_units": mks_unit or f"{_unit_obj.in_mks().units}",
+            }
+        except UnitParseError:
+            self._meta_cache["metrics"][metric_name] = {
+                "units": units,
+                "mks_conversion": mks_conversion,
+                "mks_units": mks_unit,
+            }
