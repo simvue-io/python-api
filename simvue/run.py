@@ -52,6 +52,7 @@ from .models import (
     MetricKeyString,
     validate_timestamp,
     simvue_timestamp,
+    LogLevel,
 )
 from .system import get_system
 from .metadata import git_info, environment
@@ -1356,9 +1357,11 @@ class Run:
     def log_event(
         self,
         message: str,
+        *,
         timestamp: typing.Annotated[
             datetime.datetime | str | None, pydantic.BeforeValidator(simvue_timestamp)
         ] = None,
+        log_level: LogLevel = "info",
     ) -> bool:
         """Log event to the server
 
@@ -1369,6 +1372,9 @@ class Run:
         timestamp : datetime.datetime | str, optional
             manually specify the time stamp for this log, by default None
             if a string is provided, local time
+        log_level : str, optional
+            the logging level for this event, default is 'info',
+            requires server with version >=1.2.16
 
         Returns
         -------
@@ -1386,7 +1392,8 @@ class Run:
 
             run.log_event(
                 message="Good Night",
-                timestamp=datetime.datetime.now(datetime.UTC)
+                timestamp=datetime.datetime.now(datetime.UTC),
+                log_level="debug"
             )
         ```
         """
@@ -1405,7 +1412,15 @@ class Run:
             self._error("Cannot log events when not in the running state")
             return False
 
-        _data = {"message": message, "timestamp": timestamp}
+        # FIXME: Temporary, this will eventually be removed
+        import semver
+
+        _log_level_server_version = semver.parse("1.2.16")
+        if self._user_config.server_version < _log_level_server_version:
+            self._error("Log level is not supported on current server.")
+            return False
+
+        _data = {"message": message, "timestamp": timestamp, "log_level": log_level}
         self._dispatcher.add_item(
             _data, object_type="events", blocking=self._queue_blocking
         )

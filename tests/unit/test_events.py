@@ -22,7 +22,7 @@ def test_events_creation_online() -> None:
     _events =   Events.new(
         run=_run.id,
         events=[
-            {"message": "This is a test!", "timestamp": _timestamp}
+            {"message": "This is a test!", "timestamp": _timestamp, "log_level": "debug"}
         ],
     )
     assert _events.to_dict()
@@ -44,7 +44,7 @@ def test_events_creation_offline(offline_cache_setup) -> None:
     _events =   Events.new(
         run=_run.id,
         events=[
-            {"message": "This is a test!", "timestamp": _timestamp}
+            {"message": "This is a test!", "timestamp": _timestamp, "log_level": "debug"}
         ],
         offline=True
     )
