@@ -1,9 +1,12 @@
 """Tests on future features being implemented."""
 import pytest
+import typing
+import uuid
 
+from simvue.api.objects.filter import RunsFilter
 from simvue.exception import ObjectNotFoundError
-from simvue.experimental.fetch import get_metric_values, get_run_id_from_name, get_run
-from simvue.api.objects import Run
+from simvue.experimental.fetch import get_metric_values, get_run_id_from_name, get_run, get_metadata
+from simvue.api.objects import Folder, Run
 
 @pytest.mark.online
 @pytest.mark.experimental
@@ -52,3 +55,31 @@ def test_fetch_run_by_id(run_exists: bool, create_plain_run: tuple[Run, dict]) -
         with pytest.raises(ObjectNotFoundError) as e:
             get_run_id_from_name(22 * "X")
         assert all(i in f"{e}" for i in ("run", 22 * "X"))
+
+
+@pytest.mark.online
+@pytest.mark.experimental
+def test_get_run_metadata() -> None:
+    N_RUNS: int = 10
+    _uniq_id: str = f"{uuid.uuid4()}".split("-")[0]
+    _run_ids: list[str | None] = []
+    _folder = Folder.new(path=f"/testing/get_metadata/{_uniq_id}")
+    _folder.commit()
+    for i in range(N_RUNS):
+        _run = Run.new(folder=_folder.path)
+        _run.name = f"test_get_run_metadata_{_uniq_id}_{i}"
+        _run.tags = ["simvue_unit_testing"]
+        _run.metadata = {"testing": "test_meta"}
+        _run.commit()
+        _run_ids.append(_run.id)
+    _filter: RunsFilter = Run.filter().in_folder(_folder.path)
+
+    for _id, _meta in get_metadata(run_filters=_filter.as_list()):
+        assert _id in _run_ids
+        _meta.get("testing") == "test_meta"
+        Run(identifier=_id).delete()
+
+
+    _ = _folder.delete(delete_runs=True, recursive=True)
+
+
