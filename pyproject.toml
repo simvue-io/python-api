@@ -111,6 +111,7 @@ markers = [
   "local: tests of functionality which do not involve a server or writing to an offline cache file",
   "object_retrieval: tests relating to retrieval of objects from the server",
   "object_removal: tests relating to removal of objects from the server",
+  "filters: tests of filter objects",
 ]
 
 [tool.interrogate]
