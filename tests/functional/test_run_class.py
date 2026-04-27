@@ -1724,3 +1724,18 @@ def test_no_alert_dupes_different_run(alert_type: typing.Literal["user", "events
             else:
                 MetricsRangeAlert(identifier=created_id).delete()
 
+
+@pytest.mark.run
+@pytest.mark.online
+def test_set_metric_units(create_plain_run: tuple[sv_run.Run, dict]) -> None:
+    run, _ = create_plain_run
+    run.set_metric_units("x", units="ft")
+    run.set_metric_units("y", units="m")
+    run.set_metric_units("z", units="Foobars", mks_conversion=3.542, mks_unit="m")
+    run.log_metrics({"x": 10, "y": 3, "z": 22})
+
+    _metadata = RunObject(run.id).metadata
+    assert (_metric_data := _metadata.get("simvue", {}).get("metrics"))
+    assert _metric_data["x"] == {"units": "ft", "mks_units": "m", "mks_conversion": 0.3048}
+    assert _metric_data["y"] == {"units": "m", "mks_units": "m", "mks_conversion": 1}
+    assert _metric_data["z"] == {"units": "Foobars", "mks_units": "m", "mks_conversion": 3.542}
