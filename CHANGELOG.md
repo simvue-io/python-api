@@ -3,6 +3,8 @@
 ## Unreleased
 
 - Added support for log level in events creation.
+- Added support for provision of units in metrics.
+- Fixed bug where token is not passed correctly on server version check.
 
 ## [v2.4.1](https://github.com/simvue-io/python-api/releases/tag/v2.4.1) - 2026-03-31
 

@@ -51,7 +51,7 @@ _logger.setLevel(logging.INFO)
     default=None,
     required=False,
 )
-def run(
+def sender_cli(
     cache_directory: pathlib.Path | None,
     objects_to_upload: list[UploadItem] | None,
     threading_threshold: int,
