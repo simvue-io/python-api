@@ -163,8 +163,11 @@ class SimvueConfiguration(pydantic.BaseModel):
         if os.environ.get("SIMVUE_NO_SERVER_CHECK"):
             return self
 
+        if not self.server.token:
+            raise ValueError("No token provided.")
+
         self._server_version = self._check_server(
-            self.server.token, self.server.url, self.run.mode
+            self.server.token.get_secret_value(), self.server.url, self.run.mode
         )
 
         return self
