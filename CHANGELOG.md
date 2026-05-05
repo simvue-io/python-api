@@ -1,6 +1,6 @@
 # Change Log
 
-## Unreleased
+## [v2.4.2](https://github.com/simvue-io/python-api/releases/tag/v2.4.2) - 2026-05-05
 
 - Added support for log level in events creation.
 - Added support for provision of units in metrics.
