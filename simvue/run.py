@@ -1365,7 +1365,7 @@ class Run:
         timestamp: typing.Annotated[
             datetime.datetime | str | None, pydantic.BeforeValidator(simvue_timestamp)
         ] = None,
-        log_level: LogLevel = "info",
+        log_level: LogLevel | None = None,
     ) -> bool:
         """Log event to the server
 
