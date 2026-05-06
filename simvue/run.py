@@ -1427,7 +1427,11 @@ class Run:
             self._error("Log level is not supported on current server.")
             return False
 
-        _data = {"message": message, "timestamp": timestamp, "log_level": log_level}
+        _data = {
+            "message": message,
+            "timestamp": timestamp,
+            "log_level": log_level or "info",
+        }
         self._dispatcher.add_item(
             _data, object_type="events", blocking=self._queue_blocking
         )
