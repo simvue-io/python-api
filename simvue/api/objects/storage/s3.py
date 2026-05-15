@@ -63,13 +63,13 @@ class S3Storage(StorageBase):
         name: typing.Annotated[str, pydantic.Field(pattern=NAME_REGEX)],
         disable_check: bool,
         endpoint_url: pydantic.HttpUrl,
-        region_name: str,
         access_key_id: str,
         secret_access_key: pydantic.SecretStr,
         bucket: str,
         is_tenant_useable: bool,
         is_default: bool,
         is_enabled: bool,
+        region_name: str | None = None,
         ca_cert: pydantic.SecretStr | None = None,
         offline: bool = False,
         **__,
@@ -84,14 +84,14 @@ class S3Storage(StorageBase):
             whether to disable checks for this system
         endpoint_url : str
             endpoint defining the S3 upload URL
-        region_name : str
-            the region name associated with this storage system
         access_key_id : str
             the access key identifier for the storage
         secret_access_key : str
             the secret access key, stored as a secret string
         bucket : str
             the bucket associated with this storage system
+        region_name : str | None, optional
+            the region name associated with this storage system if applicable
         ca_cert : str | None, optional
             provide a CA certificate for this storage
         is_tenant_useable : bool
@@ -111,11 +111,13 @@ class S3Storage(StorageBase):
         """
         _config: dict[str, str] = {
             "endpoint_url": endpoint_url.__str__(),
-            "region_name": region_name,
             "access_key_id": access_key_id,
             "secret_access_key": secret_access_key.get_secret_value(),
             "bucket": bucket,
         }
+
+        if region_name:
+            _config["region_name"] = region_name
 
         if ca_cert:
             _config["ca_cert"] = ca_cert.get_secret_value()
@@ -176,14 +178,9 @@ class Config:
 
     @property
     @staging_check
-    def region_name(self) -> str:
+    def region_name(self) -> str | None:
         """Retrieve the region name for this storage"""
-        try:
-            return self._sv_obj.get_config()["region_name"]
-        except KeyError as e:
-            raise RuntimeError(
-                "Expected key 'region_name' in alert definition retrieval"
-            ) from e
+        return self._sv_obj.get_config().get("region_name")
 
     @region_name.setter
     @write_only
