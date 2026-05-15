@@ -1,6 +1,4 @@
-"""
-Simvue Metric Alerts
-====================
+"""Simvue Metric Alerts.
 
 Classes for interacting with metric-based alerts either defined
 locally or on a Simvue server
@@ -29,16 +27,21 @@ except ImportError:
 
 
 class MetricsThresholdAlert(AlertBase):
-    """
-    Simvue Metrics Threshold Alert
-    ==============================
+    """Simvue Metrics Threshold Alert.
 
     This class is used to connect to/create metrics threshold alert objects on the Simvue server,
     any modification of MetricsThresholdAlert instance attributes is mirrored on the remote object.
 
     """
 
-    def __init__(self, identifier: str | None = None, **kwargs) -> None:
+    def __init__(
+        self,
+        identifier: str | None = None,
+        *,
+        server_url: str | None = None,
+        server_token: pydantic.SecretStr | None = None,
+        **kwargs,
+    ) -> None:
         """Initialise a Metrics Threshold Alert
 
         If an identifier is provided a connection will be made to the
@@ -49,11 +52,17 @@ class MetricsThresholdAlert(AlertBase):
         ----------
         identifier : str, optional
             the remote server unique id for the target folder
+        server_url: str | None, optional
+            alternative server URL, default None
+        server_token : str | None, optional
+            token for alternative server, default None
         **kwargs : dict
             any additional arguments to be passed to the object initialiser
         """
         self.alert = MetricThresholdAlertDefinition(self)
-        super().__init__(identifier, **kwargs)
+        super().__init__(
+            identifier, server_url=server_url, server_token=server_token, **kwargs
+        )
         self._local_only_args += [
             "rule",
             "window",
@@ -61,13 +70,21 @@ class MetricsThresholdAlert(AlertBase):
             "threshold",
         ]
 
+    @override
     @classmethod
     def get(
-        cls, count: int | None = None, offset: int | None = None
+        cls,
+        *,
+        count: int | None = None,
+        offset: int | None = None,
+        server_url: str | None = None,
+        server_token: pydantic.SecretStr | None = None,
+        **_,
     ) -> dict[str, typing.Any]:
         """Retrieve only MetricsThresholdAlerts"""
         raise NotImplementedError("Retrieve of only metric alerts is not yet supported")
 
+    @override
     @classmethod
     @pydantic.validate_call
     def new(
@@ -84,6 +101,8 @@ class MetricsThresholdAlert(AlertBase):
         frequency: pydantic.PositiveInt,
         enabled: bool = True,
         offline: bool = False,
+        server_url: str | None = None,
+        server_token: pydantic.SecretStr | None = None,
         **_,
     ) -> Self:
         """Create a new metric threshold alert either locally or on the server
@@ -114,7 +133,15 @@ class MetricsThresholdAlert(AlertBase):
             whether this alert is enabled upon creation, default is True
         offline : bool, optional
             whether to create the alert locally, default is False
+        server_url: str | None, optional
+            alternative server URL, default None
+        server_token : str | None, optional
+            token for alternative server, default None
 
+        Returns
+        -------
+        MetricsThresholdAlert
+            object representing a metric threshold alert
         """
         _alert_definition = {
             "rule": rule,
@@ -124,13 +151,15 @@ class MetricsThresholdAlert(AlertBase):
             "aggregation": aggregation,
             "threshold": threshold,
         }
-        _alert = MetricsThresholdAlert(
+        _alert = cls(
             name=name,
             description=description,
             notification=notification,
             source="metrics",
             alert=_alert_definition,
             enabled=enabled,
+            server_url=server_url,
+            server_token=server_token,
             _read_only=False,
             _offline=offline,
         )
@@ -147,16 +176,21 @@ class MetricsThresholdAlert(AlertBase):
 
 
 class MetricsRangeAlert(AlertBase):
-    """
-    Simvue Metrics Range Alert
-    ==========================
+    """Simvue Metrics Range Alert.
 
     This class is used to connect to/create metrics range alert objects on the Simvue server,
     any modification of MetricsRangeAlert instance attributes is mirrored on the remote object.
 
     """
 
-    def __init__(self, identifier: str | None = None, **kwargs) -> None:
+    def __init__(
+        self,
+        identifier: str | None = None,
+        *,
+        server_url: str | None = None,
+        server_token: pydantic.SecretStr | None = None,
+        **kwargs,
+    ) -> None:
         """Initialise a Metrics Range Alert
 
         If an identifier is provided a connection will be made to the
@@ -167,11 +201,17 @@ class MetricsRangeAlert(AlertBase):
         ----------
         identifier : str, optional
             the remote server unique id for the target folder
+        server_url: str | None, optional
+            alternative server URL, default None
+        server_token : str | None, optional
+            token for alternative server, default None
         **kwargs : dict
             any additional arguments to be passed to the object initialiser
         """
         self.alert = MetricRangeAlertDefinition(self)
-        super().__init__(identifier, **kwargs)
+        super().__init__(
+            identifier, server_url=server_url, server_token=server_token, **kwargs
+        )
         self._local_only_args += [
             "rule",
             "window",
@@ -204,6 +244,8 @@ class MetricsRangeAlert(AlertBase):
         frequency: pydantic.PositiveInt,
         enabled: bool = True,
         offline: bool = False,
+        server_url: str | None = None,
+        server_token: pydantic.SecretStr | None = None,
         **_,
     ) -> Self:
         """Create a new metric range alert either locally or on the server
@@ -236,6 +278,10 @@ class MetricsRangeAlert(AlertBase):
             whether this alert is enabled upon creation, default is True
         offline : bool, optional
             whether to create the alert locally, default is False
+        server_url: str | None, optional
+            alternative server URL, default None
+        server_token : str | None, optional
+            token for alternative server, default None
 
         """
         if range_low >= range_high:
@@ -250,13 +296,15 @@ class MetricsRangeAlert(AlertBase):
             "range_low": range_low,
             "range_high": range_high,
         }
-        _alert = MetricsRangeAlert(
+        _alert = cls(
             name=name,
             description=description,
             notification=notification,
             source="metrics",
             enabled=enabled,
             alert=_alert_definition,
+            server_url=server_url,
+            server_token=server_token,
             _read_only=False,
             _offline=offline,
         )

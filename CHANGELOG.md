@@ -1,8 +1,15 @@
 # Change Log
 
-## [v2.5.1](https://github.com/simvue-io/python-api/releases/tag/v2.5.1) - 2026-05-06
+## [v2.5.2](https://github.com/simvue-io/python-api/releases/tag/v2.5.2) - 2026-05-15
 
+- Fixed issue whereby providing alternative server URL or token arguments was ignored.
 - Fixed legacy event logging support.
+
+## ~~[v2.5.1](https://github.com/simvue-io/python-api/releases/tag/v2.5.1) - 2026-05-06~~
+
+**Yanked from PyPi as issue not fixed.**
+
+- ~~Fixed legacy event logging support.~~
 
 ## [v2.5.0](https://github.com/simvue-io/python-api/releases/tag/v2.5.0) - 2026-05-05
 

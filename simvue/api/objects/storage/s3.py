@@ -1,6 +1,4 @@
-"""
-Simvue S3 Storage
-=================
+"""Simvue S3 Storage.
 
 Class for interacting with an S3 based storage on the server.
 
@@ -9,28 +7,34 @@ Class for interacting with an S3 based storage on the server.
 import typing
 
 try:
-    from typing import Self
+    from typing import Self, override
 except ImportError:
-    from typing_extensions import Self
+    from typing_extensions import Self, override
 import pydantic
 
-from simvue.api.objects.base import write_only
+from simvue.api.objects.base import write_only, staging_check
 
-from .base import StorageBase, staging_check
+from .base import StorageBase
 from simvue.models import NAME_REGEX
 
 
 class S3Storage(StorageBase):
-    """
-    Simvue S3 Storage
-    ===================
+    """Simvue S3 Storage.
 
     This class is used to connect to/create S3 storage objects on the Simvue server,
     any modification of instance attributes is mirrored on the remote object.
 
     """
 
-    def __init__(self, identifier: str | None = None, **kwargs) -> None:
+    @override
+    def __init__(
+        self,
+        identifier: str | None = None,
+        *,
+        server_url: str | None = None,
+        server_token: pydantic.SecretStr | None = None,
+        **kwargs,
+    ) -> None:
         """Initialise a S3 Storage
 
         If an identifier is provided a connection will be made to the
@@ -41,11 +45,17 @@ class S3Storage(StorageBase):
         ----------
         identifier : str, optional
             the remote server unique id for the target folder
+        server_url: str | None, optional
+            alternative server URL, default None
+        server_token : str | None, optional
+            token for alternative server, default None
         **kwargs : dict
             any additional arguments to be passed to the object initialiser
         """
         self.config = Config(self)
-        super().__init__(identifier, **kwargs)
+        super().__init__(
+            identifier, server_url=server_url, server_token=server_token, **kwargs
+        )
         self._local_only_args += [
             "endpoint_url",
             "region_name",
@@ -54,6 +64,7 @@ class S3Storage(StorageBase):
             "bucket",
         ]
 
+    @override
     @classmethod
     @pydantic.validate_call
     def new(
@@ -70,6 +81,8 @@ class S3Storage(StorageBase):
         is_default: bool,
         is_enabled: bool,
         offline: bool = False,
+        server_url: str | None = None,
+        server_token: pydantic.SecretStr | None = None,
         **__,
     ) -> Self:
         """Create a new S3 storage object.
@@ -98,6 +111,10 @@ class S3Storage(StorageBase):
             if this storage system should become the new is_default
         offline : bool, optional
             if this instance should be created in offline mode, is_default False
+        server_url: str | None, optional
+            alternative server URL, default None
+        server_token : str | None, optional
+            token for alternative server, default None
 
         Returns
         -------
@@ -112,7 +129,7 @@ class S3Storage(StorageBase):
             "secret_access_key": secret_access_key.get_secret_value(),
             "bucket": bucket,
         }
-        _storage = S3Storage(
+        _storage = cls(
             name=name,
             backend="S3",
             config=_config,
@@ -120,8 +137,10 @@ class S3Storage(StorageBase):
             is_tenant_useable=is_tenant_useable,
             is_default=is_default,
             is_enabled=is_enabled,
-            _read_only=False,
+            server_url=server_url,
+            server_token=server_token,
             _offline=offline,
+            _read_only=False,
         )
         _storage._staging |= _config
         return _storage

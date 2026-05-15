@@ -49,16 +49,20 @@ class FolderSort(Sort):
 
 
 class Folder(SimvueObject):
-    """
-    Simvue Folder
-    =============
+    """Simvue Folder.
 
     This class is used to connect to/create folder objects on the Simvue server,
     any modification of instance attributes is mirrored on the remote object.
 
     """
 
-    def __init__(self, identifier: str | None = None, **kwargs) -> None:
+    def __init__(
+        self,
+        identifier: str | None = None,
+        server_url: str | None = None,
+        server_token: pydantic.SecretStr | None = None,
+        **kwargs,
+    ) -> None:
         """Initialise a Folder
 
         If an identifier is provided a connection will be made to the
@@ -67,12 +71,18 @@ class Folder(SimvueObject):
 
         Parameters
         ----------
-        identifier : str, optional
+        identifier : str | None, optional
             the remote server unique id for the target folder
+        server_url: str | None, optional
+            alternative server URL, default None
+        server_token : str | None, optional
+            token for alternative server, default None
         **kwargs : dict
             any additional arguments to be passed to the object initialiser
         """
-        super().__init__(identifier, **kwargs)
+        super().__init__(
+            identifier, server_token=server_token, server_url=server_url, **kwargs
+        )
         self._properties.remove("tree")
 
     @classmethod
@@ -82,18 +92,30 @@ class Folder(SimvueObject):
         *,
         path: typing.Annotated[str, pydantic.Field(pattern=FOLDER_REGEX)],
         offline: bool = False,
+        server_url: str | None = None,
+        server_token: pydantic.SecretStr | None = None,
         **kwargs,
     ) -> Self:
         """Create a new Folder on the Simvue server with the given path"""
-        return Folder(path=path, _read_only=False, _offline=offline, **kwargs)
+        return cls(
+            path=path,
+            _read_only=False,
+            _offline=offline,
+            server_url=server_url,
+            server_token=server_token,
+            **kwargs,
+        )
 
     @classmethod
     @pydantic.validate_call
     def get(
         cls,
+        *,
         count: pydantic.PositiveInt | None = None,
         offset: pydantic.NonNegativeInt | None = None,
         sorting: list[FolderSort] | None = None,
+        server_url: str | None = None,
+        server_token: pydantic.SecretStr | None = None,
         **kwargs,
     ) -> Generator[tuple[str, T | None]]:
         """Get folders from the server.
@@ -106,6 +128,10 @@ class Folder(SimvueObject):
             start index for results, default is 0.
         sorting : list[dict] | None, optional
             list of sorting definitions in the form {'column': str, 'descending': bool}
+        server_url: str | None, optional
+            alternative server URL, default None
+        server_token : str | None, optional
+            token for alternative server, default None
 
         Yields
         ------

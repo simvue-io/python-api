@@ -1,6 +1,4 @@
-"""
-Simvue Storage Retrieval
-==============--========
+"""Simvue Storage Retrieval.
 
 To simplify case whereby user does not know the storage type associated
 with an identifier, use a generic storage object.
@@ -19,26 +17,36 @@ from .base import StorageBase
 
 
 class Storage:
-    """
-    Simvue Storage
-    ==============
+    """Simvue Storage.
 
     Generic Simvue storage retrieval class.
 
     """
 
-    def __init__(self, identifier: str | None = None, *args, **kwargs) -> None:
-        """Initialise an instance of generic storage retriever.
+    def __new__(
+        cls,
+        identifier: str | None = None,
+        *,
+        server_url: str | None = None,
+        server_token: pydantic.SecretStr | None = None,
+        **kwargs,
+    ) -> S3Storage | FileStorage:
+        """Retrieve an object representing on the server by id.
 
         Parameters
         ----------
         identifier : str
             identifier of storage object to retrieve
-        """
-        super().__init__(identifier=identifier, *args, **kwargs)
+        server_url: str | None, optional
+            alternative server URL, default None
+        server_token : str | None, optional
+            token for alternative server, default None
 
-    def __new__(cls, identifier: str | None = None, **kwargs):
-        """Retrieve an object representing an storage either locally or on the server by id"""
+        Returns
+        -------
+        S3Storage | FileStorage
+            object representing storage
+        """
         _storage_pre = StorageBase(identifier=identifier, **kwargs)
         if _storage_pre.backend == "S3":
             return S3Storage(identifier=identifier, **kwargs)
@@ -50,7 +58,13 @@ class Storage:
     @classmethod
     @pydantic.validate_call
     def get(
-        cls, count: int | None = None, offset: int | None = None, **kwargs
+        cls,
+        *,
+        count: int | None = None,
+        offset: int | None = None,
+        server_url: str | None = None,
+        server_token: pydantic.SecretStr | None = None,
+        **kwargs,
     ) -> Generator[tuple[str, FileStorage | S3Storage]]:
         """Returns storage systems accessible to the current user.
 
@@ -60,6 +74,10 @@ class Storage:
             limit the number of results, default of None returns all.
         offset : int, optional
             start index for returned results, default of None starts at 0.
+        server_url: str | None, optional
+            alternative server URL, default None
+        server_token : str | None, optional
+            token for alternative server, default None
 
         Yields
         ------
@@ -69,9 +87,14 @@ class Storage:
         """
 
         # Currently no storage filters
-        kwargs.pop("filters", None)
+        _ = kwargs.pop("filters", None)
 
-        _class_instance = StorageBase(_local=True, _read_only=True)
+        _class_instance = StorageBase(
+            identifier=None,
+            server_url=server_url,
+            server_token=server_token,
+            _local=True,
+        )
         _url = f"{_class_instance._base_url}"
         _response = sv_get(
             _url,
@@ -94,12 +117,24 @@ class Storage:
             if _entry["backend"] == "S3":
                 yield (
                     _id,
-                    S3Storage(_local=True, _read_only=True, identifier=_id, **_entry),
+                    S3Storage(
+                        _local=True,
+                        identifier=_id,
+                        server_url=server_url,
+                        server_token=server_token,
+                        **_entry,
+                    ),
                 )
             elif _entry["backend"] == "File":
                 yield (
                     _id,
-                    FileStorage(_local=True, _read_only=True, identifier=_id, **_entry),
+                    FileStorage(
+                        _local=True,
+                        identifier=_id,
+                        server_url=server_url,
+                        server_token=server_token,
+                        **_entry,
+                    ),
                 )
             else:
                 raise RuntimeError(

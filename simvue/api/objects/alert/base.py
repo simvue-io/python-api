@@ -1,6 +1,4 @@
-"""
-Alert Object Base
-=================
+"""Alert Object Base.
 
 Contains general definitions for Simvue Alert objects.
 
@@ -16,9 +14,9 @@ from simvue.api.url import URL
 from simvue.models import NAME_REGEX, DATETIME_FORMAT
 
 try:
-    from typing import override
+    from typing import Self, override
 except ImportError:
-    from typing_extensions import override  # noqa: UP035
+    from typing_extensions import Self, override  # noqa: UP035
 
 
 class AlertBase(SimvueObject):
@@ -27,15 +25,29 @@ class AlertBase(SimvueObject):
     Contains properties common to all alert types.
     """
 
-    @classmethod
-    def new(cls, read_only: bool = False, **kwargs):
-        """Create a new alert"""
-        pass
+    _label: str = "alert"
 
-    def __init__(self, identifier: str | None = None, **kwargs) -> None:
+    @override
+    @classmethod
+    def new(cls, *_, **__) -> Self:
+        raise NotImplementedError
+
+    @override
+    def __init__(
+        self,
+        identifier: str | None = None,
+        *,
+        server_url: str | None = None,
+        server_token: pydantic.SecretStr | None = None,
+        **kwargs,
+    ) -> None:
         """Retrieve an alert from the Simvue server by identifier"""
-        self._label = "alert"
-        super().__init__(identifier=identifier, **kwargs)
+        super().__init__(
+            identifier=identifier,
+            server_url=server_url,
+            server_token=server_token,
+            **kwargs,
+        )
         self._local_only_args += [
             "frequency",
             "pattern",

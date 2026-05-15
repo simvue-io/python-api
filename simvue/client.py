@@ -1,6 +1,4 @@
-"""
-Simvue Client
-=============
+"""Simvue Client.
 
 Contains a Simvue client class for interacting with existing objects on the
 server including deletion and retrieval.
@@ -157,7 +155,12 @@ class Client:
         RuntimeError
             if retrieval of information from the server on this run failed
         """
-        return Run(identifier=run_id, read_only=True)
+        return Run(
+            identifier=run_id,
+            server_url=self._user_config.server.url,
+            server_token=self._user_config.server.token,
+            read_only=True,
+        )
 
     @prettify_pydantic
     @pydantic.validate_call
@@ -174,7 +177,11 @@ class Client:
         str
             the registered name for the run
         """
-        return Run(identifier=run_id).name
+        return Run(
+            identifier=run_id,
+            server_url=self._user_config.server.url,
+            server_token=self._user_config.server.token,
+        ).name
 
     @prettify_pydantic
     @pydantic.validate_call
@@ -269,6 +276,8 @@ class Client:
             return_metrics=metrics,
             return_alerts=alerts,
             return_metadata=metadata,
+            server_url=self._user_config.server.url,
+            server_token=self._user_config.server.token,
             sorting=[dict(zip(("column", "descending"), a)) for a in sort_by_columns]
             if sort_by_columns
             else None,
@@ -305,7 +314,14 @@ class Client:
         RuntimeError
             if the deletion failed due to server request error
         """
-        return Run(identifier=run_id).delete() or None
+        return (
+            Run(
+                identifier=run_id,
+                server_url=self._user_config.server.url,
+                server_token=self._user_config.server.token,
+            ).delete()
+            or None
+        )
 
     def _get_folder_from_path(self, path: str) -> Folder | None:
         """Retrieve folder for the specified path if found
@@ -320,7 +336,11 @@ class Client:
         Folder | None
             if a match is found, return the folder
         """
-        _folders = Folder.get(filters=json.dumps([f"path == {path}"]))
+        _folders = Folder.get(
+            filters=json.dumps([f"path == {path}"]),
+            server_url=self._user_config.server.url,
+            server_token=self._user_config.server.token,
+        )
 
         _, _folder = next(_folders, (None, None))
 
@@ -339,7 +359,11 @@ class Client:
         str | None
             if a match is found, return the identifier of the folder
         """
-        _ids = Folder.ids(filters=json.dumps([f"path == {path}"]))
+        _ids = Folder.ids(
+            filters=json.dumps([f"path == {path}"]),
+            server_url=self._user_config.server.url,
+            server_token=self._user_config.server.token,
+        )
 
         if not (_id := next(_ids, None)):
             return None
@@ -424,8 +448,14 @@ class Client:
                     name=folder_path,
                     obj_type="folder",
                 )
-        _response = Folder(identifier=folder_id).delete(
-            delete_runs=remove_runs, recursive=recursive, runs_only=False
+        _response = Folder(
+            identifier=folder_id,
+            server_url=self._user_config.server.url,
+            server_token=self._user_config.server.token,
+        ).delete(
+            delete_runs=remove_runs,
+            recursive=recursive,
+            runs_only=False,
         )
 
         if folder_id not in _response.get("folders", []):
@@ -443,7 +473,11 @@ class Client:
         alert_id : str
             the unique identifier for the alert
         """
-        Alert(identifier=alert_id).delete()  # type: ignore
+        Alert(
+            identifier=alert_id,
+            server_url=self._user_config.server.url,
+            server_token=self._user_config.server.token,
+        ).delete()  # type: ignore
 
     @prettify_pydantic
     @pydantic.validate_call
@@ -473,6 +507,8 @@ class Client:
         """
         return Artifact.get(
             runs=json.dumps([run_id]),
+            server_url=self._user_config.server.url,
+            server_token=self._user_config.server.token,
             sorting=[dict(zip(("column", "descending"), a)) for a in sort_by_columns]
             if sort_by_columns
             else None,
@@ -505,7 +541,11 @@ class Client:
         dict | list
             response from server
         """
-        return Run(identifier=run_id).abort(reason=reason)
+        return Run(
+            identifier=run_id,
+            server_url=self._user_config.server.url,
+            server_token=self._user_config.server.token,
+        ).abort(reason=reason)
 
     @prettify_pydantic
     @pydantic.validate_call
@@ -621,6 +661,8 @@ class Client:
             if there was a failure retrieving artifacts from the server
         """
         _artifacts: Generator[tuple[str, Artifact]] = Artifact.from_run(
+            server_url=self._user_config.server.url,
+            server_token=self._user_config.server.token,
             run_id=run_id,
             category=category,
         )
@@ -715,6 +757,8 @@ class Client:
             filters=json.dumps(filters or []),
             count=count,
             offset=start_index,
+            server_url=self._user_config.server.url,
+            server_token=self._user_config.server.token,
             sorting=[dict(zip(("column", "descending"), a)) for a in sort_by_columns]
             if sort_by_columns
             else None,
@@ -1084,7 +1128,12 @@ class Client:
             )
 
         _alerts = [
-            Alert(identifier=alert.get("id"), **alert)
+            Alert(
+                identifier=alert.get("id"),
+                server_url=self._user_config.server.url,
+                server_token=self._user_config.server.token,
+                **alert,
+            )
             for alert in Run(identifier=run_id).get_alert_details()
         ]
 
@@ -1130,6 +1179,8 @@ class Client:
         return Tag.get(
             count=count_limit,
             offset=start_index,
+            server_url=self._user_config.server.url,
+            server_token=self._user_config.server.token,
             sorting=[dict(zip(("column", "descending"), a)) for a in sort_by_columns]
             if sort_by_columns
             else None,
@@ -1151,7 +1202,11 @@ class Client:
             if the deletion failed due to a server request error
         """
         with contextlib.suppress(ValueError):
-            Tag(identifier=tag_id).delete()
+            Tag(
+                identifier=tag_id,
+                server_url=self._user_config.server.url,
+                server_token=self._user_config.server.token,
+            ).delete()
 
     @prettify_pydantic
     @pydantic.validate_call
@@ -1175,4 +1230,8 @@ class Client:
         ObjectNotFoundError
             if tag does not exist
         """
-        return Tag(identifier=tag_id)
+        return Tag(
+            identifier=tag_id,
+            server_url=self._user_config.server.url,
+            server_token=self._user_config.server.token,
+        )

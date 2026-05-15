@@ -1,6 +1,4 @@
-"""
-Simvue Alert Retrieval
-======================
+"""Simvue Alert Retrieval.
 
 To simplify case whereby user does not know the alert type associated
 with an identifier, use a generic alert object.
@@ -10,6 +8,14 @@ import http
 import json
 
 import pydantic
+
+from simvue.api.url import URL
+from simvue.config.user import SimvueConfiguration
+
+try:
+    from typing import override
+except ImportError:
+    from typing_extensions import override
 
 from collections.abc import Generator
 from simvue.api.objects.alert.user import UserAlert
@@ -33,28 +39,44 @@ class AlertSort(Sort):
 
 
 class Alert:
-    """
-    Simvue Alert
-    ============
+    """Simvue Alert.
 
     Generic Simvue alert retrieval class.
 
     """
 
-    def __init__(self, identifier: str | None = None, *args, **kwargs) -> None:
-        """Initialise an instance of generic alert retriever.
+    @override
+    @pydantic.validate_call()
+    def __new__(
+        cls,
+        identifier: str | None = None,
+        *,
+        server_url: str | None = None,
+        server_token: pydantic.SecretStr | None = None,
+        **kwargs,
+    ) -> AlertType:
+        """Retrieve an object representing an alert on the server by id.
 
         Parameters
         ----------
         identifier : str
-            identifier of alert object to retrieve
-        """
-        super().__init__(identifier=identifier, *args, **kwargs)
+            identifier of alert to retrieve
+        server_url: str | None, optional
+            alternative server URL, default None
+        server_token : str | None, optional
+            token for alternative server, default None
 
-    @pydantic.validate_call()
-    def __new__(cls, identifier: str, **kwargs) -> AlertType:
-        """Retrieve an object representing an alert either locally or on the server by id"""
-        _alert_pre = AlertBase(identifier=identifier, **kwargs)
+        Returns
+        -------
+        MetricsThresholdAlert | MetricRangeAlert | UserAlert | EventsAlert
+            object representing an alert
+        """
+        _alert_pre = AlertBase(
+            identifier=identifier,
+            server_url=server_url,
+            server_token=server_token,
+            **kwargs,
+        )
         if (
             identifier is not None
             and identifier.startswith("offline_")
@@ -62,17 +84,37 @@ class Alert:
         ):
             raise RuntimeError(
                 "Cannot determine Alert type - this is likely because you are attempting to reconnect "
-                "to an offline alert which has already been sent to the server. To fix this, use the "
-                "exact Alert type instead (eg MetricThresholdAlert, MetricRangeAlert etc)."
+                + "to an offline alert which has already been sent to the server. To fix this, use the "
+                + "exact Alert type instead (eg MetricThresholdAlert, MetricRangeAlert etc)."
             )
         if _alert_pre.source == "events":
-            return EventsAlert(identifier=identifier, **kwargs)
+            return EventsAlert(
+                identifier=identifier,
+                server_url=server_url,
+                server_token=server_token,
+                **kwargs,
+            )
         elif _alert_pre.source == "metrics" and _alert_pre.get_alert().get("threshold"):
-            return MetricsThresholdAlert(identifier=identifier, **kwargs)
+            return MetricsThresholdAlert(
+                identifier=identifier,
+                server_url=server_url,
+                server_token=server_token,
+                **kwargs,
+            )
         elif _alert_pre.source == "metrics":
-            return MetricsRangeAlert(identifier=identifier, **kwargs)
+            return MetricsRangeAlert(
+                identifier=identifier,
+                server_url=server_url,
+                server_token=server_token,
+                **kwargs,
+            )
         elif _alert_pre.source == "user":
-            return UserAlert(identifier=identifier, **kwargs)
+            return UserAlert(
+                identifier=identifier,
+                server_url=server_url,
+                server_token=server_token,
+                **kwargs,
+            )
 
         raise RuntimeError(f"Unknown source type '{_alert_pre.source}'")
 
@@ -80,10 +122,12 @@ class Alert:
     @pydantic.validate_call
     def get(
         cls,
-        offline: bool = False,
+        *,
         count: int | None = None,
         offset: int | None = None,
         sorting: list[AlertSort] | None = None,
+        server_url: str | None = None,
+        server_token: pydantic.SecretStr | None = None,
         **kwargs,
     ) -> Generator[tuple[str, AlertType]]:
         """Fetch all alerts from the server for the current user.
@@ -96,6 +140,10 @@ class Alert:
             start index for returned results, default of None starts at 0.
         sorting : list[dict] | None, optional
             list of sorting definitions in the form {'column': str, 'descending': bool}
+        server_url: str | None, optional
+            alternative server URL, default None
+        server_token : str | None, optional
+            token for alternative server, default None
 
         Yields
         ------
@@ -103,27 +151,27 @@ class Alert:
             identifier for an alert
             the alert itself as a class instance
         """
-        if offline:
-            return
 
         # Currently no alert filters
-        kwargs.pop("filters", None)
+        _ = kwargs.pop("filters", None)
 
-        _class_instance = AlertBase(_local=True, _read_only=True)
-        _url = f"{_class_instance._base_url}"
+        _config: SimvueConfiguration = SimvueConfiguration.fetch(
+            mode="online", server_url=server_url, server_token=server_token
+        )
+
+        _url = URL(f"{_config.server.url}") / AlertBase.endpoint()
         _params: dict[str, int | str] = {"start": offset, "count": count}
 
         if sorting:
             _params["sorting"] = json.dumps([sort.to_params() for sort in sorting])
 
         _response = sv_get(
-            _url,
-            headers=_class_instance._headers,
+            f"{_url}",
+            headers=_config.headers,
             params=_params | kwargs,
         )
 
-        _label: str = _class_instance.__class__.__name__.lower()
-        _label = _label.replace("base", "")
+        _label: str = cls.__name__.lower()
         _json_response = get_json_from_response(
             response=_response,
             expected_status=[http.HTTPStatus.OK],
