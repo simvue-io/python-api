@@ -1,6 +1,6 @@
 [project]
 name = "simvue"
-version = "2.5.1"
+version = "2.5.2"
 description = "Simulation tracking and monitoring"
 authors = [{ name = "Simvue Development Team", email = "info@simvue.io" }]
 license = "Apache v2"
@@ -84,6 +84,9 @@ pytest-timeout = "^2.3.1"
 [build-system]
 requires = ["poetry-core"]
 build-backend = "poetry.core.masonry.api"
+
+[dependency-groups]
+dev = []
 
 [tool.ruff]
 lint.extend-select = ["C901", "T201"]

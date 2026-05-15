@@ -13,6 +13,13 @@ import datetime
 from simvue.api.objects.base import SimvueObject, staging_check, write_only
 from simvue.models import NAME_REGEX, DATETIME_FORMAT
 
+try:
+    from typing import Self, override
+except ImportError:
+    from typing_extensions import Self, override
+
+__all__ = ["StorageBase"]
+
 
 class StorageBase(SimvueObject):
     """Storage object base class from which all storage types inherit.
@@ -21,19 +28,27 @@ class StorageBase(SimvueObject):
 
     """
 
+    _label: str = "storage"
+    _endpoint: str = "storage"
+
+    @override
     def __init__(
         self,
-        identifier: str | None = None,
-        _read_only: bool = False,
+        identifier: str | None,
+        *,
+        server_url: str | None,
+        server_token: pydantic.SecretStr | None,
         **kwargs,
     ) -> None:
-        """Retrieve a storage instance from the Simvue server by identifier"""
-        self._label = "storage"
-        self._endpoint = self._label
-        super().__init__(identifier, _read_only=_read_only, **kwargs)
+        """Retrieve a storage instance from the Simvue server by identifier."""
+        super().__init__(
+            identifier, server_url=server_url, server_token=server_token, **kwargs
+        )
 
     @classmethod
-    def new(cls, **_):
+    def new(
+        cls, *, server_url: str | None, server_token: pydantic.SecretStr | None, **_
+    ) -> Self:
         """Create a new instance of a storage type"""
         pass
 

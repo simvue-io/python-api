@@ -1,6 +1,4 @@
-"""
-Simvue Client Executor
-======================
+"""Simvue Job Executor.
 
 Adds functionality for executing commands from the command line as part of a Simvue run, the executor
 monitors the exit code of the command setting the status to failure if non-zero.
@@ -417,7 +415,11 @@ class Executor:
             # We don't want to override the user's setting for the alert status
             # This is so that if a process incorrectly reports its return code,
             # the user can manually set the correct status depending on logs etc.
-            _alert = UserAlert(identifier=self._alert_ids[proc_id])
+            _alert = UserAlert(
+                identifier=self._alert_ids[proc_id],
+                server_url=self._runner._user_config.server.url,
+                server_token=self._runner._user_config.server.token,
+            )
             _is_set = _alert.get_status(run_id=self._runner.id)
 
             if process.returncode != 0:

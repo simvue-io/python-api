@@ -1,6 +1,4 @@
-"""
-Simvue User Alert
-=================
+"""Simvue User Alert.
 
 Class for connecting with a local/remote user defined alert.
 
@@ -21,16 +19,21 @@ from simvue.models import NAME_REGEX
 
 
 class UserAlert(AlertBase):
-    """
-    Simvue User Alert
-    =================
+    """Simvue User Alert.
 
     This class is used to connect to/create user alert objects on the Simvue server,
     any modification of UserAlert instance attributes is mirrored on the remote object.
 
     """
 
-    def __init__(self, identifier: str | None = None, **kwargs) -> None:
+    @override
+    def __init__(
+        self,
+        identifier: str | None = None,
+        server_url: str | None = None,
+        server_token: pydantic.SecretStr | None = None,
+        **kwargs,
+    ) -> None:
         """Initialise a User Alert
 
         If an identifier is provided a connection will be made to the
@@ -41,12 +44,19 @@ class UserAlert(AlertBase):
         ----------
         identifier : str, optional
             the remote server unique id for the target folder
+        server_url: str | None, optional
+            alternative server URL, default None
+        server_token : str | None, optional
+            token for alternative server, default None
         **kwargs : dict
             any additional arguments to be passed to the object initialiser
         """
-        super().__init__(identifier, **kwargs)
+        super().__init__(
+            identifier, server_url=server_url, server_token=server_token, **kwargs
+        )
         self._local_status: dict[str, str | None] = kwargs.pop("status", {})
 
+    @override
     @classmethod
     @pydantic.validate_call
     def new(
@@ -57,6 +67,8 @@ class UserAlert(AlertBase):
         notification: typing.Literal["none", "email"],
         enabled: bool = True,
         offline: bool = False,
+        server_url: str | None = None,
+        server_token: pydantic.SecretStr | None = None,
         **_,
     ) -> Self:
         """Create a new user-defined alert
@@ -75,14 +87,20 @@ class UserAlert(AlertBase):
             whether this alert is enabled upon creation, default is True
         offline : bool, optional
             whether this alert should be created locally, default is False
+        server_url: str | None, optional
+            alternative server URL, default None
+        server_token : str | None, optional
+            token for alternative server, default None
 
         """
-        _alert = UserAlert(
+        _alert = cls(
             name=name,
             description=description,
             notification=notification,
             source="user",
             enabled=enabled,
+            server_url=server_url,
+            server_token=server_token,
             _read_only=False,
             _offline=offline,
         )

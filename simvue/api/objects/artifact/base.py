@@ -1,6 +1,4 @@
-"""
-Simvue Artifact
-===============
+"""Simvue Artifact.
 
 Class for defining and interacting with artifact objects.
 
@@ -13,9 +11,9 @@ import typing
 import pydantic
 
 try:
-    from typing import Self
+    from typing import Self, override
 except ImportError:
-    from typing_extensions import Self  # noqa: F401
+    from typing_extensions import Self, override  # noqa: F401,
 
 from simvue.api.url import URL
 from collections.abc import Generator
@@ -41,20 +39,25 @@ DOWNLOAD_CHUNK_SIZE: int = 8192
 class ArtifactBase(SimvueObject):
     """Connect to/create an artifact locally or on the server"""
 
+    _label: str = "artifact"
+
+    @override
     def __init__(
-        self, identifier: str | None = None, _read_only: bool = True, **kwargs
+        self,
+        identifier: str | None = None,
+        *,
+        server_url: str | None = None,
+        server_token: pydantic.SecretStr | None = None,
+        **kwargs,
     ) -> None:
-        """Initialise an artifact connection.
+        """Retrieve an artifact instance from the Simvue server by identifier."""
 
-        Parameters
-        ----------
-        identifier : str, optional
-            the identifier of this object on the server.
-        """
-
-        self._label = "artifact"
-        self._endpoint = f"{self._label}s"
-        super().__init__(identifier=identifier, _read_only=_read_only, **kwargs)
+        super().__init__(
+            identifier=identifier,
+            server_url=server_url,
+            server_token=server_token,
+            **kwargs,
+        )
         self._local_only_args += ["storage", "file_path", "runs"]
 
         # If the artifact is an online instance, need a place to store the response
@@ -317,7 +320,7 @@ class ArtifactBase(SimvueObject):
         )
         if _response.status_code == http.HTTPStatus.NOT_FOUND:
             raise ObjectNotFoundError(
-                self._label, self._identifier, extra=f"for run '{run_id}'"
+                self.label(), self._identifier, extra=f"for run '{run_id}'"
             )
 
         return _json_response["category"]
@@ -356,7 +359,7 @@ class ArtifactBase(SimvueObject):
             response=_response,
             allow_parse_failure=True,
             expected_status=[http.HTTPStatus.OK],
-            scenario=f"Retrieval of file for {self._label} '{self._identifier}'",
+            scenario=f"Retrieval of file for {self.label()} '{self._identifier}'",
         )
 
         _total_length: str | None = _response.headers.get("content-length")

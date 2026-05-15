@@ -1,6 +1,4 @@
-"""
-Simvue Run
-==========
+"""Simvue Run.
 
 Main class for recording metrics and information to Simvue during code execution.
 This forms the central API for users.
@@ -503,6 +501,8 @@ class Run:
                 _events = Events.new(
                     run=self.id,
                     offline=self._user_config.run.mode == "offline",
+                    server_url=self._user_config.server.url,
+                    server_token=self._user_config.server.token,
                     events=buffer,
                 )
                 return _events.commit()
@@ -510,6 +510,8 @@ class Run:
                 _grid_metrics = GridMetrics.new(
                     run=self.id,
                     data=buffer,
+                    server_url=self._user_config.server.url,
+                    server_token=self._user_config.server.token,
                     offline=self._user_config.run.mode == "offline",
                 )
                 return _grid_metrics.commit()
@@ -517,6 +519,8 @@ class Run:
                 _metrics = Metrics.new(
                     run=self.id,
                     offline=self._user_config.run.mode == "offline",
+                    server_url=self._user_config.server.url,
+                    server_token=self._user_config.server.token,
                     metrics=buffer,
                 )
                 return _metrics.commit()
@@ -716,14 +720,12 @@ class Run:
         self._term_color = not no_color
 
         self._folder = Folder.new(
-            path=folder, offline=self._user_config.run.mode == "offline"
+            path=folder,
+            offline=self._user_config.run.mode == "offline",
+            server_url=self._user_config.server.url,
+            server_token=self._user_config.server.token,
         )
         self._folder.commit()  # type: ignore
-
-        if isinstance(visibility, str) and visibility not in ("public", "tenant"):
-            self._error(
-                "invalid visibility option, must be either None, 'public', 'tenant' or a list of users"
-            )
 
         if self._user_config.run.mode not in ("online", "offline"):
             self._error("invalid mode specified, must be online, offline or disabled")
@@ -760,7 +762,10 @@ class Run:
         self._timer = time.time()
 
         self._sv_obj = RunObject.new(
-            folder=folder, offline=self._user_config.run.mode == "offline"
+            folder=folder,
+            offline=self._user_config.run.mode == "offline",
+            server_url=self._user_config.server.url,
+            server_token=self._user_config.server.token,
         )
 
         if description:
@@ -1088,7 +1093,12 @@ class Run:
         """
         self._status = "running"
 
-        self._sv_obj = RunObject(identifier=run_id, _read_only=False)
+        self._sv_obj = RunObject(
+            identifier=run_id,
+            _read_only=False,
+            server_url=self._user_config.server.url,
+            server_token=self._user_config.server.token,
+        )
 
         self._sv_obj.status = self._status
         self._sv_obj.system = get_system()
@@ -1421,7 +1431,8 @@ class Run:
 
         _log_level_server_version = semver.parse("1.2.16")
         if (
-            self._user_config.run.mode != "offline"
+            log_level
+            and self._user_config.run.mode != "offline"
             and self._user_config.server_version < _log_level_server_version
         ):
             self._error("Log level is not supported on current server.")
@@ -1617,6 +1628,8 @@ class Run:
                 grid=axes_ticks,
                 labels=axes_labels,
                 offline=self._user_config.run.mode == "offline",
+                server_url=self._user_config.server.url,
+                server_token=self._user_config.server.token,
             )
             _new_grid.commit()
 
@@ -1638,6 +1651,8 @@ class Run:
             _grid_attach = Grid(
                 identifier=self._grids[grid_name]["id"],
                 offline=self._user_config.run.mode == "offline",
+                server_url=self._user_config.server.url,
+                server_token=self._user_config.server.token,
             )
             _grid_attach.read_only(False)
             _grid_attach.attach_metric_for_run(self.id, metric_name)
@@ -1791,11 +1806,9 @@ class Run:
         self,
         obj: typing.Any,
         category: typing.Literal["input", "output", "code"],
-        name: typing.Optional[
-            typing.Annotated[str, pydantic.Field(pattern=NAME_REGEX)]
-        ] = None,
+        name: typing.Annotated[str, pydantic.Field(pattern=NAME_REGEX)] | None = None,
         allow_pickle: bool = False,
-        metadata: dict[str, typing.Any] = None,
+        metadata: dict[str, typing.Any] | None = None,
     ) -> bool:
         """Save an object to the Simvue server
 
@@ -1847,6 +1860,8 @@ class Run:
                 storage=self._storage_id,
                 metadata=metadata,
                 offline=self._user_config.run.mode == "offline",
+                server_url=self._user_config.server.url,
+                server_token=self._user_config.server.token,
             )
             _artifact.attach_to_run(self.id, category)
         except (ValueError, RuntimeError) as e:
@@ -1865,10 +1880,8 @@ class Run:
         file_type: str | None = None,
         preserve_path: bool = False,
         snapshot: bool = False,
-        name: typing.Optional[
-            typing.Annotated[str, pydantic.Field(pattern=NAME_REGEX)]
-        ] = None,
-        metadata: dict[str, typing.Any] = None,
+        name: typing.Annotated[str, pydantic.Field(pattern=NAME_REGEX)] | None = None,
+        metadata: dict[str, typing.Any] | None = None,
     ) -> bool:
         """Upload file to the server
 
@@ -1922,6 +1935,8 @@ class Run:
                 mime_type=file_type,
                 metadata=metadata,
                 snapshot=snapshot,
+                server_url=self._user_config.server.url,
+                server_token=self._user_config.server.token,
             )
             _artifact.attach_to_run(self.id, category)
         except (ValueError, RuntimeError) as e:
@@ -2222,7 +2237,11 @@ class Run:
                 )
                 return False
             try:
-                if alerts := Alert.get(offline=self._user_config.run.mode == "offline"):
+                if alerts := Alert.get(
+                    offline=self._user_config.run.mode == "offline",
+                    server_url=self._user_config.server.url,
+                    server_token=self._user_config.server.token,
+                ):
                     ids += [id for id, alert in alerts if alert.name in names]
                 else:
                     self._error("No existing alerts")
@@ -2245,7 +2264,9 @@ class Run:
         """Check if an existing alert matches definition."""
         # If the alert already exists just add the existing one
         for _id, _existing_alert in Alert.get(
-            offline=self._user_config.run.mode == "offline"
+            offline=self._user_config.run.mode == "offline",
+            server_url=self._user_config.server.url,
+            server_token=self._user_config.server.token,
         ):
             if _existing_alert == alert:
                 return _id
@@ -2328,6 +2349,8 @@ class Run:
             range_high=range_high,
             frequency=frequency or 60,
             offline=self._user_config.run.mode == "offline",
+            server_url=self._user_config.server.url,
+            server_token=self._user_config.server.token,
         )
 
         # If the alert already exists just add the existing one
@@ -2416,6 +2439,8 @@ class Run:
             aggregation=aggregation,
             notification=notification,
             offline=self._user_config.run.mode == "offline",
+            server_url=self._user_config.server.url,
+            server_token=self._user_config.server.token,
         )
 
         # If the alert already exists just add the existing one
@@ -2477,6 +2502,8 @@ class Run:
             notification=notification,
             frequency=frequency,
             offline=self._user_config.run.mode == "offline",
+            server_url=self._user_config.server.url,
+            server_token=self._user_config.server.token,
         )
 
         # If the alert already exists just add the existing one
@@ -2535,6 +2562,8 @@ class Run:
             notification=notification,
             description=description,
             offline=self._user_config.run.mode == "offline",
+            server_url=self._user_config.server.url,
+            server_token=self._user_config.server.token,
         )
 
         # If the alert already exists just add the existing one
@@ -2606,7 +2635,11 @@ class Run:
         if not identifier:
             self._error(f"Alert with name '{name}' could not be found.")
 
-        _alert = UserAlert(identifier=identifier)
+        _alert = UserAlert(
+            identifier=identifier,
+            server_url=self._user_config.server.url,
+            server_token=self._user_config.server.token,
+        )
         if not isinstance(_alert, UserAlert):
             self._error(
                 f"Cannot update state for alert '{identifier}' "
