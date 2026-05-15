@@ -1,11 +1,11 @@
 exclude: '^tests|^docs|^examples|^notebooks'
 ci:
-    autofix_prs: false
-    autoupdate_branch: ''
-    autoupdate_commit_msg: '[pre-commit.ci] pre-commit autoupdate'
-    autoupdate_schedule: weekly
-    skip: []
-    submodules: false
+  autofix_prs: false
+  autoupdate_branch: ''
+  autoupdate_commit_msg: '[pre-commit.ci] pre-commit autoupdate'
+  autoupdate_schedule: weekly
+  skip: []
+  submodules: false
 repos:
   - repo: https://github.com/pre-commit/pre-commit-hooks
     rev: v6.0.0
@@ -26,7 +26,7 @@ repos:
     rev: v0.15.12
     hooks:
       - id: ruff
-        args: [ --fix, --exit-non-zero-on-fix, "--ignore=C901" ]
+        args: [--fix, --exit-non-zero-on-fix, "--ignore=C901"]
       - id: ruff-format
   - repo: https://github.com/conorfalvey/check_pdb_hook
     rev: 0.0.9
@@ -37,5 +37,12 @@ repos:
   - repo: https://github.com/PyCQA/bandit.git
     rev: 1.9.4
     hooks:
-    -   id: bandit
+      - id: bandit
         args: [-lll, --recursive, clumper]
+  - repo: https://github.com/python-poetry/poetry
+    rev: 2.4.1
+    hooks:
+      - id: poetry-check
+      - id: poetry-lock
+      - id: poetry-install
+        args: ["--all-extras", "--all-groups"]

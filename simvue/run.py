@@ -1421,7 +1421,8 @@ class Run:
 
         _log_level_server_version = semver.parse("1.2.16")
         if (
-            self._user_config.run.mode != "offline"
+            log_level
+            and self._user_config.run.mode != "offline"
             and self._user_config.server_version < _log_level_server_version
         ):
             self._error("Log level is not supported on current server.")

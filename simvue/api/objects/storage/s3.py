@@ -52,6 +52,7 @@ class S3Storage(StorageBase):
             "access_key_id",
             "secret_access_key",
             "bucket",
+            "ca_cert",
         ]
 
     @classmethod
@@ -69,6 +70,7 @@ class S3Storage(StorageBase):
         is_tenant_useable: bool,
         is_default: bool,
         is_enabled: bool,
+        ca_cert: pydantic.SecretStr | None = None,
         offline: bool = False,
         **__,
     ) -> Self:
@@ -90,6 +92,8 @@ class S3Storage(StorageBase):
             the secret access key, stored as a secret string
         bucket : str
             the bucket associated with this storage system
+        ca_cert : str | None, optional
+            provide a CA certificate for this storage
         is_tenant_useable : bool
             whether this system is usable by the current tenant
         is_enabled : bool
@@ -112,7 +116,11 @@ class S3Storage(StorageBase):
             "secret_access_key": secret_access_key.get_secret_value(),
             "bucket": bucket,
         }
-        _storage = S3Storage(
+
+        if ca_cert:
+            _config["ca_cert"] = ca_cert.get_secret_value()
+
+        _storage = cls(
             name=name,
             backend="S3",
             config=_config,

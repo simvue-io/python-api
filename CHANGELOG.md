@@ -1,8 +1,15 @@
 # Change Log
 
-## [v2.5.1](https://github.com/simvue-io/python-api/releases/tag/v2.5.1) - 2026-05-06
+## [v2.5.2](https://github.com/simvue-io/python-api/releases/tag/v2.5.1) - 2026-05-15
 
 - Fixed legacy event logging support.
+- Added `ca_cert` argument for S3 storages.
+
+## ~~[v2.5.1](https://github.com/simvue-io/python-api/releases/tag/v2.5.1) - 2026-05-06~~
+
+**Yanked from PyPi**
+
+- ~~Fixed legacy event logging support.~~
 
 ## [v2.5.0](https://github.com/simvue-io/python-api/releases/tag/v2.5.0) - 2026-05-05
 
