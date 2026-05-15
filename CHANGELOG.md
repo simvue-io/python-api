@@ -1,6 +1,10 @@
 # Change Log
 
-## [v2.5.2](https://github.com/simvue-io/python-api/releases/tag/v2.5.1) - 2026-05-15
+## [v2.5.3](https://github.com/simvue-io/python-api/releases/tag/v2.5.3) - 2026-05-15
+
+- Set Storage region to be optional
+
+## [v2.5.2](https://github.com/simvue-io/python-api/releases/tag/v2.5.2) - 2026-05-15
 
 - Fixed legacy event logging support.
 - Added `ca_cert` argument for S3 storages.
