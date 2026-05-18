@@ -140,6 +140,10 @@ class UserAlert(AlertBase):
                 self._staging["status"] = {}
             self._staging["status"][run_id] = status
             return
+        elif run_id.startswith("offline"):
+            raise ValueError(
+                f"Cannot set status of online alert '{self.id}' for offline run '{run_id}'"
+            )
 
         _response = sv_put(
             url=self.url / "status" / run_id,

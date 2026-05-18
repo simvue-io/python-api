@@ -211,6 +211,11 @@ class AlertBase(SimvueObject):
 
     def get_status(self, run_id: str) -> typing.Literal["ok", "critical"]:
         """Retrieve the status of this alert for a given run"""
+        if not self._offline and run_id.startswith("offline"):
+            raise ValueError(
+                f"Cannot retrieve status of online alert '{self.id}' for offline run '{run_id}'"
+            )
+
         _url: URL = self.url / f"status/{run_id}"
         _response = sv_get(url=f"{_url}", headers=self._headers)
         _json_response = get_json_from_response(
