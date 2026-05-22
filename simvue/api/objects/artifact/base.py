@@ -9,6 +9,7 @@ Class for defining and interacting with artifact objects.
 import datetime
 import http
 import io
+import logging
 import typing
 import pydantic
 
@@ -36,6 +37,8 @@ BASE_TIMEOUT: int = 10
 UPLOAD_TIMEOUT_PER_MB: int = 1
 DOWNLOAD_TIMEOUT_PER_MB: int = 1
 DOWNLOAD_CHUNK_SIZE: int = 8192
+
+_logger = logging.getLogger(__name__)
 
 
 class ArtifactBase(SimvueObject):
@@ -132,15 +135,27 @@ class ArtifactBase(SimvueObject):
 
         _name = self._staging["name"]
 
-        _response = sv_post(
-            url=_url,
-            headers={},
-            params={},
-            is_json=False,
-            timeout=timeout,
-            files={"file": file},
-            data=self._init_data.get("fields"),
-        )
+        if _fields := self._init_data.get("fields"):
+            _logger.debug(f"Using POST for artifact upload to '{_url}': {_fields}")
+            _response = sv_post(
+                url=_url,
+                headers={},
+                params={},
+                is_json=False,
+                timeout=timeout,
+                files={"file": file},
+                data=_fields,
+            )
+
+        else:
+            _logger.debug(f"Using PUT for artifact upload to '{_url}'")
+            _response = sv_put(
+                url=_url,
+                headers={},
+                is_json=False,
+                timeout=timeout,
+                data=file,
+            )
 
         self._logger.debug(
             "Got status code %d when uploading artifact",
