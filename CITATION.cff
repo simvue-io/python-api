@@ -26,6 +26,7 @@ authors:
   - given-names: Matthew
     family-names: Field
     affiliation: United Kingdom Atomic Energy Authority
+    orcid: 'https://orcid.org/0009-0004-1390-0697'
   - given-names: James
     family-names: Panayis
     affiliation: United Kingdom Atomic Energy Authority
@@ -42,6 +43,6 @@ keywords:
   - alerting
   - simulation
 license: Apache-2.0
-commit: 3bfddded92377867830e13a7401fd1ae87e76a9f
-version: 2.5.1
-date-released: '2026-05-06'
+commit: 7e0c1e375366906b937a153c0ae099a4f4e6126d
+version: 2.5.3
+date-released: '2026-05-15'

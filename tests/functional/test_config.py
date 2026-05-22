@@ -1,6 +1,5 @@
 import pytest
 import typing
-import os
 import uuid
 import pathlib
 import pytest_mock
@@ -41,6 +40,15 @@ def test_config_setup(
     _other_url: str = "http://simvue.example.com/"
     _alt_url: str = "https://simvue-dev.example.com/"
     _arg_url: str = "http://simvue.example.io/"
+    _custom_env: dict[str, str | int] = {
+        "DAYS_IN_WEEK": 7,
+        "MONTHS_IN_YEAR": 12,
+        "SEASON_OF_YEAR": "Spring"
+    }
+    _custom_env_str: str = "\n".join([
+        f"{key} = \"{value}\""
+        for key, value in _custom_env.items()
+    ])
     _description: str = "test case for runs"
     _description_ppt: str = "test case for runs using pyproject.toml"
     _folder: str = "/test-case"
@@ -82,9 +90,15 @@ def test_config_setup(
                     url = "{_url}"
                     token = "{_token}"
 
+                    [server.env]
+                    {_custom_env_str}
+
                     [profiles.other]
                     url = "{_alt_url}"
                     token = "{_alt_token}"
+
+                    [profiles.other.env]
+                    {_custom_env_str}
 
                     [offline]
                     cache = "{_windows_safe}"
@@ -136,16 +150,20 @@ def test_config_setup(
 
         if use_env:
             assert _config.server.url == f"{_other_url}api"
+            assert _config.server.token
             assert _config.server.token.get_secret_value() == _other_token
         elif use_args:
             assert _config.server.url == f"{_arg_url}api"
+            assert _config.server.token
             assert _config.server.token.get_secret_value() == _arg_token
         elif use_file and profile == "other":
             assert _config.server.url == f"{_alt_url}api"
+            assert _config.server.token
             assert _config.server.token.get_secret_value() == _alt_token
             assert f"{_config.offline.cache}" == temp_d
         elif use_file and use_file != "pyproject.toml":
             assert _config.server.url == f"{_url}api"
+            assert _config.server.token
             assert _config.server.token.get_secret_value() == _token
             assert f"{_config.offline.cache}" == temp_d
 
@@ -161,6 +179,11 @@ def test_config_setup(
             assert _config.run.folder == "/"
             assert not _config.run.description
             assert not _config.run.tags
+
+        if use_file:
+            assert _config.server.env
+            for key, value in _custom_env.items():
+                assert _config.server.env.get(key) == f"{value}"
 
         simvue.config.user.SimvueConfiguration.config_file.cache_clear()
 

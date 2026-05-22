@@ -6,6 +6,7 @@ Pydantic model for the Simvue TOML configuration file
 
 """
 
+from collections.abc import Generator
 import functools
 import logging
 import os
@@ -268,7 +269,17 @@ class SimvueConfiguration(pydantic.BaseModel):
         _config_dict["server"]["url"] = _server_url
         _config_dict["run"]["mode"] = _run_mode
 
-        return SimvueConfiguration(current_profile=profile, **_config_dict)
+        _user_config = SimvueConfiguration(current_profile=profile, **_config_dict)
+
+        # Load any additional environment variables for this server
+        for key, value in (_env_vars := _user_config.server.env or {}).items():
+            os.environ[key] = value
+
+        if _env_vars:
+            _env_strs: Generator[str] = (f"{k}={v}" for k, v in _env_vars)
+            logger.debug("Loaded environment variables:\n%s", "\n\t".join(_env_vars))
+
+        return _user_config
 
     @classmethod
     @functools.lru_cache
