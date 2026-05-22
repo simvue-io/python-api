@@ -272,7 +272,7 @@ class SimvueConfiguration(pydantic.BaseModel):
         _user_config = SimvueConfiguration(current_profile=profile, **_config_dict)
 
         # Load any additional environment variables for this server
-        for key, value in (_env_vars := _user_config.server.env or {}):
+        for key, value in (_env_vars := _user_config.server.env or {}).items():
             os.environ[key] = value
 
         if _env_vars:
