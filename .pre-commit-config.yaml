@@ -1,10 +1,11 @@
 exclude: '^tests|^docs|^examples|^notebooks'
 ci:
-  autofix_prs: false
+  autofix_prs: true
   autoupdate_branch: ''
   autoupdate_commit_msg: '[pre-commit.ci] pre-commit autoupdate'
   autoupdate_schedule: weekly
-  skip: []
+  skip:
+    - poetry-lock
   submodules: false
 repos:
   - repo: https://github.com/pre-commit/pre-commit-hooks
