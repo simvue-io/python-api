@@ -85,6 +85,9 @@ pytest-timeout = "^2.3.1"
 requires = ["poetry-core"]
 build-backend = "poetry.core.masonry.api"
 
+[dependency-groups]
+dev = []
+
 [tool.ruff]
 lint.extend-select = ["C901", "T201"]
 lint.mccabe.max-complexity = 11

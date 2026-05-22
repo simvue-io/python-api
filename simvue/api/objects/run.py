@@ -77,16 +77,21 @@ class RunBatchArgs(ObjectBatchArgs):
 
 
 class Run(SimvueObject):
-    """
-    Simvue Run
-    ==========
+    """Simvue Run.
 
     This class is used to connect to/create run objects on the Simvue server,
     any modification of instance attributes is mirrored on the remote object.
 
     """
 
-    def __init__(self, identifier: str | None = None, **kwargs) -> None:
+    def __init__(
+        self,
+        identifier: str | None = None,
+        *,
+        server_url: str | None = None,
+        server_token: pydantic.SecretStr | None = None,
+        **kwargs,
+    ) -> None:
         """Initialise a Run.
 
         If an identifier is provided a connection will be made to the
@@ -95,13 +100,19 @@ class Run(SimvueObject):
 
         Parameters
         ----------
-        identifier : str, optional
+        identifier : str | None, optional
             the remote server unique id for the target run
+        server_url: str | None, optional
+            alternative server URL, default None
+        server_token : str | None, optional
+            token for alternative server, default None
         **kwargs : dict
             any additional arguments to be passed to the object initialiser
         """
         self.visibility = Visibility(self)
-        super().__init__(identifier, **kwargs)
+        super().__init__(
+            identifier, server_url=server_url, server_token=server_token, **kwargs
+        )
 
     @classmethod
     def filter(cls) -> RunsFilter:
@@ -127,6 +138,8 @@ class Run(SimvueObject):
             "terminated", "created", "failed", "completed", "lost", "running"
         ] = "created",
         offline: bool = False,
+        server_url: str | None = None,
+        server_token: pydantic.SecretStr | None = None,
         **kwargs,
     ) -> Self:
         """Create a new Run on the Simvue server.
@@ -135,8 +148,16 @@ class Run(SimvueObject):
         ----------
         folder : str
             folder to contain this run
+        system : dict[str, Any] | None, optional
+            dict defining system information to attach, default None.
+        status: 'terminated' | 'created' | 'failed' | 'completed' | 'lost' | 'running'
+            set status of new run, default 'created'.
         offline : bool, optional
             create the run in offline mode, default False.
+        server_url: str | None, optional
+            alternative server URL, default None
+        server_token : str | None, optional
+            token for alternative server, default None
 
         Returns
         -------
@@ -156,12 +177,14 @@ class Run(SimvueObject):
         run.commit()
         ```
         """
-        return Run(
+        return cls(
             folder=folder,
             system=system,
             status=status,
-            _read_only=False,
+            server_url=server_url,
+            server_token=server_token,
             _offline=offline,
+            _read_only=False,
             **kwargs,
         )
 
@@ -175,6 +198,9 @@ class Run(SimvueObject):
         folder: typing.Annotated[str, pydantic.StringConstraints(pattern=FOLDER_REGEX)]
         | None = None,
         metadata: dict[str, str | int | float | bool] | None = None,
+        server_url: str | None = None,
+        server_token: pydantic.SecretStr | None = None,
+        **kwargs,
     ) -> Generator[str]:
         """Create a batch of Runs as a single request.
 
@@ -188,6 +214,10 @@ class Run(SimvueObject):
             override folder specification for these runs to be a single folder, default None.
         metadata : dict[str, int | str | float | bool], optional
             override metadata specification for these runs, default None.
+        server_url: str | None, optional
+            alternative server URL, default None
+        server_token : str | None, optional
+            token for alternative server, default None
 
         Yields
         ------
@@ -205,7 +235,16 @@ class Run(SimvueObject):
             | {"metadata": (entry.metadata or {}) | (metadata or {})}
             for entry in entries
         ]
-        for entry in Run(batch=_data, _read_only=False).commit() or []:
+        for entry in (
+            Run(
+                batch=_data,
+                _read_only=False,
+                server_url=server_url,
+                server_token=server_token,
+                **kwargs,
+            ).commit()
+            or []
+        ):
             _id: str = entry["id"]
             yield _id
 
@@ -403,13 +442,17 @@ class Run(SimvueObject):
 
         return [alert["id"] for alert in self.get_alert_details()]
 
+    @override
     @classmethod
     @pydantic.validate_call
     def get(
         cls,
+        *,
         count: pydantic.PositiveInt | None = None,
         offset: pydantic.NonNegativeInt | None = None,
         sorting: list[RunSort] | None = None,
+        server_url: str | None = None,
+        server_token: pydantic.SecretStr | None = None,
         **kwargs,
     ) -> Generator[tuple[str, T | None]]:
         """Get runs from the server.
@@ -422,6 +465,10 @@ class Run(SimvueObject):
             start index for results, default is 0.
         sorting : list[dict] | None, optional
             list of sorting definitions in the form {'column': str, 'descending': bool}
+        server_url: str | None, optional
+            alternative server URL, default None
+        server_token : str | None, optional
+            token for alternative server, default None
 
         Yields
         ------
@@ -434,7 +481,13 @@ class Run(SimvueObject):
         if sorting:
             _params["sorting"] = json.dumps([i.to_params() for i in sorting])
 
-        return super().get(count=count, offset=offset, **_params)
+        return super().get(
+            count=count,
+            offset=offset,
+            server_url=server_url,
+            server_token=server_token,
+            **_params,
+        )
 
     @alerts.setter
     @write_only

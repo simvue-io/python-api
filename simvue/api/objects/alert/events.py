@@ -1,6 +1,4 @@
-"""
-Simvue Event Alerts
-===================
+"""Simvue Event Alerts.
 
 Interface to event-based Simvue alerts.
 
@@ -9,26 +7,35 @@ Interface to event-based Simvue alerts.
 import typing
 import pydantic
 
+from collections.abc import Generator
+
 try:
     from typing import Self, override
 except ImportError:
     from typing_extensions import Self, override
-from simvue.api.objects.base import write_only
-from .base import AlertBase, staging_check
+
+from simvue.api.objects.base import write_only, staging_check
+from .base import AlertBase
 from simvue.models import NAME_REGEX
 
 
 class EventsAlert(AlertBase):
-    """
-    Simvue Events Alert
-    ===================
+    """Simvue Events Alert.
 
     This class is used to connect to/create event-based alert objects on the Simvue server,
     any modification of EventsAlert instance attributes is mirrored on the remote object.
 
     """
 
-    def __init__(self, identifier: str | None = None, **kwargs) -> None:
+    @override
+    def __init__(
+        self,
+        identifier: str | None = None,
+        *,
+        server_url: str | None = None,
+        server_token: pydantic.SecretStr | None = None,
+        **kwargs,
+    ) -> None:
         """Initialise an Events Alert
 
         If an identifier is provided a connection will be made to the
@@ -39,16 +46,28 @@ class EventsAlert(AlertBase):
         ----------
         identifier : str, optional
             the remote server unique id for the target folder
+        server_url: str | None, optional
+            alternative server URL, default None
+        server_token : str | None, optional
+            token for alternative server, default None
         **kwargs : dict
             any additional arguments to be passed to the object initialiser
         """
         self.alert = EventAlertDefinition(self)
-        super().__init__(identifier, **kwargs)
+        super().__init__(
+            identifier, server_url=server_url, server_token=server_token, **kwargs
+        )
 
+    @override
     @classmethod
     def get(
-        cls, count: int | None = None, offset: int | None = None
-    ) -> dict[str, typing.Any]:
+        cls,
+        *,
+        count: int | None = None,
+        offset: int | None = None,
+        server_url: str | None = None,
+        server_token: pydantic.SecretStr | None = None,
+    ) -> Generator[dict[str, typing.Any]]:
         """Retrieve only alerts of the event alert type"""
         raise NotImplementedError("Retrieval of only event alerts is not yet supported")
 
@@ -62,6 +81,8 @@ class EventsAlert(AlertBase):
         notification: typing.Literal["none", "email"],
         pattern: str,
         frequency: pydantic.PositiveInt,
+        server_url: str | None = None,
+        server_token: pydantic.SecretStr | None = None,
         enabled: bool = True,
         offline: bool = False,
         **_,
@@ -86,6 +107,10 @@ class EventsAlert(AlertBase):
             enable this alert upon creation, default is True
         offline : bool, optional
             create alert locally, default is False
+        server_url: str | None, optional
+            alternative server URL, default None
+        server_token : str | None, optional
+            token for alternative server, default None
 
         Returns
         -------
@@ -95,13 +120,15 @@ class EventsAlert(AlertBase):
         """
 
         _alert_definition = {"pattern": pattern, "frequency": frequency}
-        _alert = EventsAlert(
+        _alert = cls(
             name=name,
             description=description,
             notification=notification,
             source="events",
             alert=_alert_definition,
             enabled=enabled,
+            server_url=server_url,
+            server_token=server_token,
             _read_only=False,
             _offline=offline,
         )

@@ -1,6 +1,4 @@
-"""
-Simvue Server Grid
-==================
+"""Simvue Server Grid.
 
 Contains a class for remotely connecting to a Simvue grid, or defining
 a new grid given relevant arguments.
@@ -28,9 +26,9 @@ from simvue.api.request import (
 )
 
 try:
-    from typing import Self
+    from typing import Self, override
 except ImportError:
-    from typing_extensions import Self
+    from typing_extensions import Self, override
 
 __all__ = ["Grid"]
 
@@ -51,16 +49,21 @@ def check_ordered_array(
 
 
 class Grid(SimvueObject):
-    """
-    Simvue Grid
-    ===========
+    """Simvue Grid.
 
     This class is used to connect to/create grid objects on the Simvue server,
     any modification of instance attributes is mirrored on the remote object.
 
     """
 
-    def __init__(self, identifier: str | None = None, **kwargs) -> None:
+    def __init__(
+        self,
+        identifier: str | None = None,
+        *,
+        server_url: str | None = None,
+        server_token: pydantic.SecretStr | None = None,
+        **kwargs,
+    ) -> None:
         """Initialise a Grid
 
         If an identifier is provided a connection will be made to the
@@ -71,10 +74,19 @@ class Grid(SimvueObject):
         ----------
         identifier : str, optional
             the remote server unique id for the target folder
+        server_url: str | None, optional
+            alternative server URL, default None
+        server_token : str | None, optional
+            token for alternative server, default None
         **kwargs : dict
             any additional arguments to be passed to the object initialiser
         """
-        super().__init__(identifier, **kwargs)
+        super().__init__(
+            identifier,
+            server_url=server_url,
+            server_token=server_token,
+            **kwargs,
+        )
 
     @pydantic.validate_call
     @write_only
@@ -143,6 +155,8 @@ class Grid(SimvueObject):
         ],
         labels: list[str],
         offline: bool = False,
+        server_url: str | None = None,
+        server_token: pydantic.SecretStr | None = None,
         **kwargs,
     ) -> Self:
         """Create a new Grid on the Simvue server.
@@ -158,6 +172,10 @@ class Grid(SimvueObject):
             label each of the axes defined.
         offline: bool, optional
             whether to create in offline mode, default is False.
+        server_url: str | None, optional
+            alternative server URL, default None
+        server_token : str | None, optional
+            token for alternative server, default None
 
         Returns
         -------
@@ -171,12 +189,14 @@ class Grid(SimvueObject):
                 f"grid dimension {len(grid)}."
             )
 
-        return Grid(
+        return cls(
             grid=grid,
             labels=labels,
             name=name,
             _read_only=False,
             _offline=offline,
+            server_url=server_url,
+            server_token=server_token,
             **kwargs,
         )
 
@@ -279,24 +299,34 @@ class Grid(SimvueObject):
 
 
 class GridMetrics(SimvueObject):
-    """
-    Simvue Grid Metrics
-    ===================
+    """Simvue Grid Metrics.
 
     This class is used to connect to/create grid metrics on the Simvue server,
     any modification of instance attributes is mirrored on the remote object.
 
     """
 
+    _label: str = "grid_metric"
+
+    @override
     def __init__(
         self,
-        _read_only: bool = True,
-        _local: bool = False,
+        server_url: str | None = None,
+        server_token: pydantic.SecretStr | None = None,
         **kwargs,
     ) -> None:
-        """Initialise a GridMetrics object instance."""
-        self._label = "grid_metric"
-        super().__init__(_read_only=_read_only, _local=_local, **kwargs)
+        """Initialise a GridMetrics object instance.
+
+        Parameters
+        ----------
+        server_url: str | None, optional
+            alternative server URL, default None
+        server_token : str | None, optional
+            token for alternative server, default None
+        """
+        super().__init__(
+            identifier=None, server_url=server_url, server_token=server_token, **kwargs
+        )
         self._run_id = self._staging.get("run")
         self._is_set = True
 
@@ -312,10 +342,18 @@ class GridMetrics(SimvueObject):
             url=f"{self._user_config.server.url}/{self.run_grids_endpoint(self._run_id)}",
         )
 
+    @override
     @classmethod
     @pydantic.validate_call
     def new(
-        cls, *, run: str, data: list[GridMetricSet], offline: bool = False, **kwargs
+        cls,
+        *,
+        run: str,
+        data: list[GridMetricSet],
+        offline: bool = False,
+        server_url: str | None = None,
+        server_token: pydantic.SecretStr | None = None,
+        **kwargs,
     ) -> Self:
         """Create a new GridMetrics object for n-dimensional metric submission.
 
@@ -327,19 +365,26 @@ class GridMetrics(SimvueObject):
             set of tensor-based metrics to attach to run.
         offline: bool, optional
             whether to create in offline mode, default is False.
+        server_url: str | None, optional
+            alternative server URL, default None
+        server_token : str | None, optional
+            token for alternative server, default None
 
         Returns
         -------
         Metrics
             metrics object
         """
-        return GridMetrics(
+        return cls(
             run=run,
-            data=[metric.model_dump() for metric in data],
             _read_only=False,
+            data=[metric.model_dump() for metric in data],
+            server_url=server_url,
+            server_token=server_token,
             _offline=offline,
         )
 
+    @override
     @classmethod
     @pydantic.validate_call
     def get(
@@ -348,7 +393,11 @@ class GridMetrics(SimvueObject):
         runs: list[str],
         metrics: list[str],
         step: pydantic.NonNegativeInt,
+        count: pydantic.PositiveInt | None = None,
+        offset: pydantic.NonNegativeInt | None = None,
         spans: bool = False,
+        server_url: str | None = None,
+        server_token: pydantic.SecretStr | None = None,
         **kwargs,
     ) -> Generator[dict[str, dict[str, list[dict[str, float]]]]]:
         """Retrieve tensor-metrics from the server for a given set of runs.
@@ -359,10 +408,18 @@ class GridMetrics(SimvueObject):
             list of runs to return metric values for.
         metrics : list[str]
             list of metrics to retrieve.
+        count : int, optional
+            limit the number of objects returned, default no limit.
+        offset : int, optional
+            start index for results, default is 0.
         step : int
             the timestep to retrieve grid metrics for
         spans : bool, optional
             return spans informations
+        server_url: str | None, optional
+            alternative server URL, default None
+        server_token : str | None, optional
+            token for alternative server, default None
 
         Yields
         ------
@@ -374,8 +431,10 @@ class GridMetrics(SimvueObject):
                 yield from cls._get_all_objects(
                     endpoint=f"{cls.run_grids_endpoint(run)}/{metric}/values",
                     step=step,
-                    offset=None,
-                    count=None,
+                    offset=offset,
+                    count=count,
+                    server_url=server_url,
+                    server_token=server_token,
                 )
 
     def commit(self) -> dict | None:

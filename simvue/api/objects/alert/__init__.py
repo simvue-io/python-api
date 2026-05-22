@@ -1,6 +1,4 @@
-"""
-Simvue Alerts
-=============
+"""Simvue Alert Retrieval.
 
 Creation and management of Alerts on the Simvue server, the
 alerts are split into sub-categories to ensure correct arguments

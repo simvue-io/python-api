@@ -1,10 +1,18 @@
+"""Simvue Artifact Retrieval.
+
+To simplify case whereby user does not know the artifact type associated
+with an identifier, use a generic artifact object.
+"""
+
 import http
 import typing
 import pydantic
 import json
 
+
 from simvue.api.objects.artifact.base import ArtifactBase
 from simvue.api.objects.base import Sort
+from simvue.config.user import SimvueConfiguration
 from .file import FileArtifact
 from collections.abc import Generator
 from simvue.api.objects.artifact.object import ObjectArtifact
@@ -28,38 +36,65 @@ class ArtifactSort(Sort):
 
 
 class Artifact:
-    """
-    Simvue Artifact
-    ===============
+    """Simvue Artifact.
 
     Generic Simvue artifact retrieval class.
 
     """
 
-    def __init__(self, identifier: str | None = None, *args, **kwargs) -> None:
-        """Initialise an instance of generic artifact retriever.
+    def __new__(
+        cls,
+        identifier: str | None = None,
+        *,
+        server_url: str | None = None,
+        server_token: pydantic.SecretStr | None = None,
+        **kwargs,
+    ) -> FileArtifact | ObjectArtifact:
+        """Retrieve an object representing an artifact on the server by id.
 
         Parameters
         ----------
         identifier : str
-            identifier of artifact object to retrieve
-        """
-        super().__init__(identifier=identifier, *args, **kwargs)
+            identifier of storage object to retrieve
+        server_url: str | None, optional
+            alternative server URL, default None
+        server_token : str | None, optional
+            token for alternative server, default None
 
-    def __new__(cls, identifier: str | None = None, **kwargs):
-        """Retrieve an object representing an Artifact by id"""
-        _artifact_pre = ArtifactBase(identifier=identifier, **kwargs)
+        Returns
+        -------
+        FileArtifact | ObjectArtifact
+            object representing storage
+        """
+        _artifact_pre = ArtifactBase(
+            identifier=identifier,
+            server_url=server_url,
+            server_token=server_token,
+            **kwargs,
+        )
         if _artifact_pre.original_path:
-            return FileArtifact(identifier=identifier, **kwargs)
+            return FileArtifact(
+                identifier=identifier,
+                server_url=server_url,
+                server_token=server_token,
+                **kwargs,
+            )
         else:
-            return ObjectArtifact(identifier=identifier, **kwargs)
+            return ObjectArtifact(
+                identifier=identifier,
+                server_url=server_url,
+                server_token=server_token,
+                **kwargs,
+            )
 
     @classmethod
     def from_run(
         cls,
         run_id: str,
+        *,
         category: typing.Literal["input", "output", "code"] | None = None,
-        **kwargs,
+        server_url: str | None = None,
+        server_token: pydantic.SecretStr | None = None,
     ) -> Generator[tuple[str, FileArtifact | ObjectArtifact]]:
         """Return artifacts associated with a given run.
 
@@ -72,6 +107,10 @@ class Artifact:
                 * input - this file is an input file.
                 * output - this file is created by the run.
                 * code - this file represents an executed script
+        server_url: str | None, optional
+            alternative server URL, default None
+        server_token : str | None, optional
+            token for alternative server, default None
 
         Returns
         -------
@@ -89,10 +128,12 @@ class Artifact:
         ObjectNotFoundError
             Raised if artifacts could not be found for that run
         """
-        _temp = ArtifactBase(**kwargs)
-        _url = URL(_temp._user_config.server.url) / f"runs/{run_id}/artifacts"
+        _config: SimvueConfiguration = SimvueConfiguration.fetch(
+            mode="online", server_url=server_url, server_token=server_token
+        )
+        _url = URL(f"{_config.server.url}") / f"runs/{run_id}/artifacts"
         _response = sv_get(
-            url=f"{_url}", params={"category": category}, headers=_temp._headers
+            url=f"{_url}", params={"category": category}, headers=_config.headers
         )
         _json_response = get_json_from_response(
             expected_type=list,
@@ -103,7 +144,7 @@ class Artifact:
 
         if _response.status_code == http.HTTPStatus.NOT_FOUND or not _json_response:
             raise ObjectNotFoundError(
-                _temp._label, category, extra=f"for run '{run_id}'"
+                ArtifactBase.label, category, extra=f"for run '{run_id}'"
             )
 
         for _entry in _json_response:
@@ -115,8 +156,14 @@ class Artifact:
 
     @classmethod
     def from_name(
-        cls, run_id: str, name: str, force_overwrite: bool = False, **kwargs
-    ) -> typing.Union[FileArtifact | ObjectArtifact, None]:
+        cls,
+        run_id: str,
+        name: str,
+        *,
+        force_overwrite: bool = False,
+        server_url: str | None = None,
+        server_token: pydantic.SecretStr | None = None,
+    ) -> FileArtifact | ObjectArtifact | None:
         """Retrieve an artifact by name.
 
         Parameters
@@ -129,6 +176,10 @@ class Artifact:
             if duplicates are detected force download
             the first match, default of False
             will raise an exception
+        server_url: str | None, optional
+            alternative server URL, default None
+        server_token : str | None, optional
+            token for alternative server, default None
 
         Returns
         -------
@@ -140,9 +191,13 @@ class Artifact:
         RuntimeError
             when duplicate artifacts are found within a single run
         """
-        _temp = ArtifactBase(**kwargs)
-        _url = URL(_temp._user_config.server.url) / f"runs/{run_id}/artifacts"
-        _response = sv_get(url=f"{_url}", params={"name": name}, headers=_temp._headers)
+        _config: SimvueConfiguration = SimvueConfiguration.fetch(
+            mode="online", server_url=server_url, server_token=server_token
+        )
+        _url = URL(f"{_config.server.url}") / f"runs/{run_id}/artifacts"
+        _response = sv_get(
+            url=f"{_url}", params={"name": name}, headers=_config.headers
+        )
         _json_response = get_json_from_response(
             expected_type=list,
             response=_response,
@@ -151,7 +206,9 @@ class Artifact:
         )
 
         if _response.status_code == http.HTTPStatus.NOT_FOUND or not _json_response:
-            raise ObjectNotFoundError(_temp._label, name, extra=f"for run '{run_id}'")
+            raise ObjectNotFoundError(
+                ArtifactBase.label(), name, extra=f"for run '{run_id}'"
+            )
 
         if (_n_res := len(_json_response)) > 1 and not force_overwrite:
             raise RuntimeError(
@@ -165,8 +222,9 @@ class Artifact:
         return Artifact(
             identifier=_artifact_id,
             run=run_id,
+            server_url=server_url,
+            server_token=server_token,
             **_first_result,
-            _read_only=True,
             _local=True,
         )
 
@@ -174,9 +232,12 @@ class Artifact:
     @pydantic.validate_call
     def get(
         cls,
+        *,
         count: int | None = None,
         offset: int | None = None,
         sorting: list[ArtifactSort] | None = None,
+        server_url: str | None = None,
+        server_token: pydantic.SecretStr | None = None,
         **kwargs,
     ) -> Generator[tuple[str, FileArtifact | ObjectArtifact]]:
         """Returns artifacts associated with the current user.
@@ -189,6 +250,10 @@ class Artifact:
             start index for returned results, default of None starts at 0.
         sorting : list[dict] | None, optional
             list of sorting definitions in the form {'column': str, 'descending': bool}
+        server_url: str | None, optional
+            alternative server URL, default None
+        server_token : str | None, optional
+            token for alternative server, default None
 
         Yields
         ------
@@ -197,8 +262,10 @@ class Artifact:
             the artifact itself as a class instance
         """
 
-        _class_instance = ArtifactBase(_local=True, _read_only=True)
-        _url = f"{_class_instance._base_url}"
+        _config: SimvueConfiguration = SimvueConfiguration.fetch(
+            mode="online", server_url=server_url, server_token=server_token
+        )
+        _url = URL(f"{_config.server.url}") / ArtifactBase.endpoint()
         _params = {"start": offset, "count": count}
 
         if sorting:
@@ -206,10 +273,10 @@ class Artifact:
 
         _response = sv_get(
             _url,
-            headers=_class_instance._headers,
+            headers=_config.headers,
             params=_params | kwargs,
         )
-        _label: str = _class_instance.__class__.__name__.lower()
+        _label: str = cls.__name__.lower()
         _label = _label.replace("base", "")
         _json_response = get_json_from_response(
             response=_response,

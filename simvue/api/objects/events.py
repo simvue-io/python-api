@@ -29,24 +29,42 @@ __all__ = ["Events"]
 
 
 class Events(SimvueObject):
-    """
-    Simvue Events
-    =============
+    """Simvue Events.
 
     This class is used to connect to/create events objects on the Simvue server,
     any modification of instance attributes is mirrored on the remote object.
 
     """
 
+    _label: str = "event"
+
     def __init__(
         self,
-        _read_only: bool = True,
-        _local: bool = False,
+        identifier: str | None = None,
+        *,
+        server_url: str | None = None,
+        server_token: pydantic.SecretStr | None = None,
         **kwargs,
     ) -> None:
-        """Initialise an Events object instance for creation/retrieval."""
-        self._label = "event"
-        super().__init__(_read_only=_read_only, _local=_local, **kwargs)
+        """Initialise an Events object instance for creation/retrieval.
+
+        Parameters
+        ----------
+        identifier : str | None, optional
+            unique identifier for event
+        server_url: str | None, optional
+            alternative server URL, default None
+        server_token : str | None, optional
+            token for alternative server, default None
+        **kwargs : dict
+            any additional arguments to be passed to the object initialiser
+        """
+        super().__init__(
+            identifier=identifier,
+            server_url=server_url,
+            server_token=server_token,
+            **kwargs,
+        )
         self._run_id = self._staging.get("run")
         self._is_set = True
 
@@ -58,12 +76,45 @@ class Events(SimvueObject):
         *,
         count: pydantic.PositiveInt | None = None,
         offset: pydantic.PositiveInt | None = None,
+        server_url: str | None = None,
+        server_token: pydantic.SecretStr | None = None,
         **kwargs,
     ) -> Generator[EventSet]:
+        """Retrieve events from the server.
+
+        Parameters
+        ----------
+        run_id: str
+            unique identifier of target Simvue run
+        count: int | None, optional
+            limit number of objects
+        offset : int | None, optional
+            set start index for objects list
+        server_url: str | None, optional
+            alternative server URL, default None
+        server_token : str | None, optional
+            token for alternative server, default None
+
+        Yields
+        ------
+        EventSet
+            object corresponding to a set of events
+
+        Returns
+        -------
+        Generator[EventSet]
+        """
         _class_instance = cls(_read_only=True, _local=True)
         _count: int = 0
 
-        for response in cls._get_all_objects(offset, count=count, run=run_id, **kwargs):
+        for response in cls._get_all_objects(
+            offset,
+            count=count,
+            run=run_id,
+            server_url=server_url,
+            server_token=server_token,
+            **kwargs,
+        ):
             if (_data := response.get("data")) is None:
                 raise RuntimeError(
                     f"Expected key 'data' for retrieval of {_class_instance.__class__.__name__.lower()}s"
@@ -78,12 +129,40 @@ class Events(SimvueObject):
     @classmethod
     @pydantic.validate_call
     def new(
-        cls, *, run: str, offline: bool = False, events: list[EventSet], **kwargs
+        cls,
+        *,
+        run: str,
+        events: list[EventSet],
+        offline: bool = False,
+        server_url: str | None = None,
+        server_token: pydantic.SecretStr | None = None,
+        **kwargs,
     ) -> Self:
-        """Create a new Events entry on the Simvue server"""
-        return Events(
+        """Create a new Events entry on the Simvue server.
+
+        Parameters
+        ----------
+        run : str
+            unique identifier of target run for these events
+        events : list[EventSet]
+            set of events to attach to the target run
+        offline : bool, optional
+            whether to create in offline mode, default False
+        server_url: str | None, optional
+            alternative server URL, default None
+        server_token : str | None, optional
+            token for alternative server, default None
+
+        Returns
+        -------
+        Events
+            an object representing this event set
+        """
+        return cls(
             run=run,
             events=[event.model_dump() for event in events],
+            server_url=server_url,
+            server_token=server_token,
             _read_only=False,
             _offline=offline,
             **kwargs,

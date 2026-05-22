@@ -1,6 +1,4 @@
-"""
-Simvue Users
-============
+"""Simvue Users.
 
 Contains a class for remotely connecting to Simvue users, or defining
 a new user given relevant arguments.
@@ -13,23 +11,29 @@ import datetime
 from simvue.models import DATETIME_FORMAT
 
 try:
-    from typing import Self
+    from typing import Self, override
 except ImportError:
-    from typing_extensions import Self
+    from typing_extensions import Self, override
 from simvue.api.objects.base import SimvueObject, staging_check, write_only
 
 
 class User(SimvueObject):
-    """
-    Simvue User
-    ===========
+    """Simvue User.
 
     This class is used to connect to/create user objects on the Simvue server,
     any modification of instance attributes is mirrored on the remote object.
 
     """
 
-    def __init__(self, identifier: str | None = None, **kwargs) -> None:
+    @override
+    def __init__(
+        self,
+        identifier: str | None = None,
+        *,
+        server_url: str | None = None,
+        server_token: pydantic.SecretStr | None = None,
+        **kwargs,
+    ) -> None:
         """Initialise a User
 
         If an identifier is provided a connection will be made to the
@@ -42,11 +46,18 @@ class User(SimvueObject):
         ----------
         identifier : str, optional
             the remote server unique id for the target folder
+        server_url: str | None, optional
+            alternative server URL, default None
+        server_token : str | None, optional
+            token for alternative server, default None
         **kwargs : dict
             any additional arguments to be passed to the object initialiser
         """
-        super().__init__(identifier, **kwargs)
+        super().__init__(
+            identifier, server_url=server_url, server_token=server_token, **kwargs
+        )
 
+    @override
     @classmethod
     @pydantic.validate_call
     def new(
@@ -62,6 +73,8 @@ class User(SimvueObject):
         tenant: str,
         enabled: bool = True,
         offline: bool = False,
+        server_url: str | None = None,
+        server_token: pydantic.SecretStr | None = None,
         **_,
     ) -> Self:
         """Create a new user on the Simvue server.
@@ -90,6 +103,10 @@ class User(SimvueObject):
             whether to enable the user on creation, default is True
         offline: bool, optional
             create in offline mode, default is False.
+        server_url: str | None, optional
+            alternative server URL, default None
+        server_token : str | None, optional
+            token for alternative server, default None
 
         Returns
         -------
@@ -107,19 +124,28 @@ class User(SimvueObject):
             "is_admin": is_admin,
             "is_enabled": enabled,
         }
-        _user = User(
+        _user = cls(
             user=_user_info,
             tenant=tenant,
             offline=offline,
             _read_only=False,
             _offline=offline,
+            server_url=server_url,
+            server_token=server_token,
         )
         _user._staging |= _user_info
         return _user
 
+    @override
     @classmethod
     def get(
-        cls, *, count: int | None = None, offset: int | None = None, **kwargs
+        cls,
+        *,
+        count: int | None = None,
+        offset: int | None = None,
+        server_url: str | None = None,
+        server_token: pydantic.SecretStr | None = None,
+        **kwargs,
     ) -> dict[str, "User"]:
         """Retrieve users from the Simvue server.
 
@@ -129,6 +155,10 @@ class User(SimvueObject):
             limit the number of results, default is no limit.
         offset : int, optional
             start index for results, default is 0.
+        server_url: str | None, optional
+            alternative server URL, default None
+        server_token : str | None, optional
+            token for alternative server, default None
 
         Yields
         ------
@@ -136,8 +166,14 @@ class User(SimvueObject):
             user instance representing user on server
         """
         # Currently no user filters
-        kwargs.pop("filters", None)
-        return super().get(count=count, offset=offset, **kwargs)
+        _ = kwargs.pop("filters", None)
+        return super().get(
+            count=count,
+            offset=offset,
+            server_url=server_url,
+            server_token=server_token,
+            **kwargs,
+        )
 
     @property
     @staging_check
