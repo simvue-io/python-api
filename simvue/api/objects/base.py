@@ -185,6 +185,7 @@ class SimvueObject(abc.ABC):
         *,
         server_url: str | None,
         server_token: pydantic.SecretStr | None,
+        _params: dict[str, str | bool] | None = None,
         _read_only: bool = True,
         _local: bool = False,
         _user_agent: str | None = None,
@@ -231,7 +232,7 @@ class SimvueObject(abc.ABC):
             self._user_config.headers if not self._offline else {}
         )
 
-        self._params: dict[str, str | bool] = {}
+        self._params: dict[str, str | bool] | None = _params
 
         self._staging: dict[str, typing.Any] = {}
 
@@ -655,7 +656,7 @@ class SimvueObject(abc.ABC):
         _response = sv_post(
             url=f"{self._base_url}",
             headers=self._headers | {"Content-Type": "application/msgpack"},
-            params=self._params,
+            params=self._params or {},
             data=batch_data,
             is_json=True,
         )
@@ -694,7 +695,7 @@ class SimvueObject(abc.ABC):
         _response = sv_post(
             url=f"{self._base_url}",
             headers=self._headers | {"Content-Type": "application/msgpack"},
-            params=self._params,
+            params=self._params or {},
             data=data or kwargs,
             is_json=is_json,
         )

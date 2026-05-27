@@ -56,10 +56,14 @@ class AlertBase(SimvueObject, abc.ABC):
         **kwargs,
     ) -> None:
         """Retrieve an alert from the Simvue server by identifier"""
+        _params: dict[str, str | bool] = {
+            "deduplicate": not kwargs.get("allow_duplicates", True)
+        }
         super().__init__(
             identifier=identifier,
             server_url=server_url,
             server_token=server_token,
+            _params=_params,
             **kwargs,
         )
         self._local_only_args += [
