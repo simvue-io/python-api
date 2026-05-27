@@ -63,7 +63,7 @@ class AlertBase(SimvueObject, abc.ABC):
             identifier=identifier,
             server_url=server_url,
             server_token=server_token,
-            _params=_params,
+            _params=kwargs.get("_params", {}) | _params,
             **kwargs,
         )
         self._local_only_args += [
