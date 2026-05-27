@@ -100,6 +100,7 @@ class MetricsThresholdAlert(AlertBase):
         threshold: float | int,
         frequency: pydantic.PositiveInt,
         enabled: bool = True,
+        allow_duplicates: bool = True,
         offline: bool = False,
         server_url: str | None = None,
         server_token: pydantic.SecretStr | None = None,
@@ -131,6 +132,9 @@ class MetricsThresholdAlert(AlertBase):
             how often to monitor the metric
         enabled : bool, optional
             whether this alert is enabled upon creation, default is True
+        allow_duplicates : bool, optional
+            whether to raise exception if duplicate alert requested,
+            default of True will allow duplicates
         offline : bool, optional
             whether to create the alert locally, default is False
         server_url: str | None, optional
@@ -160,6 +164,7 @@ class MetricsThresholdAlert(AlertBase):
             enabled=enabled,
             server_url=server_url,
             server_token=server_token,
+            deduplicate=not allow_duplicates,
             _read_only=False,
             _offline=offline,
         )
@@ -243,6 +248,7 @@ class MetricsRangeAlert(AlertBase):
         range_low: float,
         frequency: pydantic.PositiveInt,
         enabled: bool = True,
+        allow_duplicates: bool = True,
         offline: bool = False,
         server_url: str | None = None,
         server_token: pydantic.SecretStr | None = None,
@@ -276,6 +282,9 @@ class MetricsRangeAlert(AlertBase):
             how often to monitor the metric
         enabled : bool, optional
             whether this alert is enabled upon creation, default is True
+        allow_duplicates : bool, optional
+            whether to raise exception if duplicate alert requested,
+            default of True will allow duplicates
         offline : bool, optional
             whether to create the alert locally, default is False
         server_url: str | None, optional
@@ -305,6 +314,7 @@ class MetricsRangeAlert(AlertBase):
             alert=_alert_definition,
             server_url=server_url,
             server_token=server_token,
+            deduplicate=not allow_duplicates,
             _read_only=False,
             _offline=offline,
         )

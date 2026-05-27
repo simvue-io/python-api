@@ -8,6 +8,7 @@ import http
 import pydantic
 import datetime
 import typing
+import abc
 from simvue.api.objects.base import SimvueObject, staging_check, write_only
 from simvue.api.request import get as sv_get, get_json_from_response
 from simvue.api.url import URL
@@ -19,7 +20,7 @@ except ImportError:
     from typing_extensions import Self, override  # noqa: UP035
 
 
-class AlertBase(SimvueObject):
+class AlertBase(SimvueObject, abc.ABC):
     """Class for interfacing with Simvue alerts
 
     Contains properties common to all alert types.
@@ -29,7 +30,20 @@ class AlertBase(SimvueObject):
 
     @override
     @classmethod
-    def new(cls, *_, **__) -> Self:
+    @abc.abstractmethod
+    def new(
+        cls,
+        *,
+        name: typing.Annotated[str, pydantic.Field(pattern=NAME_REGEX)],
+        description: str | None,
+        notification: typing.Literal["none", "email"],
+        enabled: bool,
+        allow_duplicates: bool,
+        offline: bool,
+        server_url: str | None,
+        server_token: pydantic.SecretStr | None,
+        **_,
+    ) -> Self:
         raise NotImplementedError
 
     @override
@@ -211,6 +225,8 @@ class AlertBase(SimvueObject):
 
     def get_status(self, run_id: str) -> typing.Literal["ok", "critical"]:
         """Retrieve the status of this alert for a given run"""
+        _offline_run: bool = run_id.startswith("offline")
+
         if not self._offline and run_id.startswith("offline"):
             raise ValueError(
                 f"Cannot retrieve status of online alert '{self.id}' for offline run '{run_id}'"
