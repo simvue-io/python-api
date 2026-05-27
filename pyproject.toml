@@ -3,7 +3,7 @@ name = "simvue"
 version = "2.5.3"
 description = "Simulation tracking and monitoring"
 authors = [{ name = "Simvue Development Team", email = "info@simvue.io" }]
-license = "Apache v2"
+license = "Apache-2.0"
 requires-python = ">=3.10,<3.15"
 readme = "README.md"
 classifiers = [
@@ -70,23 +70,22 @@ plot = ["plotly (>=6.0.0,<7.0.0)", "matplotlib (>=3.10.0,<4.0.0)"]
 [project.scripts]
 simvue-sender = "simvue.bin.sender:sender_cli"
 
-[tool.poetry.group.dev.dependencies]
-ruff = ">=0.15.12,<0.16.0"
-pytest-cov = ">=4.1,<7.0"
-pytest-mock = "^3.14.0"
-pytest-sugar = "^1.0.0"
-pytest-xdist = "^3.6.1"
-jinja2 = "^3.1.6"
-types-requests = "^2.33.0.20260503"
-interrogate = "^1.7.0"
-pytest-timeout = "^2.3.1"
-
 [build-system]
-requires = ["poetry-core"]
-build-backend = "poetry.core.masonry.api"
+requires = ["hatchling"]
+build-backend = "hatchling.build"
 
 [dependency-groups]
-dev = []
+dev = [
+  "interrogate>=1.7.0",
+  "jinja2>=3.1.6",
+  "pytest-cov>=7.1.0",
+  "pytest-mock>=3.15.1",
+  "pytest-sugar>=1.1.1",
+  "pytest-timeout>=2.4.0",
+  "pytest-xdist>=3.8.0",
+  "ruff>=0.15.14",
+  "types-requests>=2.33.0.20260518",
+]
 
 [tool.ruff]
 lint.extend-select = ["C901", "T201"]
