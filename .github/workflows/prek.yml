@@ -25,4 +25,4 @@ jobs:
       - name: Run Prek
         uses: j178/prek-action@v2
         with:
-          extra-args: '--all-files'
+          extra-args: '--all-files --skip no-commit-to-branch'
