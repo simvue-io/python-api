@@ -66,7 +66,6 @@ class UserAlert(AlertBase):
         description: str | None,
         notification: typing.Literal["none", "email"],
         enabled: bool = True,
-        allow_duplicates: bool = True,
         offline: bool = False,
         server_url: str | None = None,
         server_token: pydantic.SecretStr | None = None,
@@ -86,9 +85,6 @@ class UserAlert(AlertBase):
             configure notification settings for this alert
         enabled : bool, optional
             whether this alert is enabled upon creation, default is True
-        allow_duplicates : bool, optional
-            whether to raise exception if duplicate alert requested,
-            default of True will allow duplicates
         offline : bool, optional
             whether this alert should be created locally, default is False
         server_url: str | None, optional
@@ -105,11 +101,10 @@ class UserAlert(AlertBase):
             enabled=enabled,
             server_url=server_url,
             server_token=server_token,
-            deduplicate=not allow_duplicates,
+            _params={"deduplicate": True},
             _read_only=False,
             _offline=offline,
         )
-        _alert._params = {"deduplicate": True}
         return _alert
 
     @override

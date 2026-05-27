@@ -82,7 +82,6 @@ class EventsAlert(AlertBase):
         pattern: str,
         frequency: pydantic.PositiveInt,
         enabled: bool = True,
-        allow_duplicates: bool = True,
         offline: bool = False,
         server_url: str | None = None,
         server_token: pydantic.SecretStr | None = None,
@@ -106,9 +105,6 @@ class EventsAlert(AlertBase):
             how often to check for updates
         enabled : bool, optional
             enable this alert upon creation, default is True
-        allow_duplicates : bool, optional
-            whether to raise exception if duplicate alert requested,
-            default of True will allow duplicates
         offline : bool, optional
             create alert locally, default is False
         server_url: str | None, optional
@@ -131,7 +127,6 @@ class EventsAlert(AlertBase):
             source="events",
             alert=_alert_definition,
             enabled=enabled,
-            deduplicate=not allow_duplicates,
             server_url=server_url,
             server_token=server_token,
             _read_only=False,
