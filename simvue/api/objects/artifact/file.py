@@ -1,3 +1,10 @@
+"""Simvue File Artifacts.
+
+Classes for interacting with file based artifacts defined
+locally or on a Simvue server
+
+"""
+
 from .base import ArtifactBase
 
 import typing
@@ -17,9 +24,7 @@ except ImportError:
 
 
 class FileArtifact(ArtifactBase):
-    """
-    Simvue File Artifact
-    ====================
+    """Simvue File Artifact.
 
     This class is used to connect to/create file artifact objects on the Simvue server,
     any modification of instance attributes is mirrored on the remote object.
@@ -27,7 +32,11 @@ class FileArtifact(ArtifactBase):
     """
 
     def __init__(
-        self, identifier: str | None = None, _read_only: bool = True, **kwargs
+        self,
+        identifier: str | None = None,
+        server_url: str | None = None,
+        server_token: pydantic.SecretStr | None = None,
+        **kwargs,
     ) -> None:
         """Initialise a File Artifact
 
@@ -39,10 +48,19 @@ class FileArtifact(ArtifactBase):
         ----------
         identifier : str, optional
             the remote server unique id for the target folder
+        server_url: str | None, optional
+            alternative server URL, default None
+        server_token : str | None, optional
+            token for alternative server, default None
         **kwargs : dict
             any additional arguments to be passed to the object initialiser
         """
-        super().__init__(identifier=identifier, _read_only=_read_only, **kwargs)
+        super().__init__(
+            identifier=identifier,
+            server_url=server_url,
+            server_token=server_token,
+            **kwargs,
+        )
 
     @classmethod
     def new(
@@ -56,6 +74,8 @@ class FileArtifact(ArtifactBase):
         upload_timeout: int | None = None,
         offline: bool = False,
         snapshot: bool = False,
+        server_url: str | None = None,
+        server_token: pydantic.SecretStr | None = None,
         **kwargs,
     ) -> Self:
         """Create a new artifact either locally or on the server
@@ -80,6 +100,15 @@ class FileArtifact(ArtifactBase):
             whether to define this artifact locally, default is False
         snapshot : bool, optional
             whether to create a snapshot of this file before uploading it, default is False
+        server_url: str | None, optional
+            alternative server URL, default None
+        server_token : str | None, optional
+            token for alternative server, default None
+
+        Returns
+        -------
+        FileArtifact
+            an object representing the artifact
 
         """
         _mime_type = mime_type or get_mimetype_for_file(file_path)
@@ -94,7 +123,9 @@ class FileArtifact(ArtifactBase):
             file_path = pathlib.Path(file_path)
             if snapshot:
                 _user_config = SimvueConfiguration.fetch(
-                    mode="offline" if offline else "online"
+                    mode="offline" if offline else "online",
+                    server_url=server_url,
+                    server_token=server_token,
                 )
 
                 _local_staging_dir: pathlib.Path = _user_config.offline.cache.joinpath(
@@ -111,11 +142,13 @@ class FileArtifact(ArtifactBase):
             _file_orig_path = file_path.expanduser().absolute()
             _file_checksum = calculate_sha256(f"{file_path}", is_file=True)
 
-        _artifact = FileArtifact(
+        _artifact = cls(
             name=name,
             storage=storage,
             original_path=os.path.expandvars(_file_orig_path),
             size=_file_size,
+            server_url=server_url,
+            server_token=server_token,
             mime_type=_mime_type,
             checksum=_file_checksum,
             _offline=offline,

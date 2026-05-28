@@ -1,6 +1,4 @@
-"""
-Simvue Server Metrics
-=====================
+"""Simvue Server Metrics.
 
 Contains a class for remotely connecting to Simvue metrics, or defining
 a new set of metrics given relevant arguments.
@@ -20,38 +18,60 @@ from simvue.models import MetricSet
 from simvue.api.request import get as sv_get, get_json_from_response
 
 try:
-    from typing import Self
+    from typing import Self, override
 except ImportError:
-    from typing_extensions import Self
+    from typing_extensions import Self, override
 
 __all__ = ["Metrics"]
 
 
 class Metrics(SimvueObject):
-    """
-    Simvue Metrics
-    ==============
+    """Simvue Metrics.
 
     Class for retrieving metrics stored on the server.
-
     """
+
+    _label: str = "metric"
 
     def __init__(
         self,
-        _read_only: bool = True,
-        _local: bool = False,
+        identifier: str | None = None,
+        *,
+        server_url: str | None = None,
+        server_token: pydantic.SecretStr | None = None,
         **kwargs,
     ) -> None:
-        """Initialise a Metrics object instance for creation/retrieval."""
-        self._label = "metric"
-        super().__init__(_read_only=_read_only, _local=_local, **kwargs)
+        """Initialise an Metrics object instance for creation/retrieval.
+
+        Parameters
+        ----------
+        identifier : str | None, optional
+            unique identifier for a metric set
+        server_url: str | None, optional
+            alternative server URL, default None
+        server_token : str | None, optional
+            token for alternative server, default None
+        **kwargs : dict
+            any additional arguments to be passed to the object initialiser
+        """
+        super().__init__(
+            identifier=None, server_url=server_url, server_token=server_token, **kwargs
+        )
         self._run_id = self._staging.get("run")
         self._is_set = True
 
+    @override
     @classmethod
     @pydantic.validate_call
     def new(
-        cls, *, run: str, metrics: list[MetricSet], offline: bool = False, **kwargs
+        cls,
+        *,
+        run: str,
+        metrics: list[MetricSet],
+        offline: bool = False,
+        server_url: str | None = None,
+        server_token: pydantic.SecretStr | None = None,
+        **kwargs,
     ) -> Self:
         """Create a new Metrics entry on the Simvue server.
 
@@ -63,19 +83,26 @@ class Metrics(SimvueObject):
             set of metrics to attach to run.
         offline: bool, optional
             whether to create in offline mode, default is False.
+        server_url: str | None, optional
+            alternative server URL, default None
+        server_token : str | None, optional
+            token for alternative server, default None
 
         Returns
         -------
         Metrics
             metrics object
         """
-        return Metrics(
+        return cls(
             run=run,
             metrics=[metric.model_dump() for metric in metrics],
+            server_url=server_url,
+            server_token=server_token,
             _read_only=False,
             _offline=offline,
         )
 
+    @override
     @classmethod
     @pydantic.validate_call
     def get(
@@ -86,6 +113,8 @@ class Metrics(SimvueObject):
         *,
         count: pydantic.PositiveInt | None = None,
         offset: pydantic.PositiveInt | None = None,
+        server_url: str | None = None,
+        server_token: pydantic.SecretStr | None = None,
         **kwargs,
     ) -> Generator[dict[str, dict[str, list[dict[str, float]]]]]:
         """Retrieve metrics from the server for a given set of runs.
@@ -105,6 +134,10 @@ class Metrics(SimvueObject):
             limit result count.
         offset : int | None, optional
             index offset for count.
+        server_url: str | None, optional
+            alternative server URL, default None
+        server_token : str | None, optional
+            token for alternative server, default None
 
         Yields
         ------
@@ -115,6 +148,8 @@ class Metrics(SimvueObject):
             offset=offset,
             metrics=json.dumps(metrics),
             runs=json.dumps(runs),
+            server_url=server_url,
+            server_token=server_token.get_secret_value() if server_token else None,
             xaxis=xaxis,
             count=count,
             **kwargs,

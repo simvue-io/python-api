@@ -1,17 +1,30 @@
 # Change Log
 
+## Unreleased
+
+- Added `env` option to server profiles in configuration for environment variables.
+- Added fallback for S3 servers only supporting PUT.
+- Fix use of alternative serve specification.
+
 ## [v2.5.3](https://github.com/simvue-io/python-api/releases/tag/v2.5.3) - 2026-05-15
 
 - Set Storage region to be optional
 
 ## [v2.5.2](https://github.com/simvue-io/python-api/releases/tag/v2.5.2) - 2026-05-15
 
+- Fixed issue whereby providing alternative server URL or token arguments was ignored.
 - Fixed legacy event logging support.
 - Added `ca_cert` argument for S3 storages.
 
 ## ~~[v2.5.1](https://github.com/simvue-io/python-api/releases/tag/v2.5.1) - 2026-05-06~~
 
 **Yanked from PyPi**
+
+- ~~Fixed legacy event logging support.~~
+
+## ~~[v2.5.1](https://github.com/simvue-io/python-api/releases/tag/v2.5.1) - 2026-05-06~~
+
+**Yanked from PyPi as issue not fixed.**
 
 - ~~Fixed legacy event logging support.~~
 

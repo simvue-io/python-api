@@ -25,7 +25,7 @@ def test_monitor_processes(create_plain_run_offline: tuple[Run, dict]):
         _run.add_process(f"process_2_{os.environ.get('PYTEST_XDIST_WORKER', 0)}", Command="Get-ChildItem", executable="powershell")
         _run.add_process(f"process_3_{os.environ.get('PYTEST_XDIST_WORKER', 0)}", Command="exit 0", executable="powershell")
     _sender = Sender(_run._sv_obj._local_staging_file.parents[1], 1, 10, throw_exceptions=True)
-    _sender.upload(["folders", "runs", "alerts"], )
+    _sender.upload(["folders", "alerts", "runs"], )
 
 
 @pytest.mark.executor

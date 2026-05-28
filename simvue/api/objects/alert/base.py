@@ -1,6 +1,4 @@
-"""
-Alert Object Base
-=================
+"""Alert Object Base.
 
 Contains general definitions for Simvue Alert objects.
 
@@ -16,9 +14,9 @@ from simvue.api.url import URL
 from simvue.models import NAME_REGEX, DATETIME_FORMAT
 
 try:
-    from typing import override
+    from typing import Self, override
 except ImportError:
-    from typing_extensions import override  # noqa: UP035
+    from typing_extensions import Self, override  # noqa: UP035
 
 
 class AlertBase(SimvueObject):
@@ -27,15 +25,45 @@ class AlertBase(SimvueObject):
     Contains properties common to all alert types.
     """
 
-    @classmethod
-    def new(cls, read_only: bool = False, **kwargs):
-        """Create a new alert"""
-        pass
+    _label: str = "alert"
 
-    def __init__(self, identifier: str | None = None, **kwargs) -> None:
+    @override
+    @classmethod
+    def new(
+        cls,
+        *,
+        name: typing.Annotated[str, pydantic.Field(pattern=NAME_REGEX)],
+        description: str | None,
+        notification: typing.Literal["none", "email"],
+        enabled: bool,
+        allow_duplicates: bool,
+        offline: bool,
+        server_url: str | None,
+        server_token: pydantic.SecretStr | None,
+        **_,
+    ) -> Self:
+        raise NotImplementedError
+
+    @override
+    def __init__(
+        self,
+        identifier: str | None = None,
+        *,
+        server_url: str | None = None,
+        server_token: pydantic.SecretStr | None = None,
+        **kwargs,
+    ) -> None:
         """Retrieve an alert from the Simvue server by identifier"""
-        self._label = "alert"
-        super().__init__(identifier=identifier, **kwargs)
+        _params: dict[str, str | bool] = kwargs.pop("_params", {}) | {
+            "deduplicate": not kwargs.get("allow_duplicates", True)
+        }
+        super().__init__(
+            identifier=identifier,
+            server_url=server_url,
+            server_token=server_token,
+            _params=_params,
+            **kwargs,
+        )
         self._local_only_args += [
             "frequency",
             "pattern",
@@ -199,6 +227,13 @@ class AlertBase(SimvueObject):
 
     def get_status(self, run_id: str) -> typing.Literal["ok", "critical"]:
         """Retrieve the status of this alert for a given run"""
+        _offline_run: bool = run_id.startswith("offline")
+
+        if not self._offline and run_id.startswith("offline"):
+            raise ValueError(
+                f"Cannot retrieve status of online alert '{self.id}' for offline run '{run_id}'"
+            )
+
         _url: URL = self.url / f"status/{run_id}"
         _response = sv_get(url=f"{_url}", headers=self._headers)
         _json_response = get_json_from_response(
