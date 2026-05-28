@@ -285,9 +285,7 @@ class Run:
     ) -> None:
         logger.debug(
             "Automatically closing run '%s' in status %s",
-            self.id
-            if self._user_config.run.mode == "online" and self._sv_obj
-            else "unregistered",
+            self.id if self.mode == "online" and self._sv_obj else "unregistered",
             self._status,
         )
 
@@ -300,6 +298,11 @@ class Run:
     def duration(self) -> float:
         """Return current run duration"""
         return time.time() - self._start_time
+
+    @property
+    def mode(self) -> typing.Literal["offline", "online", "disabled"]:
+        """Return whether this run is offline."""
+        return self._user_config.run.mode
 
     @property
     def processes(self) -> list[psutil.Process]:
@@ -500,7 +503,7 @@ class Run:
             if category == "events":
                 _events = Events.new(
                     run=self.id,
-                    offline=self._user_config.run.mode == "offline",
+                    offline=self.mode == "offline",
                     server_url=self._user_config.server.url,
                     server_token=self._user_config.server.token,
                     events=buffer,
@@ -512,13 +515,13 @@ class Run:
                     data=buffer,
                     server_url=self._user_config.server.url,
                     server_token=self._user_config.server.token,
-                    offline=self._user_config.run.mode == "offline",
+                    offline=self.mode == "offline",
                 )
                 return _grid_metrics.commit()
             else:
                 _metrics = Metrics.new(
                     run=self.id,
-                    offline=self._user_config.run.mode == "offline",
+                    offline=self.mode == "offline",
                     server_url=self._user_config.server.url,
                     server_token=self._user_config.server.token,
                     metrics=buffer,
@@ -550,7 +553,7 @@ class Run:
             if self._sv_obj.status != "running":
                 self._sv_obj.status = self._status
                 _changed = True
-            if self._user_config.run.mode == "offline":
+            if self.mode == "offline":
                 self._sv_obj.started = self._start_time
                 _changed = True
             if _changed:
@@ -721,7 +724,7 @@ class Run:
 
         self._folder = Folder.new(
             path=folder,
-            offline=self._user_config.run.mode == "offline",
+            offline=self.mode == "offline",
             server_url=self._user_config.server.url,
             server_token=self._user_config.server.token,
         )
@@ -742,7 +745,7 @@ class Run:
         if name and not re.match(r"^[a-zA-Z0-9\-\_\s\/\.:]+$", name):
             self._error("specified name is invalid")
             return False
-        elif not name and self._user_config.run.mode == "offline":
+        elif not name and self.mode == "offline":
             name = randomname.get_name()
 
         self._status = "running" if running else "created"
@@ -1219,7 +1222,7 @@ class Run:
                         "Emissions metrics require resource metrics collection - make sure resource metrics are enabled!"
                     )
                     return False
-                if self._user_config.run.mode == "offline":
+                if self.mode == "offline":
                     # Create an emissions monitor with no API calls
                     self._emissions_monitor = CO2Monitor(
                         intensity_refresh_interval=None,
@@ -1627,7 +1630,7 @@ class Run:
                 name=grid_name,
                 grid=axes_ticks,
                 labels=axes_labels,
-                offline=self._user_config.run.mode == "offline",
+                offline=self.mode == "offline",
                 server_url=self._user_config.server.url,
                 server_token=self._user_config.server.token,
             )
@@ -1650,7 +1653,7 @@ class Run:
         try:
             _grid_attach = Grid(
                 identifier=self._grids[grid_name]["id"],
-                offline=self._user_config.run.mode == "offline",
+                offline=self.mode == "offline",
                 server_url=self._user_config.server.url,
                 server_token=self._user_config.server.token,
             )
@@ -1859,7 +1862,7 @@ class Run:
                 allow_pickling=allow_pickle,
                 storage=self._storage_id,
                 metadata=metadata,
-                offline=self._user_config.run.mode == "offline",
+                offline=self.mode == "offline",
                 server_url=self._user_config.server.url,
                 server_token=self._user_config.server.token,
             )
@@ -1931,7 +1934,7 @@ class Run:
                 name=name or stored_file_name,
                 storage=self._storage_id,
                 file_path=file_path,
-                offline=self._user_config.run.mode == "offline",
+                offline=self.mode == "offline",
                 mime_type=file_type,
                 metadata=metadata,
                 snapshot=snapshot,
@@ -2096,11 +2099,7 @@ class Run:
             self._heartbeat_termination_trigger.set()
             self._heartbeat_thread.join()
 
-        if (
-            self._sv_obj
-            and self._user_config.run.mode == "offline"
-            and self._status != "created"
-        ):
+        if self._sv_obj and self.mode == "offline" and self._status != "created":
             self._user_config.offline.cache.joinpath(
                 "runs", f"{self.id}.closed"
             ).touch()
@@ -2231,14 +2230,14 @@ class Run:
         names = names or []
 
         if names and not ids:
-            if self._user_config.run.mode == "offline":
+            if self.mode == "offline":
                 self._error(
                     "Cannot retrieve alerts based on names in offline mode - please use IDs instead."
                 )
                 return False
             try:
                 if alerts := Alert.get(
-                    offline=self._user_config.run.mode == "offline",
+                    offline=self.mode == "offline",
                     server_url=self._user_config.server.url,
                     server_token=self._user_config.server.token,
                 ):
@@ -2264,7 +2263,7 @@ class Run:
         """Check if an existing alert matches definition."""
         # If the alert already exists just add the existing one
         for _id, _existing_alert in Alert.get(
-            offline=self._user_config.run.mode == "offline",
+            offline=self.mode == "offline",
             server_url=self._user_config.server.url,
             server_token=self._user_config.server.token,
         ):
@@ -2348,7 +2347,7 @@ class Run:
             range_low=range_low,
             range_high=range_high,
             frequency=frequency or 60,
-            offline=self._user_config.run.mode == "offline",
+            offline=self.mode == "offline",
             server_url=self._user_config.server.url,
             server_token=self._user_config.server.token,
         )
@@ -2438,7 +2437,7 @@ class Run:
             frequency=frequency,
             aggregation=aggregation,
             notification=notification,
-            offline=self._user_config.run.mode == "offline",
+            offline=self.mode == "offline",
             server_url=self._user_config.server.url,
             server_token=self._user_config.server.token,
         )
@@ -2501,7 +2500,7 @@ class Run:
             pattern=pattern,
             notification=notification,
             frequency=frequency,
-            offline=self._user_config.run.mode == "offline",
+            offline=self.mode == "offline",
             server_url=self._user_config.server.url,
             server_token=self._user_config.server.token,
         )
@@ -2561,7 +2560,7 @@ class Run:
             name=name,
             notification=notification,
             description=description,
-            offline=self._user_config.run.mode == "offline",
+            offline=self.mode == "offline",
             server_url=self._user_config.server.url,
             server_token=self._user_config.server.token,
         )
@@ -2613,7 +2612,7 @@ class Run:
             self._error("Please specify alert to update either by ID or by name.")
             return False
 
-        if name and self._user_config.run.mode == "offline":
+        if name and self.mode == "offline":
             self._error(
                 "Cannot retrieve alerts based on names in offline mode - please use IDs instead."
             )
@@ -2621,7 +2620,7 @@ class Run:
 
         if name:
             try:
-                if alerts := Alert.get(offline=self._user_config.run.mode == "offline"):
+                if alerts := Alert.get(offline=self.mode == "offline"):
                     identifier = next(
                         (id for id, alert in alerts if alert.name == name), None
                     )

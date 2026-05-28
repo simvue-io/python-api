@@ -81,10 +81,10 @@ class EventsAlert(AlertBase):
         notification: typing.Literal["none", "email"],
         pattern: str,
         frequency: pydantic.PositiveInt,
-        server_url: str | None = None,
-        server_token: pydantic.SecretStr | None = None,
         enabled: bool = True,
         offline: bool = False,
+        server_url: str | None = None,
+        server_token: pydantic.SecretStr | None = None,
         **_,
     ) -> Self:
         """Create a new event-based alert

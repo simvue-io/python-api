@@ -101,10 +101,10 @@ class UserAlert(AlertBase):
             enabled=enabled,
             server_url=server_url,
             server_token=server_token,
+            _params={"deduplicate": True},
             _read_only=False,
             _offline=offline,
         )
-        _alert._params = {"deduplicate": True}
         return _alert
 
     @override

@@ -725,6 +725,10 @@ class AlertUploadAction(UploadAction):
         if not online_id:
             _source: str = data["source"]
 
+            # We need to make sure the ID of an existing alert is returned
+            # the server will return 409 with an ID if this is the case
+            data["allow_duplicates"] = False
+
             if _source == "events":
                 return EventsAlert.new(**data)
             elif _source == "metrics" and data.get("threshold"):
