@@ -1,6 +1,6 @@
 # Change Log
 
-## Unreleased
+## [v2.5.4](https://github.com/simvue-io/python-api/releases/tag/v2.5.4) - 2026-05-28
 
 - Added `env` option to server profiles in configuration for environment variables.
 - Added fallback for S3 servers only supporting PUT.
