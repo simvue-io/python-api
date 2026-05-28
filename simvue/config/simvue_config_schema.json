@@ -13,18 +13,6 @@
     },
     "DefaultRunSpecifications": {
       "properties": {
-        "name": {
-          "anyOf": [
-            {
-              "type": "string"
-            },
-            {
-              "type": "null"
-            }
-          ],
-          "default": null,
-          "title": "Name"
-        },
         "description": {
           "anyOf": [
             {
@@ -36,21 +24,6 @@
           ],
           "default": null,
           "title": "Description"
-        },
-        "tags": {
-          "anyOf": [
-            {
-              "items": {
-                "type": "string"
-              },
-              "type": "array"
-            },
-            {
-              "type": "null"
-            }
-          ],
-          "default": null,
-          "title": "Tags"
         },
         "folder": {
           "default": "/",
@@ -96,6 +69,18 @@
           "title": "Mode",
           "type": "string"
         },
+        "name": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Name"
+        },
         "record_shell_vars": {
           "anyOf": [
             {
@@ -110,6 +95,21 @@
           ],
           "default": null,
           "title": "Record Shell Vars"
+        },
+        "tags": {
+          "anyOf": [
+            {
+              "items": {
+                "type": "string"
+              },
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Tags"
         }
       },
       "title": "DefaultRunSpecifications",
@@ -118,6 +118,18 @@
     "EcoConfig": {
       "description": "Configurations for CO2 emission metrics gathering.\n\nParameters\n----------\nco2_signal_api_token: str | None, optional\n    the CO2 signal API token (Recommended), default is None\ncpu_thermal_design_power: int | None, optional\n    the TDP for the CPU\ngpu_thermal_design_power: int | None, optional\n    the TDP for each GPU",
       "properties": {
+        "co2_intensity": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Co2 Intensity"
+        },
         "co2_signal_api_token": {
           "anyOf": [
             {
@@ -132,19 +144,6 @@
           "default": null,
           "title": "Co2 Signal Api Token"
         },
-        "cpu_thermal_design_power": {
-          "anyOf": [
-            {
-              "exclusiveMinimum": 0,
-              "type": "integer"
-            },
-            {
-              "type": "null"
-            }
-          ],
-          "default": null,
-          "title": "Cpu Thermal Design Power"
-        },
         "cpu_n_cores": {
           "anyOf": [
             {
@@ -157,6 +156,19 @@
           ],
           "default": null,
           "title": "Cpu N Cores"
+        },
+        "cpu_thermal_design_power": {
+          "anyOf": [
+            {
+              "exclusiveMinimum": 0,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Cpu Thermal Design Power"
         },
         "gpu_thermal_design_power": {
           "anyOf": [
@@ -191,18 +203,6 @@
           ],
           "default": "1 hour",
           "title": "Intensity Refresh Interval"
-        },
-        "co2_intensity": {
-          "anyOf": [
-            {
-              "type": "number"
-            },
-            {
-              "type": "null"
-            }
-          ],
-          "default": null,
-          "title": "Co2 Intensity"
         }
       },
       "title": "EcoConfig",
@@ -210,6 +210,11 @@
     },
     "MetricsSpecifications": {
       "properties": {
+        "enable_emission_metrics": {
+          "default": false,
+          "title": "Enable Emission Metrics",
+          "type": "boolean"
+        },
         "system_metrics_interval": {
           "anyOf": [
             {
@@ -222,11 +227,6 @@
           ],
           "default": -1,
           "title": "System Metrics Interval"
-        },
-        "enable_emission_metrics": {
-          "default": false,
-          "title": "Enable Emission Metrics",
-          "type": "boolean"
         }
       },
       "title": "MetricsSpecifications",
@@ -254,32 +254,6 @@
     "ServerSpecifications": {
       "additionalProperties": false,
       "properties": {
-        "url": {
-          "anyOf": [
-            {
-              "format": "uri",
-              "minLength": 1,
-              "type": "string"
-            },
-            {
-              "type": "null"
-            }
-          ],
-          "title": "Url"
-        },
-        "token": {
-          "anyOf": [
-            {
-              "format": "password",
-              "type": "string",
-              "writeOnly": true
-            },
-            {
-              "type": "null"
-            }
-          ],
-          "title": "Token"
-        },
         "env": {
           "anyOf": [
             {
@@ -294,6 +268,32 @@
           ],
           "default": null,
           "title": "Env"
+        },
+        "token": {
+          "anyOf": [
+            {
+              "format": "password",
+              "type": "string",
+              "writeOnly": true
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Token"
+        },
+        "url": {
+          "anyOf": [
+            {
+              "format": "uri",
+              "minLength": 1,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Url"
         }
       },
       "required": [
@@ -312,53 +312,6 @@
         "debug": false
       }
     },
-    "server": {
-      "$ref": "#/$defs/ServerSpecifications",
-      "description": "Specifications for Simvue server"
-    },
-    "profiles": {
-      "additionalProperties": {
-        "$ref": "#/$defs/ServerSpecifications"
-      },
-      "title": "Profiles",
-      "type": "object"
-    },
-    "run": {
-      "$ref": "#/$defs/DefaultRunSpecifications",
-      "default": {
-        "name": null,
-        "description": null,
-        "tags": null,
-        "folder": "/",
-        "metadata": null,
-        "mode": "online",
-        "record_shell_vars": null
-      }
-    },
-    "offline": {
-      "$ref": "#/$defs/OfflineSpecifications",
-      "default": {
-        "cache": null
-      }
-    },
-    "metrics": {
-      "$ref": "#/$defs/MetricsSpecifications",
-      "default": {
-        "system_metrics_interval": -1,
-        "enable_emission_metrics": false
-      }
-    },
-    "eco": {
-      "$ref": "#/$defs/EcoConfig",
-      "default": {
-        "co2_signal_api_token": null,
-        "cpu_thermal_design_power": null,
-        "cpu_n_cores": null,
-        "gpu_thermal_design_power": null,
-        "intensity_refresh_interval": "1 hour",
-        "co2_intensity": null
-      }
-    },
     "current_profile": {
       "anyOf": [
         {
@@ -370,6 +323,53 @@
       ],
       "default": null,
       "title": "Current Profile"
+    },
+    "eco": {
+      "$ref": "#/$defs/EcoConfig",
+      "default": {
+        "co2_intensity": null,
+        "co2_signal_api_token": null,
+        "cpu_n_cores": null,
+        "cpu_thermal_design_power": null,
+        "gpu_thermal_design_power": null,
+        "intensity_refresh_interval": "1 hour"
+      }
+    },
+    "metrics": {
+      "$ref": "#/$defs/MetricsSpecifications",
+      "default": {
+        "enable_emission_metrics": false,
+        "system_metrics_interval": -1
+      }
+    },
+    "offline": {
+      "$ref": "#/$defs/OfflineSpecifications",
+      "default": {
+        "cache": null
+      }
+    },
+    "profiles": {
+      "additionalProperties": {
+        "$ref": "#/$defs/ServerSpecifications"
+      },
+      "title": "Profiles",
+      "type": "object"
+    },
+    "run": {
+      "$ref": "#/$defs/DefaultRunSpecifications",
+      "default": {
+        "description": null,
+        "folder": "/",
+        "metadata": null,
+        "mode": "online",
+        "name": null,
+        "record_shell_vars": null,
+        "tags": null
+      }
+    },
+    "server": {
+      "$ref": "#/$defs/ServerSpecifications",
+      "description": "Specifications for Simvue server"
     }
   },
   "required": [
