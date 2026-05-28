@@ -8,7 +8,6 @@ import http
 import pydantic
 import datetime
 import typing
-import abc
 from simvue.api.objects.base import SimvueObject, staging_check, write_only
 from simvue.api.request import get as sv_get, get_json_from_response
 from simvue.api.url import URL
@@ -20,7 +19,7 @@ except ImportError:
     from typing_extensions import Self, override  # noqa: UP035
 
 
-class AlertBase(SimvueObject, abc.ABC):
+class AlertBase(SimvueObject):
     """Class for interfacing with Simvue alerts
 
     Contains properties common to all alert types.
@@ -30,7 +29,6 @@ class AlertBase(SimvueObject, abc.ABC):
 
     @override
     @classmethod
-    @abc.abstractmethod
     def new(
         cls,
         *,
