@@ -189,8 +189,8 @@ class SimvueConfiguration(pydantic.BaseModel):
         self._server_version = self._check_server(
             self.server.token.get_secret_value(),
             self.server.url,
+            _ca_cert,
             self.run.mode,
-            verify=_ca_cert,
         )
 
         return self
