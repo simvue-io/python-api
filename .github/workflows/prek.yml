@@ -1,0 +1,28 @@
+name: Prek Hooks
+
+on:
+  push:
+    branches: ["main", "dev", "hotfix/update-ci", "*prek*"]
+  pull_request:
+    branches: ["main", "dev", "hotfix/update-ci", "*prek*"]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  prek:
+    name: Run Prek Hooks
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v6
+      - name: Run Prek
+        uses: j178/prek-action@v2
+        with:
+          extra-args: '--all-files --skip no-commit-to-branch'

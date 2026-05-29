@@ -17,7 +17,7 @@ authors:
     affiliation: United Kingdom Atomic Energy Authority
   - given-names: Vignesh
     family-names: Gopakumar
-    orcid: 'https://orcid.org/0000-0002-6773-1049'
+    orcid: 'https://orcid.org/0000-0003-0904-3448'
     affiliation: United Kingdom Atomic Energy Authority
   - given-names: Kristian
     family-names: Zarebski
@@ -26,6 +26,7 @@ authors:
   - given-names: Matthew
     family-names: Field
     affiliation: United Kingdom Atomic Energy Authority
+    orcid: 'https://orcid.org/0009-0004-1390-0697'
   - given-names: James
     family-names: Panayis
     affiliation: United Kingdom Atomic Energy Authority
@@ -42,6 +43,6 @@ keywords:
   - alerting
   - simulation
 license: Apache-2.0
-commit: 98d894b048c5dbb157324a0fc1562d1a5f72a774
-version: 2.4.1
-date-released: '2026-03-31'
+commit: db219adfef06749382516c56b7a0c49ef77d812b
+version: 2.5.4
+date-released: '2026-05-28'

@@ -21,6 +21,7 @@ def test_create_s3_online() -> None:
         region_name="fictionsville",
         access_key_id="dummy_key",
         secret_access_key="not_a_key",
+        ca_cert="invalid_ca_cert",
         bucket="dummy_bucket",
         is_enabled=False
     )

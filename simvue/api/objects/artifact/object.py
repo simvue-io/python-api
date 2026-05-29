@@ -1,3 +1,10 @@
+"""Simvue Object Artifacts.
+
+Classes for interacting with object based artifacts defined
+locally or on a Simvue server
+
+"""
+
 from .base import ArtifactBase
 from simvue.models import NAME_REGEX
 from simvue.serialization import serialize_object
@@ -9,23 +16,27 @@ import sys
 import io
 
 try:
-    from typing import Self
+    from typing import Self, override
 except ImportError:
-    from typing_extensions import Self
+    from typing_extensions import Self, override
 
 
 class ObjectArtifact(ArtifactBase):
-    """
-    Simvue Object Artifact
-    ======================
+    """Simvue Object Artifact.
 
     This class is used to connect to/create file object artifact objects on the Simvue server,
     any modification of instance attributes is mirrored on the remote object.
 
     """
 
+    @override
     def __init__(
-        self, identifier: str | None = None, _read_only: bool = True, **kwargs
+        self,
+        identifier: str | None = None,
+        *,
+        server_url: str | None = None,
+        server_token: pydantic.SecretStr | None = None,
+        **kwargs,
     ) -> None:
         """Initialise a Object Artifact
 
@@ -37,12 +48,17 @@ class ObjectArtifact(ArtifactBase):
         ----------
         identifier : str, optional
             the remote server unique id for the target folder
+        server_url: str | None, optional
+            alternative server URL, default None
+        server_token : str | None, optional
+            token for alternative server, default None
         **kwargs : dict
             any additional arguments to be passed to the object initialiser
         """
         kwargs.pop("original_path", None)
-        super().__init__(identifier, _read_only, original_path="", **kwargs)
+        super().__init__(identifier, original_path="", **kwargs)
 
+    @override
     @classmethod
     @pydantic.validate_call
     def new(
@@ -55,6 +71,8 @@ class ObjectArtifact(ArtifactBase):
         upload_timeout: int | None = None,
         allow_pickling: bool = True,
         offline: bool = False,
+        server_url: str | None = None,
+        server_token: pydantic.SecretStr | None = None,
         **kwargs,
     ) -> Self:
         """Create a new artifact either locally or on the server
@@ -78,6 +96,15 @@ class ObjectArtifact(ArtifactBase):
             serialization found. Default is True
         offline : bool, optional
             whether to define this artifact locally, default is False
+        server_url: str | None, optional
+            alternative server URL, default None
+        server_token : str | None, optional
+            token for alternative server, default None
+
+        Returns
+        -------
+        ObjectArtifact
+            an object representing the artifact
 
         """
         # If the object has been saved as a bytes file, obj will be None
@@ -104,12 +131,14 @@ class ObjectArtifact(ArtifactBase):
 
             _checksum = calculate_sha256(_serialized, is_file=False)
 
-        _artifact = ObjectArtifact(
+        _artifact = cls(
             name=name,
             storage=storage,
             size=sys.getsizeof(_serialized),
             mime_type=_data_type,
             checksum=_checksum,
+            server_url=server_url,
+            server_token=server_token,
             metadata=metadata,
             _offline=offline,
             _read_only=False,

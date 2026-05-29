@@ -6,6 +6,7 @@ Pydantic model for the Simvue TOML configuration file
 
 """
 
+from collections.abc import Generator
 import functools
 import logging
 import os
@@ -66,6 +67,14 @@ class SimvueConfiguration(pydantic.BaseModel):
     metrics: MetricsSpecifications = MetricsSpecifications()
     eco: EcoConfig = EcoConfig()
     current_profile: str | None = None
+    _server_version: semver.Version | None = None
+
+    @property
+    def server_version(self) -> semver.Version:
+        """Retrieve current Server version."""
+        if not self._server_version:
+            raise RuntimeError("Expected server version to be defined")
+        return self._server_version
 
     @classmethod
     def _load_pyproject_configs(cls) -> dict | None:
@@ -103,9 +112,9 @@ class SimvueConfiguration(pydantic.BaseModel):
     @functools.lru_cache
     def _check_server(
         cls, token: str, url: str, mode: typing.Literal["offline", "online", "disabled"]
-    ) -> None:
+    ) -> semver.Version | None:
         if mode in ("offline", "disabled"):
-            return
+            return None
 
         headers: dict[str, str] = {
             "Authorization": f"Bearer {token}",
@@ -115,13 +124,13 @@ class SimvueConfiguration(pydantic.BaseModel):
             _url = URL(url) / "version"
             _response = sv_get(f"{_url}", headers)
 
+            if _response.status_code == http.HTTPStatus.UNAUTHORIZED:
+                raise AssertionError("Unauthorised token")
+
             if _response.status_code != http.HTTPStatus.OK or not (
                 _version_str := _response.json().get("version")
             ):
-                raise AssertionError
-
-            if _response.status_code == http.HTTPStatus.UNAUTHORIZED:
-                raise AssertionError("Unauthorised token")
+                raise AssertionError("Failed to retrieve version from server response.")
 
         except Exception as err:
             raise AssertionError(
@@ -143,6 +152,7 @@ class SimvueConfiguration(pydantic.BaseModel):
                 f"Python API v{_version_str} is not compatible with Simvue server versions "
                 f"< {SIMVUE_SERVER_LOWER_CONSTRAINT}"
             )
+        return _version
 
     @pydantic.validate_call
     def write(self, out_directory: pydantic.DirectoryPath) -> None:
@@ -154,7 +164,12 @@ class SimvueConfiguration(pydantic.BaseModel):
         if os.environ.get("SIMVUE_NO_SERVER_CHECK"):
             return self
 
-        self._check_server(self.server.token, self.server.url, self.run.mode)
+        if not self.server.token:
+            raise ValueError("No token provided.")
+
+        self._server_version = self._check_server(
+            self.server.token.get_secret_value(), self.server.url, self.run.mode
+        )
 
         return self
 
@@ -254,7 +269,17 @@ class SimvueConfiguration(pydantic.BaseModel):
         _config_dict["server"]["url"] = _server_url
         _config_dict["run"]["mode"] = _run_mode
 
-        return SimvueConfiguration(current_profile=profile, **_config_dict)
+        _user_config = SimvueConfiguration(current_profile=profile, **_config_dict)
+
+        # Load any additional environment variables for this server
+        for key, value in (_env_vars := _user_config.server.env or {}).items():
+            os.environ[key] = value
+
+        if _env_vars:
+            _env_strs: Generator[str] = (f"{k}={v}" for k, v in _env_vars)
+            logger.debug("Loaded environment variables:\n%s", "\n\t".join(_env_vars))
+
+        return _user_config
 
     @classmethod
     @functools.lru_cache

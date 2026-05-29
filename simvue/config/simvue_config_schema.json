@@ -254,6 +254,21 @@
     "ServerSpecifications": {
       "additionalProperties": false,
       "properties": {
+        "env": {
+          "anyOf": [
+            {
+              "additionalProperties": {
+                "type": "string"
+              },
+              "type": "object"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Env"
+        },
         "token": {
           "anyOf": [
             {

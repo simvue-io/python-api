@@ -1,6 +1,4 @@
-"""
-Simvue Admin Objects
-====================
+"""Simvue Admin Objects.
 
 These are Simvue objects only accessible to an administrator of
 the server.

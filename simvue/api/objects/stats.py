@@ -1,6 +1,4 @@
-"""
-Simvue Stats
-============
+"""Simvue Stats.
 
 Statistics accessible to the current user.
 
@@ -32,9 +30,7 @@ class UserStatistics(BaseModel):
 
 
 class Stats(SimvueObject):
-    """
-    Simvue Stats
-    ============
+    """Simvue Stats.
 
     Class for retrieving statistics stored on the server.
 
@@ -42,12 +38,27 @@ class Stats(SimvueObject):
 
     _single: bool = True
     _tenant: str | None = None
+    _label: str = "stat"
 
-    def __init__(self) -> None:
-        """Initialise a statistics query object."""
+    def __init__(
+        self,
+        *,
+        server_url: str | None = None,
+        server_token: pydantic.SecretStr | None = None,
+    ) -> None:
+        """Initialise a statistics query object.
+
+        Parameters
+        ----------
+        server_url: str | None, optional
+            alternative server URL, default None
+        server_token : str | None, optional
+            token for alternative server, default None
+        """
         self.runs = RunStatistics(self)
-        self._label = "stat"
-        super().__init__()
+        super().__init__(
+            identifier=None, server_url=server_url, server_token=server_token
+        )
 
         # Stats is a singular object (i.e. identifier is not applicable)
         # set it to empty string so not None
