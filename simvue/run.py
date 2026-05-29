@@ -1432,7 +1432,7 @@ class Run:
         # FIXME: Temporary, this will eventually be removed
         import semver
 
-        _log_level_server_version = semver.parse("1.2.16")
+        _log_level_server_version = semver.Version.parse("1.2.16")
         if (
             log_level
             and self._user_config.run.mode != "offline"
