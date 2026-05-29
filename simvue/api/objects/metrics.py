@@ -159,7 +159,12 @@ class Metrics(SimvueObject):
     def span(self, run_ids: list[str]) -> dict[str, int | float]:
         """Returns the metrics span for the given runs"""
         _url = self._base_url / "span"
-        _response = sv_get(url=f"{_url}", headers=self._headers, json=run_ids)
+        _response = sv_get(
+            url=f"{_url}",
+            headers=self._headers,
+            json=run_ids,
+            verify=self._user_config.server_verify,
+        )
         return get_json_from_response(
             response=_response,
             expected_status=[http.HTTPStatus.OK],
@@ -171,7 +176,10 @@ class Metrics(SimvueObject):
         """Returns the metric names for the given runs"""
         _url = self._base_url / "names"
         _response = sv_get(
-            url=f"{_url}", headers=self._headers, params={"runs": json.dumps(run_ids)}
+            url=f"{_url}",
+            headers=self._headers,
+            params={"runs": json.dumps(run_ids)},
+            verify=self._user_config.server_verify,
         )
         return get_json_from_response(
             response=_response,

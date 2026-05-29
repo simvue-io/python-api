@@ -102,6 +102,7 @@ class ArtifactBase(SimvueObject):
             url=f"{_run_artifacts_url}",
             headers=self._headers,
             json={"category": category},
+            verify=self._user_config.server_verify,
         )
 
         get_json_from_response(
@@ -337,7 +338,9 @@ class ArtifactBase(SimvueObject):
             URL(self._user_config.server.url)
             / f"runs/{run_id}/artifacts/{self._identifier}"
         )
-        _response = sv_get(url=_run_url, header=self._headers)
+        _response = sv_get(
+            url=_run_url, header=self._headers, verify=self._user_config.server_verify
+        )
         _json_response = get_json_from_response(
             response=_response,
             expected_status=[http.HTTPStatus.OK, http.HTTPStatus.NOT_FOUND],

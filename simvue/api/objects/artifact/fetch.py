@@ -133,7 +133,10 @@ class Artifact:
         )
         _url = URL(f"{_config.server.url}") / f"runs/{run_id}/artifacts"
         _response = sv_get(
-            url=f"{_url}", params={"category": category}, headers=_config.headers
+            url=f"{_url}",
+            params={"category": category},
+            headers=_config.headers,
+            verify=_config.server_verify,
         )
         _json_response = get_json_from_response(
             expected_type=list,
@@ -196,7 +199,10 @@ class Artifact:
         )
         _url = URL(f"{_config.server.url}") / f"runs/{run_id}/artifacts"
         _response = sv_get(
-            url=f"{_url}", params={"name": name}, headers=_config.headers
+            url=f"{_url}",
+            params={"name": name},
+            headers=_config.headers,
+            verify=_config.server_verify,
         )
         _json_response = get_json_from_response(
             expected_type=list,
@@ -275,6 +281,7 @@ class Artifact:
             _url,
             headers=_config.headers,
             params=_params | kwargs,
+            verify=_config.server_verify,
         )
         _label: str = cls.__name__.lower()
         _label = _label.replace("base", "")

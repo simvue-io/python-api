@@ -149,6 +149,7 @@ class UserAlert(AlertBase):
             url=self.url / "status" / run_id,
             data={"status": status},
             headers=self._headers,
+            verify=self._user_config.server_verify,
         )
 
         get_json_from_response(

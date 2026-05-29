@@ -658,7 +658,7 @@ class SimvueObject(abc.ABC):
             headers=self._headers | {"Content-Type": "application/msgpack"},
             params=self._params or {},
             data=batch_data,
-            verify=self.server_ca_cert,
+            verify=self._user_config.server_verify,
             is_json=True,
         )
 
@@ -699,7 +699,7 @@ class SimvueObject(abc.ABC):
             params=self._params or {},
             data=data or kwargs,
             is_json=is_json,
-            verify=self.server_ca_cert,
+            verify=self._user_config.server_verify,
         )
 
         if _response.status_code == http.HTTPStatus.FORBIDDEN:
@@ -741,7 +741,7 @@ class SimvueObject(abc.ABC):
             headers=self._headers,
             data=kwargs,
             is_json=True,
-            verify=self.server_ca_cert,
+            verify=self._user_config.server_verify,
         )
 
         if _response.status_code == http.HTTPStatus.FORBIDDEN:
@@ -779,7 +779,7 @@ class SimvueObject(abc.ABC):
             url=f"{self.url}",
             headers=self._headers,
             params=kwargs,
-            verify=self.server_ca_cert,
+            verify=self._user_config.server_verify,
         )
         _json_response = get_json_from_response(
             response=_response,
@@ -803,7 +803,7 @@ class SimvueObject(abc.ABC):
             url=f"{url or self.url}",
             headers=self._headers,
             params=kwargs,
-            verify=self.server_ca_cert,
+            verify=self._user_config.server_verify,
         )
 
         if _response.status_code == http.HTTPStatus.NOT_FOUND:
@@ -862,12 +862,6 @@ class SimvueObject(abc.ABC):
         In this case no action is taken.
         """
         _ = id_mapping
-
-    @property
-    def server_ca_cert(self) -> str | bool:
-        """Return current server CA certificate."""
-        _ca_cert: pathlib.Path | bool = self._user_config.certificates.server_ca_cert
-        return f"{_ca_cert}" if isinstance(_ca_cert, pathlib.Path) else _ca_cert
 
     @property
     def staged(self) -> dict[str, typing.Any] | None:

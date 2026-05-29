@@ -193,6 +193,7 @@ class Events(SimvueObject):
         _response = sv_get(
             url=_url,
             headers=self._headers,
+            verify=self._user_config.server_verify,
             params={
                 "run": self._run_id,
                 "window": window,

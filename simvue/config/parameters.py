@@ -110,7 +110,7 @@ class DefaultRunSpecifications(pydantic.BaseModel):
     name: str | None = None
     description: str | None = None
     tags: list[str] | None = None
-    folder: str = pydantic.Field("/", pattern=sv_models.FOLDER_REGEX)
+    folder: str = pydantic.Field(default="/", pattern=sv_models.FOLDER_REGEX)
     metadata: dict[str, str | int | float | bool] | None = None
     mode: typing.Literal["offline", "disabled", "online"] = "online"
     record_shell_vars: list[str] | None = None

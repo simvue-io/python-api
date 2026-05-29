@@ -101,7 +101,7 @@ class Grid(SimvueObject):
         _response = sv_put(
             url=f"{self.run_data_url(run_id)}",
             headers=self._headers,
-            verify=self.server_ca_cert,
+            verify=self._user_config.server_verify,
             json={"metric": metric_name},
         )
 
@@ -241,7 +241,7 @@ class Grid(SimvueObject):
         _response = sv_get(
             url=f"{self.run_metric_url(run_id, metric_name) / 'values'}",
             headers=self._headers,
-            verify=self.server_ca_cert,
+            verify=self._user_config.server_verify,
             params={"step": step},
         )
 
@@ -273,7 +273,7 @@ class Grid(SimvueObject):
         """
         _response = sv_get(
             url=f"{self.run_metric_url(run_id, metric_name) / 'span'}",
-            verify=self.server_ca_cert,
+            verify=self._user_config.server_verify,
             headers=self._headers,
         )
 
@@ -479,7 +479,7 @@ class GridMetrics(SimvueObject):
             url=f"{self._user_config.server.url}/{self.run_grids_endpoint(self._run_id)}",
             headers=self._headers | {"Content-Type": "application/msgpack"},
             data=msgpack.packb(metrics, use_bin_type=True),
-            verify=self.server_ca_cert,
+            verify=self._user_config.server_verify,
             is_json=False,
             params={},
         )
