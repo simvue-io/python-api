@@ -20,17 +20,6 @@ from simvue.api.url import URL
 
 logger = logging.getLogger(__file__)
 
-"""
-[server]
-token = ...
-url = ...
-
-[certificates]
-server_ca_cert = ...
-storage_ca_cert = ...
-client_cert = ...
-"""
-
 
 class CertificateSpecifications(pydantic.BaseModel):
     storage_ca_cert: pydantic.FilePath | bool = True
