@@ -283,12 +283,12 @@ def skip_if_failed(
     return decorator
 
 
-def prettify_pydantic(class_func: typing.Callable) -> typing.Callable:
+def prettify_pydantic(func: typing.Callable) -> typing.Callable:
     """Converts pydantic validation errors to a table
 
     Parameters
     ----------
-    class_func : typing.Callable
+    func : typing.Callable
         function to wrap
 
     Returns
@@ -302,10 +302,10 @@ def prettify_pydantic(class_func: typing.Callable) -> typing.Callable:
         the formatted validation error
     """
 
-    @functools.wraps(class_func)
-    def wrapper(self, *args, **kwargs) -> typing.Any:
+    @functools.wraps(func)
+    def wrapper(*args, **kwargs) -> typing.Any:
         try:
-            return class_func(self, *args, **kwargs)
+            return func(*args, **kwargs)
         except pydantic.ValidationError as e:
             error_str = parse_pydantic_error(e)
             raise RuntimeError(error_str)

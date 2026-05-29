@@ -224,7 +224,8 @@ def setup_test_run(run: sv_run.Run, *, temp_dir: pathlib.Path, create_objects: b
             "test_identifier": f"{_test_name}_{fix_use_id}"
         },
         "folder": f"/simvue_unit_testing/{fix_use_id}",
-        "tags": ["simvue_client_unit_tests", _test_name, f"{platform.system()}"]
+        "tags": ["simvue_client_unit_tests", _test_name, f"{platform.system()}"],
+        "name": f"{_test_name}_{fix_use_id}"
     }
 
     if os.environ.get("CI"):
@@ -232,7 +233,7 @@ def setup_test_run(run: sv_run.Run, *, temp_dir: pathlib.Path, create_objects: b
 
     run.config(suppress_errors=False)
     run.init(
-        name=TEST_DATA['metadata']['test_identifier'],
+        name=TEST_DATA["name"],
         tags=TEST_DATA["tags"],
         folder=TEST_DATA["folder"],
         visibility="tenant" if os.environ.get("CI") else None,
