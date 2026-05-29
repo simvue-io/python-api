@@ -518,9 +518,12 @@ wheels = [
 
 [[package]]
 name = "flatdict"
-version = "4.0.0"
+version = "4.1.0"
 source = { registry = "https://pypi.org/simple" }
-sdist = { url = "https://files.pythonhosted.org/packages/1c/b9/d230fe2bc5d14322fdf9b8df53b4e2902230d8a66e24cc48eeb46b29fe29/flatdict-4.0.0.tar.gz", hash = "sha256:214eb3904d932d0b1809223249ee46b74e3b31fd49ee1cbe81987a7b27733d02", size = 8160, upload-time = "2020-02-12T16:28:40.62Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/1f/ba/e0461697020839f60741e493fc42b20a4cd3f91594ed3228f65ae9a50aee/flatdict-4.1.0.tar.gz", hash = "sha256:63bcd906a0859d91d0aace44b327178706c7fcf85a88c7ccf0825628376ad66b", size = 33930, upload-time = "2026-02-15T19:00:27.175Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/12/b5/6b6c496304047982b67d984ed2f77c183f73d69f7dbbc0cd2928252cc6b4/flatdict-4.1.0-py3-none-any.whl", hash = "sha256:24c3ff816733e472f91071031bd286c3826ecf2d646d5020af49fe10b20a5677", size = 7248, upload-time = "2026-02-15T19:00:26.131Z" },
+]
 
 [[package]]
 name = "fonttools"
@@ -1835,7 +1838,7 @@ wheels = [
 
 [[package]]
 name = "simvue"
-version = "2.5.3"
+version = "2.5.4"
 source = { editable = "." }
 dependencies = [
     { name = "click" },
@@ -1889,7 +1892,7 @@ requires-dist = [
     { name = "click", specifier = ">=8.4.1,<9.0.0" },
     { name = "deepmerge", specifier = ">=2.0,<3.0" },
     { name = "email-validator", specifier = ">=2.2.0,<3.0.0" },
-    { name = "flatdict", specifier = "==4.0.0" },
+    { name = "flatdict", specifier = "==4.1.0" },
     { name = "geocoder", specifier = ">=1.38.1,<2.0.0" },
     { name = "gitpython", specifier = ">=3.1.44,<4.0.0" },
     { name = "humanfriendly", specifier = ">=10.0,<11.0" },
@@ -1898,7 +1901,7 @@ requires-dist = [
     { name = "numpy", specifier = ">=2.0.0,<3.0.0" },
     { name = "pandas", specifier = ">=2.2.3,<3.0.0" },
     { name = "plotly", marker = "extra == 'plot'", specifier = ">=6.0.0,<7.0.0" },
-    { name = "psutil", specifier = ">=6.1.1,<7.0.0" },
+    { name = "psutil", specifier = ">=6.1.1,<8.0.0" },
     { name = "pydantic", specifier = ">=2.11,<3.0.0" },
     { name = "pydantic-extra-types", specifier = ">=2.10.5,<3.0.0" },
     { name = "pyjwt", specifier = ">=2.13.0,<3.0.0" },
@@ -1907,7 +1910,7 @@ requires-dist = [
     { name = "randomname", specifier = ">=0.2.1,<0.3.0" },
     { name = "requests", specifier = ">=2.32.3,<3.0.0" },
     { name = "semver", specifier = ">=3.0.4,<4.0.0" },
-    { name = "tabulate", specifier = ">=0.9.0,<0.10.0" },
+    { name = "tabulate", specifier = ">=0.9.0,<0.11.0" },
     { name = "tenacity", specifier = ">=9.0.0,<10.0.0" },
     { name = "toml", specifier = ">=0.10.2,<0.11.0" },
     { name = "typing-extensions", marker = "python_full_version < '3.11'", specifier = ">=4.12.2,<5.0.0" },

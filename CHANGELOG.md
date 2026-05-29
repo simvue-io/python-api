@@ -1,5 +1,9 @@
 # Change Log
 
+## [v2.5.5](https://github.com/simvue-io/python-api/releases/tag/v2.5.5) - 2026-05-29
+
+- Added additional filter options
+
 ## [v2.5.4](https://github.com/simvue-io/python-api/releases/tag/v2.5.4) - 2026-05-28
 
 - Added `env` option to server profiles in configuration for environment variables.
