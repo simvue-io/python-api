@@ -33,8 +33,8 @@ client_cert = ...
 
 
 class CertificateSpecifications(pydantic.BaseModel):
-    storage_ca_cert: pydantic.FilePath | True = True
-    server_ca_cert: pydantic.FilePath | True = True
+    storage_ca_cert: pydantic.FilePath | bool = True
+    server_ca_cert: pydantic.FilePath | bool = True
     client_cert: pydantic.FilePath | None = None
     client_key: pydantic.SecretStr | None = None
 
