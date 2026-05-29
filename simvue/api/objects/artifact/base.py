@@ -8,6 +8,7 @@ import datetime
 import http
 import io
 import logging
+import pathlib
 import typing
 import pydantic
 
@@ -146,6 +147,7 @@ class ArtifactBase(SimvueObject):
                 params={},
                 is_json=False,
                 timeout=timeout,
+                verify=self.storage_ca_cert,
                 files={"file": file},
                 data=_fields,
             )
@@ -157,6 +159,7 @@ class ArtifactBase(SimvueObject):
                 headers={},
                 is_json=False,
                 timeout=timeout,
+                verify=self.storage_ca_cert,
                 data=file,
             )
 
@@ -188,6 +191,13 @@ class ArtifactBase(SimvueObject):
             url=url,
             **kwargs,
         )
+
+    @property
+    def storage_ca_cert(self) -> str | bool:
+        """Return current storage CA certificate."""
+        _ca_cert: pathlib.Path | bool = self._user_config.certificates.storage_ca_cert
+
+        return f"{_ca_cert}" if isinstance(_ca_cert, pathlib.Path) else _ca_cert
 
     @property
     def checksum(self) -> str:
@@ -367,6 +377,7 @@ class ArtifactBase(SimvueObject):
         _response = sv_get(
             f"{self.download_url}",
             timeout=_timeout,
+            verify=self.storage_ca_cert,
             headers=None,
         )
 

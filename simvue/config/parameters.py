@@ -20,6 +20,40 @@ from simvue.api.url import URL
 
 logger = logging.getLogger(__file__)
 
+"""
+[server]
+token = ...
+url = ...
+
+[certificates]
+server_ca_cert = ...
+storage_ca_cert = ...
+client_cert = ...
+"""
+
+
+class CertificateSpecifications(pydantic.BaseModel):
+    storage_ca_cert: pydantic.FilePath | True = True
+    server_ca_cert: pydantic.FilePath | True = True
+    client_cert: pydantic.FilePath | None = None
+    client_key: pydantic.SecretStr | None = None
+
+    @pydantic.model_validator(mode="before")
+    @classmethod
+    def check_for_cert_env(
+        cls, values: dict[str, pathlib.Path | None]
+    ) -> pathlib.Path | None:
+        """Check for CA certificate for storage specification in environment."""
+        if (
+            _env_ca_cert := os.environ.get("SIMVUE_STORAGE_CA_CERTIFICATE")
+        ) is not None:
+            values["storage_ca_cert"] = _env_ca_cert
+        if (_env_ca_cert := os.environ.get("SIMVUE_SERVER_CA_CERTIFICATE")) is not None:
+            values["server_ca_cert"] = _env_ca_cert
+        if _env_client_cert := os.environ.get("SIMVUE_SERVER_CLIENT_CERTIFICATE"):
+            values["client_cert"] = _env_ca_cert
+        return values
+
 
 class ServerSpecifications(pydantic.BaseModel):
     model_config: typing.ClassVar[pydantic.ConfigDict] = pydantic.ConfigDict(

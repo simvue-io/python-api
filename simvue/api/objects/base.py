@@ -658,6 +658,7 @@ class SimvueObject(abc.ABC):
             headers=self._headers | {"Content-Type": "application/msgpack"},
             params=self._params or {},
             data=batch_data,
+            verify=self.server_ca_cert,
             is_json=True,
         )
 
@@ -698,6 +699,7 @@ class SimvueObject(abc.ABC):
             params=self._params or {},
             data=data or kwargs,
             is_json=is_json,
+            verify=self.server_ca_cert,
         )
 
         if _response.status_code == http.HTTPStatus.FORBIDDEN:
@@ -735,7 +737,11 @@ class SimvueObject(abc.ABC):
             _ = kwargs.pop(key, None)
 
         _response = sv_put(
-            url=f"{self.url}", headers=self._headers, data=kwargs, is_json=True
+            url=f"{self.url}",
+            headers=self._headers,
+            data=kwargs,
+            is_json=True,
+            verify=self.server_ca_cert,
         )
 
         if _response.status_code == http.HTTPStatus.FORBIDDEN:
@@ -769,7 +775,12 @@ class SimvueObject(abc.ABC):
 
         if not self.url:
             raise RuntimeError(f"Identifier for instance of {self.label()} Unknown")
-        _response = sv_delete(url=f"{self.url}", headers=self._headers, params=kwargs)
+        _response = sv_delete(
+            url=f"{self.url}",
+            headers=self._headers,
+            params=kwargs,
+            verify=self.server_ca_cert,
+        )
         _json_response = get_json_from_response(
             response=_response,
             expected_status=[http.HTTPStatus.OK, http.HTTPStatus.NO_CONTENT],
@@ -789,7 +800,10 @@ class SimvueObject(abc.ABC):
             raise RuntimeError(f"Identifier for instance of {self.label()} Unknown")
 
         _response = sv_get(
-            url=f"{url or self.url}", headers=self._headers, params=kwargs
+            url=f"{url or self.url}",
+            headers=self._headers,
+            params=kwargs,
+            verify=self.server_ca_cert,
         )
 
         if _response.status_code == http.HTTPStatus.NOT_FOUND:
@@ -848,6 +862,12 @@ class SimvueObject(abc.ABC):
         In this case no action is taken.
         """
         _ = id_mapping
+
+    @property
+    def server_ca_cert(self) -> str | bool:
+        """Return current server CA certificate."""
+        _ca_cert: pathlib.Path | bool = self._user_config.certificates.server_ca_cert
+        return f"{_ca_cert}" if isinstance(_ca_cert, pathlib.Path) else _ca_cert
 
     @property
     def staged(self) -> dict[str, typing.Any] | None:

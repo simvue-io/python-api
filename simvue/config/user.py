@@ -29,6 +29,7 @@ from simvue.config.parameters import (
     MetricsSpecifications,
     ServerSpecifications,
     OfflineSpecifications,
+    CertificateSpecifications,
 )
 
 from simvue.config.files import (
@@ -58,6 +59,9 @@ class SimvueConfiguration(pydantic.BaseModel):
     client: ClientGeneralOptions = ClientGeneralOptions()
     server: ServerSpecifications = pydantic.Field(
         ..., description="Specifications for Simvue server"
+    )
+    certificates: CertificateSpecifications = pydantic.Field(
+        default_factory=CertificateSpecifications
     )
     profiles: dict[str, ServerSpecifications] = pydantic.Field(
         default_factory=dict[str, ServerSpecifications]
