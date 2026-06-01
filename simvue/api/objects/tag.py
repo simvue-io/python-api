@@ -5,15 +5,16 @@ a new tag given relevant arguments.
 
 """
 
-import typing
-import json
 import datetime
+import json
+import typing
+from collections.abc import Generator
+
 import pydantic
 import pydantic_extra_types.color as pyd_color
 
 from simvue.api.objects.base import SimvueObject, Sort, staging_check, write_only
 from simvue.models import DATETIME_FORMAT
-from collections.abc import Generator
 
 try:
     from typing import Self, override

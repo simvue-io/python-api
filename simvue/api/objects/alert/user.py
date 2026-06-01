@@ -4,8 +4,9 @@ Class for connecting with a local/remote user defined alert.
 
 """
 
-import pydantic
 import typing
+
+import pydantic
 
 try:
     from typing import Self, override
@@ -13,9 +14,11 @@ except ImportError:
     from typing_extensions import Self, override
 import http
 
-from simvue.api.request import get_json_from_response, put as sv_put
-from .base import AlertBase
+from simvue.api.request import get_json_from_response
+from simvue.api.request import put as sv_put
 from simvue.models import NAME_REGEX
+
+from .base import AlertBase
 
 
 class UserAlert(AlertBase):
@@ -38,7 +41,8 @@ class UserAlert(AlertBase):
 
         If an identifier is provided a connection will be made to the
         object matching the identifier on the target server.
-        Else a new UserAlert instance will be created using arguments provided in kwargs.
+        Else a new UserAlert instance will be created using arguments
+        provided in kwargs.
 
         Parameters
         ----------
@@ -93,7 +97,7 @@ class UserAlert(AlertBase):
             token for alternative server, default None
 
         """
-        _alert = cls(
+        return cls(
             name=name,
             description=description,
             notification=notification,
@@ -105,7 +109,6 @@ class UserAlert(AlertBase):
             _read_only=False,
             _offline=offline,
         )
-        return _alert
 
     @override
     def _compare_objects(self, other: "AlertBase") -> bool:
@@ -140,9 +143,10 @@ class UserAlert(AlertBase):
                 self._staging["status"] = {}
             self._staging["status"][run_id] = status
             return
-        elif run_id.startswith("offline"):
+        if run_id.startswith("offline"):
             raise ValueError(
-                f"Cannot set status of online alert '{self.id}' for offline run '{run_id}'"
+                f"Cannot set status of online alert '{self.id}' for "
+                f"offline run '{run_id}'"
             )
 
         _response = sv_put(

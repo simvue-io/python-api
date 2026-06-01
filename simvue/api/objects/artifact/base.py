@@ -9,25 +9,33 @@ import http
 import io
 import logging
 import typing
+
 import pydantic
 
 try:
     from typing import Self, override
 except ImportError:
-    from typing_extensions import Self, override  # noqa: F401,
+    from typing_extensions import Self, override
 
-from simvue.api.url import URL
 from collections.abc import Generator
-from simvue.exception import ObjectNotFoundError
-from simvue.models import DATETIME_FORMAT
+
 from simvue.api.objects.base import SimvueObject, staging_check, write_only
 from simvue.api.objects.run import Run
 from simvue.api.request import (
-    put as sv_put,
-    get_json_from_response,
-    post as sv_post,
     get as sv_get,
 )
+from simvue.api.request import (
+    get_json_from_response,
+)
+from simvue.api.request import (
+    post as sv_post,
+)
+from simvue.api.request import (
+    put as sv_put,
+)
+from simvue.api.url import URL
+from simvue.exception import ObjectNotFoundError
+from simvue.models import DATETIME_FORMAT
 
 Category = typing.Literal["code", "input", "output"]
 
@@ -110,7 +118,7 @@ class ArtifactBase(SimvueObject):
         )
 
     def on_reconnect(self, id_mapping: dict[str, str]) -> None:
-        """Operations performed when this artifact is switched from offline to online mode.
+        """Operations performed when artifact mode switched from offline to online.
 
         Parameters
         ----------
@@ -133,7 +141,8 @@ class ArtifactBase(SimvueObject):
             timeout = BASE_TIMEOUT + UPLOAD_TIMEOUT_PER_MB * file_size / 1024 / 1024
 
         self._logger.debug(
-            f"Will wait for a period of {timeout:.0f}s for upload of file for {file_size}B file to complete."
+            f"Will wait for a period of {timeout:.0f}s for upload of "
+            f"file for {file_size}B file to complete."
         )
 
         _name = self._staging["name"]
@@ -331,7 +340,10 @@ class ArtifactBase(SimvueObject):
         _json_response = get_json_from_response(
             response=_response,
             expected_status=[http.HTTPStatus.OK, http.HTTPStatus.NOT_FOUND],
-            scenario=f"Retrieval of category for artifact '{self._identifier}' with respect to run '{run_id}'",
+            scenario=(
+                f"Retrieval of category for artifact '{self._identifier}' "
+                f"with respect to run '{run_id}'"
+            ),
         )
         if _response.status_code == http.HTTPStatus.NOT_FOUND:
             raise ObjectNotFoundError(
@@ -361,7 +373,8 @@ class ArtifactBase(SimvueObject):
         _timeout = BASE_TIMEOUT + DOWNLOAD_TIMEOUT_PER_MB * self.size / 1024 / 1024
 
         self._logger.debug(
-            f"Will wait {_timeout:.0f}s for download of file {self.name} of size {self.size}B"
+            f"Will wait {_timeout:.0f}s for download of file {self.name} "
+            f"of size {self.size}B"
         )
 
         _response = sv_get(

@@ -1,15 +1,17 @@
 """Simvue RestAPI Folders Filter."""
 
 import typing
+
 import pydantic as pyd
 
 try:
     from typing import Self
 except ImportError:
-    from typing_extensions import Self  # noqa: UP035
+    from typing_extensions import Self
 
 from simvue.models import FOLDER_REGEX
 from simvue.utilities import prettify_pydantic
+
 from .base import RestAPIFilter
 
 

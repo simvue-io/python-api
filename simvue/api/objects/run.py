@@ -7,42 +7,49 @@ a new run given relevant arguments.
 
 """
 
-from collections.abc import Generator, Iterable
-import http
-import typing
-import pydantic
 import datetime
-import time
+import http
 import json
+import time
+import typing
+from collections.abc import Generator, Iterable
+
+import pydantic
 
 try:
     from typing import Self, override
 except ImportError:
     from typing_extensions import Self, override
 
+from simvue.api.request import (
+    get as sv_get,
+)
+from simvue.api.request import (
+    get_json_from_response,
+)
+from simvue.api.request import (
+    put as sv_put,
+)
+from simvue.api.url import URL
+from simvue.models import DATETIME_FORMAT, FOLDER_REGEX, NAME_REGEX, simvue_timestamp
+
 from .base import (
     ObjectBatchArgs,
-    VisibilityBatchArgs,
     SimvueObject,
     Sort,
-    staging_check,
     Visibility,
+    VisibilityBatchArgs,
+    staging_check,
     write_only,
 )
 from .filter import RunsFilter
-from simvue.api.request import (
-    get as sv_get,
-    put as sv_put,
-    get_json_from_response,
-)
-from simvue.api.url import URL
-from simvue.models import FOLDER_REGEX, NAME_REGEX, DATETIME_FORMAT, simvue_timestamp
 
 Status = typing.Literal[
     "lost", "failed", "completed", "terminated", "running", "created"
 ]
 
-# Need to use this inside of Generator typing to fix bug present in Python 3.10 - see issue #745
+# Need to use this inside of Generator typing to
+# fix bug present in Python 3.10 - see issue #745
 T = typing.TypeVar("T", bound="Run")
 
 __all__ = ["Run"]
@@ -211,7 +218,8 @@ class Run(SimvueObject):
         visibility : VisibilityBatchArgs | None, optional
             specify visibility options for these runs, default is None.
         folder : str, optional
-            override folder specification for these runs to be a single folder, default None.
+            override folder specification for these runs to be
+            a single folder, default None.
         metadata : dict[str, int | str | float | bool], optional
             override metadata specification for these runs, default None.
         server_url: str | None, optional
@@ -509,7 +517,8 @@ class Run(SimvueObject):
         """
         if self._offline:
             raise RuntimeError(
-                "Cannot get alert details from an offline run - use .alerts to access a list of IDs instead"
+                "Cannot get alert details from an offline run - "
+                "use .alerts to access a list of IDs instead"
             )
         for alert in self._get_attribute("alerts"):
             yield alert["alert"]

@@ -8,10 +8,11 @@ to a JSON string
 """
 
 import copy
-import json as json_module
-import typing
-import logging
 import http
+import json as json_module
+import logging
+import typing
+from collections.abc import Generator
 
 import requests
 from tenacity import (
@@ -20,8 +21,8 @@ from tenacity import (
     stop_after_attempt,
     wait_exponential,
 )
+
 from simvue.utilities import parse_validation_response
-from collections.abc import Generator
 
 DEFAULT_API_TIMEOUT = 10
 RETRY_MULTIPLIER = 1
@@ -106,7 +107,8 @@ def post(
     if response.status_code == http.HTTPStatus.UNPROCESSABLE_ENTITY:
         _parsed_response = parse_validation_response(response.json())
         raise ValueError(
-            f"Validation error for '{url}' [{response.status_code}]:\n{_parsed_response}"
+            f"Validation error for '{url}' "
+            f"[{response.status_code}]:\n{_parsed_response}"
         )
 
     if response.status_code in RETRY_STATUSES:
@@ -281,7 +283,7 @@ def get_json_from_response(
     scenario: str,
     response: requests.Response,
     allow_parse_failure: bool = False,
-    expected_type: typing.Type[dict | list] = dict,
+    expected_type: type[dict | list] = dict,
 ) -> dict | list:
     try:
         json_response = response.json()
@@ -296,7 +298,10 @@ def get_json_from_response(
 
     if (_status_code := response.status_code) in expected_status:
         if not isinstance(json_response, expected_type):
-            details = f"expected type '{expected_type.__name__}' but got '{type(json_response).__name__}'"
+            details = (
+                f"expected type '{expected_type.__name__}' "
+                f"but got '{type(json_response).__name__}'"
+            )
         elif json_response is not None:
             return json_response
         else:
@@ -371,5 +376,6 @@ def get_paginated(
                 break
     except json_module.JSONDecodeError:
         raise RuntimeError(
-            f"[{_response.status_code}] Failed to retrieve content from server: {_response.text}"
-        )
+            f"[{_response.status_code}] Failed to retrieve content from server: "
+            + _response.text
+        ) from None

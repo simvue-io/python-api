@@ -5,17 +5,19 @@ locally or on a Simvue server
 
 """
 
-from .base import ArtifactBase
-
-import typing
-import pydantic
 import os
 import pathlib
 import shutil
-from simvue.config.user import SimvueConfiguration
+import typing
 from datetime import datetime
+
+import pydantic
+
+from simvue.config.user import SimvueConfiguration
 from simvue.models import NAME_REGEX
-from simvue.utilities import get_mimetype_for_file, get_mimetypes, calculate_sha256
+from simvue.utilities import calculate_sha256, get_mimetype_for_file, get_mimetypes
+
+from .base import ArtifactBase
 
 try:
     from typing import Self
@@ -42,7 +44,8 @@ class FileArtifact(ArtifactBase):
 
         If an identifier is provided a connection will be made to the
         object matching the identifier on the target server.
-        Else a new FileArtifact instance will be created using arguments provided in kwargs.
+        Else a new FileArtifact instance will be created using
+        arguments provided in kwargs.
 
         Parameters
         ----------
@@ -99,7 +102,8 @@ class FileArtifact(ArtifactBase):
         offline : bool, optional
             whether to define this artifact locally, default is False
         snapshot : bool, optional
-            whether to create a snapshot of this file before uploading it, default is False
+            whether to create a snapshot of this file before uploading it,
+            default is False
         server_url: str | None, optional
             alternative server URL, default None
         server_token : str | None, optional

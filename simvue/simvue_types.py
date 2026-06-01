@@ -3,7 +3,7 @@ import typing
 try:
     from typing import TypeAlias
 except ImportError:
-    from typing_extensions import TypeAlias
+    from typing import TypeAlias
 
 
 if typing.TYPE_CHECKING:

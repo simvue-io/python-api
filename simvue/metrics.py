@@ -8,8 +8,8 @@ Get information relating to the usage of the CPU and GPU (where applicable)
 
 import contextlib
 import logging
-import psutil
 
+import psutil
 
 from .pynvml import (
     nvmlDeviceGetComputeRunningProcesses,
@@ -60,7 +60,8 @@ def get_process_cpu(
     processes: list[psutil.Process]
         list of processes to track for CPU usage.
     interval: float, optional
-        interval to measure across, default is None, use previous measure time difference.
+        interval to measure across, default is None,
+        use previous measure time difference.
 
     Returns
     -------

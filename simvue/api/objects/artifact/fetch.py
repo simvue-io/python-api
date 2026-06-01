@@ -5,21 +5,22 @@ with an identifier, use a generic artifact object.
 """
 
 import http
-import typing
-import pydantic
 import json
+import typing
+from collections.abc import Generator
 
+import pydantic
 
 from simvue.api.objects.artifact.base import ArtifactBase
-from simvue.api.objects.base import Sort
-from simvue.config.user import SimvueConfiguration
-from .file import FileArtifact
-from collections.abc import Generator
 from simvue.api.objects.artifact.object import ObjectArtifact
-from simvue.api.request import get_json_from_response, get as sv_get
+from simvue.api.objects.base import Sort
+from simvue.api.request import get as sv_get
+from simvue.api.request import get_json_from_response
 from simvue.api.url import URL
+from simvue.config.user import SimvueConfiguration
 from simvue.exception import ObjectNotFoundError
 
+from .file import FileArtifact
 
 __all__ = ["Artifact"]
 
@@ -79,13 +80,12 @@ class Artifact:
                 server_token=server_token,
                 **kwargs,
             )
-        else:
-            return ObjectArtifact(
-                identifier=identifier,
-                server_url=server_url,
-                server_token=server_token,
-                **kwargs,
-            )
+        return ObjectArtifact(
+            identifier=identifier,
+            server_url=server_url,
+            server_token=server_token,
+            **kwargs,
+        )
 
     @classmethod
     def from_run(

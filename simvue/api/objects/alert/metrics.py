@@ -5,8 +5,9 @@ locally or on a Simvue server
 
 """
 
-import pydantic
 import typing
+
+import pydantic
 
 try:
     from typing import Self
@@ -14,8 +15,9 @@ except ImportError:
     from typing_extensions import Self
 
 from simvue.api.objects.base import write_only
-from .base import AlertBase, staging_check
 from simvue.models import NAME_REGEX
+
+from .base import AlertBase, staging_check
 
 Aggregate = typing.Literal["average", "sum", "at least one", "all"]
 Rule = typing.Literal["is above", "is below", "is inside range", "is outside range"]
@@ -23,14 +25,15 @@ Rule = typing.Literal["is above", "is below", "is inside range", "is outside ran
 try:
     from typing import override
 except ImportError:
-    from typing_extensions import override  # noqa: UP035
+    from typing_extensions import override
 
 
 class MetricsThresholdAlert(AlertBase):
     """Simvue Metrics Threshold Alert.
 
-    This class is used to connect to/create metrics threshold alert objects on the Simvue server,
-    any modification of MetricsThresholdAlert instance attributes is mirrored on the remote object.
+    This class is used to connect to/create metrics threshold alert
+    objects on the Simvue server, any modification of MetricsThresholdAlert
+    instance attributes is mirrored on the remote object.
 
     """
 
@@ -46,7 +49,8 @@ class MetricsThresholdAlert(AlertBase):
 
         If an identifier is provided a connection will be made to the
         object matching the identifier on the target server.
-        Else a new MetricsThresholdAlert instance will be created using arguments provided in kwargs.
+        Else a new MetricsThresholdAlert instance will be created using
+        arguments provided in kwargs.
 
         Parameters
         ----------
@@ -178,8 +182,9 @@ class MetricsThresholdAlert(AlertBase):
 class MetricsRangeAlert(AlertBase):
     """Simvue Metrics Range Alert.
 
-    This class is used to connect to/create metrics range alert objects on the Simvue server,
-    any modification of MetricsRangeAlert instance attributes is mirrored on the remote object.
+    This class is used to connect to/create metrics range alert objects
+    on the Simvue server, any modification of MetricsRangeAlert instance
+    attributes is mirrored on the remote object.
 
     """
 
@@ -195,7 +200,8 @@ class MetricsRangeAlert(AlertBase):
 
         If an identifier is provided a connection will be made to the
         object matching the identifier on the target server.
-        Else a new MetricsRangeAlert instance will be created using arguments provided in kwargs.
+        Else a new MetricsRangeAlert instance will be created using arguments
+        provided in kwargs.
 
         Parameters
         ----------
@@ -331,6 +337,10 @@ class MetricsAlertDefinition:
             ]
         )
 
+    def __hash__(self) -> int:
+        """Return definition hash."""
+        return hash(f"{self.aggregation}-{self.frequency}-{self.rule}-{self.window}")
+
     @property
     def aggregation(self) -> Aggregate:
         """Retrieve the aggregation strategy for this alert"""
@@ -384,6 +394,9 @@ class MetricThresholdAlertDefinition(MetricsAlertDefinition):
 
         return self.threshold == other.threshold
 
+    def __hash__(self) -> int:
+        return hash(f"{super().__hash__()}+{self.threshold}")
+
     @property
     def threshold(self) -> float:
         """Retrieve the threshold value for this alert"""
@@ -406,6 +419,9 @@ class MetricRangeAlertDefinition(MetricsAlertDefinition):
                 self.range_low == other.range_low,
             ]
         )
+
+    def __hash__(self) -> int:
+        return hash(f"{super().__hash__()}+{self.range_high}+{self.range_low}")
 
     @property
     def range_low(self) -> float:

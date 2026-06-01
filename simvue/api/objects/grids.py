@@ -6,24 +6,29 @@ a new grid given relevant arguments.
 """
 
 import http
-import msgpack
-import numpy
 import typing
-
-import pydantic
-
-from simvue.api.url import URL
-from simvue.models import GridMetricSet
 from collections.abc import Generator
 
+import msgpack
+import numpy
+import pydantic
 
-from .base import SimvueObject, write_only
 from simvue.api.request import (
     get as sv_get,
-    put as sv_put,
-    post as sv_post,
+)
+from simvue.api.request import (
     get_json_from_response,
 )
+from simvue.api.request import (
+    post as sv_post,
+)
+from simvue.api.request import (
+    put as sv_put,
+)
+from simvue.api.url import URL
+from simvue.models import GridMetricSet
+
+from .base import SimvueObject, write_only
 
 try:
     from typing import Self, override
@@ -96,7 +101,7 @@ class Grid(SimvueObject):
             self._staging.setdefault("runs", [])
             self._staging["runs"].append((run_id, metric_name))
             super().commit()
-            return
+            return None
 
         _response = sv_put(
             url=f"{self.run_data_url(run_id)}",
@@ -130,7 +135,9 @@ class Grid(SimvueObject):
             try:
                 self.attach_metric_for_run(run_id=run_id, metric_name=metric_name)
             except KeyError:
-                raise RuntimeError("Failed to retrieve online run identifier.")
+                raise RuntimeError(
+                    "Failed to retrieve online run identifier."
+                ) from None
 
     @property
     def grid(self) -> list[list[float]]:
@@ -221,7 +228,7 @@ class Grid(SimvueObject):
     def get_run_metric_values(
         self, *, run_id: str, metric_name: str, step: int
     ) -> dict:
-        """Retrieve values for this grid from the server for a given run at a given step.
+        """Retrieve values for grid given run at a given step.
 
         Parameters
         ----------
@@ -439,11 +446,11 @@ class GridMetrics(SimvueObject):
 
     def commit(self) -> dict | None:
         if not (_run_staging := self._staging.pop("data", None)):
-            return
+            return None
         return self._log_values(_run_staging)
 
     def on_reconnect(self, id_mapping: dict[str, str]) -> None:
-        """Operations performed when this grid metrics object is switched from offline to online mode.
+        """Operations performed when grid metrics object switched mode switched.
 
         Parameters
         ----------
@@ -470,7 +477,7 @@ class GridMetrics(SimvueObject):
             self._staging.setdefault("data", [])
             self._staging["data"] += metrics
             super().commit()
-            return
+            return None
 
         _response = sv_post(
             url=f"{self._user_config.server.url}/{self.run_grids_endpoint(self._run_id)}",

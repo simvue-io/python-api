@@ -6,16 +6,17 @@ a new set of metrics given relevant arguments.
 """
 
 import http
-import typing
 import json
+import typing
+from collections.abc import Generator
 
 import pydantic
 
-from collections.abc import Generator
+from simvue.api.request import get as sv_get
+from simvue.api.request import get_json_from_response
+from simvue.models import MetricSet
 
 from .base import SimvueObject
-from simvue.models import MetricSet
-from simvue.api.request import get as sv_get, get_json_from_response
 
 try:
     from typing import Self, override
@@ -33,9 +34,9 @@ class Metrics(SimvueObject):
 
     _label: str = "metric"
 
+    @override
     def __init__(
         self,
-        identifier: str | None = None,
         *,
         server_url: str | None = None,
         server_token: pydantic.SecretStr | None = None,

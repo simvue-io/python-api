@@ -10,8 +10,8 @@ try:
     from typing import Self
 except ImportError:
     from typing_extensions import Self
-import urllib.parse
 import copy
+import urllib.parse
 
 import pydantic
 

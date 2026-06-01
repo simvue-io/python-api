@@ -6,19 +6,20 @@ Contains serializers for storage of objects on the Simvue server
 """
 
 import contextlib
-import typing
-import pickle
-import pandas
 import json
-import numpy
-
+import pickle
+import typing
 from io import BytesIO
+
+import numpy
+import pandas
 
 if typing.TYPE_CHECKING:
     from pandas import DataFrame
     from plotly.graph_objects import Figure
     from torch import Tensor
     from typing_extensions import Buffer
+
     from .types import DeserializedContent
 
 from .utilities import check_extra
@@ -66,15 +67,15 @@ def serialize_object(data: typing.Any, allow_pickle: bool) -> tuple[str, str] | 
 
     if module_name == "plotly.graph_objs._figure" and class_name == "Figure":
         return _serialize_plotly_figure(data)
-    elif module_name == "matplotlib.figure" and class_name == "Figure":
+    if module_name == "matplotlib.figure" and class_name == "Figure":
         return _serialize_matplotlib_figure(data)
-    elif module_name == "numpy" and class_name == "ndarray":
+    if module_name == "numpy" and class_name == "ndarray":
         return _serialize_numpy_array(data)
-    elif module_name == "pandas.core.frame" and class_name == "DataFrame":
+    if module_name == "pandas.core.frame" and class_name == "DataFrame":
         return _serialize_dataframe(data)
-    elif _is_torch_tensor(data):
+    if _is_torch_tensor(data):
         return _serialize_torch_tensor(data)
-    elif module_name == "builtins" and class_name == "module" and not allow_pickle:
+    if module_name == "builtins" and class_name == "module" and not allow_pickle:
         with contextlib.suppress(ImportError):
             import matplotlib.pyplot
 
@@ -185,21 +186,21 @@ def _serialize_pickle(data: typing.Any) -> tuple[str, str] | None:
 
 def deserialize_data(
     data: "Buffer", mimetype: str, allow_pickle: bool
-) -> typing.Optional["DeserializedContent"]:
+) -> "DeserializedContent | None":
     """
     Determine which deserializer to use
     """
     if mimetype == "application/vnd.plotly.v1+json":
         return _deserialize_plotly_figure(data)
-    elif mimetype == "application/vnd.simvue.numpy.v1":
+    if mimetype == "application/vnd.simvue.numpy.v1":
         return _deserialize_numpy_array(data)
-    elif mimetype == "application/vnd.simvue.df.v1":
+    if mimetype == "application/vnd.simvue.df.v1":
         return _deserialize_dataframe(data)
-    elif mimetype == "application/vnd.simvue.torch.v1":
+    if mimetype == "application/vnd.simvue.torch.v1":
         return _deserialize_torch_tensor(data)
-    elif mimetype == "application/json":
+    if mimetype == "application/json":
         return _deserialize_json(data)
-    elif mimetype == "application/octet-stream" and allow_pickle:
+    if mimetype == "application/octet-stream" and allow_pickle:
         return _deserialize_pickle(data)
     return None
 
@@ -210,8 +211,7 @@ def _deserialize_plotly_figure(data: "Buffer") -> typing.Optional["Figure"]:
         import plotly
     except ImportError:
         return None
-    data = plotly.io.from_json(data)
-    return data
+    return plotly.io.from_json(data)
 
 
 @check_extra("plot")
@@ -220,15 +220,13 @@ def _deserialize_matplotlib_figure(data: "Buffer") -> typing.Optional["Figure"]:
         import plotly
     except ImportError:
         return None
-    data = plotly.io.from_json(data)
-    return data
+    return plotly.io.from_json(data)
 
 
 def _deserialize_numpy_array(data: "Buffer") -> typing.Any | None:
     mfile = BytesIO(data)
     mfile.seek(0)
-    data = numpy.load(mfile, allow_pickle=False)
-    return data
+    return numpy.load(mfile, allow_pickle=False)
 
 
 def _deserialize_dataframe(data: "Buffer") -> typing.Optional["DataFrame"]:
@@ -251,10 +249,8 @@ def _deserialize_torch_tensor(data: "Buffer") -> typing.Optional["Tensor"]:
 
 
 def _deserialize_pickle(data) -> typing.Any | None:
-    data = pickle.loads(data)
-    return data
+    return pickle.loads(data)
 
 
 def _deserialize_json(data) -> typing.Any | None:
-    data = json.loads(data)
-    return data
+    return json.loads(data)

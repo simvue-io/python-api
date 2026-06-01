@@ -7,22 +7,24 @@ a new folder given relevant arguments.
 
 """
 
-import http
-import typing
 import datetime
+import http
 import json
+import typing
+from collections.abc import Generator
 
 import pydantic
 
 from simvue.api.objects.filter import FoldersFilter
+from simvue.api.request import get_json_from_response
+from simvue.api.request import put as sv_put
 from simvue.exception import ObjectNotFoundError
-from simvue.api.request import put as sv_put, get_json_from_response
+from simvue.models import DATETIME_FORMAT, FOLDER_REGEX
 
-from .base import SimvueObject, staging_check, write_only, Sort
-from simvue.models import FOLDER_REGEX, DATETIME_FORMAT
-from collections.abc import Generator
+from .base import SimvueObject, Sort, staging_check, write_only
 
-# Need to use this inside of Generator typing to fix bug present in Python 3.10 - see issue #745
+# Need to use this inside of Generator typing to
+# fix bug present in Python 3.10 - see issue #745
 try:
     from typing import Self, override
 except ImportError:
@@ -144,7 +146,13 @@ class Folder(SimvueObject):
         if sorting:
             _params["sorting"] = json.dumps([i.to_params() for i in sorting])
 
-        return super().get(count=count, offset=offset, **_params)
+        return super().get(
+            server_url=server_url,
+            server_token=server_token,
+            count=count,
+            offset=offset,
+            **_params,
+        )
 
     @classmethod
     def filter(cls) -> FoldersFilter:

@@ -7,14 +7,15 @@ Contains functions for extracting additional metadata about the current project
 """
 
 import contextlib
-import typing
-import json
-import os
 import fnmatch
+import json
+import logging
+import os
+import pathlib
+import typing
+
 import toml
 import yaml
-import logging
-import pathlib
 
 from simvue.models import simvue_timestamp
 
@@ -83,19 +84,23 @@ def _conda_dependency_parse(dependency: str) -> tuple[str, str] | None:
     """Parse a dependency definition into module-version."""
     if dependency.startswith("::"):
         logger.warning(
-            f"Skipping Conda specific channel definition '{dependency}' in Python environment metadata."
+            f"Skipping Conda specific channel definition '{dependency}' "
+            "in Python environment metadata."
         )
         return None
-    elif ">=" in dependency:
+    if ">=" in dependency:
         module, version = dependency.split(">=")
         logger.warning(
-            f"Ignoring '>=' constraint in Python package version, naively storing '{module}=={version}', "
-            "for a more accurate record use 'conda env export > environment.yml'"
+            f"Ignoring '>=' constraint in Python package version, "
+            f"naively storing '{module}=={version}', "
+            "for a more accurate record use 'conda env "
+            "export > environment.yml'"
         )
     elif "~=" in dependency:
         module, version = dependency.split("~=")
         logger.warning(
-            f"Ignoring '~=' constraint in Python package version, naively storing '{module}=={version}', "
+            "Ignoring '~=' constraint in Python package version, "
+            f"naively storing '{module}=={version}', "
             "for a more accurate record use 'conda env export > environment.yml'"
         )
     elif dependency.startswith("-e"):
@@ -114,7 +119,8 @@ def _conda_dependency_parse(dependency: str) -> tuple[str, str] | None:
             module = version.split("/")[-1].replace(".git", "")
     elif "==" not in dependency:
         logger.warning(
-            f"Ignoring '{dependency}' in Python environment record as no version constraint specified."
+            f"Ignoring '{dependency}' in Python environment record as "
+            "no version constraint specified."
         )
         return None
     else:
@@ -168,8 +174,8 @@ def _python_env(repository: pathlib.Path) -> dict[str, typing.Any]:
         python_meta["environment"] = {
             package["name"]: package["version"] for package in content
         }
-    # Handle Conda case, albeit naively given the user may or may not have used 'conda env'
-    # to dump their exact dependency versions
+    # Handle Conda case, albeit naively given the user may or may not
+    # have used 'conda env' to dump their exact dependency versions
     elif (
         environment_file := pathlib.Path(repository).joinpath("environment.yml")
     ).exists():
@@ -242,7 +248,8 @@ def _node_js_env(repository: pathlib.Path) -> dict[str, typing.Any]:
         content = json.load(project_file.open())
         if (lfv := content["lockfileVersion"]) not in (1, 2, 3):
             logger.warning(
-                f"Unsupported package-lock.json lockfileVersion {lfv}, ignoring JS project metadata"
+                f"Unsupported package-lock.json lockfileVersion {lfv}, "
+                "ignoring JS project metadata"
             )
             return {}
 
@@ -272,18 +279,19 @@ def _environment_variables(glob_exprs: list[str]) -> dict[str, str]:
 
 
 def environment(
-    repository: pathlib.Path = pathlib.Path.cwd(),
+    repository: pathlib.Path | None = None,
     env_var_glob_exprs: set[str] | None = None,
 ) -> dict[str, typing.Any]:
     """Retrieve environment metadata"""
     _environment_meta = {}
-    if _python_meta := _python_env(repository):
+    _repository: pathlib.Path = repository or pathlib.Path.cwd()
+    if _python_meta := _python_env(_repository):
         _environment_meta["python"] = _python_meta
-    if _rust_meta := _rust_env(repository):
+    if _rust_meta := _rust_env(_repository):
         _environment_meta["rust"] = _rust_meta
-    if _julia_meta := _julia_env(repository):
+    if _julia_meta := _julia_env(_repository):
         _environment_meta["julia"] = _julia_meta
-    if _js_meta := _node_js_env(repository):
+    if _js_meta := _node_js_env(_repository):
         _environment_meta["javascript"] = _js_meta
     if env_var_glob_exprs:
         _environment_meta["shell"] = _environment_variables(env_var_glob_exprs)

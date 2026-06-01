@@ -7,12 +7,14 @@ Statistics accessible to the current user.
 import http
 import typing
 
-from pydantic import BaseModel
 import pydantic
+from pydantic import BaseModel
+
+from simvue.api.request import get as sv_get
+from simvue.api.request import get_json_from_response
+from simvue.api.url import URL
 
 from .base import SimvueObject
-from simvue.api.request import get as sv_get, get_json_from_response
-from simvue.api.url import URL
 
 __all__ = ["Stats"]
 
@@ -65,7 +67,7 @@ class Stats(SimvueObject):
         self._identifier = ""
 
     @classmethod
-    def new(cls, **kwargs) -> None:
+    def new(cls, **_) -> None:
         """Creation of multiple stats objects is not logical here.
 
         Raises
@@ -75,7 +77,7 @@ class Stats(SimvueObject):
         raise AttributeError("Creation of statistics objects is not supported")
 
     @classmethod
-    def delete(cls, **kwargs) -> None:
+    def delete(cls, **_) -> None:
         """Deletion of stats object is not logical here.
 
         Raises
@@ -100,14 +102,14 @@ class Stats(SimvueObject):
         -------
         None
         """
-        return None
+        return
 
     def on_reconnect(self, **_) -> None:
         """No offline to online reconnect functionality for statistics."""
         pass
 
     @classmethod
-    def get(cls, **kwargs) -> None:
+    def get(cls, **_) -> None:
         """Retrieval of multiple stats object is not logical here.
 
         Raises
@@ -119,7 +121,7 @@ class Stats(SimvueObject):
         )
 
     @classmethod
-    def ids(cls, **kwargs) -> None:
+    def ids(cls, **_) -> None:
         """Retrieval of identifiers is not logical here.
 
         Raises

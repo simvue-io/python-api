@@ -5,43 +5,42 @@ server including deletion and retrieval.
 """
 
 import contextlib
+import http
 import json
 import logging
 import pathlib
 import typing
-import http
-import pydantic
-from concurrent.futures import ThreadPoolExecutor, as_completed
 from collections.abc import Generator
-from pandas import DataFrame
+from concurrent.futures import ThreadPoolExecutor, as_completed
 
+import pydantic
 import requests
+from pandas import DataFrame
 
 from simvue.api.objects.alert.base import AlertBase
 from simvue.exception import ObjectNotFoundError
 
+from .api.objects import (
+    Alert,
+    Artifact,
+    FileArtifact,
+    Folder,
+    ObjectArtifact,
+    Run,
+    Tag,
+    get_folder_from_path,
+)
+from .api.request import get_json_from_response
+from .config.user import SimvueConfiguration
 from .converters import (
     aggregated_metrics_to_dataframe,
-    to_dataframe,
     parse_run_set_metrics,
+    to_dataframe,
 )
+from .models import FOLDER_REGEX, NAME_REGEX
 from .serialization import deserialize_data
 from .simvue_types import DeserializedContent
 from .utilities import check_extra, prettify_pydantic
-from .models import FOLDER_REGEX, NAME_REGEX
-from .config.user import SimvueConfiguration
-from .api.request import get_json_from_response
-from .api.objects import (
-    Run,
-    Folder,
-    Tag,
-    Artifact,
-    Alert,
-    FileArtifact,
-    ObjectArtifact,
-    get_folder_from_path,
-)
-
 
 CONCURRENT_DOWNLOADS = 10
 DOWNLOAD_CHUNK_SIZE = 8192
@@ -87,6 +86,7 @@ class Client:
         for label, value in zip(
             ("URL", "API token"),
             (self._user_config.server.url, self._user_config.server.url),
+            strict=True,
         ):
             if not value:
                 logger.warning(f"No {label} specified")
@@ -278,7 +278,10 @@ class Client:
             return_metadata=metadata,
             server_url=self._user_config.server.url,
             server_token=self._user_config.server.token,
-            sorting=[dict(zip(("column", "descending"), a)) for a in sort_by_columns]
+            sorting=[
+                dict(zip(("column", "descending"), a, strict=True))
+                for a in sort_by_columns
+            ]
             if sort_by_columns
             else None,
         )
@@ -443,11 +446,10 @@ class Client:
         if not folder_id:
             if allow_missing:
                 return None
-            else:
-                raise ObjectNotFoundError(
-                    name=folder_path,
-                    obj_type="folder",
-                )
+            raise ObjectNotFoundError(
+                name=folder_path,
+                obj_type="folder",
+            )
         _response = Folder(
             identifier=folder_id,
             server_url=self._user_config.server.url,
@@ -509,7 +511,10 @@ class Client:
             runs=json.dumps([run_id]),
             server_url=self._user_config.server.url,
             server_token=self._user_config.server.token,
-            sorting=[dict(zip(("column", "descending"), a)) for a in sort_by_columns]
+            sorting=[
+                dict(zip(("column", "descending"), a, strict=True))
+                for a in sort_by_columns
+            ]
             if sort_by_columns
             else None,
         )  # type: ignore
@@ -674,7 +679,9 @@ class Client:
                 executor.submit(_download_artifact_to_file, artifact, output_dir)
                 for _, artifact in _artifacts
             ]
-            for future, (_, artifact) in zip(as_completed(futures), _artifacts):
+            for future, (_, artifact) in zip(
+                as_completed(futures), _artifacts, strict=True
+            ):
                 try:
                     future.result()
                 except Exception as e:
@@ -759,7 +766,10 @@ class Client:
             offset=start_index,
             server_url=self._user_config.server.url,
             server_token=self._user_config.server.token,
-            sorting=[dict(zip(("column", "descending"), a)) for a in sort_by_columns]
+            sorting=[
+                dict(zip(("column", "descending"), a, strict=True))
+                for a in sort_by_columns
+            ]
             if sort_by_columns
             else None,
         )  # type: ignore
@@ -906,8 +916,7 @@ class Client:
             )
         if use_run_names:
             _run_metrics = {
-                Run(identifier=key).name: _run_metrics[key]
-                for key in _run_metrics.keys()
+                Run(identifier=key).name: _run_metrics[key] for key in _run_metrics
             }
         return parse_run_set_metrics(
             _run_metrics,
@@ -1081,9 +1090,11 @@ class Client:
         run_id : str | None
             The ID of the run to find alerts for
         critical_only : bool, optional
-            If a run is specified, whether to only return details about alerts which are currently critical, by default True
+            If a run is specified, whether to only return details about alerts
+            which are currently critical, by default True
         names_only: bool, optional
-            Whether to only return the names of the alerts (otherwise return the full details of the alerts), by default True
+            Whether to only return the names of the alerts (otherwise return
+            the full details of the alerts), by default True
         start_index : typing.int, optional
             slice results returning only those above this index, by default None
         count_limit : typing.int, optional
@@ -1106,13 +1117,15 @@ class Client:
         if not run_id:
             if critical_only:
                 raise RuntimeError(
-                    "critical_only is ambiguous when returning alerts with no run ID specified."
+                    "critical_only is ambiguous when returning alerts "
+                    "with no run ID specified."
                 )
             return [
                 alert.name if names_only else alert
                 for _, alert in Alert.get(
                     sorting=[
-                        dict(zip(("column", "descending"), a)) for a in sort_by_columns
+                        dict(zip(("column", "descending"), a, strict=True))
+                        for a in sort_by_columns
                     ]
                     if sort_by_columns
                     else None,
@@ -1181,7 +1194,10 @@ class Client:
             offset=start_index,
             server_url=self._user_config.server.url,
             server_token=self._user_config.server.token,
-            sorting=[dict(zip(("column", "descending"), a)) for a in sort_by_columns]
+            sorting=[
+                dict(zip(("column", "descending"), a, strict=True))
+                for a in sort_by_columns
+            ]
             if sort_by_columns
             else None,
         )

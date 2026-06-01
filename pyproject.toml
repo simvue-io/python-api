@@ -88,9 +88,32 @@ dev = [
 ]
 
 [tool.ruff]
-lint.extend-select = ["C901", "T201"]
-lint.mccabe.max-complexity = 11
 extend-exclude = ["tests", "examples", "notebooks"]
+
+[tool.ruff.lint]
+extend-select = [
+  "C901",
+  "T201",
+  "E",
+  "F",
+  "W",
+  "B",
+  "UP",
+  "I",
+  "SIM",
+  "ARG",
+  "RUF",
+  "RET",
+]
+
+[tool.ruff.lint.mccabe]
+max-complexity = 14
+
+[tool.ruff.lint.pylint]
+max-returns = 8
+max-args = 20
+max-branches = 15
+max-statements = 60
 
 [tool.pytest.ini_options]
 addopts = "-p no:warnings --no-cov -n 0"

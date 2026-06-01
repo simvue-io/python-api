@@ -3,15 +3,16 @@
 Contains factory method for selecting dispatcher type based on Simvue Configuration
 """
 
-import typing
 import logging
+import typing
 
 if typing.TYPE_CHECKING:
-    from .base import DispatcherBaseClass
     from threading import Event
 
-from .queued import QueuedDispatcher
+    from .base import DispatcherBaseClass
+
 from .direct import DirectDispatcher
+from .queued import QueuedDispatcher
 
 logger = logging.getLogger(__name__)
 
@@ -62,12 +63,11 @@ def Dispatcher(
             termination_trigger=termination_trigger,
             thresholds=thresholds,
         )
-    else:
-        logger.debug("Using queued dispatch for metric and queue sending")
-        return QueuedDispatcher(
-            callback=callback,
-            object_types=object_types,
-            termination_trigger=termination_trigger,
-            name=name,
-            thresholds=thresholds,
-        )
+    logger.debug("Using queued dispatch for metric and queue sending")
+    return QueuedDispatcher(
+        callback=callback,
+        object_types=object_types,
+        termination_trigger=termination_trigger,
+        name=name,
+        thresholds=thresholds,
+    )

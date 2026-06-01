@@ -8,14 +8,15 @@ Provides an interface for estimating CO2 usage for processes on the CPU.
 __author__ = "Kristian Zarebski"
 __date__ = "2025-02-27"
 
+import dataclasses
 import datetime
 import json
-import pydantic
-import dataclasses
 import logging
-import humanfriendly
-import pathlib
 import os.path
+import pathlib
+
+import humanfriendly
+import pydantic
 
 from simvue.eco.api_client import APIClient, CO2SignalResponse
 
@@ -95,11 +96,14 @@ class CO2Monitor(pydantic.BaseModel):
         local_data_directory: pydantic.DirectoryPath
             the directory in which to store CO2 intensity data.
         intensity_refresh_interval: int | str | None
-            the interval in seconds at which to call the CO2 signal API. The default is once per day,
-            note the API is restricted to 30 requests per hour for a given user. Also accepts a
+            the interval in seconds at which to call the CO2
+            signal API. The default is once per day,
+            note the API is restricted to 30 requests per hour
+            for a given user. Also accepts a
             time period as a string, e.g. '1 week'
         co2_intensity: float | None
-            disable using RestAPIs to retrieve CO2 intensity and instead use this value.
+            disable using RestAPIs to retrieve CO2 intensity
+            and instead use this value.
             Default is None, use remote data. Value is in kgCO2/kWh
         co2_signal_api_token: str
             The API token for CO2 signal, default is None.
@@ -114,25 +118,30 @@ class CO2Monitor(pydantic.BaseModel):
             or kwargs.get("offline")
         ):
             raise ValueError(
-                "ElectricityMaps API token or hardcoeded CO2 intensity value is required for emissions tracking."
+                "ElectricityMaps API token or hardcoeded CO2 "
+                "intensity value is required "
+                "for emissions tracking."
             )
 
         if not isinstance(kwargs.get("thermal_design_power_per_cpu"), float):
             kwargs["thermal_design_power_per_cpu"] = 80.0
             _logger.warning(
-                "⚠️  No TDP value provided for current CPU, will use arbitrary value of 80W."
+                "⚠️  No TDP value provided for current CPU, will use "
+                "arbitrary value of 80W."
             )
 
         if not isinstance(kwargs.get("n_cores_per_cpu"), float):
             kwargs["n_cores_per_cpu"] = 4
             _logger.warning(
-                "⚠️  No core count provided for current CPU, will use arbitrary value of 4."
+                "⚠️  No core count provided for current CPU, will use "
+                "arbitrary value of 4."
             )
 
         if not isinstance(kwargs.get("thermal_design_power_per_gpu"), float):
             kwargs["thermal_design_power_per_gpu"] = 130.0
             _logger.warning(
-                "⚠️  No TDP value provided for current GPUs, will use arbitrary value of 130W."
+                "⚠️  No TDP value provided for current GPUs, "
+                "will use arbitrary value of 130W."
             )
         super().__init__(*args, **kwargs)
         self._last_local_write = datetime.datetime.now()
@@ -149,17 +158,20 @@ class CO2Monitor(pydantic.BaseModel):
             and self.intensity_refresh_interval <= CO2_SIGNAL_API_INTERVAL_LIMIT
         ):
             raise ValueError(
-                "Invalid intensity refresh rate, CO2 signal API restricted to 30 calls per hour."
+                "Invalid intensity refresh rate, CO2 signal API restricted "
+                "to 30 calls per hour."
             )
 
         if self.co2_intensity:
             _logger.warning(
-                f"⚠️ Disabling online data retrieval, using {self.co2_intensity} eqCO2g/kwh for CO2 intensity."
+                f"⚠️ Disabling online data retrieval, using {self.co2_intensity} "
+                "eqCO2g/kwh for CO2 intensity."
             )
 
         self._data_file_path: pathlib.Path | None = None
 
-        # Load any local data first, if the data is missing or due a refresh this will be None
+        # Load any local data first, if the data is missing or due a refresh
+        # this will be None
         self._local_data: dict[str, str | dict[str, float | str]] | None = (
             self._load_local_data() or {}
         )
@@ -253,7 +265,8 @@ class CO2Monitor(pydantic.BaseModel):
             else:
                 _country_code = _country_codes[0]
                 self._logger.debug(
-                    f"🗂️ Using data for region '{_country_code}' from local cache for offline estimation."
+                    f"🗂️ Using data for region '{_country_code}' from local "
+                    "cache for offline estimation."
                 )
             self._current_co2_data = CO2SignalResponse(
                 **self._local_data[_country_code]
@@ -282,8 +295,10 @@ class CO2Monitor(pydantic.BaseModel):
         _process.co2_emission += _process.co2_delta
 
         self._logger.debug(
-            f"📝 For process '{process_id}', in interval {measure_interval}, recorded: CPU={_process.cpu_percentage:.2f}%, "
-            f"Power={_process.power_usage:.2f}kW, Energy = {_process.energy_delta}kWh, CO2={_process.co2_delta:.2e}kg"
+            f"📝 For process '{process_id}', in interval {measure_interval}, "
+            f"recorded: CPU={_process.cpu_percentage:.2f}%, "
+            f"Power={_process.power_usage:.2f}kW, Energy = "
+            f"{_process.energy_delta}kWh, CO2={_process.co2_delta:.2e}kg"
         )
         return True
 

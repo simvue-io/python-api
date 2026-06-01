@@ -5,15 +5,17 @@ locally or on a Simvue server
 
 """
 
-from .base import ArtifactBase
+import io
+import sys
+import typing
+
+import pydantic
+
 from simvue.models import NAME_REGEX
 from simvue.serialization import serialize_object
 from simvue.utilities import calculate_sha256
 
-import pydantic
-import typing
-import sys
-import io
+from .base import ArtifactBase
 
 try:
     from typing import Self, override
@@ -24,8 +26,9 @@ except ImportError:
 class ObjectArtifact(ArtifactBase):
     """Simvue Object Artifact.
 
-    This class is used to connect to/create file object artifact objects on the Simvue server,
-    any modification of instance attributes is mirrored on the remote object.
+    This class is used to connect to/create file object artifact
+    objects on the Simvue server, any modification of instance
+    attributes is mirrored on the remote object.
 
     """
 
@@ -42,7 +45,8 @@ class ObjectArtifact(ArtifactBase):
 
         If an identifier is provided a connection will be made to the
         object matching the identifier on the target server.
-        Else a new ObjectArtifact instance will be created using arguments provided in kwargs.
+        Else a new ObjectArtifact instance will be created using
+        arguments provided in kwargs.
 
         Parameters
         ----------
@@ -116,7 +120,9 @@ class ObjectArtifact(ArtifactBase):
                 kwargs.pop("size")
                 kwargs.pop("original_path")
             except KeyError:
-                raise ValueError("Must provide an object to be saved, not None.")
+                raise ValueError(
+                    "Must provide an object to be saved, not None."
+                ) from None
 
         else:
             _serialization = serialize_object(obj, allow_pickling)

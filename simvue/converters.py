@@ -7,9 +7,9 @@ data types including creation of DataFrames for metrics
 """
 
 import typing
-import pandas
-import flatdict
 
+import flatdict
+import pandas
 
 if typing.TYPE_CHECKING:
     from pandas import DataFrame
@@ -79,10 +79,9 @@ def aggregated_metrics_to_dataframe(
         _data_frame = pandas.DataFrame(result_dict)
         _data_frame.index.name = xaxis
         return _data_frame
-    elif parse_to == "dict":
+    if parse_to == "dict":
         return result_dict
-    else:
-        raise ValueError(f"Unrecognised parse format '{parse_to}'")
+    raise ValueError(f"Unrecognised parse format '{parse_to}'")
 
 
 def parse_run_set_metrics(
@@ -133,7 +132,7 @@ def parse_run_set_metrics(
     )
 
     _all_metrics: list[str] = sorted(
-        {key for run_data in request_response_data.values() for key in run_data.keys()}
+        {key for run_data in request_response_data.values() for key in run_data}
     )
 
     # Get the keys from the aggregate which are not the xaxis label
@@ -147,7 +146,9 @@ def parse_run_set_metrics(
         metric_name: {} for metric_name in _all_metrics
     }
 
-    for run_label, run_data in zip(run_labels, request_response_data.values()):
+    for run_label, run_data in zip(
+        run_labels, request_response_data.values(), strict=True
+    ):
         for metric_name in _all_metrics:
             if metric_name not in run_data:
                 for step in _all_steps:
@@ -170,10 +171,9 @@ def parse_run_set_metrics(
                 [_all_steps, run_labels], names=(xaxis, "run")
             ),
         )
-    elif parse_to == "dict":
+    if parse_to == "dict":
         return result_dict
-    else:
-        raise ValueError(f"Unrecognised parse format '{parse_to}'")
+    raise ValueError(f"Unrecognised parse format '{parse_to}'")
 
 
 def to_dataframe(data) -> pandas.DataFrame:
@@ -200,7 +200,7 @@ def to_dataframe(data) -> pandas.DataFrame:
             if isinstance(value, dict):
                 system_columns += [
                     col_name
-                    for sub_item in value.keys()
+                    for sub_item in value
                     if (col_name := f"system.{item}.{sub_item}") not in system_columns
                 ]
             elif f"system.{item}" not in system_columns:

@@ -7,18 +7,19 @@ a new set of events given relevant arguments.
 
 """
 
+import datetime
 import http
 import typing
-import datetime
+from collections.abc import Generator
 
 import pydantic
 
+from simvue.api.request import get as sv_get
+from simvue.api.request import get_json_from_response
 from simvue.api.url import URL
+from simvue.models import EventSet, simvue_timestamp
 
 from .base import SimvueObject
-from simvue.models import EventSet, simvue_timestamp
-from simvue.api.request import get as sv_get, get_json_from_response
-from collections.abc import Generator
 
 try:
     from typing import Self
@@ -117,7 +118,8 @@ class Events(SimvueObject):
         ):
             if (_data := response.get("data")) is None:
                 raise RuntimeError(
-                    f"Expected key 'data' for retrieval of {_class_instance.__class__.__name__.lower()}s"
+                    "Expected key 'data' for retrieval of "
+                    f"{_class_instance.__class__.__name__.lower()}s"
                 )
 
             for _entry in _data:

@@ -1,14 +1,14 @@
 """Upload actions for cached files."""
 
 import abc
-from collections.abc import Generator
-from concurrent.futures import ThreadPoolExecutor
 import http
 import json
 import logging
 import pathlib
 import threading
 import typing
+from collections.abc import Generator
+from concurrent.futures import ThreadPoolExecutor
 
 import requests
 
@@ -37,16 +37,17 @@ from simvue.api.objects import (
 from simvue.api.objects.alert.fetch import AlertType
 from simvue.api.objects.artifact.base import ArtifactBase
 from simvue.api.objects.base import SimvueObject
-from simvue.api.request import put as sv_put, get_json_from_response
-from simvue.models import ObjectID
+from simvue.api.request import get_json_from_response
+from simvue.api.request import put as sv_put
 from simvue.config.user import SimvueConfiguration
 from simvue.eco import CO2Monitor
+from simvue.models import ObjectID
 from simvue.run import Run as SimvueRun
 
 try:
     from typing import override
 except ImportError:
-    from typing_extensions import override  # noqa: UP035
+    from typing_extensions import override
 
 
 class UploadAction:
@@ -449,8 +450,7 @@ class ArtifactUploadAction(UploadAction):
 
             return ObjectArtifact.new(**data)
 
-        _sv_obj = Artifact(identifier=online_id, _read_only=False, **data)
-        return _sv_obj
+        return Artifact(identifier=online_id, _read_only=False, **data)
 
 
 class RunUploadAction(UploadAction):
@@ -731,12 +731,11 @@ class AlertUploadAction(UploadAction):
 
             if _source == "events":
                 return EventsAlert.new(**data)
-            elif _source == "metrics" and data.get("threshold"):
+            if _source == "metrics" and data.get("threshold"):
                 return MetricsThresholdAlert.new(**data)
-            elif _source == "metrics":
+            if _source == "metrics":
                 return MetricsRangeAlert.new(**data)
-            else:
-                return UserAlert.new(**data)
+            return UserAlert.new(**data)
 
         return Alert(identifier=online_id, _read_only=False, **data)
 

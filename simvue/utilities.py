@@ -1,18 +1,18 @@
-import hashlib
-import logging
-import json
-import mimetypes
-import tabulate
-import pydantic
-import importlib.util
-import functools
 import contextlib
+import functools
+import hashlib
+import importlib.util
+import json
+import logging
+import mimetypes
 import os
 import pathlib
 import typing
-import jwt
-from deepmerge import Merger
 
+import jwt
+import pydantic
+import tabulate
+from deepmerge import Merger
 
 CHECKSUM_BLOCK_SIZE = 4096
 EXTRAS: tuple[str, ...] = ("plot", "torch")
@@ -95,6 +95,7 @@ def parse_validation_response(
         )
 
     out: list[list[str]] = []
+    error_string_cutoff: int = 60
 
     if isinstance(issues, str):
         return tabulate.tabulate(
@@ -125,12 +126,12 @@ def parse_validation_response(
                 for loc in location:
                     if loc in input_arg:
                         input_arg = input_arg[loc]
-            if len(str(input_arg)) > 60 and input_arg:
-                input_arg = f"{str(input_arg)[:60]}..."
+            if len(str(input_arg)) > error_string_cutoff and input_arg:
+                input_arg = f"{str(input_arg)[:error_string_cutoff]}..."
             information.append(input_arg)
 
         # Limit message to be 60 characters
-        msg: str = issue["msg"][:60]
+        msg: str = issue["msg"][:error_string_cutoff]
         information.append(msg)
         out.append(information)
 
@@ -158,7 +159,7 @@ def check_extra(extra_name: str) -> typing.Callable:
                 raise RuntimeError(
                     f"Plotting features require the '{extra_name}' extension to Simvue"
                 )
-            elif extra_name == "eco":
+            if extra_name == "eco":
                 if not importlib.util.find_spec("geocoder"):
                     raise RuntimeError(
                         f"Eco features require the '{extra_name}' extenstion to Simvue"
@@ -179,19 +180,20 @@ def check_extra(extra_name: str) -> typing.Callable:
 
 def parse_pydantic_error(error: pydantic.ValidationError) -> str:
     out_table: list[str] = []
+    error_string_cutoff: int = 50
     for data in json.loads(error.json()):
         _input = data.get("input") if data["input"] is not None else "None"
         if isinstance(_input, dict):
             _input_str = json.dumps(_input, indent=2)
             _input_str = "\n".join(
-                f"{line[:47]}..." if len(line) > 50 else line
+                f"{line[:47]}..." if len(line) > error_string_cutoff else line
                 for line in _input_str.split("\n")
             )
         else:
             _input_str = (
                 _input_str
-                if len((_input_str := f"{_input}")) < 50
-                else f"{_input_str[:50]}..."
+                if len(_input_str := f"{_input}") < error_string_cutoff
+                else f"{_input_str[:error_string_cutoff]}..."
             )
         _type: str = data["type"]
 
@@ -308,7 +310,7 @@ def prettify_pydantic(func: typing.Callable) -> typing.Callable:
             return func(*args, **kwargs)
         except pydantic.ValidationError as e:
             error_str = parse_pydantic_error(e)
-            raise RuntimeError(error_str)
+            raise RuntimeError(error_str) from None
 
     return wrapper
 

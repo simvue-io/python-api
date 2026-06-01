@@ -1,13 +1,14 @@
 """Simvue RestAPI Runs Filter."""
 
 import typing
-import semver
+
 import pydantic as pyd
+import semver
 
 try:
     from typing import Self
 except ImportError:
-    from typing_extensions import Self  # noqa: UP035
+    from typing_extensions import Self
 
 from simvue.models import FOLDER_REGEX
 from simvue.utilities import prettify_pydantic
@@ -17,7 +18,7 @@ from .base import RestAPIFilter, Time
 try:
     from typing import override
 except ImportError:
-    from typing_extensions import override  # noqa: UP035
+    from typing_extensions import override
 
 Status = typing.Literal[
     "lost", "failed", "completed", "terminated", "running", "created"
@@ -280,8 +281,8 @@ class RunsFilter(RestAPIFilter):
         """Veto by simulation host platform.
 
         If platform is specified then results WITHOUT this platform are returned.
-        However if a version and/or release is given then results WITH the given platform
-        but NOT the given release/version are returned.
+        However if a version and/or release is given then results WITH
+        the given platform but NOT the given release/version are returned.
         """
         self._filters.append(
             "system.platform.system " + "!="

@@ -5,8 +5,9 @@ a new user given relevant arguments.
 
 """
 
-import pydantic
 import datetime
+
+import pydantic
 
 from simvue.models import DATETIME_FORMAT
 

@@ -6,16 +6,17 @@ Pydantic model for the Simvue TOML configuration file
 
 """
 
-from collections.abc import Generator
 import functools
+import http
 import logging
 import os
-import typing
-import http
 import pathlib
+import typing
+from collections.abc import Generator
+
 import pydantic
-import toml
 import semver
+import toml
 
 try:
     from typing import Self
@@ -23,23 +24,22 @@ except ImportError:
     from typing_extensions import Self
 
 import simvue.utilities as sv_util
-from simvue.config.parameters import (
-    ClientGeneralOptions,
-    DefaultRunSpecifications,
-    MetricsSpecifications,
-    ServerSpecifications,
-    OfflineSpecifications,
-)
-
+from simvue.api.request import get as sv_get
+from simvue.api.url import URL
 from simvue.config.files import (
     CONFIG_FILE_NAMES,
     CONFIG_INI_FILE_NAMES,
     DEFAULT_OFFLINE_DIRECTORY,
 )
-from simvue.version import __version__
-from simvue.api.request import get as sv_get
-from simvue.api.url import URL
+from simvue.config.parameters import (
+    ClientGeneralOptions,
+    DefaultRunSpecifications,
+    MetricsSpecifications,
+    OfflineSpecifications,
+    ServerSpecifications,
+)
 from simvue.eco.config import EcoConfig
+from simvue.version import __version__
 
 logger = logging.getLogger(__name__)
 
@@ -103,7 +103,8 @@ class SimvueConfiguration(pydantic.BaseModel):
             ]
         ):
             raise RuntimeError(
-                "Provision of Simvue URL, Token or offline directory in pyproject.toml is not allowed."
+                "Provision of Simvue URL, Token or offline directory in "
+                "pyproject.toml is not allowed."
             )
 
         return _simvue_setup
@@ -134,7 +135,7 @@ class SimvueConfiguration(pydantic.BaseModel):
 
         except Exception as err:
             raise AssertionError(
-                f"Exception retrieving server version:\n {str(err)}"
+                f"Exception retrieving server version:\n {err!s}"
             ) from err
 
         _version = semver.Version.parse(_version_str)
@@ -144,13 +145,14 @@ class SimvueConfiguration(pydantic.BaseModel):
             and _version >= SIMVUE_SERVER_UPPER_CONSTRAINT
         ):
             raise AssertionError(
-                f"Python API v{_version_str} is not compatible with Simvue server versions "
+                f"Python API v{_version_str} is not compatible "
+                "with Simvue server versions "
                 f">= {SIMVUE_SERVER_UPPER_CONSTRAINT}"
             )
         if SIMVUE_SERVER_LOWER_CONSTRAINT and _version < SIMVUE_SERVER_LOWER_CONSTRAINT:
             raise AssertionError(
-                f"Python API v{_version_str} is not compatible with Simvue server versions "
-                f"< {SIMVUE_SERVER_LOWER_CONSTRAINT}"
+                f"Python API v{_version_str} is not compatible with Simvue "
+                f"server versions < {SIMVUE_SERVER_LOWER_CONSTRAINT}"
             )
         return _version
 
@@ -294,7 +296,8 @@ class SimvueConfiguration(pydantic.BaseModel):
             CONFIG_INI_FILE_NAMES, check_user_space=True
         ):
             raise RuntimeError(
-                "Simvue INI configuration file format has been deprecated in simvue>=1.2, "
+                "Simvue INI configuration file format has been "
+                "deprecated in simvue>=1.2, "
                 "please use TOML file"
             )
 

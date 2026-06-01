@@ -4,19 +4,22 @@ Contains general definitions for Simvue Alert objects.
 
 """
 
-import http
-import pydantic
 import datetime
+import http
 import typing
+
+import pydantic
+
 from simvue.api.objects.base import SimvueObject, staging_check, write_only
-from simvue.api.request import get as sv_get, get_json_from_response
+from simvue.api.request import get as sv_get
+from simvue.api.request import get_json_from_response
 from simvue.api.url import URL
-from simvue.models import NAME_REGEX, DATETIME_FORMAT
+from simvue.models import DATETIME_FORMAT, NAME_REGEX
 
 try:
     from typing import Self, override
 except ImportError:
-    from typing_extensions import Self, override  # noqa: UP035
+    from typing_extensions import Self, override
 
 
 class AlertBase(SimvueObject):
@@ -102,6 +105,9 @@ class AlertBase(SimvueObject):
             other.read_only(False, clear_staged=False)
 
         return _comparison
+
+    def __hash__(self) -> int:
+        return hash(f"{self.name}+{self.description}+{self.source}+{self.notification}")
 
     def compare(self, other: "AlertBase") -> bool:
         """Compare this alert to another"""
@@ -219,7 +225,7 @@ class AlertBase(SimvueObject):
         self._staging["abort"] = abort
 
     @pydantic.validate_call
-    def set_status(self, run_id: str, status: typing.Literal["ok", "critical"]) -> None:
+    def set_status(self, _: str, __: typing.Literal["ok", "critical"]) -> None:
         """Set the status of this alert for a given run"""
         raise AttributeError(
             f"Cannot update state for alert of type '{self.__class__.__name__}'"
@@ -231,7 +237,8 @@ class AlertBase(SimvueObject):
 
         if not self._offline and run_id.startswith("offline"):
             raise ValueError(
-                f"Cannot retrieve status of online alert '{self.id}' for offline run '{run_id}'"
+                f"Cannot retrieve status of online alert '{self.id}' "
+                f"for offline run '{run_id}'"
             )
 
         _url: URL = self.url / f"status/{run_id}"

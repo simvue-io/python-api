@@ -9,15 +9,16 @@ electricity generation in different countries.
 
 __date__ = "2025-02-27"
 
-import requests
-import pydantic
+import datetime
 import functools
 import http
 import logging
-import datetime
+import typing
+
 import geocoder
 import geocoder.location
-import typing
+import pydantic
+import requests
 
 CO2_SIGNAL_API_ENDPOINT: str = (
     "https://api.electricitymap.org/v3/carbon-intensity/latest"
@@ -49,7 +50,7 @@ class CO2SignalResponse(pydantic.BaseModel):
         )
 
 
-@functools.lru_cache()
+@functools.lru_cache
 def _call_geocoder_query() -> typing.Any:
     """Call GeoCoder API for IP location
 
@@ -116,7 +117,8 @@ class APIClient(pydantic.BaseModel):
             except (AttributeError, KeyError):
                 _error = _response.text
             raise RuntimeError(
-                f"[{_response.status_code}] Failed to retrieve current CO2 signal data for"
+                f"[{_response.status_code}] Failed to retrieve "
+                "current CO2 signal data for"
                 f" country '{self._two_letter_country_code}': {_error}"
             )
 

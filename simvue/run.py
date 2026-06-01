@@ -5,79 +5,77 @@ This forms the central API for users.
 """
 
 import contextlib
+import datetime
+import functools
 import logging
-import pathlib
 import mimetypes
 import multiprocessing.synchronize
-import shlex
-import threading
-import warnings
-import humanfriendly
-import datetime
 import os
-from unyt import unyt_quantity
-from unyt.exceptions import UnitParseError
-
-import pydantic
-import re
-import sys
-import traceback as tb
-import time
-import types
-import functools
+import pathlib
 import platform
+import re
+import shlex
+import sys
+import threading
+import time
+import traceback as tb
+import types
 import typing
 import uuid
-import numpy
-import randomname
+
 import click
+import humanfriendly
+import numpy
 import psutil
+import pydantic
+import randomname
+from unyt import unyt_quantity
+from unyt.exceptions import UnitParseError
 
 from simvue.api.objects.alert.base import AlertBase
 from simvue.api.objects.alert.fetch import Alert
 from simvue.api.objects.folder import Folder
 from simvue.api.objects.grids import GridMetrics
-from simvue.exception import ObjectNotFoundError, SimvueRunError, ObjectDispatchError
+from simvue.exception import ObjectDispatchError, ObjectNotFoundError, SimvueRunError
 from simvue.utilities import prettify_pydantic
 
-
+from .api.objects import (
+    Events,
+    EventsAlert,
+    FileArtifact,
+    Grid,
+    Metrics,
+    MetricsRangeAlert,
+    MetricsThresholdAlert,
+    ObjectArtifact,
+    UserAlert,
+)
+from .api.objects import (
+    Run as RunObject,
+)
 from .config.user import SimvueConfiguration
-
 from .dispatch import Dispatcher
+from .eco import CO2Monitor
 from .executor import Executor, get_current_shell
+from .metadata import environment, git_info
 from .metrics import SystemResourceMeasurement
 from .models import (
     FOLDER_REGEX,
     NAME_REGEX,
-    MetricKeyString,
-    validate_timestamp,
-    simvue_timestamp,
     LogLevel,
+    MetricKeyString,
+    simvue_timestamp,
+    validate_timestamp,
 )
 from .system import get_system
-from .metadata import git_info, environment
-from .eco import CO2Monitor
 from .utilities import (
     skip_if_failed,
 )
-from .api.objects import (
-    Run as RunObject,
-    FileArtifact,
-    ObjectArtifact,
-    MetricsThresholdAlert,
-    MetricsRangeAlert,
-    UserAlert,
-    EventsAlert,
-    Events,
-    Metrics,
-    Grid,
-)
-
 
 try:
     from typing import Self
 except ImportError:
-    from typing_extensions import Self  # noqa: F401
+    from typing_extensions import Self
 
 
 if typing.TYPE_CHECKING:
@@ -400,7 +398,8 @@ class Run:
             )
 
         # For the first emissions metrics reading, the time interval to use
-        # Is the time since the run started, otherwise just use the time between readings
+        # Is the time since the run started, otherwise just use the time
+        # between readings
         if self._emissions_monitor:
             _estimated = self._emissions_monitor.estimate_co2_emissions(
                 process_id=f"{self._sv_obj.name}",
@@ -509,7 +508,7 @@ class Run:
                     events=buffer,
                 )
                 return _events.commit()
-            elif category == "metrics_tensor":
+            if category == "metrics_tensor":
                 _grid_metrics = GridMetrics.new(
                     run=self.id,
                     data=buffer,
@@ -518,15 +517,14 @@ class Run:
                     offline=self.mode == "offline",
                 )
                 return _grid_metrics.commit()
-            else:
-                _metrics = Metrics.new(
-                    run=self.id,
-                    offline=self.mode == "offline",
-                    server_url=self._user_config.server.url,
-                    server_token=self._user_config.server.token,
-                    metrics=buffer,
-                )
-                return _metrics.commit()
+            _metrics = Metrics.new(
+                run=self.id,
+                offline=self.mode == "offline",
+                server_url=self._user_config.server.url,
+                server_token=self._user_config.server.token,
+                metrics=buffer,
+            )
+            return _metrics.commit()
 
         return _dispatch_callback
 
@@ -648,12 +646,11 @@ class Run:
         self,
         name: typing.Annotated[str | None, pydantic.Field(pattern=NAME_REGEX)] = None,
         *,
-        metadata: dict[str, typing.Any] = None,
+        metadata: dict[str, typing.Any] | None = None,
         tags: list[str] | None = None,
         description: str | None = None,
-        folder: typing.Annotated[
-            str, pydantic.Field(None, pattern=FOLDER_REGEX)
-        ] = None,
+        folder: typing.Annotated[str, pydantic.Field(None, pattern=FOLDER_REGEX)]
+        | None = None,
         notification: typing.Literal["none", "all", "error", "lost"] = "none",
         running: bool = True,
         retention_period: str | None = None,
@@ -709,7 +706,8 @@ class Run:
         """
         if self._user_config.run.mode == "disabled":
             logger.warning(
-                "Simvue monitoring has been deactivated for this run, metrics and artifacts will not be recorded."
+                "Simvue monitoring has been deactivated for this run, metrics "
+                "and artifacts will not be recorded."
             )
             return True
 
@@ -745,7 +743,7 @@ class Run:
         if name and not re.match(r"^[a-zA-Z0-9\-\_\s\/\.:]+$", name):
             self._error("specified name is invalid")
             return False
-        elif not name and self.mode == "offline":
+        if not name and self.mode == "offline":
             name = randomname.get_name()
 
         self._status = "running" if running else "created"
@@ -814,7 +812,9 @@ class Run:
                 fg="green" if self._term_color else None,
             )
             click.secho(
-                f"[simvue] Monitor in the UI at {self._user_config.server.url.rsplit('/api', 1)[0]}/dashboard/runs/run/{self.id}",
+                "[simvue] Monitor in the UI at "
+                f"{self._user_config.server.url.rsplit('/api', 1)[0]}"
+                f"/dashboard/runs/run/{self.id}",
                 bold=self._term_color,
                 fg="green" if self._term_color else None,
             )
@@ -830,9 +830,7 @@ class Run:
         executable: str | pathlib.Path | None = None,
         script: pydantic.FilePath | None = None,
         input_file: pydantic.FilePath | None = None,
-        completion_callback: typing.Optional[
-            typing.Callable[[int, str, str], None]
-        ] = None,
+        completion_callback: typing.Callable[[int, str, str], None] | None = None,
         completion_trigger: threading.Event
         | multiprocessing.synchronize.Event
         | None = None,
@@ -842,7 +840,8 @@ class Run:
     ) -> None:
         """Add a process to be executed to the executor.
 
-        This process can take many forms, for example a be a set of positional arguments:
+        This process can take many forms, for example a be a set of
+        positional arguments:
 
         ```python
         executor.add_process("my_process", "ls", "-ltr")
@@ -865,12 +864,14 @@ class Run:
         )
         ```
 
-        or a mixture of both. In the latter case arguments which are not 'executable', 'script', 'input'
-        are taken to be options to the command, for flags `flag=True` can be used to set the option and
-        for options taking values `option=value`.
+        or a mixture of both. In the latter case arguments which are not
+        'executable', 'script', 'input' are taken to be options to the command,
+        for flags `flag=True` can be used to set the option and for options
+        taking values `option=value`.
 
-        When the process has completed if a function has been provided for the `completion_callback` argument
-        this will be called, this callback is expected to take the following form:
+        When the process has completed if a function has been provided for the
+        `completion_callback` argument this will be called, this callback is
+        expected to take the following form:
 
         ```python
         def callback_function(status_code: int, std_out: str, std_err: str) -> None: ...
@@ -878,24 +879,27 @@ class Run:
 
         Note `completion_callback` is not supported on Windows operating systems.
 
-        Alternatively you can use `completion_trigger` to create a multiprocessing event which will be set
-        when the process has completed.
+        Alternatively you can use `completion_trigger` to create a multiprocessing
+        event which will be set when the process has completed.
 
         Parameters
         ----------
         identifier : str
             A unique identifier for this process
         executable : str | None, optional
-            the main executable for the command, if not specified this is taken to be the first
-            positional argument, by default None
+            the main executable for the command, if not specified this is
+            taken to be the first positional argument, by default None
         *positional_arguments : Any, ..., optional
-            all other positional arguments are taken to be part of the command to execute
+            all other positional arguments are taken to be part of the
+            command to execute
         script : pydantic.FilePath | None, optional
-            the script to run, note this only work if the script is not an option, if this is the case
-            you should provide it as such and perform the upload manually, by default None
+            the script to run, note this only work if the script is not an option,
+            if this is the case you should provide it as such and perform the
+            upload manually, by default None
         input_file : pydantic.FilePath | None, optional
-            the input file to run, note this only work if the input file is not an option, if this is the case
-            you should provide it as such and perform the upload manually, by default None
+            the input file to run, note this only work if the input file is not an
+            option, if this is the case you should provide it as such and perform
+            the upload manually, by default None
         completion_callback : typing.Callable | None, optional
             callback to run when process terminates (not supported on Windows)
         completion_trigger : threading.Event | None, optional
@@ -903,8 +907,10 @@ class Run:
         env : dict[str, str], optional
             environment variables for process
         cwd: pathlib.Path | None, optional
-            working directory to execute the process within. Note that executable, input and script file paths should
-            be absolute or relative to the directory where this method is called, not relative to the new working directory.
+            working directory to execute the process within. Note that executable,
+            input and script file paths should be absolute or relative to the
+            directory where this method is called, not relative to the new
+            working directory.
         **kwargs : Any, ..., optional
             all other keyword arguments are interpreted as options to the command
 
@@ -935,16 +941,11 @@ class Run:
             )
         ```
         """
-        if isinstance(completion_trigger, multiprocessing.synchronize.Event):
-            warnings.warn(
-                "Use of a 'multiprocessing.Event' as a termination trigger will be deprecated in v2.5, "
-                + "use an instance of 'threading.Event' instead."
-            )
-
         if platform.system() == "Windows" and completion_trigger:
             raise RuntimeError(
-                "Use of 'completion_trigger' on Windows based operating systems is unsupported "
-                "due to function pickling restrictions for multiprocessing"
+                "Use of 'completion_trigger' on Windows based operating systems "
+                "is unsupported due to function pickling restrictions for "
+                "multiprocessing"
             )
 
         if isinstance(executable, pathlib.Path) and not executable.is_file():
@@ -973,11 +974,11 @@ class Run:
                 else:
                     cmd_list += [f"-{kwarg}{(f' {_quoted_val}') if val else ''}"]
             else:
-                kwarg = kwarg.replace("_", "-")
+                _kwarg = kwarg.replace("_", "-")
                 if isinstance(val, bool) and val:
-                    cmd_list += [f"--{kwarg}"]
+                    cmd_list += [f"--{_kwarg}"]
                 else:
-                    cmd_list += [f"--{kwarg}{(f' {_quoted_val}') if val else ''}"]
+                    cmd_list += [f"--{_kwarg}{(f' {_quoted_val}') if val else ''}"]
 
         cmd_list += pos_args
         cmd_str = shlex.join(cmd_list)
@@ -1143,10 +1144,11 @@ class Run:
         self._pid = pid
         self._parent_process = psutil.Process(self._pid)
         self._child_processes = self._get_child_processes()
-        # Get CPU usage stats for each of those new processes, so that next time it's measured by the heartbeat the value is accurate
+        # Get CPU usage stats for each of those new processes, so that next time it's
+        # measured by the heartbeat the value is accurate
         [
             _process.cpu_percent()
-            for _process in self._child_processes + [self._parent_process]
+            for _process in (*self._child_processes, self._parent_process)
         ]
 
     @skip_if_failed("_aborted", "_suppress_errors", False)
@@ -1200,7 +1202,8 @@ class Run:
 
             if system_metrics_interval and disable_resources_metrics:
                 self._error(
-                    "Setting of resource metric interval and disabling resource metrics is ambiguous"
+                    "Setting of resource metric interval and disabling "
+                    "resource metrics is ambiguous"
                 )
                 return False
 
@@ -1219,7 +1222,8 @@ class Run:
             if enable_emission_metrics:
                 if not self._system_metrics_interval:
                     self._error(
-                        "Emissions metrics require resource metrics collection - make sure resource metrics are enabled!"
+                        "Emissions metrics require resource metrics collection "
+                        "- make sure resource metrics are enabled!"
                     )
                     return False
                 if self.mode == "offline":
@@ -1247,13 +1251,6 @@ class Run:
                 self._error("Cannot disable emissions monitor once it has been started")
 
             if abort_on_alert is not None:
-                if isinstance(abort_on_alert, bool):
-                    raise (
-                        TypeError(
-                            "Use of type bool for argument 'abort_on_alert' has been removed, "
-                            "please use either 'run', 'all' or 'ignore'"
-                        )
-                    )
                 self._abort_on_alert = abort_on_alert
 
             if storage_id:
@@ -1742,7 +1739,8 @@ class Run:
                 if metric.size > MAXIMUM_GRID_METRIC_SIZE:
                     logger.warning(
                         f"Cannot log grid metric {label}, "
-                        + f"size {metric.size} exceeds limit of {MAXIMUM_GRID_METRIC_SIZE}"
+                        + f"size {metric.size} exceeds limit of "
+                        f"{MAXIMUM_GRID_METRIC_SIZE}"
                     )
                     continue
                 if label not in self._grids:
@@ -1827,7 +1825,8 @@ class Run:
         name : str, optional
             name to associate with this object, by default None
         allow_pickle : bool, optional
-            whether to allow pickling if all other serialization types fail, by default False
+            whether to allow pickling if all other serialization
+            types fail, by default False
         metadata : str | None, optional
             any metadata to attach to the artifact
 
@@ -2120,7 +2119,8 @@ class Run:
             sys.exit(_non_zero)
         if self._failed_metric_counter:
             click.secho(
-                "[simvue] Run completed with {self._failed_metric_counter} failed metrics.",
+                f"[simvue] Run completed with {self._failed_metric_counter} "
+                "failed metrics.",
                 fg="yellow" if self._term_color else None,
                 bold=self._term_color,
             )
@@ -2137,7 +2137,7 @@ class Run:
         """
         if self._context_manager_called:
             self._error("Cannot call close method in context manager.")
-            return
+            return None
 
         self._executor.wait_for_completion()
 
@@ -2232,7 +2232,8 @@ class Run:
         if names and not ids:
             if self.mode == "offline":
                 self._error(
-                    "Cannot retrieve alerts based on names in offline mode - please use IDs instead."
+                    "Cannot retrieve alerts based on names in offline mode "
+                    "- please use IDs instead."
                 )
                 return False
             try:
@@ -2319,7 +2320,7 @@ class Run:
             method to use when aggregating metrics within time window
                 * average - average across all values in window (default).
                 * sum - take the sum of all values within window.
-                * at least one - returns if at least one value in window satisfy condition.
+                * at least one - returns if at least window value satisfies condition.
                 * all - returns if all values in window satisfy condition.
         notification : Literal['email', 'none'], optional
             whether to notify on trigger
@@ -2383,9 +2384,9 @@ class Run:
         trigger_abort: bool = False,
         attach_to_run: bool = True,
     ) -> str | None:
-        """Creates a metric threshold alert with the specified name (if it doesn't exist)
-        and applies it to the current run. If alert already exists it will
-        not be duplicated.
+        """Creates a metric threshold alert with the specified name
+        (if it doesn't exist) and applies it to the current run.
+        If alert already exists it will not be duplicated.
 
         Parameters
         ----------
@@ -2410,7 +2411,7 @@ class Run:
             method to use when aggregating metrics within time window
                 * average - average across all values in window (default).
                 * sum - take the sum of all values within window.
-                * at least one - returns if at least one value in window satisfy condition.
+                * at least one - returns if at least window value satisfies condition.
                 * all - returns if all values in window satisfy condition.
         notification : Literal['email', 'none'], optional
             whether to notify on trigger
@@ -2614,7 +2615,8 @@ class Run:
 
         if name and self.mode == "offline":
             self._error(
-                "Cannot retrieve alerts based on names in offline mode - please use IDs instead."
+                "Cannot retrieve alerts based on names in offline mode "
+                "- please use IDs instead."
             )
             return False
 

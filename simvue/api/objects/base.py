@@ -4,38 +4,47 @@ Contains base class for interacting with objects on the Simvue server
 """
 
 import abc
+import http
+import inspect
+import json
+import logging
 import pathlib
 import types
 import typing
-import inspect
 import uuid
-import http
-import json
-import logging
+from collections.abc import Generator
 
 import msgpack
 import pydantic
 
-from collections.abc import Generator
-from simvue.utilities import staging_merger
-from simvue.config.user import SimvueConfiguration
-from simvue.exception import ObjectNotFoundError
+from simvue.api.request import (
+    delete as sv_delete,
+)
 from simvue.api.request import (
     get as sv_get,
-    get_paginated,
-    post as sv_post,
-    put as sv_put,
-    delete as sv_delete,
+)
+from simvue.api.request import (
     get_json_from_response,
+    get_paginated,
+)
+from simvue.api.request import (
+    post as sv_post,
+)
+from simvue.api.request import (
+    put as sv_put,
 )
 from simvue.api.url import URL
+from simvue.config.user import SimvueConfiguration
+from simvue.exception import ObjectNotFoundError
+from simvue.utilities import staging_merger
 
 try:
     from typing import Self, override
 except ImportError:
-    from typing_extensions import Self, override  # noqa: UP035
+    from typing_extensions import Self, override
 
-# Need to use this inside of Generator typing to fix bug present in Python 3.10 - see issue #745
+# Need to use this inside of Generator typing to
+# fix bug present in Python 3.10 - see issue #745
 T = typing.TypeVar("T", bound="SimvueObject")
 
 
@@ -251,15 +260,13 @@ class SimvueObject(abc.ABC):
 
         self._staging |= kwargs
 
-    def _get_local_staged(self, obj_label: str | None = None) -> dict[str, typing.Any]:
+    def _get_local_staged(self) -> dict[str, typing.Any]:
         """Retrieve any locally staged data for this identifier"""
         if not self._local_staging_file.exists() or not self._identifier:
             return {}
 
         with self._local_staging_file.open() as in_f:
-            _staged_data = json.load(in_f)
-
-        return _staged_data
+            return json.load(in_f)
 
     def _stage_to_other(self, obj_label: str, key: str, value: typing.Any) -> None:
         """Stage a change to another object type"""
@@ -332,14 +339,16 @@ class SimvueObject(abc.ABC):
 
         try:
             self._logger.debug(
-                f"Retrieving attribute '{attribute}' from {self.label()} '{self._identifier}'"
+                f"Retrieving attribute '{attribute}' from "
+                f"{self.label()} '{self._identifier}'"
             )
             return self._get(url=url)[attribute]
         except KeyError as e:
             if self._offline:
                 raise AttributeError(
                     f"A value for attribute '{attribute}' has "
-                    f"not yet been committed for offline {self.label()} '{self._identifier}'"
+                    f"not yet been committed for offline {self.label()}"
+                    f" '{self._identifier}'"
                 ) from e
             raise RuntimeError(
                 f"Expected key '{attribute}' for {self.label()} '{self._identifier}'"
@@ -593,10 +602,11 @@ class SimvueObject(abc.ABC):
 
         if self._offline:
             self._logger.debug(
-                f"Writing updates to staging file for {self.label()} '{self.id}': {self._staging}"
+                f"Writing updates to staging file for {self.label()} "
+                f"'{self.id}': {self._staging}"
             )
             self._cache()
-            return
+            return None
 
         _response: dict[str, str] | list[dict[str, str]] | None = None
 
@@ -606,17 +616,20 @@ class SimvueObject(abc.ABC):
             # If batch upload send as list, else send as dictionary of params
             if _batch_commit := self._staging.get("batch"):
                 self._logger.debug(
-                    f"Posting batched data to server: {len(_batch_commit)} {self.label()}s"
+                    f"Posting batched data to server: {len(_batch_commit)}"
+                    f" {self.label()}s"
                 )
                 _response = self._post_batch(batch_data=_batch_commit)
             else:
                 self._logger.debug(
-                    f"Posting from staged data for {self.label()} '{self.id}': {self._staging}"
+                    f"Posting from staged data for {self.label()} "
+                    f"'{self.id}': {self._staging}"
                 )
                 _response = self._post_single(**self._staging)
         elif self._staging:
             self._logger.debug(
-                f"Pushing updates from staged data for {self.label()} '{self.id}': {self._staging}"
+                "Pushing updates from staged data for "
+                f"{self.label()} '{self.id}': {self._staging}"
             )
             _response = self._put(**self._staging)
 
@@ -663,7 +676,8 @@ class SimvueObject(abc.ABC):
 
         if _response.status_code == http.HTTPStatus.FORBIDDEN:
             raise RuntimeError(
-                f"Forbidden: You do not have permission to create object of type '{self.label()}'"
+                "Forbidden: You do not have permission to "
+                f"create object of type '{self.label()}'"
             )
 
         _json_response = get_json_from_response(
@@ -675,7 +689,8 @@ class SimvueObject(abc.ABC):
 
         if not len(batch_data) == (_n_created := len(_json_response)):
             raise RuntimeError(
-                f"Expected {len(batch_data)} to be created, but only {_n_created} found."
+                f"Expected {len(batch_data)} to be created, "
+                f"but only {_n_created} found."
             )
 
         self._logger.debug(f"successfully created {_n_created} {self.label()}s")
@@ -702,7 +717,8 @@ class SimvueObject(abc.ABC):
 
         if _response.status_code == http.HTTPStatus.FORBIDDEN:
             raise RuntimeError(
-                f"Forbidden: You do not have permission to create object of type '{self.label()}'"
+                "Forbidden: You do not have permission to create "
+                f"object of type '{self.label()}'"
             )
 
         _json_response = get_json_from_response(
@@ -740,7 +756,8 @@ class SimvueObject(abc.ABC):
 
         if _response.status_code == http.HTTPStatus.FORBIDDEN:
             raise RuntimeError(
-                f"Forbidden: You do not have permission to create object of type '{self.label()}'"
+                "Forbidden: You do not have permission to "
+                f"create object of type '{self.label()}'"
             )
 
         return get_json_from_response(
@@ -807,7 +824,8 @@ class SimvueObject(abc.ABC):
 
         if not isinstance(_json_response, dict):
             raise RuntimeError(
-                f"Expected dictionary from JSON response during {self.label()} retrieval "
+                "Expected dictionary from JSON response "
+                f"during {self.label()} retrieval "
                 f"but got '{type(_json_response)}'"
             )
         return _json_response

@@ -7,12 +7,12 @@ a list of parameters. The purpose of the class is to apply constraints to how
 often the callback can be executed, and the number of items it is called on.
 """
 
+import contextlib
 import logging
 import queue
 import threading
 import time
 import typing
-import contextlib
 
 from .base import DispatcherBaseClass
 
@@ -117,7 +117,7 @@ class QueuedDispatcher(threading.Thread, DispatcherBaseClass):
 
     @property
     def _can_send(self) -> bool:
-        """Returns if time constraints are satisfied, hence the callback can be executed"""
+        """Returns if time constraints are satisfied, hence callback can be executed"""
         return time.time() - self._send_timer >= 1 / self._max_read_rate
 
     def _create_buffer(self, queue_label: str) -> list[typing.Any]:

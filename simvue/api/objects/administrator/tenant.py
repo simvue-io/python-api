@@ -9,11 +9,12 @@ try:
     from typing import Self, override
 except ImportError:
     from typing_extensions import Self, override
-from collections.abc import Generator
-import pydantic
 import datetime
+from collections.abc import Generator
 
-from simvue.api.objects.base import write_only, SimvueObject, staging_check
+import pydantic
+
+from simvue.api.objects.base import SimvueObject, staging_check, write_only
 from simvue.models import DATETIME_FORMAT
 
 

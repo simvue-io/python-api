@@ -5,15 +5,16 @@ with an identifier, use a generic storage object.
 """
 
 import http
-import pydantic
-
-from simvue.api.request import get_json_from_response
-from simvue.api.request import get as sv_get
 from collections.abc import Generator
 
-from .s3 import S3Storage
-from .file import FileStorage
+import pydantic
+
+from simvue.api.request import get as sv_get
+from simvue.api.request import get_json_from_response
+
 from .base import StorageBase
+from .file import FileStorage
+from .s3 import S3Storage
 
 
 class Storage:
@@ -47,11 +48,26 @@ class Storage:
         S3Storage | FileStorage
             object representing storage
         """
-        _storage_pre = StorageBase(identifier=identifier, **kwargs)
+        _storage_pre = StorageBase(
+            server_token=server_token,
+            server_url=server_url,
+            identifier=identifier,
+            **kwargs,
+        )
         if _storage_pre.backend == "S3":
-            return S3Storage(identifier=identifier, **kwargs)
-        elif _storage_pre.backend == "File":
-            return FileStorage(identifier=identifier, **kwargs)
+            return S3Storage(
+                server_token=server_token,
+                server_url=server_url,
+                identifier=identifier,
+                **kwargs,
+            )
+        if _storage_pre.backend == "File":
+            return FileStorage(
+                server_token=server_token,
+                server_url=server_url,
+                identifier=identifier,
+                **kwargs,
+            )
 
         raise RuntimeError(f"Unknown backend '{_storage_pre.backend}'")
 

@@ -1,10 +1,10 @@
 """Base Filter object for RestAPI queries."""
 
-import abc
-from collections.abc import Generator
-import typing
 import enum
 import json
+import typing
+from collections.abc import Generator
+
 import pydantic as pyd
 
 from simvue.utilities import prettify_pydantic
@@ -15,7 +15,7 @@ if typing.TYPE_CHECKING:
 try:
     from typing import Self
 except ImportError:
-    from typing_extensions import Self  # noqa: UP035
+    from typing_extensions import Self
 
 
 class Time(str, enum.Enum):
@@ -27,12 +27,12 @@ class Time(str, enum.Enum):
     Ended = "ended"
 
 
-class RestAPIFilter(abc.ABC):
+class RestAPIFilter:
     """RestAPI query filter object."""
 
     def __init__(self, simvue_object: "type[SimvueObject] | None" = None) -> None:
         """Initialise a query object using a Simvue object class."""
-        self._sv_object: "type[SimvueObject] | None" = simvue_object
+        self._sv_object: type[SimvueObject] | None = simvue_object
         self._filters: list[str] = []
 
     def _time_within(

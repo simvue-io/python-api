@@ -18,13 +18,15 @@ except ImportError:
     from typing_extensions import override
 
 from collections.abc import Generator
+
 from simvue.api.objects.alert.user import UserAlert
 from simvue.api.objects.base import Sort
-from simvue.api.request import get_json_from_response
 from simvue.api.request import get as sv_get
-from .events import EventsAlert
-from .metrics import MetricsThresholdAlert, MetricsRangeAlert
+from simvue.api.request import get_json_from_response
+
 from .base import AlertBase
+from .events import EventsAlert
+from .metrics import MetricsRangeAlert, MetricsThresholdAlert
 
 AlertType = EventsAlert | UserAlert | MetricsThresholdAlert | MetricsRangeAlert
 
@@ -83,9 +85,11 @@ class Alert:
             and not _alert_pre._staging.get("source", None)
         ):
             raise RuntimeError(
-                "Cannot determine Alert type - this is likely because you are attempting to reconnect "
-                + "to an offline alert which has already been sent to the server. To fix this, use the "
-                + "exact Alert type instead (eg MetricThresholdAlert, MetricRangeAlert etc)."
+                "Cannot determine Alert type - this is likely because you "
+                + "are attempting to reconnect to an offline alert which "
+                + "has already been sent to the server. To fix this, use the "
+                + "exact Alert type instead "
+                + "(eg MetricThresholdAlert, MetricRangeAlert etc)."
             )
         if _alert_pre.source == "events":
             return EventsAlert(
@@ -94,21 +98,21 @@ class Alert:
                 server_token=server_token,
                 **kwargs,
             )
-        elif _alert_pre.source == "metrics" and _alert_pre.get_alert().get("threshold"):
+        if _alert_pre.source == "metrics" and _alert_pre.get_alert().get("threshold"):
             return MetricsThresholdAlert(
                 identifier=identifier,
                 server_url=server_url,
                 server_token=server_token,
                 **kwargs,
             )
-        elif _alert_pre.source == "metrics":
+        if _alert_pre.source == "metrics":
             return MetricsRangeAlert(
                 identifier=identifier,
                 server_url=server_url,
                 server_token=server_token,
                 **kwargs,
             )
-        elif _alert_pre.source == "user":
+        if _alert_pre.source == "user":
             return UserAlert(
                 identifier=identifier,
                 server_url=server_url,
@@ -217,5 +221,6 @@ class Alert:
                 )
             else:
                 raise RuntimeError(
-                    f"Unrecognised alert source '{_entry['source']}' with data '{_entry}'"
+                    f"Unrecognised alert source '{_entry['source']}' "
+                    f"with data '{_entry}'"
                 )

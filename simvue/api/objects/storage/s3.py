@@ -12,10 +12,10 @@ except ImportError:
     from typing_extensions import Self, override
 import pydantic
 
-from simvue.api.objects.base import write_only, staging_check
+from simvue.api.objects.base import staging_check, write_only
+from simvue.models import NAME_REGEX
 
 from .base import StorageBase
-from simvue.models import NAME_REGEX
 
 
 class S3Storage(StorageBase):
@@ -39,7 +39,8 @@ class S3Storage(StorageBase):
 
         If an identifier is provided a connection will be made to the
         object matching the identifier on the target server.
-        Else a new S3Storage instance will be created using arguments provided in kwargs.
+        Else a new S3Storage instance will be created using arguments
+        provided in kwargs.
 
         Parameters
         ----------
