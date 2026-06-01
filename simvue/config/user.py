@@ -29,7 +29,6 @@ from simvue.config.parameters import (
     MetricsSpecifications,
     ServerSpecifications,
     OfflineSpecifications,
-    CertificateSpecifications,
 )
 
 from simvue.config.files import (
@@ -60,9 +59,6 @@ class SimvueConfiguration(pydantic.BaseModel):
     server: ServerSpecifications = pydantic.Field(
         ..., description="Specifications for Simvue server"
     )
-    certificates: CertificateSpecifications = pydantic.Field(
-        default_factory=CertificateSpecifications
-    )
     profiles: dict[str, ServerSpecifications] = pydantic.Field(
         default_factory=dict[str, ServerSpecifications]
     )
@@ -76,7 +72,7 @@ class SimvueConfiguration(pydantic.BaseModel):
     @property
     def server_verify(self) -> str | bool:
         """Return current server CA certificate."""
-        _ca_cert: pathlib.Path | bool = self.certificates.server_ca_cert
+        _ca_cert: pathlib.Path | bool = self.server.certificates.server_ca_cert
         return f"{_ca_cert}" if isinstance(_ca_cert, pathlib.Path) else _ca_cert
 
     @property
@@ -181,16 +177,11 @@ class SimvueConfiguration(pydantic.BaseModel):
         if not self.server.token:
             raise ValueError("No token provided.")
 
-        _ca_cert = self.certificates.server_ca_cert
-
-        if isinstance(_ca_cert, pathlib.Path):
-            _ca_cert = f"{_ca_cert}"
-
         self._server_version = self._check_server(
-            self.server.token.get_secret_value(),
-            self.server.url,
-            _ca_cert,
-            self.run.mode,
+            token=self.server.token.get_secret_value(),
+            url=self.server.url,
+            verify=self.server_verify,
+            mode=self.run.mode,
         )
 
         return self

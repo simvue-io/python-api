@@ -196,7 +196,9 @@ class ArtifactBase(SimvueObject):
     @property
     def storage_ca_cert(self) -> str | bool:
         """Return current storage CA certificate."""
-        _ca_cert: pathlib.Path | bool = self._user_config.certificates.storage_ca_cert
+        _ca_cert: pathlib.Path | bool = (
+            self._user_config.server.certificates.storage_ca_cert
+        )
 
         return f"{_ca_cert}" if isinstance(_ca_cert, pathlib.Path) else _ca_cert
 

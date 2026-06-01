@@ -52,6 +52,9 @@ class ServerSpecifications(pydantic.BaseModel):
     url: pydantic.AnyHttpUrl | None
     token: pydantic.SecretStr | None
     env: dict[str, str] | None = None
+    certificates: CertificateSpecifications = pydantic.Field(
+        default_factory=CertificateSpecifications
+    )
 
     @pydantic.field_validator("url")
     @classmethod
