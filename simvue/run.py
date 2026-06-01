@@ -2669,8 +2669,6 @@ class Run:
             name of metric to assign units to
         units : str
             unit symbol
-        label : str | None, optional
-            alternative longer name for units
         """
         self._meta_cache.setdefault("metrics", {})
 
