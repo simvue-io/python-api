@@ -93,7 +93,7 @@ class RestAPIFilter(abc.ABC):
     @pyd.validate_call
     def exclude_tag(self, tag: str) -> Self:
         """Find objects with the given tag."""
-        self._filters.append(f"does not have tag.{tag}")
+        self._filters.append(f"has not tag.{tag}")
         return self
 
     def starred(self) -> Self:
