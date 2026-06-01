@@ -13,8 +13,10 @@ import pydantic
 from simvue.api.objects.base import SimvueObject, staging_check, write_only
 from simvue.api.request import get as sv_get
 from simvue.api.request import get_json_from_response
-from simvue.api.url import URL
 from simvue.models import DATETIME_FORMAT, NAME_REGEX
+
+if typing.TYPE_CHECKING:
+    from simvue.api.url import URL
 
 try:
     from typing import Self, override
@@ -23,7 +25,7 @@ except ImportError:
 
 
 class AlertBase(SimvueObject):
-    """Class for interfacing with Simvue alerts
+    """Class for interfacing with Simvue alerts.
 
     Contains properties common to all alert types.
     """
@@ -56,9 +58,9 @@ class AlertBase(SimvueObject):
         server_token: pydantic.SecretStr | None = None,
         **kwargs,
     ) -> None:
-        """Retrieve an alert from the Simvue server by identifier"""
+        """Retrieve an alert from the Simvue server by identifier."""
         _params: dict[str, str | bool] = kwargs.pop("_params", {}) | {
-            "deduplicate": not kwargs.get("allow_duplicates", True)
+            "deduplicate": not kwargs.get("allow_duplicates", True),
         }
         super().__init__(
             identifier=identifier,
@@ -81,41 +83,41 @@ class AlertBase(SimvueObject):
                 self.description == other.description,
                 self.source == other.source,
                 self.notification == other.notification,
-            ]
+            ],
         )
 
     @override
     def __eq__(self, other: "AlertBase") -> bool:
         """Check if alerts are the same."""
-
         # Need to ensure objects are read-only for this
         # operation as we do not want staging to alter
         _self_is_read_only: bool = self._read_only
         _other_is_read_only: bool = other._read_only
-        self.read_only(True)
-        other.read_only(True)
+        self.read_only(is_read_only=True)
+        other.read_only(is_read_only=True)
 
         _comparison = self._compare_objects(other)
 
         # Restore to write allowed unless the input object
         # was read-only to begin with
         if not _self_is_read_only:
-            self.read_only(False, clear_staged=False)
+            self.read_only(is_read_only=False, clear_staged=False)
         if not _other_is_read_only:
-            other.read_only(False, clear_staged=False)
+            other.read_only(is_read_only=False, clear_staged=False)
 
         return _comparison
 
+    @override
     def __hash__(self) -> int:
         return hash(f"{self.name}+{self.description}+{self.source}+{self.notification}")
 
     def compare(self, other: "AlertBase") -> bool:
-        """Compare this alert to another"""
+        """Compare this alert to another."""
         return type(self) is type(other) and self.name == other.name
 
     @staging_check
     def get_alert(self) -> dict[str, typing.Any]:
-        """Retrieve alert definition"""
+        """Retrieve alert definition."""
         try:
             return self._get_attribute("alert")
         except AttributeError:
@@ -123,122 +125,127 @@ class AlertBase(SimvueObject):
 
     @property
     def name(self) -> str:
-        """Retrieve alert name"""
+        """Retrieve alert name."""
         return self._get_attribute("name")
 
     @name.setter
     @write_only
     @pydantic.validate_call
     def name(
-        self, name: typing.Annotated[str, pydantic.Field(pattern=NAME_REGEX)]
+        self,
+        name: typing.Annotated[str, pydantic.Field(pattern=NAME_REGEX)],
     ) -> None:
-        """Set alert name"""
+        """Set alert name."""
         self._staging["name"] = name
 
     @property
     @staging_check
     def description(self) -> str | None:
-        """Retrieve alert description"""
+        """Retrieve alert description."""
         return self._get_attribute("description")
 
     @description.setter
     @write_only
     @pydantic.validate_call
     def description(self, description: str | None) -> None:
-        """Set alert description"""
+        """Set alert description."""
         self._staging["description"] = description
 
     @property
     def run_tags(self) -> list[str]:
-        """Retrieve automatically assigned tags from runs"""
+        """Retrieve automatically assigned tags from runs."""
         return self._get_attribute("run_tags")
 
     @property
     @staging_check
     def auto(self) -> bool:
-        """Retrieve if alert has run tag auto-assign"""
+        """Retrieve if alert has run tag auto-assign."""
         return self._get_attribute("auto")
 
     @auto.setter
     @write_only
     @pydantic.validate_call
     def auto(self, auto: bool) -> None:
-        """Set alert to use run tag auto-assign"""
+        """Set alert to use run tag auto-assign."""
         self._staging["auto"] = auto
 
     @property
     @staging_check
     def notification(self) -> typing.Literal["none", "email"]:
-        """Retrieve alert notification setting"""
+        """Retrieve alert notification setting."""
         return self._get_attribute("notification")
 
     @notification.setter
     @write_only
     @pydantic.validate_call
     def notification(self, notification: typing.Literal["none", "email"]) -> None:
-        """Configure alert notification setting"""
+        """Configure alert notification setting."""
         self._staging["notification"] = notification
 
     @property
     def source(self) -> typing.Literal["events", "metrics", "user"]:
-        """Retrieve alert source"""
+        """Retrieve alert source."""
         return self._get_attribute("source")
 
     @property
     @staging_check
     def enabled(self) -> bool:
-        """Retrieve if alert is enabled"""
+        """Retrieve if alert is enabled."""
         return self._get_attribute("enabled")
 
     @enabled.setter
     @write_only
     @pydantic.validate_call
     def enabled(self, enabled: str) -> None:
-        """Enable/disable alert"""
+        """Enable/disable alert."""
         self._staging["enabled"] = enabled
 
     @property
     @staging_check
     def abort(self) -> bool:
-        """Retrieve if alert can abort simulations"""
+        """Retrieve if alert can abort simulations."""
         return self._get_attribute("abort")
 
     @property
     @staging_check
     def delay(self) -> int:
-        """Retrieve delay value for this alert"""
+        """Retrieve delay value for this alert."""
         return self._get_attribute("delay")
 
     @property
     def created(self) -> datetime.datetime | None:
-        """Retrieve created datetime for the alert"""
+        """Retrieve created datetime in UTC for the alert."""
         _created: str | None = self._get_attribute("created")
         return (
-            datetime.datetime.strptime(_created, DATETIME_FORMAT) if _created else None
+            datetime.datetime.strptime(_created, DATETIME_FORMAT).astimezone(
+                datetime.UTC,
+            )
+            if _created
+            else None
         )
 
     @abort.setter
     @write_only
     @pydantic.validate_call
     def abort(self, abort: bool) -> None:
-        """Configure alert to trigger aborts"""
+        """Configure alert to trigger aborts."""
         self._staging["abort"] = abort
 
     @pydantic.validate_call
     def set_status(self, _: str, __: typing.Literal["ok", "critical"]) -> None:
-        """Set the status of this alert for a given run"""
+        """Set the status of this alert for a given run."""
         raise AttributeError(
-            f"Cannot update state for alert of type '{self.__class__.__name__}'"
+            f"Cannot update state for alert of type '{self.__class__.__name__}'",
         )
 
     def get_status(self, run_id: str) -> typing.Literal["ok", "critical"]:
-        """Retrieve the status of this alert for a given run"""
+        """Retrieve the status of this alert for a given run."""
         _offline_run: bool = run_id.startswith("offline")
 
         if not self._offline and run_id.startswith("offline"):
             raise ValueError(
                 f"Cannot retrieve status of online alert '{self.id}' "
-                f"for offline run '{run_id}'"
+                f"for offline run '{run_id}'",
             )
 
         _url: URL = self.url / f"status/{run_id}"

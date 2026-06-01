@@ -1,5 +1,4 @@
-"""
-CO2 Signal API Client
+"""CO2 Signal API Client.
 =====================
 
 Provides inteface to the CO2 Signal API,
@@ -20,9 +19,13 @@ import geocoder.location
 import pydantic
 import requests
 
+from simvue.api.request import DEFAULT_API_TIMEOUT
+
 CO2_SIGNAL_API_ENDPOINT: str = (
     "https://api.electricitymap.org/v3/carbon-intensity/latest"
 )
+
+logger = logging.getLogger(__name__)
 
 
 class CO2SignalData(pydantic.BaseModel):
@@ -39,7 +42,7 @@ class CO2SignalResponse(pydantic.BaseModel):
     def from_json_response(cls, json_response: dict) -> "CO2SignalResponse":
         _co2_signal_data = CO2SignalData(
             datetime=datetime.datetime.fromisoformat(
-                json_response["datetime"].replace("Z", "+00:00")
+                json_response["datetime"].replace("Z", "+00:00"),
             ),
             carbon_intensity=json_response["carbonIntensity"],
         )
@@ -52,7 +55,7 @@ class CO2SignalResponse(pydantic.BaseModel):
 
 @functools.lru_cache
 def _call_geocoder_query() -> typing.Any:
-    """Call GeoCoder API for IP location
+    """Call GeoCoder API for IP location.
 
     Cached so this API is only called once per session as required.
     """
@@ -60,47 +63,46 @@ def _call_geocoder_query() -> typing.Any:
 
 
 class APIClient(pydantic.BaseModel):
-    """
-    CO2 Signal API Client
+    """CO2 Signal API Client.
 
     Provides an interface to the Electricity Maps API.
+
+    Parameters
+    ----------
+    co2_api_endpoint : str
+        endpoint for CO2 signal API
+    co2_api_token: str
+        The API token for the ElectricityMaps API, default is None.
+    timeout : int
+        timeout for API
+
     """
 
     co2_api_endpoint: pydantic.HttpUrl = pydantic.HttpUrl(CO2_SIGNAL_API_ENDPOINT)
     co2_api_token: pydantic.SecretStr | None = None
     timeout: pydantic.PositiveInt = 10
 
-    def __init__(self, *args, **kwargs) -> None:
-        """Initialise the CO2 Signal API client.
-
-        Parameters
-        ----------
-        co2_api_endpoint : str
-            endpoint for CO2 signal API
-        co2_api_token: str
-            The API token for the ElectricityMaps API, default is None.
-        timeout : int
-            timeout for API
-        """
-        super().__init__(*args, **kwargs)
-        self._logger = logging.getLogger(self.__class__.__name__)
-
+    @pydantic.model_validator(mode="after")
+    def post_init(self) -> typing.Self:
+        """Post-initialise the CO2 Signal API client."""
         if not self.co2_api_token:
             raise ValueError("API token is required for ElectricityMaps API.")
 
         self._get_user_location_info()
 
+        return self
+
     def _get_user_location_info(self) -> None:
         """Retrieve location information for the current user."""
-        self._logger.info("📍 Determining current user location.")
+        logger.info("📍 Determining current user location.")
         _current_user_loc_data: geocoder.location.BBox = _call_geocoder_query()
         self._latitude: float
         self._longitude: float
         self._latitude, self._longitude = _current_user_loc_data.latlng
-        self._two_letter_country_code: str = _current_user_loc_data.country  # type: ignore
+        self._two_letter_country_code: str = _current_user_loc_data.country
 
     def get(self) -> CO2SignalResponse:
-        """Get the current data"""
+        """Get the current data."""
         _params: dict[str, float | str] = {
             "zone": self._two_letter_country_code,
         }
@@ -108,8 +110,12 @@ class APIClient(pydantic.BaseModel):
         if self.co2_api_token:
             _params["auth-token"] = self.co2_api_token.get_secret_value()
 
-        self._logger.debug(f"🍃 Retrieving carbon intensity data for: {_params}")
-        _response = requests.get(f"{self.co2_api_endpoint}", headers=_params)
+        logger.debug("🍃 Retrieving carbon intensity data for: %s", _params)
+        _response = requests.get(
+            f"{self.co2_api_endpoint}",
+            headers=_params,  # FIXME: Should this be params= not headers=?
+            timeout=DEFAULT_API_TIMEOUT,
+        )
 
         if _response.status_code != http.HTTPStatus.OK:
             try:
@@ -119,22 +125,22 @@ class APIClient(pydantic.BaseModel):
             raise RuntimeError(
                 f"[{_response.status_code}] Failed to retrieve "
                 "current CO2 signal data for"
-                f" country '{self._two_letter_country_code}': {_error}"
+                f" country '{self._two_letter_country_code}': {_error}",
             )
 
         return CO2SignalResponse.from_json_response(_response.json())
 
     @property
     def country_code(self) -> str:
-        """Returns the country code"""
+        """Returns the country code."""
         return self._two_letter_country_code
 
     @property
     def latitude(self) -> float:
-        """Returns current latitude"""
+        """Returns current latitude."""
         return self._latitude
 
     @property
     def longitude(self) -> float:
-        """Returns current longitude"""
+        """Returns current longitude."""
         return self._longitude

@@ -5,17 +5,17 @@ locally or on a Simvue server
 
 """
 
+import datetime
 import os
 import pathlib
 import shutil
 import typing
-from datetime import datetime
 
 import pydantic
 
 from simvue.config.user import SimvueConfiguration
 from simvue.models import NAME_REGEX
-from simvue.utilities import calculate_sha256, get_mimetype_for_file, get_mimetypes
+from simvue.utilities import calculate_file_sha256, get_mimetype_for_file, get_mimetypes
 
 from .base import ArtifactBase
 
@@ -40,7 +40,7 @@ class FileArtifact(ArtifactBase):
         server_token: pydantic.SecretStr | None = None,
         **kwargs,
     ) -> None:
-        """Initialise a File Artifact
+        """Initialise a File Artifact.
 
         If an identifier is provided a connection will be made to the
         object matching the identifier on the target server.
@@ -57,6 +57,7 @@ class FileArtifact(ArtifactBase):
             token for alternative server, default None
         **kwargs : dict
             any additional arguments to be passed to the object initialiser
+
         """
         super().__init__(
             identifier=identifier,
@@ -79,9 +80,9 @@ class FileArtifact(ArtifactBase):
         snapshot: bool = False,
         server_url: str | None = None,
         server_token: pydantic.SecretStr | None = None,
-        **kwargs,
+        **kwargs: typing.Any,
     ) -> Self:
-        """Create a new artifact either locally or on the server
+        """Create a new artifact either locally or on the server.
 
         Note all arguments are keyword arguments
 
@@ -108,6 +109,8 @@ class FileArtifact(ArtifactBase):
             alternative server URL, default None
         server_token : str | None, optional
             token for alternative server, default None
+        **kwargs : Any
+            additional arguments for initialisation
 
         Returns
         -------
@@ -133,18 +136,19 @@ class FileArtifact(ArtifactBase):
                 )
 
                 _local_staging_dir: pathlib.Path = _user_config.offline.cache.joinpath(
-                    "artifacts"
+                    "artifacts",
                 )
                 _local_staging_dir.mkdir(parents=True, exist_ok=True)
                 _local_staging_file = _local_staging_dir.joinpath(
-                    f"{file_path.stem}_{datetime.now().strftime('%Y-%m-%d_%H-%M-%S_%f')[:-3]}.file"
+                    f"{file_path.stem}_"
+                    f"{datetime.datetime.now(tz=datetime.UTC).strftime('%Y-%m-%d_%H-%M-%S_%f')[:-3]}.file",
                 )
                 shutil.copy(file_path, _local_staging_file)
                 file_path = _local_staging_file
 
             _file_size = file_path.stat().st_size
             _file_orig_path = file_path.expanduser().absolute()
-            _file_checksum = calculate_sha256(f"{file_path}", is_file=True)
+            _file_checksum = calculate_file_sha256(file_path)
 
         _artifact = cls(
             name=name,
@@ -173,7 +177,7 @@ class FileArtifact(ArtifactBase):
         if offline:
             return _artifact
 
-        with open(_file_orig_path, "rb") as out_f:
+        with pathlib.Path(_file_orig_path).open("rb") as out_f:
             _artifact._upload(file=out_f, timeout=upload_timeout, file_size=_file_size)
 
         # If snapshot created, delete it after uploading

@@ -8,6 +8,6 @@ def test_numpy_array_mime_type() -> None:
     Check that the mimetype for numpy arrays is correct
     """
     array = np.array([1, 2, 3, 4, 5])
-    _, mime_type = serialize_object(array, False)
+    _, mime_type = serialize_object(array, allow_pickle=False)
 
     assert (mime_type == 'application/vnd.simvue.numpy.v1')

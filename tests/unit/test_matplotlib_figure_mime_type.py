@@ -16,6 +16,6 @@ def test_matplotlib_figure_mime_type() -> None:
     plt.plot([1, 2, 3, 4])
     figure = plt.gcf()
 
-    _, mime_type = serialize_object(figure, False)
+    _, mime_type = serialize_object(figure, allow_pickle=False)
 
     assert (mime_type == 'application/vnd.plotly.v1+json')

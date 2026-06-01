@@ -1,5 +1,4 @@
-"""
-Simvue Eco
+"""Simvue Eco.
 ==========
 
 Contains functionality for green IT, monitoring emissions etc.

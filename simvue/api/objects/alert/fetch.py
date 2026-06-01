@@ -6,6 +6,7 @@ with an identifier, use a generic alert object.
 
 import http
 import json
+import typing
 
 import pydantic
 
@@ -35,7 +36,7 @@ class AlertSort(Sort):
     @pydantic.field_validator("column")
     @classmethod
     def check_column(cls, column: str) -> str:
-        if column and column not in ("name", "created"):
+        if column and column not in {"name", "created"}:
             raise ValueError(f"Invalid sort column for alerts '{column}'")
         return column
 
@@ -55,7 +56,7 @@ class Alert:
         *,
         server_url: str | None = None,
         server_token: pydantic.SecretStr | None = None,
-        **kwargs,
+        **kwargs: typing.Any,
     ) -> AlertType:
         """Retrieve an object representing an alert on the server by id.
 
@@ -67,11 +68,14 @@ class Alert:
             alternative server URL, default None
         server_token : str | None, optional
             token for alternative server, default None
+        **kwargs : Any
+            additional retrieval arguments
 
         Returns
         -------
         MetricsThresholdAlert | MetricRangeAlert | UserAlert | EventsAlert
             object representing an alert
+
         """
         _alert_pre = AlertBase(
             identifier=identifier,
@@ -82,14 +86,14 @@ class Alert:
         if (
             identifier is not None
             and identifier.startswith("offline_")
-            and not _alert_pre._staging.get("source", None)
+            and not _alert_pre.staging.get("source", None)
         ):
             raise RuntimeError(
                 "Cannot determine Alert type - this is likely because you "
-                + "are attempting to reconnect to an offline alert which "
-                + "has already been sent to the server. To fix this, use the "
-                + "exact Alert type instead "
-                + "(eg MetricThresholdAlert, MetricRangeAlert etc)."
+                "are attempting to reconnect to an offline alert which "
+                "has already been sent to the server. To fix this, use the "
+                "exact Alert type instead "
+                "(eg MetricThresholdAlert, MetricRangeAlert etc).",
             )
         if _alert_pre.source == "events":
             return EventsAlert(
@@ -132,7 +136,7 @@ class Alert:
         sorting: list[AlertSort] | None = None,
         server_url: str | None = None,
         server_token: pydantic.SecretStr | None = None,
-        **kwargs,
+        **kwargs: typing.Any,
     ) -> Generator[tuple[str, AlertType]]:
         """Fetch all alerts from the server for the current user.
 
@@ -148,19 +152,23 @@ class Alert:
             alternative server URL, default None
         server_token : str | None, optional
             token for alternative server, default None
+        **kwargs : Any
+            additional retrieval arguments
 
         Yields
         ------
         tuple[str, AlertType]
             identifier for an alert
             the alert itself as a class instance
-        """
 
+        """
         # Currently no alert filters
         _ = kwargs.pop("filters", None)
 
         _config: SimvueConfiguration = SimvueConfiguration.fetch(
-            mode="online", server_url=server_url, server_token=server_token
+            mode="online",
+            server_url=server_url,
+            server_token=server_token,
         )
 
         _url = URL(f"{_config.server.url}") / AlertBase.endpoint()
@@ -206,7 +214,10 @@ class Alert:
                 yield (
                     _id,
                     MetricsThresholdAlert(
-                        _local=True, _read_only=True, identifier=_id, **_entry
+                        _local=True,
+                        _read_only=True,
+                        identifier=_id,
+                        **_entry,
                     ),
                 )
             elif (
@@ -216,11 +227,14 @@ class Alert:
                 yield (
                     _id,
                     MetricsRangeAlert(
-                        _local=True, _read_only=True, identifier=_id, **_entry
+                        _local=True,
+                        _read_only=True,
+                        identifier=_id,
+                        **_entry,
                     ),
                 )
             else:
                 raise RuntimeError(
                     f"Unrecognised alert source '{_entry['source']}' "
-                    f"with data '{_entry}'"
+                    f"with data '{_entry}'",
                 )

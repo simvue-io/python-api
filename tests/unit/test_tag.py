@@ -35,7 +35,7 @@ def test_tag_creation_offline(offline_cache_setup) -> None:
         
     assert _local_data.get("name") == f"test_tag_{_uuid}"
     
-    _sender = Sender(_tag._local_staging_file.parents[1], 1, 10, throw_exceptions=True)
+    _sender = Sender(cache_directory=_tag._local_staging_file.parents[1], max_workers=1, threading_threshold=10, throw_exceptions=True)
     _sender.upload(["tags"])
     time.sleep(1)
     
@@ -79,7 +79,7 @@ def test_tag_modification_offline(offline_cache_setup) -> None:
         
     assert _local_data.get("name") == f"test_tag_{_uuid}"
     
-    _sender = Sender(_tag._local_staging_file.parents[1], 1, 10, throw_exceptions=True)
+    _sender = Sender(cache_directory=_tag._local_staging_file.parents[1], max_workers=1, threading_threshold=10, throw_exceptions=True)
     _sender.upload(["tags"])
     _online_id = _sender.id_mapping.get(_tag.id)
     _online_tag = Tag(_online_id)
@@ -103,7 +103,7 @@ def test_tag_modification_offline(offline_cache_setup) -> None:
     assert pydantic.color.parse_str(_local_data.get("colour")).r == 250 / 255
     assert _local_data.get("description") == "modified test tag"
     
-    _sender = Sender(_tag._local_staging_file.parents[1], 1, 10, throw_exceptions=True)
+    _sender = Sender(cache_directory=_tag._local_staging_file.parents[1], max_workers=1, threading_threshold=10, throw_exceptions=True)
     _sender.upload(["tags"])
     time.sleep(1)
     

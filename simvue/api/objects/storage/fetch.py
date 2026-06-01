@@ -5,6 +5,7 @@ with an identifier, use a generic storage object.
 """
 
 import http
+import typing
 from collections.abc import Generator
 
 import pydantic
@@ -30,7 +31,7 @@ class Storage:
         *,
         server_url: str | None = None,
         server_token: pydantic.SecretStr | None = None,
-        **kwargs,
+        **kwargs: typing.Any,
     ) -> S3Storage | FileStorage:
         """Retrieve an object representing on the server by id.
 
@@ -42,11 +43,14 @@ class Storage:
             alternative server URL, default None
         server_token : str | None, optional
             token for alternative server, default None
+        **kwargs : Any
+            additional arguments for initialisation
 
         Returns
         -------
         S3Storage | FileStorage
             object representing storage
+
         """
         _storage_pre = StorageBase(
             server_token=server_token,
@@ -80,7 +84,7 @@ class Storage:
         offset: int | None = None,
         server_url: str | None = None,
         server_token: pydantic.SecretStr | None = None,
-        **kwargs,
+        **kwargs: typing.Any,
     ) -> Generator[tuple[str, FileStorage | S3Storage]]:
         """Returns storage systems accessible to the current user.
 
@@ -94,14 +98,16 @@ class Storage:
             alternative server URL, default None
         server_token : str | None, optional
             token for alternative server, default None
+        **kwargs : Any
+            additional arguments for retrieval
 
         Yields
         ------
         tuple[str, FileStorage | S3Storage]
             identifier for a storage
             the storage itself as a class instance
-        """
 
+        """
         # Currently no storage filters
         _ = kwargs.pop("filters", None)
 
@@ -111,10 +117,10 @@ class Storage:
             server_token=server_token,
             _local=True,
         )
-        _url = f"{_class_instance._base_url}"
+        _url = f"{_class_instance.base_url}"
         _response = sv_get(
             _url,
-            headers=_class_instance._headers,
+            headers=_class_instance.user_config.headers,
             params={"start": offset, "count": count} | kwargs,
         )
         _label: str = _class_instance.__class__.__name__.lower()
@@ -154,5 +160,5 @@ class Storage:
                 )
             else:
                 raise RuntimeError(
-                    f"Unrecognised storage backend '{_entry['backend']}'"
+                    f"Unrecognised storage backend '{_entry['backend']}'",
                 )

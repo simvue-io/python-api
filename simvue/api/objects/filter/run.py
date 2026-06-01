@@ -21,7 +21,12 @@ except ImportError:
     from typing_extensions import override
 
 Status = typing.Literal[
-    "lost", "failed", "completed", "terminated", "running", "created"
+    "lost",
+    "failed",
+    "completed",
+    "terminated",
+    "running",
+    "created",
 ]
 
 
@@ -136,7 +141,8 @@ class RunsFilter(RestAPIFilter):
     @prettify_pydantic
     @pyd.validate_call
     def in_folder(
-        self, folder_path: typing.Annotated[str, pyd.Field(pattern=FOLDER_REGEX)]
+        self,
+        folder_path: typing.Annotated[str, pyd.Field(pattern=FOLDER_REGEX)],
     ) -> Self:
         """Filter by whether run is within the given folder."""
         self._filters.append(f"folder.path == {folder_path}")
@@ -152,7 +158,8 @@ class RunsFilter(RestAPIFilter):
     @prettify_pydantic
     @pyd.validate_call
     def exclude_in_folder(
-        self, folder_path: typing.Annotated[str, pyd.Field(pattern=FOLDER_REGEX)]
+        self,
+        folder_path: typing.Annotated[str, pyd.Field(pattern=FOLDER_REGEX)],
     ) -> Self:
         """Filter by whether run is not within the given folder."""
         self._filters.append(f"folder.path != {folder_path}")
@@ -189,7 +196,10 @@ class RunsFilter(RestAPIFilter):
     @prettify_pydantic
     @pyd.validate_call
     def has_cpu(
-        self, *, architecture: str | None = None, processor: str | None = None
+        self,
+        *,
+        architecture: str | None = None,
+        processor: str | None = None,
     ) -> Self:
         """Filter by CPU architecture and processor."""
         if architecture:
@@ -201,7 +211,10 @@ class RunsFilter(RestAPIFilter):
     @prettify_pydantic
     @pyd.validate_call
     def exclude_cpu(
-        self, *, architecture: str | None = None, processor: str | None = None
+        self,
+        *,
+        architecture: str | None = None,
+        processor: str | None = None,
     ) -> Self:
         """Veto by CPU architecture and processor."""
         if architecture:
@@ -227,7 +240,10 @@ class RunsFilter(RestAPIFilter):
     @prettify_pydantic
     @pyd.validate_call
     def exclude_gpu(
-        self, *, name: str | None = None, processor: str | None = None
+        self,
+        *,
+        name: str | None = None,
+        processor: str | None = None,
     ) -> Self:
         """Veto by GPU name or processor."""
         if name:
@@ -243,7 +259,7 @@ class RunsFilter(RestAPIFilter):
             _ = semver.Version.parse(python_version)
         except ValueError as e:
             raise ValueError(
-                f"'{python_version}' is not a valid semantic version."
+                f"'{python_version}' is not a valid semantic version.",
             ) from e
         self._filters.append(f"system.pythonversion == {python_version}")
         return self
@@ -255,7 +271,7 @@ class RunsFilter(RestAPIFilter):
             _ = semver.Version.parse(python_version)
         except ValueError as e:
             raise ValueError(
-                f"'{python_version}' is not a valid semantic version."
+                f"'{python_version}' is not a valid semantic version.",
             ) from e
         self._filters.append(f"system.pythonversion != {python_version}")
         return self
@@ -263,7 +279,11 @@ class RunsFilter(RestAPIFilter):
     @prettify_pydantic
     @pyd.validate_call
     def has_platform(
-        self, platform: str, *, release: str | None = None, version: str | None = None
+        self,
+        platform: str,
+        *,
+        release: str | None = None,
+        version: str | None = None,
     ) -> Self:
         """Filter by simulation host platform."""
         self._filters.append(f"system.platform.system == {platform}")
@@ -276,7 +296,11 @@ class RunsFilter(RestAPIFilter):
     @prettify_pydantic
     @pyd.validate_call
     def exclude_platform(
-        self, platform: str, *, release: str | None = None, version: str | None = None
+        self,
+        platform: str,
+        *,
+        release: str | None = None,
+        version: str | None = None,
     ) -> Self:
         """Veto by simulation host platform.
 
@@ -287,7 +311,7 @@ class RunsFilter(RestAPIFilter):
         self._filters.append(
             "system.platform.system " + "!="
             if not release and not version
-            else "==" + " " + platform
+            else "==" + " " + platform,
         )
         if release:
             self._filters.append(f"system.platform.release != {release}")

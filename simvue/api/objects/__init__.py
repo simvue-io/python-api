@@ -1,5 +1,4 @@
-"""
-Simvue API Objects
+"""Simvue API Objects.
 ==================
 
 The following module defines objects which provide exact representations

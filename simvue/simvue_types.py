@@ -15,5 +15,10 @@ if typing.TYPE_CHECKING:
 
 
 DeserializedContent: TypeAlias = typing.Union[
-    "DataFrame", "ndarray", "Tensor", "Figure", "FigureWidget", "Buffer"
+    "DataFrame",
+    "ndarray",
+    "Tensor",
+    "Figure",
+    "FigureWidget",
+    "Buffer",
 ]

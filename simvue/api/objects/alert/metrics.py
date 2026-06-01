@@ -45,7 +45,7 @@ class MetricsThresholdAlert(AlertBase):
         server_token: pydantic.SecretStr | None = None,
         **kwargs,
     ) -> None:
-        """Initialise a Metrics Threshold Alert
+        """Initialise a Metrics Threshold Alert.
 
         If an identifier is provided a connection will be made to the
         object matching the identifier on the target server.
@@ -62,10 +62,14 @@ class MetricsThresholdAlert(AlertBase):
             token for alternative server, default None
         **kwargs : dict
             any additional arguments to be passed to the object initialiser
+
         """
         self.alert = MetricThresholdAlertDefinition(self)
         super().__init__(
-            identifier, server_url=server_url, server_token=server_token, **kwargs
+            identifier,
+            server_url=server_url,
+            server_token=server_token,
+            **kwargs,
         )
         self._local_only_args += [
             "rule",
@@ -85,7 +89,7 @@ class MetricsThresholdAlert(AlertBase):
         server_token: pydantic.SecretStr | None = None,
         **_,
     ) -> dict[str, typing.Any]:
-        """Retrieve only MetricsThresholdAlerts"""
+        """Retrieve only MetricsThresholdAlerts."""
         raise NotImplementedError("Retrieve of only metric alerts is not yet supported")
 
     @override
@@ -101,7 +105,7 @@ class MetricsThresholdAlert(AlertBase):
         aggregation: Aggregate,
         rule: typing.Literal["is above", "is below"],
         window: pydantic.PositiveInt,
-        threshold: float | int,
+        threshold: float,
         frequency: pydantic.PositiveInt,
         enabled: bool = True,
         offline: bool = False,
@@ -109,7 +113,7 @@ class MetricsThresholdAlert(AlertBase):
         server_token: pydantic.SecretStr | None = None,
         **_,
     ) -> Self:
-        """Create a new metric threshold alert either locally or on the server
+        """Create a new metric threshold alert either locally or on the server.
 
         Note all arguments are keyword arguments.
 
@@ -146,6 +150,7 @@ class MetricsThresholdAlert(AlertBase):
         -------
         MetricsThresholdAlert
             object representing a metric threshold alert
+
         """
         _alert_definition = {
             "rule": rule,
@@ -167,7 +172,7 @@ class MetricsThresholdAlert(AlertBase):
             _read_only=False,
             _offline=offline,
         )
-        _alert._staging |= _alert_definition
+        _alert.append_to_staging(_alert_definition)
         _alert._params = {"deduplicate": True}
 
         return _alert
@@ -196,7 +201,7 @@ class MetricsRangeAlert(AlertBase):
         server_token: pydantic.SecretStr | None = None,
         **kwargs,
     ) -> None:
-        """Initialise a Metrics Range Alert
+        """Initialise a Metrics Range Alert.
 
         If an identifier is provided a connection will be made to the
         object matching the identifier on the target server.
@@ -213,10 +218,14 @@ class MetricsRangeAlert(AlertBase):
             token for alternative server, default None
         **kwargs : dict
             any additional arguments to be passed to the object initialiser
+
         """
         self.alert = MetricRangeAlertDefinition(self)
         super().__init__(
-            identifier, server_url=server_url, server_token=server_token, **kwargs
+            identifier,
+            server_url=server_url,
+            server_token=server_token,
+            **kwargs,
         )
         self._local_only_args += [
             "rule",
@@ -228,7 +237,7 @@ class MetricsRangeAlert(AlertBase):
 
     @override
     def _compare_objects(self, other: "AlertBase") -> bool:
-        """Compare two MetricRangeAlerts"""
+        """Compare two MetricRangeAlerts."""
         if not isinstance(other, MetricsRangeAlert):
             return False
         return super()._compare_objects(other) and self.alert == other.alert
@@ -254,7 +263,7 @@ class MetricsRangeAlert(AlertBase):
         server_token: pydantic.SecretStr | None = None,
         **_,
     ) -> Self:
-        """Create a new metric range alert either locally or on the server
+        """Create a new metric range alert either locally or on the server.
 
         Note all arguments are keyword arguments.
 
@@ -320,21 +329,21 @@ class MetricsRangeAlert(AlertBase):
 
 
 class MetricsAlertDefinition:
-    """General alert definition for a metric alert"""
+    """General alert definition for a metric alert."""
 
     def __init__(self, alert: MetricsRangeAlert) -> None:
-        """Initialise definition with target alert"""
+        """Initialise definition with target alert."""
         self._sv_obj = alert
 
     def __eq__(self, other: "MetricsAlertDefinition") -> bool:
-        """Compare a MetricsAlertDefinition with another"""
+        """Compare a MetricsAlertDefinition with another."""
         return all(
             [
                 self.aggregation == other.aggregation,
                 self.frequency == other.frequency,
                 self.rule == other.rule,
                 self.window == other.window,
-            ]
+            ],
         )
 
     def __hash__(self) -> int:
@@ -343,23 +352,23 @@ class MetricsAlertDefinition:
 
     @property
     def aggregation(self) -> Aggregate:
-        """Retrieve the aggregation strategy for this alert"""
+        """Retrieve the aggregation strategy for this alert."""
         if (_aggregation := self._sv_obj.get_alert().get("aggregation")) is None:
             raise RuntimeError(
-                "Expected key 'aggregation' in alert definition retrieval"
+                "Expected key 'aggregation' in alert definition retrieval",
             )
         return _aggregation
 
     @property
     def rule(self) -> Rule:
-        """Retrieve the rule for this alert"""
+        """Retrieve the rule for this alert."""
         if (_rule := self._sv_obj.get_alert().get("rule")) is None:
             raise RuntimeError("Expected key 'rule' in alert definition retrieval")
         return _rule
 
     @property
     def window(self) -> int:
-        """Retrieve the aggregation window for this alert"""
+        """Retrieve the aggregation window for this alert."""
         if (_window := self._sv_obj.get_alert().get("window")) is None:
             raise RuntimeError("Expected key 'window' in alert definition retrieval")
         return _window
@@ -367,28 +376,28 @@ class MetricsAlertDefinition:
     @property
     @staging_check
     def frequency(self) -> int:
-        """Retrieve the monitor frequency for this alert"""
+        """Retrieve the monitor frequency for this alert."""
         try:
             return self._sv_obj.get_alert()["frequency"]
         except KeyError as e:
             raise RuntimeError(
-                "Expected key 'frequency' in alert definition retrieval"
+                "Expected key 'frequency' in alert definition retrieval",
             ) from e
 
     @frequency.setter
     @write_only
     @pydantic.validate_call
     def frequency(self, frequency: int) -> None:
-        """Set the monitor frequency for this alert"""
+        """Set the monitor frequency for this alert."""
         _alert = self._sv_obj.get_alert() | {"frequency": frequency}
-        self._sv_obj._staging["alert"] = _alert
+        self._sv_obj.append_to_staging({"alert": _alert})
 
 
 class MetricThresholdAlertDefinition(MetricsAlertDefinition):
-    """Alert definition for metric threshold alerts"""
+    """Alert definition for metric threshold alerts."""
 
     def __eq__(self, other: "MetricThresholdAlertDefinition") -> bool:
-        """Compare this MetricThresholdAlertDefinition with another"""
+        """Compare this MetricThresholdAlertDefinition with another."""
         if not super().__eq__(other):
             return False
 
@@ -399,17 +408,17 @@ class MetricThresholdAlertDefinition(MetricsAlertDefinition):
 
     @property
     def threshold(self) -> float:
-        """Retrieve the threshold value for this alert"""
+        """Retrieve the threshold value for this alert."""
         if (threshold_l := self._sv_obj.get_alert().get("threshold")) is None:
             raise RuntimeError("Expected key 'threshold' in alert definition retrieval")
         return threshold_l
 
 
 class MetricRangeAlertDefinition(MetricsAlertDefinition):
-    """Alert definition for metric range alerts"""
+    """Alert definition for metric range alerts."""
 
     def __eq__(self, other: "MetricRangeAlertDefinition") -> bool:
-        """Compare a MetricRangeAlertDefinition with another"""
+        """Compare a MetricRangeAlertDefinition with another."""
         if not super().__eq__(other):
             return False
 
@@ -417,7 +426,7 @@ class MetricRangeAlertDefinition(MetricsAlertDefinition):
             [
                 self.range_high == other.range_high,
                 self.range_low == other.range_low,
-            ]
+            ],
         )
 
     def __hash__(self) -> int:
@@ -425,16 +434,16 @@ class MetricRangeAlertDefinition(MetricsAlertDefinition):
 
     @property
     def range_low(self) -> float:
-        """Retrieve the lower limit for metric range"""
+        """Retrieve the lower limit for metric range."""
         if (range_l := self._sv_obj.get_alert().get("range_low")) is None:
             raise RuntimeError("Expected key 'range_low' in alert definition retrieval")
         return range_l
 
     @property
     def range_high(self) -> float:
-        """Retrieve upper limit for metric range"""
+        """Retrieve upper limit for metric range."""
         if (range_u := self._sv_obj.get_alert().get("range_high")) is None:
             raise RuntimeError(
-                "Expected key 'range_high' in alert definition retrieval"
+                "Expected key 'range_high' in alert definition retrieval",
             )
         return range_u

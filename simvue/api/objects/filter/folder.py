@@ -21,7 +21,8 @@ class FoldersFilter(RestAPIFilter):
     @prettify_pydantic
     @pyd.validate_call
     def has_path(
-        self, name: typing.Annotated[str, pyd.Field(pattern=FOLDER_REGEX)]
+        self,
+        name: typing.Annotated[str, pyd.Field(pattern=FOLDER_REGEX)],
     ) -> Self:
         """Check if a folder has the given path."""
         self._filters.append(f"path == {name}")

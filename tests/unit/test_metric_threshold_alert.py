@@ -61,7 +61,7 @@ def test_metric_threshold_alert_creation_offline(offline_cache_setup) -> None:
     assert _local_data.get("notification") == "none"
     assert _local_data.get("alert").get("threshold") == 10
     
-    _sender = Sender(_alert._local_staging_file.parents[1], 1, 10, throw_exceptions=True)
+    _sender = Sender(cache_directory=_alert._local_staging_file.parents[1], max_workers=1, threading_threshold=10, throw_exceptions=True)
     _sender.upload(["alerts"])
     time.sleep(1)
     
@@ -123,7 +123,7 @@ def test_metric_threshold_alert_modification_offline(offline_cache_setup) -> Non
     )
     _alert.commit()
     
-    _sender = Sender(_alert._local_staging_file.parents[1], 1, 10, throw_exceptions=True)
+    _sender = Sender(cache_directory=_alert._local_staging_file.parents[1], max_workers=1, threading_threshold=10, throw_exceptions=True)
     _sender.upload(["alerts"])
     time.sleep(1) 
     
@@ -149,7 +149,7 @@ def test_metric_threshold_alert_modification_offline(offline_cache_setup) -> Non
         _local_data = json.load(in_f)
     assert _local_data.get("description") == "updated!"
     
-    Sender(_alert._local_staging_file.parents[1], 1, 10, throw_exceptions=True).upload(["alerts"])
+    Sender(cache_directory=_alert._local_staging_file.parents[1], max_workers=1, threading_threshold=10, throw_exceptions=True).upload(["alerts"])
     time.sleep(1) 
     
     _online_alert.refresh()

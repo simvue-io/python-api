@@ -6,6 +6,7 @@ locally or on a Simvue server
 """
 
 import io
+import pathlib
 import sys
 import typing
 
@@ -13,7 +14,7 @@ import pydantic
 
 from simvue.models import NAME_REGEX
 from simvue.serialization import serialize_object
-from simvue.utilities import calculate_sha256
+from simvue.utilities import calculate_object_sha256
 
 from .base import ArtifactBase
 
@@ -41,7 +42,7 @@ class ObjectArtifact(ArtifactBase):
         server_token: pydantic.SecretStr | None = None,
         **kwargs,
     ) -> None:
-        """Initialise a Object Artifact
+        """Initialise a Object Artifact.
 
         If an identifier is provided a connection will be made to the
         object matching the identifier on the target server.
@@ -58,6 +59,7 @@ class ObjectArtifact(ArtifactBase):
             token for alternative server, default None
         **kwargs : dict
             any additional arguments to be passed to the object initialiser
+
         """
         kwargs.pop("original_path", None)
         super().__init__(identifier, original_path="", **kwargs)
@@ -77,9 +79,9 @@ class ObjectArtifact(ArtifactBase):
         offline: bool = False,
         server_url: str | None = None,
         server_token: pydantic.SecretStr | None = None,
-        **kwargs,
+        **kwargs: typing.Any,
     ) -> Self:
-        """Create a new artifact either locally or on the server
+        """Create a new artifact either locally or on the server.
 
         Note all arguments are keyword arguments
 
@@ -104,6 +106,8 @@ class ObjectArtifact(ArtifactBase):
             alternative server URL, default None
         server_token : str | None, optional
             token for alternative server, default None
+        **kwargs : Any
+            additional arguments for initialisation
 
         Returns
         -------
@@ -117,25 +121,26 @@ class ObjectArtifact(ArtifactBase):
                 _data_type = kwargs.pop("mime_type")
                 _serialized = kwargs.pop("serialized")
                 _checksum = kwargs.pop("checksum")
-                kwargs.pop("size")
-                kwargs.pop("original_path")
+                _ = kwargs.pop("size")
+                _ = kwargs.pop("original_path")
             except KeyError:
                 raise ValueError(
-                    "Must provide an object to be saved, not None."
+                    "Must provide an object to be saved, not None.",
                 ) from None
 
         else:
-            _serialization = serialize_object(obj, allow_pickling)
+            _serialization = serialize_object(obj, allow_pickle=allow_pickling)
 
             if not _serialization or not (_serialized := _serialization[0]):
                 raise ValueError(f"Could not serialize object of type '{type(obj)}'")
 
             if not (_data_type := _serialization[1]) and not allow_pickling:
                 raise ValueError(
-                    f"Could not serialize object of type '{type(obj)}' without pickling"
+                    f"Could not serialize object of type '{type(obj)}' "
+                    "without pickling",
                 )
 
-            _checksum = calculate_sha256(_serialized, is_file=False)
+            _checksum = calculate_object_sha256(_serialized)
 
         _artifact = cls(
             name=name,
@@ -155,11 +160,9 @@ class ObjectArtifact(ArtifactBase):
             _artifact._init_data = {}
             _artifact._staging["obj"] = None
             _artifact._local_staging_file.parent.mkdir(parents=True, exist_ok=True)
-            with open(
+            pathlib.Path(
                 _artifact._local_staging_file.parent.joinpath(f"{_artifact.id}.object"),
-                "wb",
-            ) as file:
-                file.write(_serialized)
+            ).write_bytes(_serialized)
 
         else:
             _artifact._init_data = _artifact._post_single(**_artifact._staging)

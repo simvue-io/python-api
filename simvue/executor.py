@@ -56,8 +56,8 @@ def _execute_process(
     thread_out = None
 
     with (
-        open(f"{runner_name}_{proc_id}.err", "w") as err,
-        open(f"{runner_name}_{proc_id}.out", "w") as out,
+        pathlib.Path(f"{runner_name}_{proc_id}.err").open("w", encoding="utf-8") as err,
+        pathlib.Path(f"{runner_name}_{proc_id}.out").open("w", encoding="utf-8") as out,
     ):
         _result = subprocess.Popen(
             command,
@@ -80,8 +80,12 @@ def _execute_process(
             if trigger_to_set:
                 trigger_to_set.set()
             if completion_callback:
-                std_err = pathlib.Path(f"{runner_name}_{proc_id}.err").read_text()
-                std_out = pathlib.Path(f"{runner_name}_{proc_id}.out").read_text()
+                std_err = pathlib.Path(f"{runner_name}_{proc_id}.err").read_text(
+                    encoding="utf-8",
+                )
+                std_out = pathlib.Path(f"{runner_name}_{proc_id}.out").read_text(
+                    encoding="utf-8",
+                )
                 completion_callback(
                     status_code=process.returncode,
                     std_out=std_out,
@@ -100,7 +104,7 @@ def _execute_process(
 
 
 class Executor:
-    """Command Line command executor
+    """Command Line command executor.
 
     Adds execution of command line commands as part of a Simvue run,
     the status of these commands is monitored
@@ -111,7 +115,7 @@ class Executor:
     being used to set the relevant metadata within the Simvue run itself.
     """
 
-    def __init__(self, simvue_runner: "simvue.Run", keep_logs: bool = True) -> None:
+    def __init__(self, simvue_runner: "simvue.Run", *, keep_logs: bool = True) -> None:
         """Initialise an instance of the Simvue executor attaching it to a Run.
 
         Parameters
@@ -120,12 +124,14 @@ class Executor:
             An instance of the Simvue runner used to send command execution feedback
         keep_logs : bool, optional
             whether to keep the stdout and stderr logs locally, by default False
+
         """
         self._runner = simvue_runner
         self._keep_logs = keep_logs
         self._completion_callbacks: dict[str, CompletionCallback] | None = {}
         self._completion_triggers: dict[
-            str, multiprocessing.synchronize.Event | None
+            str,
+            multiprocessing.synchronize.Event | None,
         ] = {}
         self._completion_processes: dict[str, threading.Thread] | None = {}
         self._alert_ids: dict[str, str] = {}
@@ -134,18 +140,18 @@ class Executor:
         self._all_processes: list[psutil.Process] = []
 
     def std_out(self, process_id: str) -> str | None:
-        if not os.path.exists(out_file := f"{self._runner.name}_{process_id}.out"):
+        _out_file = pathlib.Path(f"{self._runner.name}_{process_id}.out")
+        if not _out_file.exists():
             return None
 
-        with open(out_file) as out:
-            return out.read() or None
+        return _out_file.read_text(encoding="utf-8") or None
 
     def std_err(self, process_id: str) -> str | None:
-        if not os.path.exists(err_file := f"{self._runner.name}_{process_id}.err"):
+        _error_file = pathlib.Path(f"{self._runner.name}_{process_id}.err")
+        if not _error_file.exists():
             return None
 
-        with open(err_file) as err:
-            return err.read() or None
+        return _error_file.read_text(encoding="utf-8") or None
 
     @staticmethod
     def _kwarg_assembly(kwargs, executable: str | None) -> list[str]:
@@ -153,7 +159,7 @@ class Executor:
         _shell_is_pwsh: bool = any(
             shell in get_current_shell() for shell in ("pwsh", "powershell")
         )
-        _exec_is_pwsh: bool = executable in ("pwsh", "powershell", None)
+        _exec_is_pwsh: bool = executable in {"pwsh", "powershell", None}
         _use_pwsh: bool = _shell_is_pwsh and _exec_is_pwsh
 
         for arg, value in kwargs.items():
@@ -177,7 +183,7 @@ class Executor:
     def add_process(
         self,
         identifier: str,
-        *args,
+        *cmd_args,
         executable: str | None = None,
         script: pathlib.Path | None = None,
         input_file: pathlib.Path | None = None,
@@ -187,7 +193,7 @@ class Executor:
         completion_trigger: threading.Event
         | multiprocessing.synchronize.Event
         | None = None,
-        **kwargs,
+        **cmd_kwargs,
     ) -> None:
         """Add a process to be executed to the executor.
 
@@ -236,27 +242,35 @@ class Executor:
         identifier : str
             A unique identifier for this process
         executable : str | None, optional
-            the main executable for the command, if not specified this
-            is taken to be the first positional argument, by default None
-        script : str | None, optional
+            the main executable for the command, if not specified this is
+            taken to be the first positional argument, by default None
+        *cmd_args: Any, ..., optional
+            all other positional arguments are taken to be part of the
+            command to execute
+        script : pydantic.FilePath | None, optional
             the script to run, note this only work if the script is not an option,
             if this is the case you should provide it as such and perform the
             upload manually, by default None
-        input_file : str | None, optional
+        input_file : pydantic.FilePath | None, optional
             the input file to run, note this only work if the input file is not an
             option, if this is the case you should provide it as such and perform
             the upload manually, by default None
+        completion_callback : typing.Callable | None, optional
+            callback to run when process terminates (not supported on Windows)
+        completion_trigger : threading.Event | None, optional
+            this trigger event is set when the processes completes
         env : dict[str, str], optional
             environment variables for process
         cwd: pathlib.Path | None, optional
-            working directory to execute the process within
-        completion_callback : typing.Callable | None, optional
-            callback to run when process terminates
-        completion_trigger : threading.Event | None, optional
-            this trigger event is set when the processes completes
-            (not supported on Windows)
+            working directory to execute the process within. Note that executable,
+            input and script file paths should be absolute or relative to the
+            directory where this method is called, not relative to the new
+            working directory.
+        **cmd_kwargs: Any, ..., optional
+            all other keyword arguments are interpreted as options to the command
+
         """
-        pos_args = list(args)
+        pos_args = list(cmd_args)
 
         if not self._runner.name:
             raise RuntimeError("Cannot add process, expected Run instance to have name")
@@ -264,7 +278,7 @@ class Executor:
         if sys.platform == "win32" and completion_trigger:
             logger.warning(
                 "Completion trigger for 'add_process' may fail on Windows "
-                "due to function pickling restrictions"
+                "due to function pickling restrictions",
             )
 
         # To check the executable provided by the user exists combine with environment
@@ -278,7 +292,7 @@ class Executor:
         ):
             raise FileNotFoundError(
                 f"Executable '{executable}' does not exist, please check the "
-                "path/environment."
+                "path/environment.",
             )
 
         if script:
@@ -303,7 +317,7 @@ class Executor:
         if input_file:
             command += [f"{input_file}"]
 
-        command += self._kwarg_assembly(kwargs, executable=executable)
+        command += self._kwarg_assembly(cmd_kwargs, executable=executable)
 
         command += pos_args
 
@@ -324,7 +338,7 @@ class Executor:
         )
 
         self._alert_ids[identifier] = self._runner.create_user_alert(
-            name=f"{identifier}_exit_status"
+            name=f"{identifier}_exit_status",
         )
 
         if not self._alert_ids[identifier]:
@@ -332,7 +346,7 @@ class Executor:
 
     @property
     def processes(self) -> list[psutil.Process]:
-        """Create an array containing a list of processes"""
+        """Create an array containing a list of processes."""
         if not self._processes:
             return []
 
@@ -348,8 +362,8 @@ class Executor:
                     if child not in _current_processes:
                         _current_processes.append(child)
 
-        _current_pids = set([_process.pid for _process in _current_processes])
-        _previous_pids = set([_process.pid for _process in self._all_processes])
+        _current_pids = {_process.pid for _process in _current_processes}
+        _previous_pids = {_process.pid for _process in self._all_processes}
 
         # Find processes which used to exist, which are no longer running
         _expired_process_pids = _previous_pids - _current_pids
@@ -382,12 +396,12 @@ class Executor:
 
     @property
     def success(self) -> int:
-        """Return whether all attached processes completed successfully"""
+        """Return whether all attached processes completed successfully."""
         return all(i.returncode == 0 for i in self._processes.values())
 
     @property
     def exit_status(self) -> int:
-        """Returns the first non-zero exit status if applicable"""
+        """Returns the first non-zero exit status if applicable."""
         if _non_zero := [
             i.returncode for i in self._processes.values() if i.returncode != 0
         ]:
@@ -396,7 +410,7 @@ class Executor:
         return 0
 
     def get_error_summary(self) -> dict[str, str] | None:
-        """Returns the summary messages of all errors"""
+        """Returns the summary messages of all errors."""
         return {
             identifier: self._get_error_status(identifier)
             for identifier, value in self._processes.items()
@@ -415,6 +429,7 @@ class Executor:
         -------
         str
             command as a string
+
         """
         if process_id not in self._processes:
             raise KeyError(f"Failed to retrieve '{process_id}', no such process")
@@ -438,7 +453,7 @@ class Executor:
         return err_msg
 
     def _update_alerts(self) -> None:
-        """Send log events for the result of each process"""
+        """Send log events for the result of each process."""
         # Wait for the dispatcher to send the latest information before
         # allowing the executor to finish (and as such the run instance to exit)
         _wait_limit: float = 1
@@ -448,8 +463,8 @@ class Executor:
             # the user can manually set the correct status depending on logs etc.
             _alert = UserAlert(
                 identifier=self._alert_ids[proc_id],
-                server_url=self._runner._user_config.server.url,
-                server_token=self._runner._user_config.server.token,
+                server_url=self._runner.user_config.server.url,
+                server_token=self._runner.user_config.server.token,
             )
             _is_set: bool = False
 
@@ -459,25 +474,26 @@ class Executor:
             if process.returncode != 0:
                 # If the process fails then purge the dispatcher event queue
                 # and ensure that the stderr event is sent before the run closes
-                if self._runner._dispatcher:
-                    self._runner._dispatcher.purge()
+                if self._runner.dispatcher:
+                    self._runner.dispatcher.purge()
                 if not _is_set:
                     self._runner.log_alert(
-                        identifier=self._alert_ids[proc_id], state="critical"
+                        identifier=self._alert_ids[proc_id],
+                        state="critical",
                     )
             elif self._runner.mode == "online" and not _is_set:
                 self._runner.log_alert(identifier=self._alert_ids[proc_id], state="ok")
 
             _current_time: float = 0
             while (
-                self._runner._dispatcher
-                and not self._runner._dispatcher.empty
+                self._runner.dispatcher
+                and not self._runner.dispatcher.empty
                 and _current_time < _wait_limit
             ):
                 time.sleep(_current_time := _current_time + 0.1)
 
     def _save_output(self) -> None:
-        """Save the output to Simvue"""
+        """Save the output to Simvue."""
         if self._runner.status != "running":
             logger.debug("Run is not active, skipping output save.")
             return
@@ -486,17 +502,22 @@ class Executor:
             # Only save the file if the contents are not empty
             if self.std_err(proc_id):
                 self._runner.save_file(
-                    f"{self._runner.name}_{proc_id}.err", category="output"
+                    f"{self._runner.name}_{proc_id}.err",
+                    category="output",
                 )
             if self.std_out(proc_id):
                 self._runner.save_file(
-                    f"{self._runner.name}_{proc_id}.out", category="output"
+                    f"{self._runner.name}_{proc_id}.out",
+                    category="output",
                 )
 
     def kill_process(
-        self, process_id: int | str, kill_children_only: bool = False
+        self,
+        process_id: int | str,
+        *,
+        kill_children_only: bool = False,
     ) -> None:
-        """Kill a running process by ID
+        """Kill a running process by ID.
 
         If argument is a string this is a process handled by the client,
         else it is a PID of a external monitored process
@@ -508,11 +529,15 @@ class Executor:
             of an external process
         kill_children_only : bool, optional
             if process_id is an integer, whether to kill only its children
+
         """
+        process = None
+
         if isinstance(process_id, str):
             if (process := self._processes.get(process_id)) is None:
                 logger.error(
-                    f"Failed to terminate process '{process_id}', no such identifier."
+                    "Failed to terminate process '%s' no such identifier.",
+                    process.id,
                 )
                 return
             try:
@@ -526,33 +551,33 @@ class Executor:
                 return
 
         for child in parent.children(recursive=True):
-            logger.debug(f"Terminating child process {child.pid}: {child.name()}")
+            logger.debug("Terminating child process %s: %s", child.pid, child.name())
             child.kill()
 
         for child in parent.children(recursive=True):
             child.wait()
 
         if not kill_children_only and process:
-            logger.debug(f"Terminating process {process.pid}: {process.args}")
+            logger.debug("Terminating process %s: %s", process.pid, process.args)
             process.kill()
             process.wait()
 
         self._save_output()
 
     def kill_all(self) -> None:
-        """Kill all running processes"""
+        """Kill all running processes."""
         for process in self._processes:
             self.kill_process(process)
 
     def _clear_cache_files(self) -> None:
-        """Clear local log files if required"""
+        """Clear local log files if required."""
         if not self._keep_logs:
             for proc_id in self._processes:
-                os.remove(f"{self._runner.name}_{proc_id}.err")
-                os.remove(f"{self._runner.name}_{proc_id}.out")
+                pathlib.Path(f"{self._runner.name}_{proc_id}.err").unlink()
+                pathlib.Path(f"{self._runner.name}_{proc_id}.out").unlink()
 
     def wait_for_completion(self) -> None:
-        """Wait for all processes to finish then perform tidy up and upload"""
+        """Wait for all processes to finish then perform tidy up and upload."""
         for process in self._processes.values():
             process.wait()
 

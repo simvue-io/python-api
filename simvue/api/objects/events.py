@@ -1,5 +1,4 @@
-"""
-Simvue Server Events
+"""Simvue Server Events.
 ====================
 
 Contains a class for remotely connecting to Simvue events, or defining
@@ -16,7 +15,6 @@ import pydantic
 
 from simvue.api.request import get as sv_get
 from simvue.api.request import get_json_from_response
-from simvue.api.url import URL
 from simvue.models import EventSet, simvue_timestamp
 
 from .base import SimvueObject
@@ -25,6 +23,9 @@ try:
     from typing import Self
 except ImportError:
     from typing_extensions import Self
+
+if typing.TYPE_CHECKING:
+    from simvue.api.url import URL
 
 __all__ = ["Events"]
 
@@ -59,6 +60,7 @@ class Events(SimvueObject):
             token for alternative server, default None
         **kwargs : dict
             any additional arguments to be passed to the object initialiser
+
         """
         super().__init__(
             identifier=identifier,
@@ -79,7 +81,7 @@ class Events(SimvueObject):
         offset: pydantic.PositiveInt | None = None,
         server_url: str | None = None,
         server_token: pydantic.SecretStr | None = None,
-        **kwargs,
+        **kwargs: typing.Any,
     ) -> Generator[EventSet]:
         """Retrieve events from the server.
 
@@ -95,6 +97,8 @@ class Events(SimvueObject):
             alternative server URL, default None
         server_token : str | None, optional
             token for alternative server, default None
+        **kwargs : Any
+            additional arguments for retrieval
 
         Yields
         ------
@@ -104,6 +108,7 @@ class Events(SimvueObject):
         Returns
         -------
         Generator[EventSet]
+
         """
         _class_instance = cls(_read_only=True, _local=True)
         _count: int = 0
@@ -119,7 +124,7 @@ class Events(SimvueObject):
             if (_data := response.get("data")) is None:
                 raise RuntimeError(
                     "Expected key 'data' for retrieval of "
-                    f"{_class_instance.__class__.__name__.lower()}s"
+                    f"{_class_instance.__class__.__name__.lower()}s",
                 )
 
             for _entry in _data:
@@ -138,7 +143,7 @@ class Events(SimvueObject):
         offline: bool = False,
         server_url: str | None = None,
         server_token: pydantic.SecretStr | None = None,
-        **kwargs,
+        **kwargs: typing.Any,
     ) -> Self:
         """Create a new Events entry on the Simvue server.
 
@@ -154,11 +159,14 @@ class Events(SimvueObject):
             alternative server URL, default None
         server_token : str | None, optional
             token for alternative server, default None
+        **kwargs : Any
+            additional initialisation arguments
 
         Returns
         -------
         Events
             an object representing this event set
+
         """
         return cls(
             run=run,
@@ -187,9 +195,9 @@ class Events(SimvueObject):
         if timestamp_end - timestamp_begin <= datetime.timedelta(seconds=window):
             raise ValueError(
                 "Invalid arguments for datetime range, "
-                "value difference must be greater than window"
+                "value difference must be greater than window",
             )
-        _url: URL = self._base_url / "histogram"
+        _url: URL = self.base_url / "histogram"
         _time_begin: str = simvue_timestamp(timestamp_begin)
         _time_end: str = simvue_timestamp(timestamp_end)
         _response = sv_get(
@@ -217,6 +225,7 @@ class Events(SimvueObject):
         ------
         NotImplementedError
             as event set deletion not supported
+
         """
         raise NotImplementedError("Cannot delete event set")
 

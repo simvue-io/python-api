@@ -37,7 +37,7 @@ class UserAlert(AlertBase):
         server_token: pydantic.SecretStr | None = None,
         **kwargs,
     ) -> None:
-        """Initialise a User Alert
+        """Initialise a User Alert.
 
         If an identifier is provided a connection will be made to the
         object matching the identifier on the target server.
@@ -54,9 +54,13 @@ class UserAlert(AlertBase):
             token for alternative server, default None
         **kwargs : dict
             any additional arguments to be passed to the object initialiser
+
         """
         super().__init__(
-            identifier, server_url=server_url, server_token=server_token, **kwargs
+            identifier,
+            server_url=server_url,
+            server_token=server_token,
+            **kwargs,
         )
         self._local_status: dict[str, str | None] = kwargs.pop("status", {})
 
@@ -75,7 +79,7 @@ class UserAlert(AlertBase):
         server_token: pydantic.SecretStr | None = None,
         **_,
     ) -> Self:
-        """Create a new user-defined alert
+        """Create a new user-defined alert.
 
         Note all arguments are keyword arguments.
 
@@ -118,26 +122,28 @@ class UserAlert(AlertBase):
 
     @classmethod
     def get(
-        cls, count: int | None = None, offset: int | None = None
+        cls,
+        count: int | None = None,
+        offset: int | None = None,
     ) -> dict[str, typing.Any]:
-        """Return only UserAlerts"""
+        """Return only UserAlerts."""
         raise NotImplementedError("Retrieve of only user alerts is not yet supported")
 
     def get_status(self, run_id: str) -> typing.Literal["ok", "critical"] | None:
-        """Retrieve current alert status for the given run"""
+        """Retrieve current alert status for the given run."""
         if self._offline:
             return self._staging.get("status", self._local_status).get(run_id)
 
         return super().get_status(run_id)
 
     def on_reconnect(self, id_mapping: dict[str, str]) -> None:
-        """Set status update on reconnect"""
+        """Set status update on reconnect."""
         for offline_id, status in self._staging.get("status", {}).items():
             self.set_status(id_mapping.get(offline_id), status)
 
     @pydantic.validate_call
     def set_status(self, run_id: str, status: typing.Literal["ok", "critical"]) -> None:
-        """Set the status of this alert for a given run"""
+        """Set the status of this alert for a given run."""
         if self._offline:
             if "status" not in self._staging:
                 self._staging["status"] = {}
@@ -146,7 +152,7 @@ class UserAlert(AlertBase):
         if run_id.startswith("offline"):
             raise ValueError(
                 f"Cannot set status of online alert '{self.id}' for "
-                f"offline run '{run_id}'"
+                f"offline run '{run_id}'",
             )
 
         _response = sv_put(

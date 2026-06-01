@@ -57,6 +57,7 @@ dependencies = [
   "flatdict (==4.1.0)",
   "pytest (>=9.0.3,<10.0.0)",
   "unyt (>=3.1.0,<4.0.0)",
+  "pip>=26.1.2",
 ]
 
 [project.urls]
@@ -88,12 +89,15 @@ dev = [
 ]
 
 [tool.ruff]
-extend-exclude = ["tests", "examples", "notebooks"]
+extend-exclude = ["tests", "examples", "notebooks", "simvue/pynvml.py"]
+preview = true
 
 [tool.ruff.lint]
+ignore = ["COM812", "PLR0904", "PLR6301", "D203", "D212"]
+dummy-variable-rgx = "^_+$"
 extend-select = [
-  "C901",
-  "T201",
+  "C90",
+  "D417",
   "E",
   "F",
   "W",
@@ -104,6 +108,33 @@ extend-select = [
   "ARG",
   "RUF",
   "RET",
+  "S",
+  "BLE",
+  "FBT",
+  "COM",
+  "A",
+  "C4",
+  "DTZ",
+  "ICN",
+  "G",
+  "PIE",
+  "T20",
+  "INP",
+  "PYI",
+  "PT",
+  "Q",
+  "RSE",
+  "SLOT",
+  "TID",
+  "TC",
+  "ARG",
+  "I",
+  "D417",
+  "ERA",
+  "PL",
+  "UP",
+  "FURB",
+  "N",
 ]
 
 [tool.ruff.lint.mccabe]

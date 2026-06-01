@@ -46,7 +46,7 @@ def test_user_alert_creation_offline(offline_cache_setup) -> None:
     assert _local_data.get("name") == f"users_alert_{_uuid}"
     assert _local_data.get("notification") == "none"
 
-    _sender = Sender(_alert._local_staging_file.parents[1], 1, 10, throw_exceptions=True)
+    _sender = Sender(cache_directory=_alert._local_staging_file.parents[1], max_workers=1, threading_threshold=10, throw_exceptions=True)
     _sender.upload(["alerts"])
     time.sleep(1)
     
@@ -94,7 +94,7 @@ def test_user_alert_modification_offline(offline_cache_setup) -> None:
     )
     _alert.commit()
     
-    _sender = Sender(_alert._local_staging_file.parents[1], 1, 10, throw_exceptions=True)
+    _sender = Sender(cache_directory=_alert._local_staging_file.parents[1], max_workers=1, threading_threshold=10, throw_exceptions=True)
     _sender.upload(["alerts"])
 
     time.sleep(1) 
@@ -118,7 +118,7 @@ def test_user_alert_modification_offline(offline_cache_setup) -> None:
     with _alert._local_staging_file.open() as in_f:
         _local_data = json.load(in_f)
     assert _local_data.get("description") == "updated!"
-    _sender = Sender(_alert._local_staging_file.parents[1], 1, 10, throw_exceptions=True)
+    _sender = Sender(cache_directory=_alert._local_staging_file.parents[1], max_workers=1, threading_threshold=10, throw_exceptions=True)
     _sender.upload(["alerts"])
     time.sleep(1) 
     
@@ -193,7 +193,7 @@ def test_user_alert_status_offline(offline_cache_setup) -> None:
     _run.alerts = [_alert.id]
     _run.commit()
 
-    _sender = Sender(_alert._local_staging_file.parents[1], 1, 10, throw_exceptions=True)
+    _sender = Sender(cache_directory=_alert._local_staging_file.parents[1], max_workers=1, threading_threshold=10, throw_exceptions=True)
     _sender.upload(["folders", "runs", "alerts"])
     time.sleep(1) 
     
@@ -209,7 +209,7 @@ def test_user_alert_status_offline(offline_cache_setup) -> None:
     _online_alert.refresh()
     assert not _online_alert.get_status(run_id=_sender.id_mapping.get(_run.id))
     
-    _sender = Sender(_alert._local_staging_file.parents[1], 1, 10, throw_exceptions=True)
+    _sender = Sender(cache_directory=_alert._local_staging_file.parents[1], max_workers=1, threading_threshold=10, throw_exceptions=True)
     _sender.upload(["alerts"])
     time.sleep(1)
     

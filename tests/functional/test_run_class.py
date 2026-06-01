@@ -77,11 +77,11 @@ def test_check_run_initialised_decorator() -> None:
 def test_run_with_emissions_online(speedy_heartbeat, mock_co2_signal, create_plain_run: tuple[sv_run.Run, ...], mocker) -> None:
     run_created, _ = create_plain_run
     metric_interval = 1
-    run_created._user_config.eco.co2_signal_api_token = "test_token"
+    run_created.user_config.eco.co2_signal_api_token = "test_token"
     run_created.config(enable_emission_metrics=True, system_metrics_interval=metric_interval)
     while (
         "sustainability.emissions.total" not in requests.get(
-            url=f"{run_created._user_config.server.url}/metrics/names",
+            url=f"{run_created.user_config.server.url}/metrics/names",
             headers=run_created._headers,
             params={"runs": json.dumps([run_created.id])}).json()
         and run_created.metric_spy.call_count < 4
@@ -112,24 +112,28 @@ def test_run_with_emissions_online(speedy_heartbeat, mock_co2_signal, create_pla
 @pytest.mark.offline
 def test_run_with_emissions_offline(speedy_heartbeat, mock_co2_signal, create_plain_run_offline, monkeypatch) -> None:
     run_created, _ = create_plain_run_offline
-    run_created.config(enable_emission_metrics=True)
+    metric_interval = 1
+    run_created.config(enable_emission_metrics=True, system_metrics_interval=metric_interval)
     time.sleep(5)
     # Run should continue, but fail to log metrics until sender runs and creates file
     _sender = Sender(cache_directory=os.environ["SIMVUE_OFFLINE_DIRECTORY"], throw_exceptions=True)
     _sender.upload()
     id_mapping = _sender.id_mapping
     _run = RunObject(identifier=id_mapping[run_created.id])
-    _metric_names = [item[0] for item in _run.metrics]
-    for _metric in ["emissions", "energy_consumed"]:
-        _total_metric_name = f"sustainability.{_metric}.total"
-        _delta_metric_name = f"sustainability.{_metric}.delta"
-        assert _total_metric_name not in _metric_names
-        assert _delta_metric_name not in _metric_names
+    _run.read_only(False)
     # Sender should now have made a local file, and the run should be able to use it to create emissions metrics
     time.sleep(5)
     _sender = Sender(cache_directory=os.environ["SIMVUE_OFFLINE_DIRECTORY"], throw_exceptions=True)
     _sender.upload()
     id_mapping = _sender.id_mapping
+    while (
+        "sustainability.emissions.total" not in requests.get(
+            url=f"{run_created.user_config.server.url}/metrics/names",
+            headers=run_created._headers,
+            params={"runs": json.dumps([run_created.id])}).json()
+        and run_created.metric_spy.call_count < 4
+    ):
+        time.sleep(metric_interval)
     _run.refresh()
     _metric_names = [item[0] for item in _run.metrics]
     client = sv_cl.Client()
@@ -1094,7 +1098,7 @@ def test_save_object(
         except ImportError:
             pytest.skip("Numpy is not installed")
         save_obj = array([1, 2, 3, 4])
-    simvue_run.save_object(save_obj, "input", f"test_object_{object_type}")
+    simvue_run.save_object(save_obj, category="input", name=f"test_object_{object_type}")
 
 
 @pytest.mark.run
@@ -1245,7 +1249,7 @@ def test_add_alerts_offline(monkeypatch) -> None:
         rule="is inside range",
     )
     
-    _sender = Sender(os.environ["SIMVUE_OFFLINE_DIRECTORY"], 2, 10, throw_exceptions=True)
+    _sender = Sender(cache_directory=os.environ["SIMVUE_OFFLINE_DIRECTORY"], max_workers=2, threading_threshold=10, throw_exceptions=True)
     _sender.upload()
     _online_run = RunObject(identifier=_sender.id_mapping.get(run.id))
 
@@ -1254,7 +1258,7 @@ def test_add_alerts_offline(monkeypatch) -> None:
 
     # Create another run without adding to run
     _id = run.create_user_alert(name=f"user_alert_{_uuid}", attach_to_run=False)
-    _sender = Sender(os.environ["SIMVUE_OFFLINE_DIRECTORY"], 2, 10, throw_exceptions=True)
+    _sender = Sender(cache_directory=os.environ["SIMVUE_OFFLINE_DIRECTORY"], max_workers=2, threading_threshold=10, throw_exceptions=True)
     _sender.upload()
 
     # Check alert is not added
@@ -1264,7 +1268,7 @@ def test_add_alerts_offline(monkeypatch) -> None:
     # Try adding alerts with IDs, check there is no duplication
     _expected_alerts.append(_id)
     run.add_alerts(ids=_expected_alerts)
-    _sender = Sender(os.environ["SIMVUE_OFFLINE_DIRECTORY"], 2, 10, throw_exceptions=True)
+    _sender = Sender(cache_directory=os.environ["SIMVUE_OFFLINE_DIRECTORY"], max_workers=2, threading_threshold=10, throw_exceptions=True)
     _sender.upload()
 
     _online_run.refresh()

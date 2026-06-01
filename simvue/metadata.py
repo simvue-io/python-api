@@ -1,5 +1,4 @@
-"""
-Metadata
+"""Metadata.
 ========
 
 Contains functions for extracting additional metadata about the current project
@@ -16,14 +15,15 @@ import typing
 
 import toml
 import yaml
+from pip._internal.operations.freeze import freeze
 
 from simvue.models import simvue_timestamp
 
-logger = logging.getLogger(__file__)
+logger = logging.getLogger(__name__)
 
 
-def git_info(repository: str) -> dict[str, typing.Any]:
-    """Retrieves metadata for the target git repository
+def git_info(repository: pathlib.Path) -> dict[str, typing.Any]:
+    """Retrieves metadata for the target git repository.
 
     This is a passive function which returns an empty dictionary if any
     metadata is missing. Exceptions are raised only if the repository
@@ -38,6 +38,7 @@ def git_info(repository: str) -> dict[str, typing.Any]:
     -------
     dict[str, typing.Any]
         metadata for the target repository
+
     """
     try:
         import git
@@ -74,7 +75,7 @@ def git_info(repository: str) -> dict[str, typing.Any]:
                 "blame": blame,
                 "url": git_repo.remote().url,
                 "dirty": dirty,
-            }
+            },
         }
     except (git.InvalidGitRepositoryError, ValueError):
         return {}
@@ -84,24 +85,29 @@ def _conda_dependency_parse(dependency: str) -> tuple[str, str] | None:
     """Parse a dependency definition into module-version."""
     if dependency.startswith("::"):
         logger.warning(
-            f"Skipping Conda specific channel definition '{dependency}' "
-            "in Python environment metadata."
+            "Skipping Conda specific channel definition '%s'"
+            "in Python environment metadata.",
+            dependency,
         )
         return None
     if ">=" in dependency:
         module, version = dependency.split(">=")
         logger.warning(
-            f"Ignoring '>=' constraint in Python package version, "
-            f"naively storing '{module}=={version}', "
+            "Ignoring '>=' constraint in Python package version, "
+            "naively storing '%s==%s', "
             "for a more accurate record use 'conda env "
-            "export > environment.yml'"
+            "export > environment.yml'",
+            module,
+            version,
         )
     elif "~=" in dependency:
         module, version = dependency.split("~=")
         logger.warning(
             "Ignoring '~=' constraint in Python package version, "
-            f"naively storing '{module}=={version}', "
-            "for a more accurate record use 'conda env export > environment.yml'"
+            "naively storing '%s==%s', "
+            "for a more accurate record use 'conda env export > environment.yml'",
+            module,
+            version,
         )
     elif dependency.startswith("-e"):
         _, version = dependency.split("-e")
@@ -119,8 +125,9 @@ def _conda_dependency_parse(dependency: str) -> tuple[str, str] | None:
             module = version.split("/")[-1].replace(".git", "")
     elif "==" not in dependency:
         logger.warning(
-            f"Ignoring '{dependency}' in Python environment record as "
-            "no version constraint specified."
+            "Ignoring '%s' in Python environment record as "
+            "no version constraint specified.",
+            dependency,
         )
         return None
     else:
@@ -131,7 +138,7 @@ def _conda_dependency_parse(dependency: str) -> tuple[str, str] | None:
 
 def _conda_env(environment_file: pathlib.Path) -> dict[str, str]:
     """Parse/interpret a Conda environment file."""
-    content = yaml.load(environment_file.open(), Loader=yaml.SafeLoader)
+    content = yaml.load(environment_file.open(encoding="utf-8"), Loader=yaml.SafeLoader)
     python_environment: dict[str, str] = {}
     pip_dependencies: list[str] = []
     for dependency in content.get("dependencies", []):
@@ -148,7 +155,7 @@ def _conda_env(environment_file: pathlib.Path) -> dict[str, str]:
 
 
 def _python_env(repository: pathlib.Path) -> dict[str, typing.Any]:
-    """Retrieve a dictionary of Python dependencies if lock file is available"""
+    """Retrieve a dictionary of Python dependencies if lock file is available."""
     python_meta: dict[str, dict] = {}
 
     if (pyproject_file := pathlib.Path(repository).joinpath("pyproject.toml")).exists():
@@ -182,8 +189,6 @@ def _python_env(repository: pathlib.Path) -> dict[str, typing.Any]:
         python_meta["environment"] = _conda_env(environment_file)
     else:
         with contextlib.suppress((KeyError, ImportError)):
-            from pip._internal.operations.freeze import freeze
-
             # Conda supports having file names with @ as entries
             # in the requirements.txt file as opposed to ==
             python_meta["environment"] = {}
@@ -203,7 +208,7 @@ def _python_env(repository: pathlib.Path) -> dict[str, typing.Any]:
 
 
 def _rust_env(repository: pathlib.Path) -> dict[str, typing.Any]:
-    """Retrieve a dictionary of Rust dependencies if lock file available"""
+    """Retrieve a dictionary of Rust dependencies if lock file available."""
     rust_meta: dict[str, dict] = {}
 
     if (cargo_file := pathlib.Path(repository).joinpath("Cargo.toml")).exists():
@@ -227,16 +232,14 @@ def _rust_env(repository: pathlib.Path) -> dict[str, typing.Any]:
 
 
 def _julia_env(repository: pathlib.Path) -> dict[str, typing.Any]:
-    """Retrieve a dictionary of Julia dependencies if a project file is available"""
+    """Retrieve a dictionary of Julia dependencies if a project file is available."""
     julia_meta: dict[str, dict] = {}
     if (project_file := pathlib.Path(repository).joinpath("Project.toml")).exists():
         content = toml.load(project_file)
         julia_meta["project"] = {
             key: value for key, value in content.items() if not isinstance(value, dict)
         }
-        julia_meta["environment"] = {
-            key: value for key, value in content.get("compat", {}).items()
-        }
+        julia_meta["environment"] = dict(content.get("compat", {}))
     return julia_meta
 
 
@@ -246,20 +249,22 @@ def _node_js_env(repository: pathlib.Path) -> dict[str, typing.Any]:
         project_file := pathlib.Path(repository).joinpath("package-lock.json")
     ).exists():
         content = json.load(project_file.open())
-        if (lfv := content["lockfileVersion"]) not in (1, 2, 3):
+        if (lfv := content["lockfileVersion"]) not in {1, 2, 3}:
             logger.warning(
-                f"Unsupported package-lock.json lockfileVersion {lfv}, "
-                "ignoring JS project metadata"
+                "Unsupported package-lock.json lockfileVersion %s, "
+                "ignoring JS project metadata",
+                lfv,
             )
             return {}
 
         js_meta["project"] = {
-            key: value for key, value in content.items() if key in ("name", "version")
+            key: value for key, value in content.items() if key in {"name", "version"}
         }
         js_meta["environment"] = {
             key.replace("@", ""): value["version"]
             for key, value in content.get(
-                "packages" if lfv in (2, 3) else "dependencies", {}
+                "packages" if lfv in {2, 3} else "dependencies",
+                {},
             ).items()
             if key and not value.get("dev", True)
         }
@@ -282,7 +287,7 @@ def environment(
     repository: pathlib.Path | None = None,
     env_var_glob_exprs: set[str] | None = None,
 ) -> dict[str, typing.Any]:
-    """Retrieve environment metadata"""
+    """Retrieve environment metadata."""
     _environment_meta = {}
     _repository: pathlib.Path = repository or pathlib.Path.cwd()
     if _python_meta := _python_env(_repository):

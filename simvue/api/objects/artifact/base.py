@@ -48,7 +48,7 @@ _logger = logging.getLogger(__name__)
 
 
 class ArtifactBase(SimvueObject):
-    """Connect to/create an artifact locally or on the server"""
+    """Connect to/create an artifact locally or on the server."""
 
     _label: str = "artifact"
 
@@ -62,7 +62,6 @@ class ArtifactBase(SimvueObject):
         **kwargs,
     ) -> None:
         """Retrieve an artifact instance from the Simvue server by identifier."""
-
         super().__init__(
             identifier=identifier,
             server_url=server_url,
@@ -92,6 +91,7 @@ class ArtifactBase(SimvueObject):
             identifier of run to associate this artifact with.
         category : Literal['input', 'output', 'code']
             category of this artifact with respect to the run.
+
         """
         self._init_data["runs"][run_id] = category
 
@@ -124,10 +124,11 @@ class ArtifactBase(SimvueObject):
         ----------
         id_mapping : dict[str, str]
             mapping from offline identifier to new online identifier.
+
         """
         _offline_staging = self._init_data["runs"].copy()
-        for id, category in _offline_staging.items():
-            self.attach_to_run(run_id=id_mapping[id], category=category)
+        for _id, category in _offline_staging.items():
+            self.attach_to_run(run_id=id_mapping[_id], category=category)
 
     def _upload(self, file: io.BytesIO, timeout: int, file_size: int) -> None:
         if self._offline:
@@ -141,14 +142,15 @@ class ArtifactBase(SimvueObject):
             timeout = BASE_TIMEOUT + UPLOAD_TIMEOUT_PER_MB * file_size / 1024 / 1024
 
         self._logger.debug(
-            f"Will wait for a period of {timeout:.0f}s for upload of "
-            f"file for {file_size}B file to complete."
+            "Will wait for a period of %s for upload of file for %s file to complete.",
+            f"{timeout:.0f}s",
+            f"{file_size}B",
         )
 
         _name = self._staging["name"]
 
         if _fields := self._init_data.get("fields"):
-            _logger.debug(f"Using POST for artifact upload to '{_url}': {_fields}")
+            _logger.debug("Using POST for artifact upload to '%s': %s", _url, _fields)
             _response = sv_post(
                 url=_url,
                 headers={},
@@ -160,7 +162,7 @@ class ArtifactBase(SimvueObject):
             )
 
         else:
-            _logger.debug(f"Using PUT for artifact upload to '{_url}'")
+            _logger.debug("Using PUT for artifact upload to '%s'", _url)
             _response = sv_put(
                 url=_url,
                 headers={},
@@ -182,15 +184,18 @@ class ArtifactBase(SimvueObject):
         )
 
         # Temporarily remove read-only state
-        self.read_only(False)
+        self.read_only(is_read_only=False)
 
         # Update the server status to confirm file uploaded
         self.uploaded = True
         super().commit()
-        self.read_only(True)
+        self.read_only(is_read_only=True)
 
     def _get(
-        self, storage: str | None = None, url: str | None = None, **kwargs
+        self,
+        storage: str | None = None,
+        url: str | None = None,
+        **kwargs,
     ) -> dict[str, typing.Any]:
         return super()._get(
             storage=storage or self._staging.get("server", {}).get("storage_id"),
@@ -205,6 +210,7 @@ class ArtifactBase(SimvueObject):
         Returns
         -------
         str
+
         """
         return self._get_attribute("checksum")
 
@@ -215,6 +221,7 @@ class ArtifactBase(SimvueObject):
         Returns
         -------
         simvue.api.url.URL | None
+
         """
         return URL(_url) if (_url := self._init_data.get("url")) else None
 
@@ -225,6 +232,7 @@ class ArtifactBase(SimvueObject):
         Returns
         -------
         str
+
         """
         return self._get_attribute("original_path")
 
@@ -235,6 +243,7 @@ class ArtifactBase(SimvueObject):
         Returns
         -------
         str | None
+
         """
         return self._get_attribute("storage_id")
 
@@ -245,6 +254,7 @@ class ArtifactBase(SimvueObject):
         Returns
         -------
         str
+
         """
         return self._get_attribute("mime_type")
 
@@ -255,6 +265,7 @@ class ArtifactBase(SimvueObject):
         Returns
         -------
         int
+
         """
         return self._get_attribute("size")
 
@@ -265,20 +276,26 @@ class ArtifactBase(SimvueObject):
         Returns
         -------
         str | None
+
         """
         return self._get_attribute("name")
 
     @property
     def created(self) -> datetime.datetime | None:
-        """Retrieve created datetime for the artifact.
+        """Retrieve created datetime in UTC for the artifact.
 
         Returns
         -------
         datetime.datetime | None
+
         """
         _created: str | None = self._get_attribute("created")
         return (
-            datetime.datetime.strptime(_created, DATETIME_FORMAT) if _created else None
+            datetime.datetime.strptime(_created, DATETIME_FORMAT).astimezone(
+                datetime.UTC,
+            )
+            if _created
+            else None
         )
 
     @property
@@ -289,6 +306,7 @@ class ArtifactBase(SimvueObject):
         Returns
         -------
         bool
+
         """
         return self._get_attribute("uploaded")
 
@@ -301,11 +319,12 @@ class ArtifactBase(SimvueObject):
 
     @property
     def download_url(self) -> URL | None:
-        """Retrieve the URL for downloading this artifact
+        """Retrieve the URL for downloading this artifact.
 
         Returns
         -------
         simvue.api.url.URL | None
+
         """
         return self._get_attribute("url")
 
@@ -321,6 +340,7 @@ class ArtifactBase(SimvueObject):
         Returns
         -------
         Generator[str, None, None]
+
         """
         for _id, _ in Run.get(filters=[f"artifact.id == {self.id}"]):
             yield _id
@@ -331,6 +351,7 @@ class ArtifactBase(SimvueObject):
         Returns
         -------
         Literal['input', 'output', 'code']
+
         """
         _run_url = (
             URL(self._user_config.server.url)
@@ -347,7 +368,9 @@ class ArtifactBase(SimvueObject):
         )
         if _response.status_code == http.HTTPStatus.NOT_FOUND:
             raise ObjectNotFoundError(
-                self.label(), self._identifier, extra=f"for run '{run_id}'"
+                self.label(),
+                self._identifier,
+                extra=f"for run '{run_id}'",
             )
 
         return _json_response["category"]
@@ -364,17 +387,20 @@ class ArtifactBase(SimvueObject):
         Returns
         -------
         Generator[bytes, None, None]
+
         """
         if not self.download_url:
             raise ValueError(
-                f"Could not retrieve URL for artifact '{self._identifier}'"
+                f"Could not retrieve URL for artifact '{self._identifier}'",
             )
 
         _timeout = BASE_TIMEOUT + DOWNLOAD_TIMEOUT_PER_MB * self.size / 1024 / 1024
 
         self._logger.debug(
-            f"Will wait {_timeout:.0f}s for download of file {self.name} "
-            f"of size {self.size}B"
+            "Will wait %s for download of file %s of size %s",
+            f"{_timeout:.0f}s",
+            self.name,
+            f"{self.size}B",
         )
 
         _response = sv_get(

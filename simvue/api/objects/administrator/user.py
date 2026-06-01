@@ -6,6 +6,7 @@ a new user given relevant arguments.
 """
 
 import datetime
+import typing
 
 import pydantic
 
@@ -35,7 +36,7 @@ class User(SimvueObject):
         server_token: pydantic.SecretStr | None = None,
         **kwargs,
     ) -> None:
-        """Initialise a User
+        """Initialise a User.
 
         If an identifier is provided a connection will be made to the
         object matching the identifier on the target server.
@@ -53,9 +54,13 @@ class User(SimvueObject):
             token for alternative server, default None
         **kwargs : dict
             any additional arguments to be passed to the object initialiser
+
         """
         super().__init__(
-            identifier, server_url=server_url, server_token=server_token, **kwargs
+            identifier,
+            server_url=server_url,
+            server_token=server_token,
+            **kwargs,
         )
 
     @override
@@ -146,7 +151,7 @@ class User(SimvueObject):
         offset: int | None = None,
         server_url: str | None = None,
         server_token: pydantic.SecretStr | None = None,
-        **kwargs,
+        **kwargs: typing.Any,
     ) -> dict[str, "User"]:
         """Retrieve users from the Simvue server.
 
@@ -160,11 +165,14 @@ class User(SimvueObject):
             alternative server URL, default None
         server_token : str | None, optional
             token for alternative server, default None
+        **kwargs : Any
+            additional arguments for retrieval
 
         Yields
         ------
         User
             user instance representing user on server
+
         """
         # Currently no user filters
         _ = kwargs.pop("filters", None)
@@ -179,7 +187,7 @@ class User(SimvueObject):
     @property
     @staging_check
     def username(self) -> str:
-        """Retrieve the username for the user"""
+        """Retrieve the username for the user."""
         if self.id and self.id.startswith("offline_"):
             return self._get_attribute("user")["username"]
         return self._get_attribute("username")
@@ -188,13 +196,13 @@ class User(SimvueObject):
     @write_only
     @pydantic.validate_call
     def username(self, username: str) -> None:
-        """Set the username for the user"""
+        """Set the username for the user."""
         self._staging["username"] = username
 
     @property
     @staging_check
     def fullname(self) -> str:
-        """Retrieve the full name for the user"""
+        """Retrieve the full name for the user."""
         if self.id and self.id.startswith("offline_"):
             return self._get_attribute("user")["fullname"]
         return self._get_attribute("fullname")
@@ -203,13 +211,13 @@ class User(SimvueObject):
     @write_only
     @pydantic.validate_call
     def fullname(self, fullname: str) -> None:
-        """Set the full name for the user"""
+        """Set the full name for the user."""
         self._staging["fullname"] = fullname
 
     @property
     @staging_check
     def is_manager(self) -> bool:
-        """Retrieve if the user has manager privileges"""
+        """Retrieve if the user has manager privileges."""
         if self.id and self.id.startswith("offline_"):
             return self._get_attribute("user")["is_manager"]
         return self._get_attribute("is_manager")
@@ -218,13 +226,13 @@ class User(SimvueObject):
     @write_only
     @pydantic.validate_call
     def is_manager(self, is_manager: bool) -> None:
-        """Set if the user has manager privileges"""
+        """Set if the user has manager privileges."""
         self._staging["is_manager"] = is_manager
 
     @property
     @staging_check
     def is_admin(self) -> bool:
-        """Retrieve if the user has admin privileges"""
+        """Retrieve if the user has admin privileges."""
         if self.id and self.id.startswith("offline_"):
             return self._get_attribute("user")["is_admin"]
         return self._get_attribute("is_admin")
@@ -233,12 +241,12 @@ class User(SimvueObject):
     @write_only
     @pydantic.validate_call
     def is_admin(self, is_admin: bool) -> None:
-        """Set if the user has admin privileges"""
+        """Set if the user has admin privileges."""
         self._staging["is_admin"] = is_admin
 
     @property
     def deleted(self) -> bool:
-        """Retrieve if the user is pending deletion"""
+        """Retrieve if the user is pending deletion."""
         if self.id and self.id.startswith("offline_"):
             return self._get_attribute("user")["is_deleted"]
         return self._get_attribute("is_deleted")
@@ -246,7 +254,7 @@ class User(SimvueObject):
     @property
     @staging_check
     def is_readonly(self) -> bool:
-        """Retrieve if the user has read-only access"""
+        """Retrieve if the user has read-only access."""
         if self.id and self.id.startswith("offline_"):
             return self._get_attribute("user")["is_readonly"]
         return self._get_attribute("is_readonly")
@@ -255,13 +263,13 @@ class User(SimvueObject):
     @write_only
     @pydantic.validate_call
     def is_readonly(self, is_readonly: bool) -> None:
-        """Set if the user has read-only access"""
+        """Set if the user has read-only access."""
         self._staging["is_readonly"] = is_readonly
 
     @property
     @staging_check
     def enabled(self) -> bool:
-        """Retrieve if the user is enabled"""
+        """Retrieve if the user is enabled."""
         if self.id and self.id.startswith("offline_"):
             return self._get_attribute("user")["is_enabled"]
         return self._get_attribute("is_enabled")
@@ -270,13 +278,13 @@ class User(SimvueObject):
     @write_only
     @pydantic.validate_call
     def enabled(self, is_enabled: bool) -> None:
-        """Set if the user is enabled"""
+        """Set if the user is enabled."""
         self._staging["is_enabled"] = is_enabled
 
     @property
     @staging_check
     def email(self) -> str:
-        """Retrieve the user email"""
+        """Retrieve the user email."""
         if self.id and self.id.startswith("offline_"):
             return self._get_attribute("user")["email"]
         return self._get_attribute("email")
@@ -285,18 +293,23 @@ class User(SimvueObject):
     @write_only
     @pydantic.validate_call
     def email(self, email: str) -> None:
-        """Set the user email"""
+        """Set the user email."""
         self._staging["email"] = email
 
     @property
     def created(self) -> datetime.datetime | None:
-        """Set/retrieve created datetime for the run.
+        """Set/retrieve created datetime in UTC for the run.
 
         Returns
         -------
         datetime.datetime
+
         """
         _created: str | None = self._get_attribute("created")
         return (
-            datetime.datetime.strptime(_created, DATETIME_FORMAT) if _created else None
+            datetime.datetime.strptime(_created, DATETIME_FORMAT).astimezone(
+                datetime.UTC,
+            )
+            if _created
+            else None
         )
