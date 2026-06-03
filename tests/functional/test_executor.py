@@ -58,9 +58,8 @@ def test_executor_add_process(
 
 
 @pytest.mark.executor
-@pytest.mark.unix
 def test_executor_multiprocess(request: pytest.FixtureRequest) -> None:
-    triggers: dict[int, multiprocessing.synchronize.Event] = {}
+    triggers: dict[int, threading.Event] = {}
     callbacks: dict[int, typing.Callable] = {}
     events: dict[int, bool] = {}
     folder_id = f"{uuid.uuid4()}".split("-")[0]
@@ -180,7 +179,6 @@ def test_completion_callbacks_var_change(request: pytest.FixtureRequest) -> None
         folder.delete(recursive=True, delete_runs=True)
 
 @pytest.mark.executor
-@pytest.mark.unix
 def test_completion_trigger_set(request: pytest.FixtureRequest) -> None:
     trigger = threading.Event()
     folder_id = f"{uuid.uuid4()}".split("-")[0]

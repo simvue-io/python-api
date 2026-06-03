@@ -25,7 +25,6 @@ import traceback as tb
 import time
 import types
 import functools
-import platform
 import typing
 import uuid
 import numpy
@@ -939,12 +938,6 @@ class Run:
             warnings.warn(
                 "Use of a 'multiprocessing.Event' as a termination trigger will be deprecated in v2.5, "
                 + "use an instance of 'threading.Event' instead."
-            )
-
-        if platform.system() == "Windows" and completion_trigger:
-            raise RuntimeError(
-                "Use of 'completion_trigger' on Windows based operating systems is unsupported "
-                "due to function pickling restrictions for multiprocessing"
             )
 
         if isinstance(executable, pathlib.Path) and not executable.is_file():

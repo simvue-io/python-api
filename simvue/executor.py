@@ -10,7 +10,6 @@ __date__ = "2023-11-15"
 
 import logging
 import multiprocessing.synchronize
-import sys
 import threading
 import os
 import shutil
@@ -236,12 +235,6 @@ class Executor:
 
         if not self._runner.name:
             raise RuntimeError("Cannot add process, expected Run instance to have name")
-
-        if sys.platform == "win32" and completion_trigger:
-            logger.warning(
-                "Completion trigger for 'add_process' may fail on Windows "
-                "due to function pickling restrictions"
-            )
 
         # To check the executable provided by the user exists combine with environment
         # PATH variable if exists, if not provided use the current environment
