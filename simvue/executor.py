@@ -207,8 +207,6 @@ class Executor:
             ...
         ```
 
-        Note `completion_trigger` is not supported on Windows operating systems.
-
         Parameters
         ----------
         identifier : str
@@ -229,7 +227,7 @@ class Executor:
         completion_callback : typing.Callable | None, optional
             callback to run when process terminates
         completion_trigger : threading.Event | None, optional
-            this trigger event is set when the processes completes (not supported on Windows)
+            this trigger event is set when the processes completes
         """
         pos_args = list(args)
 

@@ -875,8 +875,6 @@ class Run:
         def callback_function(status_code: int, std_out: str, std_err: str) -> None: ...
         ```
 
-        Note `completion_callback` is not supported on Windows operating systems.
-
         Alternatively you can use `completion_trigger` to create a multiprocessing event which will be set
         when the process has completed.
 
@@ -896,7 +894,7 @@ class Run:
             the input file to run, note this only work if the input file is not an option, if this is the case
             you should provide it as such and perform the upload manually, by default None
         completion_callback : typing.Callable | None, optional
-            callback to run when process terminates (not supported on Windows)
+            callback to run when process terminates
         completion_trigger : threading.Event | None, optional
             this trigger event is set when the processes completes
         env : dict[str, str], optional
