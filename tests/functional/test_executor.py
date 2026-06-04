@@ -80,10 +80,21 @@ def test_executor_multiprocess(request: pytest.FixtureRequest) -> None:
                 triggers[i] = threading.Event()
                 callbacks[i] = callback
                 out_file = pathlib.Path(tempd).joinpath(f"out_file_{i}.dat")
+                if sys.platform == "win32":
+                    executable = "powershell"
+                    c = (
+                        f'for ($i = 0; $i -le 10; $i++) {{ '
+                        f'Start-Sleep -Milliseconds 500; '
+                        f'Add-Content -Path "{out_file}" -Value $i '
+                        f'}}'
+                    )
+                else:
+                    executable = "bash"
+                    c = f'for i in {{0..10}}; do sleep 0.5; echo "$i" >> "{out_file}"; done'
                 run.add_process(
                     f"cmd_{i}_{os.environ.get('PYTEST_XDIST_WORKER', 0)}",
-                    executable="bash",
-                    c="for i in {0..10}; do sleep 0.5; echo $i >> "+ f"{out_file}; done",
+                    executable=executable,
+                    c=c,
                     completion_trigger=triggers[i],
                     completion_callback=callbacks[i]
                 )
