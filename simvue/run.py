@@ -25,7 +25,6 @@ import traceback as tb
 import time
 import types
 import functools
-import platform
 import typing
 import uuid
 import numpy
@@ -876,8 +875,6 @@ class Run:
         def callback_function(status_code: int, std_out: str, std_err: str) -> None: ...
         ```
 
-        Note `completion_callback` is not supported on Windows operating systems.
-
         Alternatively you can use `completion_trigger` to create a multiprocessing event which will be set
         when the process has completed.
 
@@ -897,7 +894,7 @@ class Run:
             the input file to run, note this only work if the input file is not an option, if this is the case
             you should provide it as such and perform the upload manually, by default None
         completion_callback : typing.Callable | None, optional
-            callback to run when process terminates (not supported on Windows)
+            callback to run when process terminates
         completion_trigger : threading.Event | None, optional
             this trigger event is set when the processes completes
         env : dict[str, str], optional
@@ -939,12 +936,6 @@ class Run:
             warnings.warn(
                 "Use of a 'multiprocessing.Event' as a termination trigger will be deprecated in v2.5, "
                 + "use an instance of 'threading.Event' instead."
-            )
-
-        if platform.system() == "Windows" and completion_trigger:
-            raise RuntimeError(
-                "Use of 'completion_trigger' on Windows based operating systems is unsupported "
-                "due to function pickling restrictions for multiprocessing"
             )
 
         if isinstance(executable, pathlib.Path) and not executable.is_file():
