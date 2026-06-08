@@ -1,5 +1,4 @@
-"""
-Simvue Runs
+"""Simvue Runs.
 ===========
 
 Contains a class for remotely connecting to Simvue runs, or defining
@@ -7,42 +6,54 @@ a new run given relevant arguments.
 
 """
 
-from collections.abc import Generator, Iterable
-import http
-import typing
-import pydantic
 import datetime
-import time
+import http
 import json
+import time
+import typing
+from collections.abc import Generator, Iterable
+
+import pydantic
 
 try:
     from typing import Self, override
 except ImportError:
     from typing_extensions import Self, override
 
+from simvue.api.request import (
+    get as sv_get,
+)
+from simvue.api.request import (
+    get_json_from_response,
+)
+from simvue.api.request import (
+    put as sv_put,
+)
+from simvue.api.url import URL
+from simvue.models import DATETIME_FORMAT, FOLDER_REGEX, NAME_REGEX, simvue_timestamp
+
 from .base import (
     ObjectBatchArgs,
-    VisibilityBatchArgs,
     SimvueObject,
     Sort,
-    staging_check,
     Visibility,
+    VisibilityBatchArgs,
+    staging_check,
     write_only,
 )
 from .filter import RunsFilter
-from simvue.api.request import (
-    get as sv_get,
-    put as sv_put,
-    get_json_from_response,
-)
-from simvue.api.url import URL
-from simvue.models import FOLDER_REGEX, NAME_REGEX, DATETIME_FORMAT, simvue_timestamp
 
 Status = typing.Literal[
-    "lost", "failed", "completed", "terminated", "running", "created"
+    "lost",
+    "failed",
+    "completed",
+    "terminated",
+    "running",
+    "created",
 ]
 
-# Need to use this inside of Generator typing to fix bug present in Python 3.10 - see issue #745
+# Need to use this inside of Generator typing to
+# fix bug present in Python 3.10 - see issue #745
 T = typing.TypeVar("T", bound="Run")
 
 __all__ = ["Run"]
@@ -57,7 +68,7 @@ class RunSort(Sort):
             and column != "name"
             and not column.startswith("metrics")
             and not column.startswith("metadata.")
-            and column not in ("created", "started", "endtime", "modified")
+            and column not in {"created", "started", "endtime", "modified"}
         ):
             raise ValueError(f"Invalid sort column for runs '{column}'")
 
@@ -72,7 +83,12 @@ class RunBatchArgs(ObjectBatchArgs):
     folder: typing.Annotated[str, pydantic.Field(pattern=FOLDER_REGEX)] | None = None
     system: dict[str, typing.Any] | None = None
     status: typing.Literal[
-        "terminated", "created", "failed", "completed", "lost", "running"
+        "terminated",
+        "created",
+        "failed",
+        "completed",
+        "lost",
+        "running",
     ] = "created"
 
 
@@ -108,10 +124,14 @@ class Run(SimvueObject):
             token for alternative server, default None
         **kwargs : dict
             any additional arguments to be passed to the object initialiser
+
         """
         self.visibility = Visibility(self)
         super().__init__(
-            identifier, server_url=server_url, server_token=server_token, **kwargs
+            identifier,
+            server_url=server_url,
+            server_token=server_token,
+            **kwargs,
         )
 
     @classmethod
@@ -135,12 +155,17 @@ class Run(SimvueObject):
         folder: typing.Annotated[str, pydantic.Field(pattern=FOLDER_REGEX)],
         system: dict[str, typing.Any] | None = None,
         status: typing.Literal[
-            "terminated", "created", "failed", "completed", "lost", "running"
+            "terminated",
+            "created",
+            "failed",
+            "completed",
+            "lost",
+            "running",
         ] = "created",
         offline: bool = False,
         server_url: str | None = None,
         server_token: pydantic.SecretStr | None = None,
-        **kwargs,
+        **kwargs: typing.Any,
     ) -> Self:
         """Create a new Run on the Simvue server.
 
@@ -158,6 +183,8 @@ class Run(SimvueObject):
             alternative server URL, default None
         server_token : str | None, optional
             token for alternative server, default None
+        **kwargs : Any
+            additional arguments for initialisation
 
         Returns
         -------
@@ -166,7 +193,6 @@ class Run(SimvueObject):
 
         Examples
         --------
-
         ```python
         run = Run.new(
             folder="/",
@@ -176,6 +202,7 @@ class Run(SimvueObject):
         )
         run.commit()
         ```
+
         """
         return cls(
             folder=folder,
@@ -200,7 +227,7 @@ class Run(SimvueObject):
         metadata: dict[str, str | int | float | bool] | None = None,
         server_url: str | None = None,
         server_token: pydantic.SecretStr | None = None,
-        **kwargs,
+        **kwargs: typing.Any,
     ) -> Generator[str]:
         """Create a batch of Runs as a single request.
 
@@ -211,18 +238,22 @@ class Run(SimvueObject):
         visibility : VisibilityBatchArgs | None, optional
             specify visibility options for these runs, default is None.
         folder : str, optional
-            override folder specification for these runs to be a single folder, default None.
+            override folder specification for these runs to be
+            a single folder, default None.
         metadata : dict[str, int | str | float | bool], optional
             override metadata specification for these runs, default None.
         server_url: str | None, optional
             alternative server URL, default None
         server_token : str | None, optional
             token for alternative server, default None
+        **kwargs : Any
+            additional arguments for object creation
 
         Yields
         ------
         str
             identifiers for created runs
+
         """
         _data: list[dict[str, object]] = [
             entry.model_dump(exclude_none=True)
@@ -256,6 +287,7 @@ class Run(SimvueObject):
         Returns
         -------
         str
+
         """
         return self._get_attribute("name")
 
@@ -263,7 +295,8 @@ class Run(SimvueObject):
     @write_only
     @pydantic.validate_call
     def name(
-        self, name: typing.Annotated[str, pydantic.Field(pattern=NAME_REGEX)]
+        self,
+        name: typing.Annotated[str, pydantic.Field(pattern=NAME_REGEX)],
     ) -> None:
         self._staging["name"] = name
 
@@ -275,6 +308,7 @@ class Run(SimvueObject):
         Returns
         -------
         list[str]
+
         """
         return self._get_attribute("tags")
 
@@ -292,6 +326,7 @@ class Run(SimvueObject):
         Returns
         -------
         "lost" | "failed" | "completed" | "terminated" | "running" | "created"
+
         """
         return self._get_attribute("status")
 
@@ -309,6 +344,7 @@ class Run(SimvueObject):
         Returns
         -------
         int
+
         """
         return self._get_attribute("ttl")
 
@@ -326,6 +362,7 @@ class Run(SimvueObject):
         Returns
         -------
         str
+
         """
         return self._get_attribute("folder")
 
@@ -333,7 +370,8 @@ class Run(SimvueObject):
     @write_only
     @pydantic.validate_call
     def folder(
-        self, folder: typing.Annotated[str, pydantic.Field(pattern=FOLDER_REGEX)]
+        self,
+        folder: typing.Annotated[str, pydantic.Field(pattern=FOLDER_REGEX)],
     ) -> None:
         self._staging["folder"] = folder
 
@@ -345,6 +383,7 @@ class Run(SimvueObject):
         Returns
         -------
         dict[str, Any]
+
         """
         return self._get_attribute("metadata")
 
@@ -367,6 +406,7 @@ class Run(SimvueObject):
         Returns
         -------
         str
+
         """
         return self._get_attribute("description")
 
@@ -383,6 +423,7 @@ class Run(SimvueObject):
         Returns
         -------
         dict[str, Any]
+
         """
         return self._get_attribute("system")
 
@@ -400,6 +441,7 @@ class Run(SimvueObject):
         Returns
         -------
         int | None
+
         """
         return self._get_attribute("heartbeat_timeout")
 
@@ -417,6 +459,7 @@ class Run(SimvueObject):
         Returns
         -------
         "none" | "all" | "error" | "lost"
+
         """
         return self._get_attribute("notifications")["state"]
 
@@ -424,7 +467,8 @@ class Run(SimvueObject):
     @write_only
     @pydantic.validate_call
     def notifications(
-        self, notifications: typing.Literal["none", "all", "error", "lost"]
+        self,
+        notifications: typing.Literal["none", "all", "error", "lost"],
     ) -> None:
         self._staging["notifications"] = {"state": notifications}
 
@@ -436,6 +480,7 @@ class Run(SimvueObject):
         Returns
         -------
         list[str]
+
         """
         if self._offline:
             return self._get_attribute("alerts")
@@ -469,12 +514,15 @@ class Run(SimvueObject):
             alternative server URL, default None
         server_token : str | None, optional
             token for alternative server, default None
+        **kwargs : Any
+            additional arguments for retrieval
 
         Yields
         ------
         tuple[str, Run]
             id of run
             Run object representing object on server
+
         """
         _params: dict[str, str] = kwargs
 
@@ -506,10 +554,12 @@ class Run(SimvueObject):
         Returns
         -------
         Generator[dict[str, Any], None, None]
+
         """
         if self._offline:
             raise RuntimeError(
-                "Cannot get alert details from an offline run - use .alerts to access a list of IDs instead"
+                "Cannot get alert details from an offline run - "
+                "use .alerts to access a list of IDs instead",
             )
         for alert in self._get_attribute("alerts"):
             yield alert["alert"]
@@ -517,15 +567,20 @@ class Run(SimvueObject):
     @property
     @staging_check
     def created(self) -> datetime.datetime | None:
-        """Set/retrieve created datetime for the run.
+        """Set/retrieve created datetime in UTC for the run.
 
         Returns
         -------
         datetime.datetime
+
         """
         _created: str | None = self._get_attribute("created")
         return (
-            datetime.datetime.strptime(_created, DATETIME_FORMAT) if _created else None
+            datetime.datetime.strptime(_created, DATETIME_FORMAT).astimezone(
+                datetime.UTC,
+            )
+            if _created
+            else None
         )
 
     @created.setter
@@ -537,7 +592,7 @@ class Run(SimvueObject):
     @property
     @staging_check
     def runtime(self) -> datetime.datetime | None:
-        """Retrieve execution time for the run"""
+        """Retrieve execution time for the run."""
         _runtime: str | None = self._get_attribute("runtime")
         return time.strptime(_runtime, "%H:%M:%S.%f") if _runtime else None
 
@@ -549,11 +604,12 @@ class Run(SimvueObject):
         Returns
         -------
         datetime.datetime
+
         """
         _started: str | None = self._get_attribute("started")
         return (
             datetime.datetime.strptime(_started, DATETIME_FORMAT).replace(
-                tzinfo=datetime.timezone.utc
+                tzinfo=datetime.timezone.utc,
             )
             if _started
             else None
@@ -568,21 +624,23 @@ class Run(SimvueObject):
     @property
     @staging_check
     def star(self) -> bool:
-        """Return if this folder is starred"""
+        """Return if this folder is starred."""
         return self._get().get("starred", False)
 
     @star.setter
     @write_only
     @pydantic.validate_call
     def star(self, is_true: bool = True) -> None:
-        """Star this folder as a favourite"""
+        """Star this folder as a favourite."""
         self._staging["starred"] = is_true
 
     def _set_favourite(self, *, starred: bool) -> dict:
         """Set starred status."""
         _url = self.url / "starred"
         _response = sv_put(
-            f"{_url}", headers=self._user_config.headers, data={"starred": starred}
+            f"{_url}",
+            headers=self.user_config.headers,
+            data={"starred": starred},
         )
         return get_json_from_response(
             expected_status=[http.HTTPStatus.OK],
@@ -598,11 +656,12 @@ class Run(SimvueObject):
         Returns
         -------
         datetime.datetime
+
         """
         _endtime: str | None = self._get_attribute("endtime")
         return (
             datetime.datetime.strptime(_endtime, DATETIME_FORMAT).replace(
-                tzinfo=datetime.timezone.utc
+                tzinfo=datetime.timezone.utc,
             )
             if _endtime
             else None
@@ -628,6 +687,7 @@ class Run(SimvueObject):
         Returns
         -------
         Generator[tuple[str, dict[str, int | float | bool]]
+
         """
         yield from self._get_attribute("metrics").items()
 
@@ -645,6 +705,7 @@ class Run(SimvueObject):
         Returns
         -------
         Generator[tuple[str, dict[str, Any]]
+
         """
         yield from self._get_attribute("events").items()
 
@@ -668,7 +729,7 @@ class Run(SimvueObject):
             _heartbeat_file.touch()
             return None
 
-        _url = self._base_url
+        _url = self.base_url
         _url /= f"{self._identifier}/heartbeat"
         _response = sv_put(f"{_url}", headers=self._headers, data={})
         return get_json_from_response(
@@ -705,6 +766,7 @@ class Run(SimvueObject):
         -------
         bool
             the current state of the abort trigger
+
         """
         if self._offline or not self._identifier:
             return False
@@ -725,6 +787,7 @@ class Run(SimvueObject):
         -------
         list[dict[str, Any]]
             the artifacts associated with this run
+
         """
         if self._offline or not self._artifact_url:
             return []
@@ -746,6 +809,7 @@ class Run(SimvueObject):
         -------
         list[dict[str, str]]
             the grids associated with this run
+
         """
         if self._offline or not self._grid_url:
             return []
@@ -778,7 +842,9 @@ class Run(SimvueObject):
             raise RuntimeError("Cannot abort run, no endpoint defined")
 
         _response = sv_put(
-            f"{self._abort_url}", headers=self._headers, data={"reason": reason}
+            f"{self._abort_url}",
+            headers=self._headers,
+            data={"reason": reason},
         )
 
         return get_json_from_response(
@@ -794,13 +860,14 @@ class Run(SimvueObject):
         ----------
         id_mapping: dict[str, str]
             A mapping from offline identifier to online identifier.
+
         """
         online_alert_ids: list[str | None] = list(
-            set(
+            {
                 id_mapping.get(_id)
                 for _id in self._staging.get("alerts", [])
                 if _id.startswith("offline")
-            )
+            },
         )
         if not all(online_alert_ids):
             raise KeyError("Could not find alert ID in offline to online ID mapping.")

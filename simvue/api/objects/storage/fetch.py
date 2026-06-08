@@ -5,15 +5,17 @@ with an identifier, use a generic storage object.
 """
 
 import http
-import pydantic
-
-from simvue.api.request import get_json_from_response
-from simvue.api.request import get as sv_get
+import typing
 from collections.abc import Generator
 
-from .s3 import S3Storage
-from .file import FileStorage
+import pydantic
+
+from simvue.api.request import get as sv_get
+from simvue.api.request import get_json_from_response
+
 from .base import StorageBase
+from .file import FileStorage
+from .s3 import S3Storage
 
 
 class Storage:
@@ -29,7 +31,7 @@ class Storage:
         *,
         server_url: str | None = None,
         server_token: pydantic.SecretStr | None = None,
-        **kwargs,
+        **kwargs: typing.Any,
     ) -> S3Storage | FileStorage:
         """Retrieve an object representing on the server by id.
 
@@ -41,17 +43,35 @@ class Storage:
             alternative server URL, default None
         server_token : str | None, optional
             token for alternative server, default None
+        **kwargs : Any
+            additional arguments for initialisation
 
         Returns
         -------
         S3Storage | FileStorage
             object representing storage
+
         """
-        _storage_pre = StorageBase(identifier=identifier, **kwargs)
+        _storage_pre = StorageBase(
+            server_token=server_token,
+            server_url=server_url,
+            identifier=identifier,
+            **kwargs,
+        )
         if _storage_pre.backend == "S3":
-            return S3Storage(identifier=identifier, **kwargs)
-        elif _storage_pre.backend == "File":
-            return FileStorage(identifier=identifier, **kwargs)
+            return S3Storage(
+                server_token=server_token,
+                server_url=server_url,
+                identifier=identifier,
+                **kwargs,
+            )
+        if _storage_pre.backend == "File":
+            return FileStorage(
+                server_token=server_token,
+                server_url=server_url,
+                identifier=identifier,
+                **kwargs,
+            )
 
         raise RuntimeError(f"Unknown backend '{_storage_pre.backend}'")
 
@@ -64,7 +84,7 @@ class Storage:
         offset: int | None = None,
         server_url: str | None = None,
         server_token: pydantic.SecretStr | None = None,
-        **kwargs,
+        **kwargs: typing.Any,
     ) -> Generator[tuple[str, FileStorage | S3Storage]]:
         """Returns storage systems accessible to the current user.
 
@@ -78,14 +98,16 @@ class Storage:
             alternative server URL, default None
         server_token : str | None, optional
             token for alternative server, default None
+        **kwargs : Any
+            additional arguments for retrieval
 
         Yields
         ------
         tuple[str, FileStorage | S3Storage]
             identifier for a storage
             the storage itself as a class instance
-        """
 
+        """
         # Currently no storage filters
         _ = kwargs.pop("filters", None)
 
@@ -95,10 +117,10 @@ class Storage:
             server_token=server_token,
             _local=True,
         )
-        _url = f"{_class_instance._base_url}"
+        _url = f"{_class_instance.base_url}"
         _response = sv_get(
             _url,
-            headers=_class_instance._headers,
+            headers=_class_instance.user_config.headers,
             params={"start": offset, "count": count} | kwargs,
         )
         _label: str = _class_instance.__class__.__name__.lower()
@@ -138,5 +160,5 @@ class Storage:
                 )
             else:
                 raise RuntimeError(
-                    f"Unrecognised storage backend '{_entry['backend']}'"
+                    f"Unrecognised storage backend '{_entry['backend']}'",
                 )

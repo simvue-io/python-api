@@ -72,7 +72,7 @@ def test_create_s3_offline(offline_cache_setup) -> None:
     assert not _local_data.get("user", None)
     assert not _local_data.get("usage", None)
 
-    _sender = Sender(_storage._local_staging_file.parents[1], 1, 10, throw_exceptions=True)
+    _sender = Sender(cache_directory=_storage._local_staging_file.parents[1], max_workers=1, threading_threshold=10, throw_exceptions=True)
     _sender.upload(["storage"])
     _online_id = _sender.id_mapping[_storage.id]
     time.sleep(1)

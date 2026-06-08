@@ -1,5 +1,4 @@
-"""
-Queue Dispatcher
+"""Queue Dispatcher.
 ================
 
 The QueueDispatcher provides a queue based system for execution of a callback on
@@ -7,12 +6,12 @@ a list of parameters. The purpose of the class is to apply constraints to how
 often the callback can be executed, and the number of items it is called on.
 """
 
+import contextlib
 import logging
 import queue
 import threading
 import time
 import typing
-import contextlib
 
 from .base import DispatcherBaseClass
 
@@ -24,11 +23,11 @@ logger = logging.getLogger(__name__)
 
 
 class QueuedDispatcher(threading.Thread, DispatcherBaseClass):
-    """
-    The QueuedDispatcher class enforces a maximum rate of execution for a given function
-    on items within a queue. Multiple queues can be defined with the dispatch
-    of each being executed in series. Items are added to a buffer which is handed
-    to the callback.
+    """The QueuedDispatcher class enforces a maximum rate of
+    execution for a given function on items within a queue.
+    Multiple queues can be defined with the dispatch of each
+    being executed in series. Items are added to a buffer which
+    is handed to the callback.
     """
 
     def __init__(
@@ -42,8 +41,7 @@ class QueuedDispatcher(threading.Thread, DispatcherBaseClass):
         max_read_rate: float = MAX_REQUESTS_PER_SECOND,
         thresholds: dict[str, int | float] | None = None,
     ) -> None:
-        """
-        Initialise a new queue based dispatcher
+        """Initialise a new queue based dispatcher.
 
         Parameters
         ----------
@@ -64,6 +62,7 @@ class QueuedDispatcher(threading.Thread, DispatcherBaseClass):
             if metadata is provided during item addition, specify
             thresholds within which a single dispatch is permitted,
             default is None
+
         """
         DispatcherBaseClass.__init__(
             self,
@@ -91,12 +90,12 @@ class QueuedDispatcher(threading.Thread, DispatcherBaseClass):
         blocking: bool = True,
         metadata: dict[str, int | float] | None = None,
     ) -> None:
-        """Add an item to the specified queue with/without blocking"""
+        """Add an item to the specified queue with/without blocking."""
         super().add_item(item, object_type=object_type, metadata=metadata)
         if self._termination_trigger.is_set():
             raise RuntimeError(
                 f"Cannot append item '{item}' to queue '{object_type}', "
-                + "termination called."
+                "termination called.",
             )
         if object_type not in self._queues:
             raise KeyError(f"No queue '{object_type}' found")
@@ -104,11 +103,11 @@ class QueuedDispatcher(threading.Thread, DispatcherBaseClass):
 
     @property
     def empty(self) -> bool:
-        """Returns if all queues are empty"""
+        """Returns if all queues are empty."""
         return all(queue.empty() for queue in self._queues.values())
 
     def purge(self) -> None:
-        """Purge all queues"""
+        """Purge all queues."""
         for q in self._queues.values():
             while not q.empty():
                 with contextlib.suppress(queue.Empty):
@@ -117,17 +116,17 @@ class QueuedDispatcher(threading.Thread, DispatcherBaseClass):
 
     @property
     def _can_send(self) -> bool:
-        """Returns if time constraints are satisfied, hence the callback can be executed"""
+        """Returns if time constraints are satisfied, hence callback can be executed."""
         return time.time() - self._send_timer >= 1 / self._max_read_rate
 
     def _create_buffer(self, queue_label: str) -> list[typing.Any]:
-        """Assemble queue items into a list as an argument to the callback
+        """Assemble queue items into a list as an argument to the callback.
 
         The length of the buffer is constrained.
         """
         _buffer: list[typing.Any] = []
         _criteria: dict[str, int | float] = {}
-        _threshold_totals: dict[str, float] = {k: 0 for k in self._thresholds}
+        _threshold_totals: dict[str, float] = dict.fromkeys(self._thresholds, 0)
 
         while (
             not self._queues[queue_label].empty()
@@ -149,7 +148,7 @@ class QueuedDispatcher(threading.Thread, DispatcherBaseClass):
         return _buffer
 
     def run(self) -> None:
-        """Execute the dispatcher action
+        """Execute the dispatcher action.
 
         The action consists of a loop in which each queue is processed to
         create a buffer with number of entries equal or less than the maximum
@@ -167,7 +166,9 @@ class QueuedDispatcher(threading.Thread, DispatcherBaseClass):
             for queue_label in self._queues:
                 if _buffer := self._create_buffer(queue_label):
                     logger.debug(
-                        f"Executing '{queue_label}' callback on buffer {_buffer}"
+                        "Executing '%s' callback on buffer %s",
+                        queue_label,
+                        _buffer,
                     )
                     self._callback(_buffer, queue_label)
             self._send_timer = time.time()

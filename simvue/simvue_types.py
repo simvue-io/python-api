@@ -3,7 +3,7 @@ import typing
 try:
     from typing import TypeAlias
 except ImportError:
-    from typing_extensions import TypeAlias
+    from typing import TypeAlias
 
 
 if typing.TYPE_CHECKING:
@@ -15,5 +15,10 @@ if typing.TYPE_CHECKING:
 
 
 DeserializedContent: TypeAlias = typing.Union[
-    "DataFrame", "ndarray", "Tensor", "Figure", "FigureWidget", "Buffer"
+    "DataFrame",
+    "ndarray",
+    "Tensor",
+    "Figure",
+    "FigureWidget",
+    "Buffer",
 ]

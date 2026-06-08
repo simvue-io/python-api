@@ -1,5 +1,4 @@
-"""
-Simvue Server Folder
+"""Simvue Server Folder.
 ====================
 
 Contains a class for remotely connecting to a Simvue folder, or defining
@@ -7,22 +6,24 @@ a new folder given relevant arguments.
 
 """
 
-import http
-import typing
 import datetime
+import http
 import json
+import typing
+from collections.abc import Generator
 
 import pydantic
 
 from simvue.api.objects.filter import FoldersFilter
+from simvue.api.request import get_json_from_response
+from simvue.api.request import put as sv_put
 from simvue.exception import ObjectNotFoundError
-from simvue.api.request import put as sv_put, get_json_from_response
+from simvue.models import DATETIME_FORMAT, FOLDER_REGEX
 
-from .base import SimvueObject, staging_check, write_only, Sort
-from simvue.models import FOLDER_REGEX, DATETIME_FORMAT
-from collections.abc import Generator
+from .base import SimvueObject, Sort, staging_check, write_only
 
-# Need to use this inside of Generator typing to fix bug present in Python 3.10 - see issue #745
+# Need to use this inside of Generator typing to
+# fix bug present in Python 3.10 - see issue #745
 try:
     from typing import Self, override
 except ImportError:
@@ -41,7 +42,7 @@ class FolderSort(Sort):
     def check_column(cls, column: str) -> str:
         if (
             column
-            and column not in ("created", "modified", "path")
+            and column not in {"created", "modified", "path"}
             and not column.startswith("metadata.")
         ):
             raise ValueError(f"Invalid sort column for folders '{column}")
@@ -63,7 +64,7 @@ class Folder(SimvueObject):
         server_token: pydantic.SecretStr | None = None,
         **kwargs,
     ) -> None:
-        """Initialise a Folder
+        """Initialise a Folder.
 
         If an identifier is provided a connection will be made to the
         object matching the identifier on the target server.
@@ -79,9 +80,13 @@ class Folder(SimvueObject):
             token for alternative server, default None
         **kwargs : dict
             any additional arguments to be passed to the object initialiser
+
         """
         super().__init__(
-            identifier, server_token=server_token, server_url=server_url, **kwargs
+            identifier,
+            server_token=server_token,
+            server_url=server_url,
+            **kwargs,
         )
         self._properties.remove("tree")
 
@@ -96,13 +101,13 @@ class Folder(SimvueObject):
         server_token: pydantic.SecretStr | None = None,
         **kwargs,
     ) -> Self:
-        """Create a new Folder on the Simvue server with the given path"""
+        """Create a new Folder on the Simvue server with the given path."""
         return cls(
             path=path,
-            _read_only=False,
             _offline=offline,
             server_url=server_url,
             server_token=server_token,
+            _read_only=False,
             **kwargs,
         )
 
@@ -116,7 +121,7 @@ class Folder(SimvueObject):
         sorting: list[FolderSort] | None = None,
         server_url: str | None = None,
         server_token: pydantic.SecretStr | None = None,
-        **kwargs,
+        **kwargs: typing.Any,
     ) -> Generator[tuple[str, T | None]]:
         """Get folders from the server.
 
@@ -132,19 +137,28 @@ class Folder(SimvueObject):
             alternative server URL, default None
         server_token : str | None, optional
             token for alternative server, default None
+        **kwargs : Any
+            additional initialisation arguments
 
         Yields
         ------
         tuple[str, Folder]
             id of run
             Folder object representing object on server
+
         """
         _params: dict[str, str] = kwargs
 
         if sorting:
             _params["sorting"] = json.dumps([i.to_params() for i in sorting])
 
-        return super().get(count=count, offset=offset, **_params)
+        return super().get(
+            server_url=server_url,
+            server_token=server_token,
+            count=count,
+            offset=offset,
+            **_params,
+        )
 
     @classmethod
     def filter(cls) -> FoldersFilter:
@@ -167,10 +181,11 @@ class Folder(SimvueObject):
         -------
         dict
             a nested dictionary describing the hierarchy
+
         """
         _level: int = len(self.path.split("/"))
         _folders = self.__class__.get(
-            filters=json.dumps([f"path contains {self.path}"])
+            filters=json.dumps([f"path contains {self.path}"]),
         )
         _paths = [folder.path.split("/") for _, folder in _folders]
         _paths = sorted(_paths, key=len)
@@ -188,84 +203,84 @@ class Folder(SimvueObject):
     @property
     @staging_check
     def tags(self) -> list[str]:
-        """Return list of tags assigned to this folder"""
+        """Return list of tags assigned to this folder."""
         return self._get_attribute("tags")
 
     @tags.setter
     @write_only
     @pydantic.validate_call
     def tags(self, tags: list[str]) -> None:
-        """Set tags assigned to this folder"""
+        """Set tags assigned to this folder."""
         self._staging["tags"] = tags
 
     @property
     def path(self) -> str:
-        """Return the path of this folder"""
+        """Return the path of this folder."""
         return self._get_attribute("path")
 
     @property
     @staging_check
     def description(self) -> str | None:
-        """Return the folder description"""
+        """Return the folder description."""
         return self._get().get("description")
 
     @description.setter
     @write_only
     @pydantic.validate_call
     def description(self, description: str) -> None:
-        """Update the folder description"""
+        """Update the folder description."""
         self._staging["description"] = description
 
     @property
     @staging_check
     def name(self) -> str | None:
-        """Return the folder name"""
+        """Return the folder name."""
         return self._get().get("name")
 
     @name.setter
     @write_only
     @pydantic.validate_call
     def name(self, name: str) -> None:
-        """Update the folder name"""
+        """Update the folder name."""
         self._staging["name"] = name
 
     @property
     @staging_check
-    def metadata(self) -> dict[str, int | str | None | float | dict] | None:
-        """Return the folder metadata"""
+    def metadata(self) -> dict[str, int | str | float | dict | None] | None:
+        """Return the folder metadata."""
         return self._get().get("metadata")
 
     @metadata.setter
     @write_only
     @pydantic.validate_call
-    def metadata(self, metadata: dict[str, int | str | None | float | dict]) -> None:
-        """Update the folder metadata"""
+    def metadata(self, metadata: dict[str, int | float | str | dict | None]) -> None:
+        """Update the folder metadata."""
         self._staging["metadata"] = metadata
 
     @property
     @staging_check
     def star(self) -> bool:
-        """Return if this folder is starred"""
+        """Return if this folder is starred."""
         return self._get().get("starred", False)
 
     @star.setter
     @write_only
     @pydantic.validate_call
     def star(self, is_true: bool = True) -> None:
-        """Star this folder as a favourite"""
+        """Star this folder as a favourite."""
         self._staging["starred"] = is_true
 
     @property
     @staging_check
     def ttl(self) -> int:
-        """Return the retention period for this folder"""
+        """Return the retention period for this folder."""
         return self._get_attribute("ttl")
 
     @ttl.setter
     @write_only
     @pydantic.validate_call
     def ttl(self, time_seconds: int) -> None:
-        """Update the retention period for this folder"""
+        """Update the retention period for this folder."""
         self._staging["ttl"] = time_seconds
 
     def delete(  # should params to this be optional and default to False?
@@ -276,16 +291,18 @@ class Folder(SimvueObject):
         runs_only: bool | None = False,
     ) -> dict[str, typing.Any]:
         return super().delete(
-            recursive=recursive, runs=delete_runs, runs_only=runs_only
+            recursive=recursive,
+            runs=delete_runs,
+            runs_only=runs_only,
         )
 
     @property
     def created(self) -> datetime.datetime | None:
-        """Retrieve created datetime for the run"""
+        """Retrieve created datetime for the run."""
         _created: str | None = self._get_attribute("created")
         return (
             datetime.datetime.strptime(_created, DATETIME_FORMAT).replace(
-                tzinfo=datetime.timezone.utc
+                tzinfo=datetime.timezone.utc,
             )
             if _created
             else None
@@ -295,7 +312,9 @@ class Folder(SimvueObject):
         """Set starred status."""
         _url = self.url / "starred"
         _response = sv_put(
-            f"{_url}", headers=self._user_config.headers, data={"starred": starred}
+            f"{_url}",
+            headers=self._user_config.headers,
+            data={"starred": starred},
         )
         return get_json_from_response(
             expected_status=[http.HTTPStatus.OK],
@@ -318,4 +337,4 @@ def get_folder_from_path(
     if not _folder:
         raise ObjectNotFoundError(obj_type="folder", name=path)
 
-    return _folder  # type: ignore
+    return _folder

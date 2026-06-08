@@ -12,10 +12,10 @@ except ImportError:
     from typing_extensions import Self, override
 import pydantic
 
-from simvue.api.objects.base import write_only, staging_check
+from simvue.api.objects.base import staging_check, write_only
+from simvue.models import NAME_REGEX
 
 from .base import StorageBase
-from simvue.models import NAME_REGEX
 
 
 class S3Storage(StorageBase):
@@ -35,11 +35,12 @@ class S3Storage(StorageBase):
         server_token: pydantic.SecretStr | None = None,
         **kwargs,
     ) -> None:
-        """Initialise a S3 Storage
+        """Initialise a S3 Storage.
 
         If an identifier is provided a connection will be made to the
         object matching the identifier on the target server.
-        Else a new S3Storage instance will be created using arguments provided in kwargs.
+        Else a new S3Storage instance will be created using arguments
+        provided in kwargs.
 
         Parameters
         ----------
@@ -51,10 +52,14 @@ class S3Storage(StorageBase):
             token for alternative server, default None
         **kwargs : dict
             any additional arguments to be passed to the object initialiser
+
         """
         self.config = Config(self)
         super().__init__(
-            identifier, server_url=server_url, server_token=server_token, **kwargs
+            identifier,
+            server_url=server_url,
+            server_token=server_token,
+            **kwargs,
         )
         self._local_only_args += [
             "endpoint_url",
@@ -127,7 +132,7 @@ class S3Storage(StorageBase):
 
         """
         _config: dict[str, str] = {
-            "endpoint_url": endpoint_url.__str__(),
+            "endpoint_url": str(endpoint_url),
             "access_key_id": access_key_id,
             "secret_access_key": secret_access_key.get_secret_value(),
             "bucket": bucket,
@@ -152,12 +157,12 @@ class S3Storage(StorageBase):
             _offline=offline,
             _read_only=False,
         )
-        _storage._staging |= _config
+        _storage.append_to_staging(_config)
         return _storage
 
     @staging_check
     def get_config(self) -> dict[str, typing.Any]:
-        """Retrieve configuration"""
+        """Retrieve configuration."""
         try:
             return self._get_attribute("config")
         except AttributeError:
@@ -165,10 +170,10 @@ class S3Storage(StorageBase):
 
 
 class Config:
-    """S3 Configuration interface"""
+    """S3 Configuration interface."""
 
     def __init__(self, storage: S3Storage) -> None:
-        """Initialise a new configuration using an S3Storage object"""
+        """Initialise a new configuration using an S3Storage object."""
         self._sv_obj = storage
 
     @property
@@ -180,55 +185,56 @@ class Config:
         -------
         str
             the endpoint for this storage object
+
         """
         try:
             return self._sv_obj.get_config()["endpoint_url"]
         except KeyError as e:
             raise RuntimeError(
-                "Expected key 'endpoint_url' in alert definition retrieval"
+                "Expected key 'endpoint_url' in alert definition retrieval",
             ) from e
 
     @endpoint_url.setter
     @write_only
     @pydantic.validate_call
     def endpoint_url(self, endpoint_url: pydantic.HttpUrl) -> None:
-        _config = self._sv_obj.get_config() | {"endpoint_url": endpoint_url.__str__()}
-        self._sv_obj._staging["config"] = _config
+        _config = self._sv_obj.get_config() | {"endpoint_url": str(endpoint_url)}
+        self._sv_obj.append_to_staging({"config": _config})
 
     @property
     @staging_check
     def region_name(self) -> str | None:
-        """Retrieve the region name for this storage"""
+        """Retrieve the region name for this storage."""
         return self._sv_obj.get_config().get("region_name")
 
     @region_name.setter
     @write_only
     @pydantic.validate_call
     def region_name(self, region_name: str) -> None:
-        """Modify the region name for this storage"""
+        """Modify the region name for this storage."""
         _config = self._sv_obj.get_config() | {"region_name": region_name}
-        self._sv_obj._staging["config"] = _config
+        self._sv_obj.append_to_staging({"config": _config})
 
     @property
     @staging_check
     def bucket(self) -> str:
-        """Retrieve the bucket label for this storage"""
+        """Retrieve the bucket label for this storage."""
         try:
             return self._sv_obj.get_config()["bucket"]
         except KeyError as e:
             raise RuntimeError(
-                "Expected key 'bucket' in alert definition retrieval"
+                "Expected key 'bucket' in alert definition retrieval",
             ) from e
 
     @bucket.setter
     @write_only
     @pydantic.validate_call
     def bucket(self, bucket: str) -> None:
-        """Modify the bucket label for this storage"""
+        """Modify the bucket label for this storage."""
         if self._sv_obj.type == "file":
             raise ValueError(
-                f"Cannot set attribute 'bucket' for storage type '{self._sv_obj.type}'"
+                f"Cannot set attribute 'bucket' for storage type '{self._sv_obj.type}'",
             )
 
         _config = self._sv_obj.get_config() | {"bucket": bucket}
-        self._sv_obj._staging["config"] = _config
+        self._sv_obj.append_to_staging({"config": _config})

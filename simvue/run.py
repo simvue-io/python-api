@@ -5,82 +5,81 @@ This forms the central API for users.
 """
 
 import contextlib
+import datetime
+import functools
 import logging
-import pathlib
 import mimetypes
 import multiprocessing.synchronize
-import shlex
-import threading
-import warnings
-import humanfriendly
-import datetime
 import os
+import pathlib
+import platform
+import re
+import shlex
+import sys
+import threading
+import time
+import traceback as tb
+import types
+import typing
+import uuid
+
+import click
+import humanfriendly
+import numpy as np
+import psutil
+import pydantic
+import randomname
 from unyt import unyt_quantity
 from unyt.exceptions import UnitParseError
 
-import pydantic
-import re
-import sys
-import traceback as tb
-import time
-import types
-import functools
-import typing
-import uuid
-import numpy
-import randomname
-import click
-import psutil
-
-from simvue.api.objects.alert.base import AlertBase
 from simvue.api.objects.alert.fetch import Alert
 from simvue.api.objects.folder import Folder
 from simvue.api.objects.grids import GridMetrics
-from simvue.exception import ObjectNotFoundError, SimvueRunError, ObjectDispatchError
+from simvue.exception import ObjectDispatchError, ObjectNotFoundError, SimvueRunError
 from simvue.utilities import prettify_pydantic
 
-
+from .api.objects import (
+    Events,
+    EventsAlert,
+    FileArtifact,
+    Grid,
+    Metrics,
+    MetricsRangeAlert,
+    MetricsThresholdAlert,
+    ObjectArtifact,
+    UserAlert,
+)
+from .api.objects import (
+    Run as RunObject,
+)
 from .config.user import SimvueConfiguration
-
 from .dispatch import Dispatcher
+from .dispatch.base import DispatcherBaseClass
+from .eco import CO2Monitor
 from .executor import Executor, get_current_shell
+from .metadata import environment, git_info
 from .metrics import SystemResourceMeasurement
 from .models import (
     FOLDER_REGEX,
     NAME_REGEX,
-    MetricKeyString,
-    validate_timestamp,
-    simvue_timestamp,
     LogLevel,
+    MetricKeyString,
+    simvue_timestamp,
+    validate_timestamp,
 )
 from .system import get_system
-from .metadata import git_info, environment
-from .eco import CO2Monitor
 from .utilities import (
     skip_if_failed,
 )
-from .api.objects import (
-    Run as RunObject,
-    FileArtifact,
-    ObjectArtifact,
-    MetricsThresholdAlert,
-    MetricsRangeAlert,
-    UserAlert,
-    EventsAlert,
-    Events,
-    Metrics,
-    Grid,
-)
-
 
 try:
     from typing import Self
 except ImportError:
-    from typing_extensions import Self  # noqa: F401
-
+    from typing_extensions import Self
 
 if typing.TYPE_CHECKING:
-    from .dispatch import DispatcherBaseClass
+    from simvue.api.objects.alert.base import AlertBase
+
 
 HEARTBEAT_INTERVAL: int = 60
 RESOURCES_METRIC_PREFIX: str = "resources"
@@ -107,7 +106,7 @@ def check_run_initialised(
 
         if not self._sv_obj:
             raise RuntimeError(
-                f"Simvue Run must be initialised before calling '{function.__name__}'"
+                f"Simvue Run must be initialised before calling '{function.__name__}'",
             )
         return _function(self, *args, **kwargs)
 
@@ -133,7 +132,7 @@ class Run:
         debug: bool = False,
         server_profile: str | None = None,
     ) -> None:
-        """Initialise a new Simvue run
+        """Initialise a new Simvue run.
 
         If `abort_callback` is provided the first argument must be this Run instance
 
@@ -159,11 +158,11 @@ class Run:
 
         Examples
         --------
-
         ```python
         with simvue.Run() as run:
             ...
         ```
+
         """
         self._uuid: str = f"{uuid.uuid4()}"
 
@@ -193,7 +192,12 @@ class Run:
         self._failed_metric_counter: int = 0
         self._status: (
             typing.Literal[
-                "created", "running", "completed", "failed", "terminated", "lost"
+                "created",
+                "running",
+                "completed",
+                "failed",
+                "terminated",
+                "lost",
             ]
             | None
         ) = None
@@ -211,7 +215,7 @@ class Run:
             logging.DEBUG
             if (debug is not None and debug)
             or (debug is None and self._user_config.client.debug)
-            else logging.INFO
+            else logging.INFO,
         )
 
         self._aborted: bool = False
@@ -295,7 +299,7 @@ class Run:
 
     @property
     def duration(self) -> float:
-        """Return current run duration"""
+        """Return current run duration."""
         return time.time() - self._start_time
 
     @property
@@ -305,8 +309,7 @@ class Run:
 
     @property
     def processes(self) -> list[psutil.Process]:
-        """Create an array containing a list of processes"""
-
+        """Create an array containing a list of processes."""
         process_list = self._executor.processes
 
         if not self._parent_process:
@@ -317,8 +320,14 @@ class Run:
 
         return list(set(process_list))
 
+    @property
+    def user_config(self) -> SimvueConfiguration:
+        """Return current user configuration."""
+        return self._sv_obj.user_config
+
     def _terminate_run(
         self,
+        *,
         abort_callback: typing.Callable[[Self], None] | None,
         force_exit: bool = True,
     ) -> None:
@@ -333,12 +342,13 @@ class Run:
             the callback to execute on the termination else None
         force_exit: bool, optional
             whether to close Python itself, the default is True
+
         """
         self._alert_raised_trigger.set()
         logger.debug("Received abort request from server")
 
         if abort_callback is not None:
-            abort_callback(self)  # type: ignore
+            abort_callback(self)
 
         if self._abort_on_alert != "ignore":
             self.kill_all_processes()
@@ -375,8 +385,8 @@ class Run:
         tuple[float, float]
             new resource metric measure time
             new emissions metric measure time
-        """
 
+        """
         # In order to get a resource metric reading at t=0
         # because there is no previous CPU reading yet we cannot
         # use the default of None for the interval here, so we measure
@@ -399,7 +409,8 @@ class Run:
             )
 
         # For the first emissions metrics reading, the time interval to use
-        # Is the time since the run started, otherwise just use the time between readings
+        # Is the time since the run started, otherwise just use the time
+        # between readings
         if self._emissions_monitor:
             _estimated = self._emissions_monitor.estimate_co2_emissions(
                 process_id=f"{self._sv_obj.name}",
@@ -481,12 +492,11 @@ class Run:
     def _create_dispatch_callback(
         self,
     ) -> typing.Callable:
-        """Generates the relevant callback for posting of metrics and events
+        """Generates the relevant callback for posting of metrics and events.
 
         The generated callback is assigned to the dispatcher instance and is
         executed on metrics and events objects held in a buffer.
         """
-
         if self._user_config.run.mode == "online" and not self.id:
             raise RuntimeError("Expected identifier for run")
 
@@ -508,7 +518,7 @@ class Run:
                     events=buffer,
                 )
                 return _events.commit()
-            elif category == "metrics_tensor":
+            if category == "metrics_tensor":
                 _grid_metrics = GridMetrics.new(
                     run=self.id,
                     data=buffer,
@@ -517,25 +527,25 @@ class Run:
                     offline=self.mode == "offline",
                 )
                 return _grid_metrics.commit()
-            else:
-                _metrics = Metrics.new(
-                    run=self.id,
-                    offline=self.mode == "offline",
-                    server_url=self._user_config.server.url,
-                    server_token=self._user_config.server.token,
-                    metrics=buffer,
-                )
-                return _metrics.commit()
+            _metrics = Metrics.new(
+                run=self.id,
+                offline=self.mode == "offline",
+                server_url=self._user_config.server.url,
+                server_token=self._user_config.server.token,
+                metrics=buffer,
+            )
+            return _metrics.commit()
 
         return _dispatch_callback
 
     def _start(self) -> bool:
-        """Start a run
+        """Start a run.
 
         Returns
         -------
         bool
             if successful
+
         """
         if self._user_config.run.mode == "disabled":
             return True
@@ -575,7 +585,7 @@ class Run:
                 mode=self._dispatch_mode,
                 termination_trigger=self._shutdown_event,
                 object_types=["events", "metrics_regular", "metrics_tensor"],
-                thresholds=dict(object_size=TOTAL_GRID_METRIC_SIZE),
+                thresholds={"object_size": TOTAL_GRID_METRIC_SIZE},
                 callback=self._create_dispatch_callback(),
             )
 
@@ -596,8 +606,8 @@ class Run:
 
         return True
 
-    def _error(self, message: str, join_threads: bool = True) -> None:
-        """Raise an exception if necessary and log error
+    def _error(self, message: str, *, join_threads: bool = True) -> None:
+        """Raise an exception if necessary and log error.
 
         Parameters
         ----------
@@ -611,6 +621,7 @@ class Run:
         ------
         RuntimeError
             exception throw
+
         """
         # Finish stopping all threads
         if self._shutdown_event:
@@ -641,18 +652,17 @@ class Run:
 
         self._aborted = True
 
-    @skip_if_failed("_aborted", "_suppress_errors", False)
+    @skip_if_failed("_aborted", "_suppress_errors", on_failure_return=False)
     @pydantic.validate_call
     def init(
         self,
         name: typing.Annotated[str | None, pydantic.Field(pattern=NAME_REGEX)] = None,
         *,
-        metadata: dict[str, typing.Any] = None,
+        metadata: dict[str, typing.Any] | None = None,
         tags: list[str] | None = None,
         description: str | None = None,
-        folder: typing.Annotated[
-            str, pydantic.Field(None, pattern=FOLDER_REGEX)
-        ] = None,
+        folder: typing.Annotated[str, pydantic.Field(None, pattern=FOLDER_REGEX)]
+        | None = None,
         notification: typing.Literal["none", "all", "error", "lost"] = "none",
         running: bool = True,
         retention_period: str | None = None,
@@ -661,7 +671,7 @@ class Run:
         no_color: bool = False,
         record_shell_vars: set[str] | None = None,
     ) -> bool:
-        """Initialise a Simvue run
+        """Initialise a Simvue run.
 
         Parameters
         ----------
@@ -705,10 +715,12 @@ class Run:
         -------
         bool
             whether the initialisation was successful
+
         """
         if self._user_config.run.mode == "disabled":
             logger.warning(
-                "Simvue monitoring has been deactivated for this run, metrics and artifacts will not be recorded."
+                "Simvue monitoring has been deactivated for this run, metrics "
+                "and artifacts will not be recorded.",
             )
             return True
 
@@ -727,9 +739,9 @@ class Run:
             server_url=self._user_config.server.url,
             server_token=self._user_config.server.token,
         )
-        self._folder.commit()  # type: ignore
+        self._folder.commit()
 
-        if self._user_config.run.mode not in ("online", "offline"):
+        if self._user_config.run.mode not in {"online", "offline"}:
             self._error("invalid mode specified, must be online, offline or disabled")
             return False
 
@@ -737,14 +749,14 @@ class Run:
             not self._user_config.server.token or not self._user_config.server.url
         ):
             self._error(
-                "Unable to get URL and token from environment variables or config file"
+                "Unable to get URL and token from environment variables or config file",
             )
             return False
 
         if name and not re.match(r"^[a-zA-Z0-9\-\_\s\/\.:]+$", name):
             self._error("specified name is invalid")
             return False
-        elif not name and self.mode == "offline":
+        if not name and self.mode == "offline":
             name = randomname.get_name()
 
         self._status = "running" if running else "created"
@@ -753,7 +765,7 @@ class Run:
         try:
             if retention_period:
                 self._retention: int | None = int(
-                    humanfriendly.parse_timespan(retention_period)
+                    humanfriendly.parse_timespan(retention_period),
                 )
             else:
                 self._retention = None
@@ -786,7 +798,7 @@ class Run:
         self._sv_obj.tags = tags
         self._sv_obj.metadata = (
             (metadata or {})
-            | git_info(os.getcwd())
+            | git_info(pathlib.Path.cwd())
             | environment(env_var_glob_exprs=record_shell_vars)
         )
         self._sv_obj.heartbeat_timeout = timeout
@@ -797,7 +809,7 @@ class Run:
         if self._status == "running":
             self._sv_obj.system = get_system()
 
-        self._data = self._sv_obj._staging
+        self._data = self._sv_obj.staging
         self._sv_obj.commit()
 
         if not self.name:
@@ -813,14 +825,16 @@ class Run:
                 fg="green" if self._term_color else None,
             )
             click.secho(
-                f"[simvue] Monitor in the UI at {self._user_config.server.url.rsplit('/api', 1)[0]}/dashboard/runs/run/{self.id}",
+                "[simvue] Monitor in the UI at "
+                f"{self._user_config.server.url.rsplit('/api', 1)[0]}"
+                f"/dashboard/runs/run/{self.id}",
                 bold=self._term_color,
                 fg="green" if self._term_color else None,
             )
 
         return True
 
-    @skip_if_failed("_aborted", "_suppress_errors", None)
+    @skip_if_failed("_aborted", "_suppress_errors", on_failure_return=None)
     @pydantic.validate_call(config={"arbitrary_types_allowed": True})
     def add_process(
         self,
@@ -829,9 +843,7 @@ class Run:
         executable: str | pathlib.Path | None = None,
         script: pydantic.FilePath | None = None,
         input_file: pydantic.FilePath | None = None,
-        completion_callback: typing.Optional[
-            typing.Callable[[int, str, str], None]
-        ] = None,
+        completion_callback: typing.Callable[[int, str, str], None] | None = None,
         completion_trigger: threading.Event
         | multiprocessing.synchronize.Event
         | None = None,
@@ -841,7 +853,8 @@ class Run:
     ) -> None:
         """Add a process to be executed to the executor.
 
-        This process can take many forms, for example a be a set of positional arguments:
+        This process can take many forms, for example a be a set of
+        positional arguments:
 
         ```python
         executor.add_process("my_process", "ls", "-ltr")
@@ -864,35 +877,40 @@ class Run:
         )
         ```
 
-        or a mixture of both. In the latter case arguments which are not 'executable', 'script', 'input'
-        are taken to be options to the command, for flags `flag=True` can be used to set the option and
-        for options taking values `option=value`.
+        or a mixture of both. In the latter case arguments which are not
+        'executable', 'script', 'input' are taken to be options to the command,
+        for flags `flag=True` can be used to set the option and for options
+        taking values `option=value`.
 
-        When the process has completed if a function has been provided for the `completion_callback` argument
-        this will be called, this callback is expected to take the following form:
+        When the process has completed if a function has been provided for the
+        `completion_callback` argument this will be called, this callback is
+        expected to take the following form:
 
         ```python
         def callback_function(status_code: int, std_out: str, std_err: str) -> None: ...
         ```
 
-        Alternatively you can use `completion_trigger` to create a multiprocessing event which will be set
-        when the process has completed.
+        Alternatively you can use `completion_trigger` to create a multiprocessing
+        event which will be set when the process has completed.
 
         Parameters
         ----------
         identifier : str
             A unique identifier for this process
         executable : str | None, optional
-            the main executable for the command, if not specified this is taken to be the first
-            positional argument, by default None
-        *positional_arguments : Any, ..., optional
-            all other positional arguments are taken to be part of the command to execute
+            the main executable for the command, if not specified this is
+            taken to be the first positional argument, by default None
+        *cmd_args: Any, ..., optional
+            all other positional arguments are taken to be part of the
+            command to execute
         script : pydantic.FilePath | None, optional
-            the script to run, note this only work if the script is not an option, if this is the case
-            you should provide it as such and perform the upload manually, by default None
+            the script to run, note this only work if the script is not an option,
+            if this is the case you should provide it as such and perform the
+            upload manually, by default None
         input_file : pydantic.FilePath | None, optional
-            the input file to run, note this only work if the input file is not an option, if this is the case
-            you should provide it as such and perform the upload manually, by default None
+            the input file to run, note this only work if the input file is not an
+            option, if this is the case you should provide it as such and perform
+            the upload manually, by default None
         completion_callback : typing.Callable | None, optional
             callback to run when process terminates
         completion_trigger : threading.Event | None, optional
@@ -900,14 +918,15 @@ class Run:
         env : dict[str, str], optional
             environment variables for process
         cwd: pathlib.Path | None, optional
-            working directory to execute the process within. Note that executable, input and script file paths should
-            be absolute or relative to the directory where this method is called, not relative to the new working directory.
-        **kwargs : Any, ..., optional
+            working directory to execute the process within. Note that executable,
+            input and script file paths should be absolute or relative to the
+            directory where this method is called, not relative to the new
+            working directory.
+        **cmd_kwargs: Any, ..., optional
             all other keyword arguments are interpreted as options to the command
 
         Examples
         --------
-
         `run_count.sh`
         ```sh
         #!/bin/bash
@@ -931,12 +950,6 @@ class Run:
                 script="run_count.sh"
             )
         ```
-        """
-        if isinstance(completion_trigger, multiprocessing.synchronize.Event):
-            warnings.warn(
-                "Use of a 'multiprocessing.Event' as a termination trigger will be deprecated in v2.5, "
-                + "use an instance of 'threading.Event' instead."
-            )
 
         if isinstance(executable, pathlib.Path) and not executable.is_file():
             raise FileNotFoundError(f"Executable '{executable}' is not a valid file")
@@ -964,11 +977,11 @@ class Run:
                 else:
                     cmd_list += [f"-{kwarg}{(f' {_quoted_val}') if val else ''}"]
             else:
-                kwarg = kwarg.replace("_", "-")
+                _kwarg = kwarg.replace("_", "-")
                 if isinstance(val, bool) and val:
-                    cmd_list += [f"--{kwarg}"]
+                    cmd_list += [f"--{_kwarg}"]
                 else:
-                    cmd_list += [f"--{kwarg}{(f' {_quoted_val}') if val else ''}"]
+                    cmd_list += [f"--{_kwarg}{(f' {_quoted_val}') if val else ''}"]
 
         cmd_list += pos_args
         cmd_str = shlex.join(cmd_list)
@@ -983,7 +996,7 @@ class Run:
             executable=executable_str,
             script=script,
             input_file=input_file,
-            completion_callback=completion_callback,  # type: ignore
+            completion_callback=completion_callback,
             completion_trigger=completion_trigger,
             env=env,
             cwd=cwd,
@@ -992,12 +1005,13 @@ class Run:
 
     @pydantic.validate_call
     def kill_process(self, process_id: str) -> None:
-        """Kill a running process by ID
+        """Kill a running process by ID.
 
         Parameters
         ----------
         process_id : str
             the unique identifier for the added process
+
         """
         self._executor.kill_process(process_id)
 
@@ -1025,15 +1039,20 @@ class Run:
 
     @property
     def executor(self) -> Executor:
-        """Return the executor for this run"""
+        """Return the executor for this run."""
         return self._executor
 
     @property
+    def dispatcher(self) -> DispatcherBaseClass | None:
+        """Return the dispatcher for this run."""
+        return self._dispatcher
+
+    @property
     def name(self) -> str | None:
-        """Return the name of the run"""
+        """Return the name of the run."""
         if not self._sv_obj:
             logger.warning(
-                "Attempted to get name on non initialized run - returning None"
+                "Attempted to get name on non initialized run - returning None",
             )
             return None
         return self._sv_obj.name
@@ -1043,37 +1062,42 @@ class Run:
         self,
     ) -> (
         typing.Literal[
-            "created", "running", "completed", "failed", "terminated", "lost"
+            "created",
+            "running",
+            "completed",
+            "failed",
+            "terminated",
+            "lost",
         ]
         | None
     ):
-        """Return the status of the run"""
+        """Return the status of the run."""
         if not self._sv_obj:
             logger.warning(
-                "Attempted to get name on non initialized run - returning cached value"
+                "Attempted to get name on non initialized run - returning cached value",
             )
             return self._status
         return self._sv_obj.status
 
     @property
     def uid(self) -> str:
-        """Return the local unique identifier of the run"""
+        """Return the local unique identifier of the run."""
         return self._uuid
 
     @property
     def id(self) -> str | None:
-        """Return the unique id of the run"""
+        """Return the unique id of the run."""
         if not self._sv_obj:
             logger.warning(
-                "Attempted to get name on non initialized run - returning None"
+                "Attempted to get name on non initialized run - returning None",
             )
             return None
         return self._sv_obj.id
 
-    @skip_if_failed("_aborted", "_suppress_errors", False)
+    @skip_if_failed("_aborted", "_suppress_errors", on_failure_return=False)
     @pydantic.validate_call
     def reconnect(self, run_id: str) -> bool:
-        """Reconnect to a run in the created state
+        """Reconnect to a run in the created state.
 
         Parameters
         ----------
@@ -1084,6 +1108,7 @@ class Run:
         -------
         bool
             whether reconnection succeeded
+
         """
         self._status = "running"
 
@@ -1101,10 +1126,10 @@ class Run:
 
         return True
 
-    @skip_if_failed("_aborted", "_suppress_errors", None)
+    @skip_if_failed("_aborted", "_suppress_errors", on_failure_return=None)
     @pydantic.validate_call
     def set_pid(self, pid: int) -> None:
-        """Set pid of process to be monitored
+        """Set pid of process to be monitored.
 
         Parameters
         ----------
@@ -1113,7 +1138,6 @@ class Run:
 
         Examples
         --------
-
         ```python
         import subprocess
 
@@ -1130,17 +1154,19 @@ class Run:
         with simvue.Run() as run:
             run.init("pid_track")
             run.set_pid(process_pid)
+
         """
         self._pid = pid
         self._parent_process = psutil.Process(self._pid)
         self._child_processes = self._get_child_processes()
-        # Get CPU usage stats for each of those new processes, so that next time it's measured by the heartbeat the value is accurate
+        # Get CPU usage stats for each of those new processes, so that next time it's
+        # measured by the heartbeat the value is accurate
         [
             _process.cpu_percent()
-            for _process in self._child_processes + [self._parent_process]
+            for _process in (*self._child_processes, self._parent_process)
         ]
 
-    @skip_if_failed("_aborted", "_suppress_errors", False)
+    @skip_if_failed("_aborted", "_suppress_errors", on_failure_return=False)
     @pydantic.validate_call
     def config(
         self,
@@ -1153,7 +1179,7 @@ class Run:
         storage_id: str | None = None,
         abort_on_alert: typing.Literal["run", "terminate", "ignore"] | None = None,
     ) -> bool:
-        """Optional configuration
+        """Optional configuration.
 
         Parameters
         ----------
@@ -1180,8 +1206,8 @@ class Run:
         -------
         bool
             if configuration was successful
-        """
 
+        """
         with self._configuration_lock:
             if suppress_errors is not None:
                 self._suppress_errors = suppress_errors
@@ -1191,7 +1217,8 @@ class Run:
 
             if system_metrics_interval and disable_resources_metrics:
                 self._error(
-                    "Setting of resource metric interval and disabling resource metrics is ambiguous"
+                    "Setting of resource metric interval and disabling "
+                    "resource metrics is ambiguous",
                 )
                 return False
 
@@ -1201,7 +1228,7 @@ class Run:
             if disable_resources_metrics:
                 if self._emissions_monitor:
                     self._error(
-                        "Emissions metrics require resource metrics collection."
+                        "Emissions metrics require resource metrics collection.",
                     )
                     return False
                 self._pid = None
@@ -1210,7 +1237,8 @@ class Run:
             if enable_emission_metrics:
                 if not self._system_metrics_interval:
                     self._error(
-                        "Emissions metrics require resource metrics collection - make sure resource metrics are enabled!"
+                        "Emissions metrics require resource metrics collection "
+                        "- make sure resource metrics are enabled!",
                     )
                     return False
                 if self.mode == "offline":
@@ -1238,13 +1266,6 @@ class Run:
                 self._error("Cannot disable emissions monitor once it has been started")
 
             if abort_on_alert is not None:
-                if isinstance(abort_on_alert, bool):
-                    raise (
-                        TypeError(
-                            "Use of type bool for argument 'abort_on_alert' has been removed, "
-                            "please use either 'run', 'all' or 'ignore'"
-                        )
-                    )
                 self._abort_on_alert = abort_on_alert
 
             if storage_id:
@@ -1252,11 +1273,11 @@ class Run:
 
         return True
 
-    @skip_if_failed("_aborted", "_suppress_errors", False)
+    @skip_if_failed("_aborted", "_suppress_errors", on_failure_return=False)
     @check_run_initialised
     @pydantic.validate_call
     def update_metadata(self, metadata: dict[str, typing.Any]) -> bool:
-        """Update metadata for this run
+        """Update metadata for this run.
 
         Parameters
         ----------
@@ -1267,6 +1288,7 @@ class Run:
         -------
         bool
             if the update was successful
+
         """
         if not self._sv_obj:
             self._error("Cannot update metadata, run not initialised")
@@ -1283,11 +1305,11 @@ class Run:
 
         return True
 
-    @skip_if_failed("_aborted", "_suppress_errors", False)
+    @skip_if_failed("_aborted", "_suppress_errors", on_failure_return=False)
     @check_run_initialised
     @pydantic.validate_call
     def set_tags(self, tags: list[str]) -> bool:
-        """Set tags for this run
+        """Set tags for this run.
 
         Parameters
         ----------
@@ -1307,6 +1329,7 @@ class Run:
             run.init(tags=["old", "tag", "set"])
             run.set_tags(["new", "tag", "set"])
         ```
+
         """
         if not self._sv_obj:
             self._error("Cannot update tags, run not initialised")
@@ -1317,11 +1340,11 @@ class Run:
 
         return True
 
-    @skip_if_failed("_aborted", "_suppress_errors", False)
+    @skip_if_failed("_aborted", "_suppress_errors", on_failure_return=False)
     @check_run_initialised
     @pydantic.validate_call
     def update_tags(self, tags: list[str]) -> bool:
-        """Add additional tags to this run without duplication
+        """Add additional tags to this run without duplication.
 
         Parameters
         ----------
@@ -1341,6 +1364,7 @@ class Run:
             run.init(tags=["current_tag"])
             run.update_tags(["additional_tag"])
         ```
+
         """
         if not self._sv_obj:
             return False
@@ -1359,7 +1383,7 @@ class Run:
 
         return True
 
-    @skip_if_failed("_aborted", "_suppress_errors", False)
+    @skip_if_failed("_aborted", "_suppress_errors", on_failure_return=False)
     @check_run_initialised
     @pydantic.validate_call(config={"validate_default": True})
     def log_event(
@@ -1367,11 +1391,12 @@ class Run:
         message: str,
         *,
         timestamp: typing.Annotated[
-            datetime.datetime | str | None, pydantic.BeforeValidator(simvue_timestamp)
+            datetime.datetime | str | None,
+            pydantic.BeforeValidator(simvue_timestamp),
         ] = None,
         log_level: LogLevel | None = None,
     ) -> bool:
-        """Log event to the server
+        """Log event to the server.
 
         Parameters
         ----------
@@ -1404,6 +1429,7 @@ class Run:
                 log_level="debug"
             )
         ```
+
         """
         if self._aborted:
             return False
@@ -1438,7 +1464,9 @@ class Run:
             "log_level": log_level or "info",
         }
         self._dispatcher.add_item(
-            _data, object_type="events", blocking=self._queue_blocking
+            _data,
+            object_type="events",
+            blocking=self._queue_blocking,
         )
 
         return True
@@ -1469,7 +1497,8 @@ class Run:
 
         if self._status != "running":
             self._error(
-                "Cannot log metrics when not in the running state", join_on_fail
+                "Cannot log metrics when not in the running state",
+                join_on_fail,
             )
             return False
 
@@ -1489,17 +1518,17 @@ class Run:
                 _data,
                 object_type="metrics_regular",
                 blocking=self._queue_blocking,
-                metadata=dict(object_size=len(metrics)),
+                metadata={"object_size": len(metrics)},
             )
         except ObjectDispatchError as e:
-            logger.warning(f"Failed to log metric {id(_data)}: {e.msg}")
+            logger.warning("Failed to log metric %s: %s", id(_data), e.msg)
             self._failed_metric_counter += 1
 
         return True
 
     def _add_tensors_to_dispatch(
         self,
-        tensors: dict[str, numpy.ndarray],
+        tensors: dict[str, np.ndarray],
         *,
         step: int | None = None,
         time: float | None = None,
@@ -1523,7 +1552,8 @@ class Run:
 
         if self._status != "running":
             self._error(
-                "Cannot log tensors when not in the running state", join_on_fail
+                "Cannot log tensors when not in the running state",
+                join_on_fail,
             )
             return False
 
@@ -1546,15 +1576,15 @@ class Run:
                     _data,
                     object_type="metrics_tensor",
                     blocking=self._queue_blocking,
-                    metadata=dict(object_size=array.size),
+                    metadata={"object_size": array.size},
                 )
             except ObjectDispatchError as e:
-                logger.warning(f"Failed to grid metric {id(_data)}: {e.msg}")
+                logger.warning("Failed to grid metric %s: %s", id(_data), e.msg)
                 self._failed_metric_counter += 1
 
         return True
 
-    @skip_if_failed("_aborted", "_suppress_errors", False)
+    @skip_if_failed("_aborted", "_suppress_errors", on_failure_return=False)
     @check_run_initialised
     @pydantic.validate_call(config={"arbitrary_types_allowed": True})
     def assign_metric_to_grid(
@@ -1562,7 +1592,7 @@ class Run:
         *,
         metric_name: str,
         grid_name: str | None = None,
-        axes_ticks: numpy.ndarray | list[list[float]] | None = None,
+        axes_ticks: np.ndarray | list[list[float]] | None = None,
         axes_labels: list[str] | None = None,
     ) -> bool:
         """Assign a metric to a new/existing tensor-based metric grid.
@@ -1590,7 +1620,6 @@ class Run:
 
         Examples
         --------
-
         ```python
         with simvue.Run() as run:
 
@@ -1606,8 +1635,9 @@ class Run:
 
             run.log_metrics({"G": numpy.random.random(10000).reshape((100, 100))})
         ```
+
         """
-        if isinstance(axes_ticks, numpy.ndarray):
+        if isinstance(axes_ticks, np.ndarray):
             axes_ticks = axes_ticks.tolist()
 
         grid_name = grid_name or metric_name
@@ -1648,27 +1678,28 @@ class Run:
                 server_url=self._user_config.server.url,
                 server_token=self._user_config.server.token,
             )
-            _grid_attach.read_only(False)
+            _grid_attach.read_only(is_read_only=False)
             _grid_attach.attach_metric_for_run(self.id, metric_name)
             self._grids[metric_name] = self._grids[grid_name]
         except (RuntimeError, ObjectNotFoundError) as e:
             self._error(
-                f"Failed to attach run '{self.id}' to grid '{grid_name}': {e.args[0]}"
+                f"Failed to attach run '{self.id}' to grid '{grid_name}': {e.args[0]}",
             )
         return True
 
-    @skip_if_failed("_aborted", "_suppress_errors", False)
+    @skip_if_failed("_aborted", "_suppress_errors", on_failure_return=False)
     @check_run_initialised
     @pydantic.validate_call(
-        config={"arbitrary_types_allowed": True, "validate_default": True}
+        config={"arbitrary_types_allowed": True, "validate_default": True},
     )
     def log_metrics(
         self,
-        metrics: dict[MetricKeyString, int | float | numpy.ndarray],
+        metrics: dict[MetricKeyString, int | float | np.ndarray],
         step: int | None = None,
         time: float | None = None,
         timestamp: typing.Annotated[
-            datetime.datetime | str | None, pydantic.BeforeValidator(simvue_timestamp)
+            datetime.datetime | str | None,
+            pydantic.BeforeValidator(simvue_timestamp),
         ] = None,
     ) -> bool:
         """Log metrics to Simvue server.
@@ -1714,8 +1745,8 @@ class Run:
                 time=-10,
             )
         ```
-        """
 
+        """
         # If there are any metric units to be uploaded do so now
         if _units := self._meta_cache.get("metrics"):
             self.update_metadata({"simvue": {"metrics": _units}})
@@ -1724,27 +1755,28 @@ class Run:
         # TODO: When metrics and grids are combined into a single entity
         # this can be removed. For now need to separate tensor based metrics
         # from regular
-        _tensor_metrics: dict[str, numpy.ndarray] = {}
+        _tensor_metrics: dict[str, np.ndarray] = {}
         _regular_metrics: dict[str, int | float] = {}
 
         # Classify metrics into regular and tensor based
         for label, metric in metrics.items():
-            if isinstance(metric, numpy.ndarray):
+            if isinstance(metric, np.ndarray):
                 if metric.size > MAXIMUM_GRID_METRIC_SIZE:
                     logger.warning(
-                        f"Cannot log grid metric {label}, "
-                        + f"size {metric.size} exceeds limit of {MAXIMUM_GRID_METRIC_SIZE}"
+                        "Cannot log grid metric %s, size %d exceeds limit of %d",
+                        label,
+                        metric.size,
+                        MAXIMUM_GRID_METRIC_SIZE,
                     )
                     continue
                 if label not in self._grids:
                     logger.warning(
-                        f"Metric '{label}' is not assigned to a grid, "
-                        + "using default axis range [0, 1] for all axes "
-                        + "and assuming constant interval."
+                        "Metric '%s' is not assigned to a grid, "
+                        "using default axis range [0, 1] for all axes "
+                        "and assuming constant interval.",
+                        label,
                     )
-                    _axes_ticks = [
-                        numpy.linspace(0, 1, n) for n in reversed(metric.shape)
-                    ]
+                    _axes_ticks = [np.linspace(0, 1, n) for n in reversed(metric.shape)]
                     self.assign_metric_to_grid(
                         metric_name=label,
                         grid_name=label,
@@ -1754,7 +1786,7 @@ class Run:
                 if metric.ndim != (_ndims := self._grids[label]["dimensionality"]):
                     self._error(
                         f"Cannot log tensor '{label}', "
-                        + f"dimensionality incompatibility: {metric.ndim} != {_ndims}"
+                        f"dimensionality incompatibility: {metric.ndim} != {_ndims}",
                     )
                 _tensor_metrics[label] = metric
             else:
@@ -1773,7 +1805,8 @@ class Run:
 
         if self._status != "running":
             self._error(
-                "Cannot log metrics when not in the running state", join_threads=True
+                "Cannot log metrics when not in the running state",
+                join_threads=True,
             )
             return False
 
@@ -1788,23 +1821,27 @@ class Run:
             timestamp=timestamp,
         )
         _regular_dispatch = self._add_metrics_to_dispatch(
-            metrics=_regular_metrics, step=step, time=time, timestamp=timestamp
+            metrics=_regular_metrics,
+            step=step,
+            time=time,
+            timestamp=timestamp,
         )
         self._step += 1
         return _tensor_add_dispatch and _regular_dispatch
 
-    @skip_if_failed("_aborted", "_suppress_errors", False)
+    @skip_if_failed("_aborted", "_suppress_errors", on_failure_return=False)
     @check_run_initialised
     @pydantic.validate_call
     def save_object(
         self,
         obj: typing.Any,
+        *,
         category: typing.Literal["input", "output", "code"],
         name: typing.Annotated[str, pydantic.Field(pattern=NAME_REGEX)] | None = None,
         allow_pickle: bool = False,
         metadata: dict[str, typing.Any] | None = None,
     ) -> bool:
-        """Save an object to the Simvue server
+        """Save an object to the Simvue server.
 
         Parameters
         ----------
@@ -1818,7 +1855,8 @@ class Run:
         name : str, optional
             name to associate with this object, by default None
         allow_pickle : bool, optional
-            whether to allow pickling if all other serialization types fail, by default False
+            whether to allow pickling if all other serialization
+            types fail, by default False
         metadata : str | None, optional
             any metadata to attach to the artifact
 
@@ -1839,6 +1877,7 @@ class Run:
                 name="x"
             )
         ```
+
         """
         if not self._sv_obj or not self.id:
             self._error("Cannot save files, run not initialised")
@@ -1864,12 +1903,13 @@ class Run:
 
         return True
 
-    @skip_if_failed("_aborted", "_suppress_errors", False)
+    @skip_if_failed("_aborted", "_suppress_errors", on_failure_return=False)
     @check_run_initialised
     @pydantic.validate_call
     def save_file(
         self,
         file_path: pydantic.FilePath,
+        *,
         category: typing.Literal["input", "output", "code"],
         file_type: str | None = None,
         preserve_path: bool = False,
@@ -1877,7 +1917,7 @@ class Run:
         name: typing.Annotated[str, pydantic.Field(pattern=NAME_REGEX)] | None = None,
         metadata: dict[str, typing.Any] | None = None,
     ) -> bool:
-        """Upload file to the server
+        """Upload file to the server.
 
         Parameters
         ----------
@@ -1903,6 +1943,7 @@ class Run:
         -------
         bool
             whether the upload was successful
+
         """
         if not self._sv_obj or not self.id:
             self._error("Cannot save files, run not initialised")
@@ -1917,7 +1958,7 @@ class Run:
         if preserve_path and stored_file_name.startswith("./"):
             stored_file_name = stored_file_name[2:]
         elif not preserve_path:
-            stored_file_name = os.path.basename(file_path)
+            stored_file_name = file_path.name
 
         try:
             # Register file
@@ -1939,17 +1980,18 @@ class Run:
 
         return True
 
-    @skip_if_failed("_aborted", "_suppress_errors", False)
+    @skip_if_failed("_aborted", "_suppress_errors", on_failure_return=False)
     @check_run_initialised
     @pydantic.validate_call
     def save_directory(
         self,
         directory: pydantic.DirectoryPath,
+        *,
         category: typing.Literal["output", "input", "code"],
         file_type: str | None = None,
         preserve_path: bool = False,
     ) -> bool:
-        """Upload files from a whole directory
+        """Upload files from a whole directory.
 
         Parameters
         ----------
@@ -1969,6 +2011,7 @@ class Run:
         -------
         bool
             if the directory save was successful
+
         """
         if not self._sv_obj:
             self._error("Cannot save directory, run not inirialised")
@@ -1988,17 +2031,18 @@ class Run:
 
         return True
 
-    @skip_if_failed("_aborted", "_suppress_errors", False)
+    @skip_if_failed("_aborted", "_suppress_errors", on_failure_return=False)
     @check_run_initialised
     @pydantic.validate_call
     def save_all(
         self,
         items: list[pydantic.FilePath | pydantic.DirectoryPath],
+        *,
         category: typing.Literal["input", "output", "code"],
         file_type: str | None = None,
         preserve_path: bool = False,
     ) -> bool:
-        """Save a set of files and directories
+        """Save a set of files and directories.
 
         Parameters
         ----------
@@ -2018,13 +2062,17 @@ class Run:
         -------
         bool
             whether the save was successful
+
         """
         for item in items:
             if item.is_file():
                 save_file = self.save_file(item, category, file_type, preserve_path)
             elif item.is_dir():
                 save_file = self.save_directory(
-                    item, category, file_type, preserve_path
+                    item,
+                    category,
+                    file_type,
+                    preserve_path,
                 )
             else:
                 self._error(f"{item}: No such file or directory")
@@ -2034,13 +2082,14 @@ class Run:
 
         return True
 
-    @skip_if_failed("_aborted", "_suppress_errors", False)
+    @skip_if_failed("_aborted", "_suppress_errors", on_failure_return=False)
     @check_run_initialised
     @pydantic.validate_call
     def set_status(
-        self, status: typing.Literal["completed", "failed", "terminated"]
+        self,
+        status: typing.Literal["completed", "failed", "terminated"],
     ) -> bool:
-        """Set run status
+        """Set run status.
 
         status to assign to this run once finished
 
@@ -2056,6 +2105,7 @@ class Run:
         -------
         bool
             if status update was successful
+
         """
         if not self._active:
             self._error("Run is not active")
@@ -2092,7 +2142,8 @@ class Run:
 
         if self._sv_obj and self.mode == "offline" and self._status != "created":
             self._user_config.offline.cache.joinpath(
-                "runs", f"{self.id}.closed"
+                "runs",
+                f"{self.id}.closed",
             ).touch()
 
         if _non_zero := self.executor.exit_status:
@@ -2104,31 +2155,33 @@ class Run:
                 _error_msg = f":\n{_error_msg}"
             click.secho(
                 "[simvue] Process executor terminated with non-zero exit status "
-                + f"{_non_zero}{_error_msg}",
+                f"{_non_zero}{_error_msg}",
                 fg="red" if self._term_color else None,
                 bold=self._term_color,
             )
             sys.exit(_non_zero)
         if self._failed_metric_counter:
             click.secho(
-                "[simvue] Run completed with {self._failed_metric_counter} failed metrics.",
+                f"[simvue] Run completed with {self._failed_metric_counter} "
+                "failed metrics.",
                 fg="yellow" if self._term_color else None,
                 bold=self._term_color,
             )
             sys.exit(1)
 
-    @skip_if_failed("_aborted", "_suppress_errors", False)
+    @skip_if_failed("_aborted", "_suppress_errors", on_failure_return=False)
     def close(self) -> bool:
-        """Close the run
+        """Close the run.
 
         Returns
         -------
         bool
             whether close was successful
+
         """
         if self._context_manager_called:
             self._error("Cannot call close method in context manager.")
-            return
+            return None
 
         self._executor.wait_for_completion()
 
@@ -2144,7 +2197,7 @@ class Run:
 
         return True
 
-    @skip_if_failed("_aborted", "_suppress_errors", False)
+    @skip_if_failed("_aborted", "_suppress_errors", on_failure_return=False)
     @check_run_initialised
     @pydantic.validate_call
     def set_folder_details(
@@ -2153,7 +2206,7 @@ class Run:
         tags: list[str] | None = None,
         description: str | None = None,
     ) -> bool:
-        """Add metadata to the specified folder
+        """Add metadata to the specified folder.
 
         Parameters
         ----------
@@ -2168,6 +2221,7 @@ class Run:
         -------
         bool
             returns True if update was successful
+
         """
         if not self._folder:
             self._error("Cannot update folder details, run was not initialised")
@@ -2191,7 +2245,7 @@ class Run:
 
         return True
 
-    @skip_if_failed("_aborted", "_suppress_errors", False)
+    @skip_if_failed("_aborted", "_suppress_errors", on_failure_return=False)
     @check_run_initialised
     @pydantic.validate_call
     def add_alerts(
@@ -2199,7 +2253,7 @@ class Run:
         ids: list[str] | None = None,
         names: list[str] | None = None,
     ) -> bool:
-        """Add a set of existing alerts to this run by name or id
+        """Add a set of existing alerts to this run by name or id.
 
         Parameters
         ----------
@@ -2212,6 +2266,7 @@ class Run:
         -------
         bool
             returns True if successful
+
         """
         if not self._sv_obj:
             self._error("Cannot add alerts, run not initialised")
@@ -2223,7 +2278,8 @@ class Run:
         if names and not ids:
             if self.mode == "offline":
                 self._error(
-                    "Cannot retrieve alerts based on names in offline mode - please use IDs instead."
+                    "Cannot retrieve alerts based on names in offline mode "
+                    "- please use IDs instead.",
                 )
                 return False
             try:
@@ -2232,7 +2288,7 @@ class Run:
                     server_url=self._user_config.server.url,
                     server_token=self._user_config.server.token,
                 ):
-                    ids += [id for id, alert in alerts if alert.name in names]
+                    ids += [_id for _id, alert in alerts if alert.name in names]
                 else:
                     self._error("No existing alerts")
                     return False
@@ -2262,7 +2318,7 @@ class Run:
                 return _id
         return None
 
-    @skip_if_failed("_aborted", "_suppress_errors", None)
+    @skip_if_failed("_aborted", "_suppress_errors", on_failure_return=None)
     @pydantic.validate_call
     def create_metric_range_alert(
         self,
@@ -2276,7 +2332,10 @@ class Run:
         window: pydantic.PositiveInt | None = None,
         frequency: pydantic.PositiveInt = 1,
         aggregation: typing.Literal[
-            "average", "sum", "at least one", "all"
+            "average",
+            "sum",
+            "at least one",
+            "all",
         ] = "average",
         notification: typing.Literal["email", "none"] = "none",
         trigger_abort: bool = False,
@@ -2310,7 +2369,7 @@ class Run:
             method to use when aggregating metrics within time window
                 * average - average across all values in window (default).
                 * sum - take the sum of all values within window.
-                * at least one - returns if at least one value in window satisfy condition.
+                * at least one - returns if at least window value satisfies condition.
                 * all - returns if all values in window satisfy condition.
         notification : Literal['email', 'none'], optional
             whether to notify on trigger
@@ -2355,7 +2414,7 @@ class Run:
             self.add_alerts(ids=[_alert.id])
         return _alert.id
 
-    @skip_if_failed("_aborted", "_suppress_errors", None)
+    @skip_if_failed("_aborted", "_suppress_errors", on_failure_return=None)
     @pydantic.validate_call
     def create_metric_threshold_alert(
         self,
@@ -2368,15 +2427,18 @@ class Run:
         window: pydantic.PositiveInt | None = None,
         frequency: pydantic.PositiveInt = 1,
         aggregation: typing.Literal[
-            "average", "sum", "at least one", "all"
+            "average",
+            "sum",
+            "at least one",
+            "all",
         ] = "average",
         notification: typing.Literal["email", "none"] = "none",
         trigger_abort: bool = False,
         attach_to_run: bool = True,
     ) -> str | None:
-        """Creates a metric threshold alert with the specified name (if it doesn't exist)
-        and applies it to the current run. If alert already exists it will
-        not be duplicated.
+        """Creates a metric threshold alert with the specified name
+        (if it doesn't exist) and applies it to the current run.
+        If alert already exists it will not be duplicated.
 
         Parameters
         ----------
@@ -2401,7 +2463,7 @@ class Run:
             method to use when aggregating metrics within time window
                 * average - average across all values in window (default).
                 * sum - take the sum of all values within window.
-                * at least one - returns if at least one value in window satisfy condition.
+                * at least one - returns if at least window value satisfies condition.
                 * all - returns if all values in window satisfy condition.
         notification : Literal['email', 'none'], optional
             whether to notify on trigger
@@ -2445,7 +2507,7 @@ class Run:
             self.add_alerts(ids=[_alert.id])
         return _alert.id
 
-    @skip_if_failed("_aborted", "_suppress_errors", None)
+    @skip_if_failed("_aborted", "_suppress_errors", on_failure_return=None)
     @pydantic.validate_call
     def create_event_alert(
         self,
@@ -2468,6 +2530,8 @@ class Run:
             name of alert
         pattern : str, optional
             for event based alerts pattern to look for, by default None
+        description : str, optional
+            one line description for this alert
         frequency : PositiveInt, optional
             frequency at which to check alert condition in seconds, by default None
         notification : Literal['email', 'none'], optional
@@ -2510,7 +2574,7 @@ class Run:
 
         return _alert.id
 
-    @skip_if_failed("_aborted", "_suppress_errors", None)
+    @skip_if_failed("_aborted", "_suppress_errors", on_failure_return=None)
     @pydantic.validate_call
     def create_user_alert(
         self,
@@ -2546,7 +2610,6 @@ class Run:
             returns the created alert ID if successful
 
         """
-
         _alert = UserAlert.new(
             name=name,
             notification=notification,
@@ -2568,7 +2631,7 @@ class Run:
             self.add_alerts(ids=[_alert.id])
         return _alert.id
 
-    @skip_if_failed("_aborted", "_suppress_errors", False)
+    @skip_if_failed("_aborted", "_suppress_errors", on_failure_return=False)
     @check_run_initialised
     @pydantic.validate_call
     def log_alert(
@@ -2594,8 +2657,9 @@ class Run:
         -------
         bool
             whether alert state update was successful
+
         """
-        if state not in ("ok", "critical"):
+        if state not in {"ok", "critical"}:
             self._error('state must be either "ok" or "critical"')
             return False
 
@@ -2605,7 +2669,8 @@ class Run:
 
         if name and self.mode == "offline":
             self._error(
-                "Cannot retrieve alerts based on names in offline mode - please use IDs instead."
+                "Cannot retrieve alerts based on names in offline mode "
+                "- please use IDs instead.",
             )
             return False
 
@@ -2613,7 +2678,8 @@ class Run:
             try:
                 if alerts := Alert.get(offline=self.mode == "offline"):
                     identifier = next(
-                        (id for id, alert in alerts if alert.name == name), None
+                        (_id for _id, alert in alerts if alert.name == name),
+                        None,
                     )
                 else:
                     self._error("No existing alerts")
@@ -2633,10 +2699,10 @@ class Run:
         if not isinstance(_alert, UserAlert):
             self._error(
                 f"Cannot update state for alert '{identifier}' "
-                f"of type '{_alert.__class__.__name__.lower()}'"
+                f"of type '{_alert.__class__.__name__.lower()}'",
             )
             return False
-        _alert.read_only(False)
+        _alert.read_only(is_read_only=False)
         _alert.set_status(run_id=self.id, status=state)
         _alert.commit()
 
@@ -2660,6 +2726,25 @@ class Run:
             name of metric to assign units to
         units : str
             unit symbol
+        mks_unit : str | None, optional
+            relevant MKS unit for this unit, default is to infer
+        mks_conversion: float | None = None, optional
+            if providing custom unit, this is the conversion to the MKS unit
+
+        Examples
+        --------
+        ```python
+        with simvue.Run() as run:
+            run.init()
+            run.set_metric_units(
+                'dimension_0',
+                units='Å',
+                mks_unit='metre',
+                mks_conversion=1e-10
+            )
+            run.log_metrics({'dimension_0', 2})
+        ```
+
         """
         self._meta_cache.setdefault("metrics", {})
 
@@ -2670,7 +2755,7 @@ class Run:
                 "mks_conversion": mks_conversion or float(_unit_obj.in_mks().value),
                 "mks_units": mks_unit or f"{_unit_obj.in_mks().units}",
             }
-        except UnitParseError:
+        except (UnitParseError, ValueError):
             self._meta_cache["metrics"][metric_name] = {
                 "units": units,
                 "mks_conversion": mks_conversion,

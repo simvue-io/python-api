@@ -41,7 +41,7 @@ def test_run_creation_offline(offline_cache_setup) -> None:
     assert _local_data.get("name") == f"simvue_offline_run_{_uuid}"
     assert _local_data.get("folder") == _folder_name
 
-    _sender = Sender(_run._local_staging_file.parents[1], 1, 10, throw_exceptions=True)
+    _sender = Sender(cache_directory=_run._local_staging_file.parents[1], max_workers=1, threading_threshold=10, throw_exceptions=True)
     _sender.upload(["folders", "runs"])
     time.sleep(1)
 
@@ -118,7 +118,7 @@ def test_run_modification_offline(offline_cache_setup) -> None:
     assert _new_run.description == "Simvue test run"
     assert _new_run.name == "simvue_test_run"
 
-    _sender = Sender(_run._local_staging_file.parents[1], 1, 10, throw_exceptions=True)
+    _sender = Sender(cache_directory=_run._local_staging_file.parents[1], max_workers=1, threading_threshold=10, throw_exceptions=True)
     _sender.upload(["folders", "runs"])
     time.sleep(1)
 
@@ -138,7 +138,7 @@ def test_run_modification_offline(offline_cache_setup) -> None:
     _online_run.refresh()
     assert _online_run.tags == []
 
-    _sender = Sender(_run._local_staging_file.parents[1], 1, 10, throw_exceptions=True)
+    _sender = Sender(cache_directory=_run._local_staging_file.parents[1], max_workers=1, threading_threshold=10, throw_exceptions=True)
     _sender.upload(["folders", "runs"])
     time.sleep(1)
 

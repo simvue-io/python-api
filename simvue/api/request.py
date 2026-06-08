@@ -1,5 +1,4 @@
-"""
-Simvue API Connection
+"""Simvue API Connection.
 =====================
 
 Provides methods for interacting with a Simvue server which include retry
@@ -8,10 +7,11 @@ to a JSON string
 """
 
 import copy
-import json as json_module
-import typing
-import logging
 import http
+import json as json_module
+import logging
+import typing
+from collections.abc import Generator
 
 import requests
 from tenacity import (
@@ -20,8 +20,8 @@ from tenacity import (
     stop_after_attempt,
     wait_exponential,
 )
+
 from simvue.utilities import parse_validation_response
-from collections.abc import Generator
 
 DEFAULT_API_TIMEOUT = 10
 RETRY_MULTIPLIER = 1
@@ -31,11 +31,12 @@ RETRY_STOP = 5
 MAX_ENTRIES_PER_PAGE: int = 100
 RETRY_STATUSES = {502, 503, 504}
 
+logger = logging.getLogger(__name__)
+
 
 def set_json_header(headers: dict[str, str]) -> dict[str, str]:
-    """
-    Return a copy of the headers with Content-Type set to
-    application/json
+    """Return a copy of the headers with Content-Type set to
+    application/json.
     """
     headers = copy.deepcopy(headers)
     headers["Content-Type"] = "application/json"
@@ -54,12 +55,13 @@ class RetryableHTTPError(Exception):
             RetryableHTTPError,
             requests.exceptions.Timeout,
             requests.exceptions.ConnectionError,
-        )
+        ),
     ),
     reraise=True,
 )
 def post(
     url: str,
+    *,
     headers: dict[str, str],
     params: dict[str, str],
     data: typing.Any,
@@ -67,7 +69,7 @@ def post(
     timeout: int | None = None,
     files: dict[str, typing.Any] | None = None,
 ) -> requests.Response:
-    """HTTP POST with retries
+    """HTTP POST with retries.
 
     Parameters
     ----------
@@ -81,6 +83,10 @@ def post(
         data to post
     is_json : bool, optional
         send as JSON string, by default True
+    timeout : int | None = None
+        timeout for the request
+    files : dict[str, Any] | None = None
+        file data for this request
 
     Returns
     -------
@@ -106,12 +112,13 @@ def post(
     if response.status_code == http.HTTPStatus.UNPROCESSABLE_ENTITY:
         _parsed_response = parse_validation_response(response.json())
         raise ValueError(
-            f"Validation error for '{url}' [{response.status_code}]:\n{_parsed_response}"
+            f"Validation error for '{url}' "
+            f"[{response.status_code}]:\n{_parsed_response}",
         )
 
     if response.status_code in RETRY_STATUSES:
         raise RetryableHTTPError(
-            f"Received status code {response.status_code} from server"
+            f"Received status code {response.status_code} from server",
         )
 
     return response
@@ -124,20 +131,21 @@ def post(
             RetryableHTTPError,
             requests.exceptions.Timeout,
             requests.exceptions.ConnectionError,
-        )
+        ),
     ),
     stop=stop_after_attempt(RETRY_STOP),
     reraise=True,
 )
 def put(
     url: str,
+    *,
     headers: dict[str, str],
     data: dict[str, typing.Any] | None = None,
     json: dict[str, typing.Any] | None = None,
     is_json: bool = True,
     timeout: int = DEFAULT_API_TIMEOUT,
 ) -> requests.Response:
-    """HTTP PUT with retries
+    """HTTP PUT with retries.
 
     Parameters
     ----------
@@ -158,6 +166,7 @@ def put(
     -------
     requests.Response
         response from executing PUT
+
     """
     if is_json and data:
         data_sent: str | dict[str, typing.Any] = json_module.dumps(data)
@@ -165,15 +174,19 @@ def put(
     else:
         data_sent = data
 
-    logging.debug(f"PUT: {url}\n\tdata={data_sent}\n\tjson={json}")
+    logger.debug("PUT: %s\n\tdata=%s\n\tjson=%s", url, data_sent, json)
 
     response = requests.put(
-        url, headers=headers, data=data_sent, timeout=timeout, json=json
+        url,
+        headers=headers,
+        data=data_sent,
+        timeout=timeout,
+        json=json,
     )
 
     if response.status_code in RETRY_STATUSES:
         raise RetryableHTTPError(
-            f"Received status code {response.status_code} from server"
+            f"Received status code {response.status_code} from server",
         )
 
     return response
@@ -186,7 +199,7 @@ def put(
             RetryableHTTPError,
             requests.exceptions.Timeout,
             requests.exceptions.ConnectionError,
-        )
+        ),
     ),
     stop=stop_after_attempt(RETRY_STOP),
     reraise=True,
@@ -198,14 +211,16 @@ def get(
     timeout: int = DEFAULT_API_TIMEOUT,
     json: dict[str, typing.Any] | None = None,
 ) -> requests.Response:
-    """HTTP GET
+    """HTTP GET.
 
     Parameters
     ----------
     url : str
         URL to put to
     headers : dict[str, str]
-        headers for the post request
+        headers for the get request
+    params : dict[str, Any]
+        additional parameters for request
     timeout : int, optional
         timeout of request, by default DEFAULT_API_TIMEOUT
     json : dict[str, Any] | None, optional
@@ -215,15 +230,20 @@ def get(
     -------
     requests.Response
         response from executing GET
+
     """
-    logging.debug(f"GET: {url}\n\tparams={params}")
+    logger.debug("GET: %s\n\tparams=%s", url, params)
     response = requests.get(
-        url, headers=headers, timeout=timeout, params=params, json=json
+        url,
+        headers=headers,
+        timeout=timeout,
+        params=params,
+        json=json,
     )
 
     if response.status_code in RETRY_STATUSES:
         raise RetryableHTTPError(
-            f"Received status code {response.status_code} from server"
+            f"Received status code {response.status_code} from server",
         )
 
     return response
@@ -236,7 +256,7 @@ def get(
             RetryableHTTPError,
             requests.exceptions.Timeout,
             requests.exceptions.ConnectionError,
-        )
+        ),
     ),
     stop=stop_after_attempt(RETRY_STOP),
     reraise=True,
@@ -247,7 +267,7 @@ def delete(
     timeout: int = DEFAULT_API_TIMEOUT,
     params: dict[str, typing.Any] | None = None,
 ) -> requests.Response:
-    """HTTP DELETE
+    """HTTP DELETE.
 
     Parameters
     ----------
@@ -264,24 +284,26 @@ def delete(
     -------
     requests.Response
         response from executing DELETE
+
     """
-    logging.debug(f"DELETE: {url}\n\tparams={params}")
+    logger.debug("DELETE: %s\n\tparams=%s", url, params)
     response = requests.delete(url, headers=headers, timeout=timeout, params=params)
 
     if response.status_code in RETRY_STATUSES:
         raise RetryableHTTPError(
-            f"Received status code {response.status_code} from server"
+            f"Received status code {response.status_code} from server",
         )
 
     return response
 
 
 def get_json_from_response(
+    *,
     expected_status: list[int],
     scenario: str,
     response: requests.Response,
     allow_parse_failure: bool = False,
-    expected_type: typing.Type[dict | list] = dict,
+    expected_type: type[dict | list] = dict,
 ) -> dict | list:
     try:
         json_response = response.json()
@@ -296,7 +318,10 @@ def get_json_from_response(
 
     if (_status_code := response.status_code) in expected_status:
         if not isinstance(json_response, expected_type):
-            details = f"expected type '{expected_type.__name__}' but got '{type(json_response).__name__}'"
+            details = (
+                f"expected type '{expected_type.__name__}' "
+                f"but got '{type(json_response).__name__}'"
+            )
         elif json_response is not None:
             return json_response
         else:
@@ -320,11 +345,12 @@ def get_json_from_response(
 
 def get_paginated(
     url: str,
+    *,
     headers: dict[str, str] | None = None,
     timeout: int = DEFAULT_API_TIMEOUT,
     json: dict[str, typing.Any] | None = None,
-    offset: int | None = None,
     count: int | None = None,
+    offset: int | None = None,
     **params,
 ) -> Generator[requests.Response]:
     """Paginate results of a server query.
@@ -339,11 +365,18 @@ def get_paginated(
         timeout of request, by default DEFAULT_API_TIMEOUT
     json : dict[str, Any] | None, optional
         any json to send in request
+    count: int | None, optional
+        limit number of objects
+    offset : int | None, optional
+        set start index for objects list
+    **params: Any
+        additional parameters for request
 
     Yield
     -----
     requests.Response
         server response
+
     """
     _offset: int = offset or 0
 
@@ -371,5 +404,6 @@ def get_paginated(
                 break
     except json_module.JSONDecodeError:
         raise RuntimeError(
-            f"[{_response.status_code}] Failed to retrieve content from server: {_response.text}"
-        )
+            f"[{_response.status_code}] Failed to retrieve content from server: "
+            + _response.text,
+        ) from None

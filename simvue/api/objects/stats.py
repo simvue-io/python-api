@@ -7,12 +7,14 @@ Statistics accessible to the current user.
 import http
 import typing
 
-from pydantic import BaseModel
 import pydantic
+from pydantic import BaseModel
+
+from simvue.api.request import get as sv_get
+from simvue.api.request import get_json_from_response
+from simvue.api.url import URL
 
 from .base import SimvueObject
-from simvue.api.request import get as sv_get, get_json_from_response
-from simvue.api.url import URL
 
 __all__ = ["Stats"]
 
@@ -54,10 +56,13 @@ class Stats(SimvueObject):
             alternative server URL, default None
         server_token : str | None, optional
             token for alternative server, default None
+
         """
         self.runs = RunStatistics(self)
         super().__init__(
-            identifier=None, server_url=server_url, server_token=server_token
+            identifier=None,
+            server_url=server_url,
+            server_token=server_token,
         )
 
         # Stats is a singular object (i.e. identifier is not applicable)
@@ -65,22 +70,24 @@ class Stats(SimvueObject):
         self._identifier = ""
 
     @classmethod
-    def new(cls, **kwargs) -> None:
+    def new(cls, **_) -> None:
         """Creation of multiple stats objects is not logical here.
 
         Raises
         ------
         AttributeError
+
         """
         raise AttributeError("Creation of statistics objects is not supported")
 
     @classmethod
-    def delete(cls, **kwargs) -> None:
+    def delete(cls, **_) -> None:
         """Deletion of stats object is not logical here.
 
         Raises
         ------
         AttributeError
+
         """
         raise AttributeError("Deletion of statistics is not supported")
 
@@ -90,6 +97,7 @@ class Stats(SimvueObject):
         Raises
         ------
         NotImplementedError
+
         """
         raise NotImplementedError("Statistics are not modifiable.")
 
@@ -99,32 +107,34 @@ class Stats(SimvueObject):
         Returns
         -------
         None
+
         """
-        return None
+        return
 
     def on_reconnect(self, **_) -> None:
         """No offline to online reconnect functionality for statistics."""
-        pass
 
     @classmethod
-    def get(cls, **kwargs) -> None:
+    def get(cls, **_) -> None:
         """Retrieval of multiple stats object is not logical here.
 
         Raises
         ------
         AttributeError
+
         """
         raise AttributeError(
-            "Retrieval of multiple of statistics objects is not supported"
+            "Retrieval of multiple of statistics objects is not supported",
         )
 
     @classmethod
-    def ids(cls, **kwargs) -> None:
+    def ids(cls, **_) -> None:
         """Retrieval of identifiers is not logical here.
 
         Raises
         ------
         AttributeError
+
         """
         raise AttributeError("Retrieval of ids for statistics objects is not supported")
 
@@ -135,6 +145,7 @@ class Stats(SimvueObject):
         -------
         dict[str, str]
             server response for 'whomai' query.
+
         """
         _url: URL = URL(self._user_config.server.url) / "whoami"
         _response = sv_get(url=f"{_url}", headers=self._headers)
@@ -144,16 +155,16 @@ class Stats(SimvueObject):
             scenario="Retrieving current user",
         )
 
-    def _get_run_stats(self) -> dict[str, int]:
-        """Retrieve the run statistics"""
+    def get_run_stats(self) -> dict[str, int]:
+        """Retrieve the run statistics."""
         return self._get_attribute("runs")
 
     def _get_local_staged(self) -> dict[str, typing.Any]:
-        """No staging for stats so returns empty dict"""
+        """No staging for stats so returns empty dict."""
         return {}
 
     def _get_visibility(self) -> dict[str, bool | list[str]]:
-        """Visibility does not apply here"""
+        """Visibility does not apply here."""
         return {}
 
     def to_dict(self) -> dict[str, typing.Any]:
@@ -163,52 +174,53 @@ class Stats(SimvueObject):
         -------
         dict[str, Any]
             statistics data as dictionary
+
         """
-        return {"runs": self._get_run_stats()}
+        return {"runs": self.get_run_stats()}
 
     def admin_stats(self, *, tenant: str | None = None) -> dict[str, dict[str, int]]:
         return {
             name: UserStatistics(**entry)
             for name, entry in self._get(
-                single=False, **({"tenant": tenant} if tenant else {})
+                single=False,
+                **({"tenant": tenant} if tenant else {}),
             ).items()
         }
 
     def commit(self) -> None:
         """Does nothing, no data sendable to server."""
-        pass
 
 
 class RunStatistics:
-    """Interface to the run section of statistics output"""
+    """Interface to the run section of statistics output."""
 
     def __init__(self, sv_obj: Stats) -> None:
         self._sv_obj = sv_obj
 
     @property
     def created(self) -> int:
-        """Number of created runs"""
-        if (_created := self._sv_obj._get_run_stats().get("created")) is None:
+        """Number of created runs."""
+        if (_created := self._sv_obj.get_run_stats().get("created")) is None:
             raise RuntimeError("Expected key 'created' in run statistics retrieval")
         return _created
 
     @property
     def running(self) -> int:
-        """Number of running runs"""
-        if (_running := self._sv_obj._get_run_stats().get("running")) is None:
+        """Number of running runs."""
+        if (_running := self._sv_obj.get_run_stats().get("running")) is None:
             raise RuntimeError("Expected key 'running' in run statistics retrieval")
         return _running
 
     @property
     def completed(self) -> int:
-        """Number of completed runs"""
-        if (_completed := self._sv_obj._get_run_stats().get("running")) is None:
+        """Number of completed runs."""
+        if (_completed := self._sv_obj.get_run_stats().get("running")) is None:
             raise RuntimeError("Expected key 'completed' in run statistics retrieval")
         return _completed
 
     @property
     def data(self) -> int:
-        """Data count"""
-        if (_data := self._sv_obj._get_run_stats().get("running")) is None:
+        """Data count."""
+        if (_data := self._sv_obj.get_run_stats().get("running")) is None:
             raise RuntimeError("Expected key 'data' in run statistics retrieval")
         return _data

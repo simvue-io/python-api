@@ -12,8 +12,9 @@ except ImportError:
     from typing_extensions import Self, override
 import pydantic
 
-from .base import StorageBase
 from simvue.models import NAME_REGEX
+
+from .base import StorageBase
 
 
 class FileStorage(StorageBase):
@@ -33,11 +34,12 @@ class FileStorage(StorageBase):
         server_token: pydantic.SecretStr | None = None,
         **kwargs,
     ) -> None:
-        """Initialise a File Storage
+        """Initialise a File Storage.
 
         If an identifier is provided a connection will be made to the
         object matching the identifier on the target server.
-        Else a new FileStorage instance will be created using arguments provided in kwargs.
+        Else a new FileStorage instance will be created using arguments
+        provided in kwargs.
 
         Parameters
         ----------
@@ -49,9 +51,13 @@ class FileStorage(StorageBase):
             token for alternative server, default None
         **kwargs : dict
             any additional arguments to be passed to the object initialiser
+
         """
         super().__init__(
-            identifier, server_url=server_url, server_token=server_token, **kwargs
+            identifier,
+            server_url=server_url,
+            server_token=server_token,
+            **kwargs,
         )
 
     @override
@@ -95,6 +101,7 @@ class FileStorage(StorageBase):
         -------
         FileStorage
             instance of storage system with staged changes
+
         """
         return cls(
             name=name,

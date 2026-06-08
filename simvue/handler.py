@@ -1,5 +1,6 @@
 """Simvue logging handler."""
 
+import contextlib
 import logging
 import typing
 
@@ -22,6 +23,7 @@ class Handler(logging.Handler):
         ----------
         simvue_run: simvue.Run
             run to attach this handler to
+
         """
         logging.Handler.__init__(self)
         self._run_object: Run = simvue_run
@@ -34,10 +36,11 @@ class Handler(logging.Handler):
 
         _msg: str = self.format(record)
 
-        try:
+        with contextlib.suppress(Exception):
             self._run_object.log_event(_msg)
-        except Exception:
-            logging.Handler.handleError(self, record)
+            return
+
+        logging.Handler.handleError(self, record)
 
     @override
     def close(self) -> None:

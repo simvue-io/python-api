@@ -1,10 +1,10 @@
 """Base Filter object for RestAPI queries."""
 
-import abc
-from collections.abc import Generator
-import typing
 import enum
 import json
+import typing
+from collections.abc import Generator
+
 import pydantic as pyd
 
 from simvue.utilities import prettify_pydantic
@@ -15,7 +15,7 @@ if typing.TYPE_CHECKING:
 try:
     from typing import Self
 except ImportError:
-    from typing_extensions import Self  # noqa: UP035
+    from typing_extensions import Self
 
 
 class Time(str, enum.Enum):
@@ -27,25 +27,30 @@ class Time(str, enum.Enum):
     Ended = "ended"
 
 
-class RestAPIFilter(abc.ABC):
+class RestAPIFilter:
     """RestAPI query filter object."""
 
     def __init__(self, simvue_object: "type[SimvueObject] | None" = None) -> None:
         """Initialise a query object using a Simvue object class."""
-        self._sv_object: "type[SimvueObject] | None" = simvue_object
+        self._sv_object: type[SimvueObject] | None = simvue_object
         self._filters: list[str] = []
 
     def _time_within(
-        self, time_type: Time, *, hours: int = 0, days: int = 0, years: int = 0
+        self,
+        time_type: Time,
+        *,
+        hours: int = 0,
+        days: int = 0,
+        years: int = 0,
     ) -> Self:
         """Define filter using time range."""
-        if len(_non_zero := list(i for i in (hours, days, years) if i != 0)) > 1:
+        if len(_non_zero := [i for i in (hours, days, years) if i != 0]) > 1:
             raise AssertionError(
-                "Only one duration type may be provided: hours, days or years"
+                "Only one duration type may be provided: hours, days or years",
             )
         if len(_non_zero) < 1:
             raise AssertionError(
-                f"No duration provided for filter '{time_type.value}_within'"
+                f"No duration provided for filter '{time_type.value}_within'",
             )
 
         if hours:
@@ -124,14 +129,14 @@ class RestAPIFilter(abc.ABC):
 
     @prettify_pydantic
     @pyd.validate_call
-    def has_metadata_value(self, attribute: str, value: str | float | int) -> Self:
+    def has_metadata_value(self, attribute: str, value: str | float) -> Self:
         """Filter by the value of a metadata attribute."""
         self._filters.append(f"metadata.{attribute} == {value}")
         return self
 
     @prettify_pydantic
     @pyd.validate_call
-    def exclude_metadata_value(self, attribute: str, value: str | float | int) -> Self:
+    def exclude_metadata_value(self, attribute: str, value: str | float) -> Self:
         """Veto by the value of a metadata attribute."""
         self._filters.append(f"metadata.{attribute} != {value}")
         return self
@@ -139,7 +144,9 @@ class RestAPIFilter(abc.ABC):
     @prettify_pydantic
     @pyd.validate_call
     def has_metadata_value_greater_than(
-        self, attribute: str, value: float | int
+        self,
+        attribute: str,
+        value: float,
     ) -> Self:
         """Filter by the value of a metadata value threshold."""
         self._filters.append(f"metadata.{attribute} > {value}")
@@ -147,7 +154,7 @@ class RestAPIFilter(abc.ABC):
 
     @prettify_pydantic
     @pyd.validate_call
-    def has_metadata_value_less_than(self, attribute: str, value: float | int) -> Self:
+    def has_metadata_value_less_than(self, attribute: str, value: float) -> Self:
         """Filter by the value of a metadata value threshold."""
         self._filters.append(f"metadata.{attribute} < {value}")
         return self
@@ -155,7 +162,9 @@ class RestAPIFilter(abc.ABC):
     @prettify_pydantic
     @pyd.validate_call
     def has_metadata_value_greater_than_or_equal_to(
-        self, attribute: str, value: float | int
+        self,
+        attribute: str,
+        value: float,
     ) -> Self:
         """Filter by the value of a metadata value threshold."""
         self._filters.append(f"metadata.{attribute} >= {value}")
@@ -164,7 +173,9 @@ class RestAPIFilter(abc.ABC):
     @prettify_pydantic
     @pyd.validate_call
     def has_metadata_value_less_than_or_equal_to(
-        self, attribute: str, value: float | int
+        self,
+        attribute: str,
+        value: float,
     ) -> Self:
         """Filter by the value of a metadata value threshold."""
         self._filters.append(f"metadata.{attribute} <= {value}")
@@ -181,7 +192,10 @@ class RestAPIFilter(abc.ABC):
             raise RuntimeError("No object type associated with filter.")
         _filters: str = json.dumps(self._filters)
         return self._sv_object.get(
-            count=count, offset=offset, filters=_filters, **kwargs
+            count=count,
+            offset=offset,
+            filters=_filters,
+            **kwargs,
         )
 
     def count(self, **kwargs) -> int:

@@ -18,11 +18,11 @@ import simvue.utilities as sv_util
 def test_calculate_hash(is_file: bool, hash: str) -> None:
     if is_file:
         with tempfile.TemporaryDirectory() as tempd:
-            with open(out_file := os.path.join(tempd, "temp.txt"), "w") as out_f:
+            with (out_file := pathlib.Path(tempd).joinpath("temp.txt")).open("w") as out_f:
                 out_f.write("This is a test")
-            assert sv_util.calculate_sha256(filename=out_file, is_file=is_file) == hash
+            assert sv_util.calculate_file_sha256(out_file) == hash
     else:
-        assert sv_util.calculate_sha256(filename="temp.txt", is_file=is_file) == hash
+        assert sv_util.calculate_object_sha256("temp.txt") == hash
 
 @pytest.mark.config
 @pytest.mark.parametrize(
