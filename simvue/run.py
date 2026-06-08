@@ -890,8 +890,6 @@ class Run:
         def callback_function(status_code: int, std_out: str, std_err: str) -> None: ...
         ```
 
-        Note `completion_callback` is not supported on Windows operating systems.
-
         Alternatively you can use `completion_trigger` to create a multiprocessing
         event which will be set when the process has completed.
 
@@ -914,7 +912,7 @@ class Run:
             option, if this is the case you should provide it as such and perform
             the upload manually, by default None
         completion_callback : typing.Callable | None, optional
-            callback to run when process terminates (not supported on Windows)
+            callback to run when process terminates
         completion_trigger : threading.Event | None, optional
             this trigger event is set when the processes completes
         env : dict[str, str], optional
@@ -952,14 +950,6 @@ class Run:
                 script="run_count.sh"
             )
         ```
-
-        """
-        if platform.system() == "Windows" and completion_trigger:
-            raise RuntimeError(
-                "Use of 'completion_trigger' on Windows based operating systems "
-                "is unsupported due to function pickling restrictions for "
-                "multiprocessing",
-            )
 
         if isinstance(executable, pathlib.Path) and not executable.is_file():
             raise FileNotFoundError(f"Executable '{executable}' is not a valid file")

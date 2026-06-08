@@ -235,8 +235,6 @@ class Executor:
             ...
         ```
 
-        Note `completion_trigger` is not supported on Windows operating systems.
-
         Parameters
         ----------
         identifier : str
@@ -256,7 +254,7 @@ class Executor:
             option, if this is the case you should provide it as such and perform
             the upload manually, by default None
         completion_callback : typing.Callable | None, optional
-            callback to run when process terminates (not supported on Windows)
+            callback to run when process terminates
         completion_trigger : threading.Event | None, optional
             this trigger event is set when the processes completes
         env : dict[str, str], optional
@@ -274,12 +272,6 @@ class Executor:
 
         if not self._runner.name:
             raise RuntimeError("Cannot add process, expected Run instance to have name")
-
-        if sys.platform == "win32" and completion_trigger:
-            logger.warning(
-                "Completion trigger for 'add_process' may fail on Windows "
-                "due to function pickling restrictions",
-            )
 
         # To check the executable provided by the user exists combine with environment
         # PATH variable if exists, if not provided use the current environment
