@@ -94,6 +94,11 @@ def parse_validation_response(
     str
         return the validation information
 
+    Raises
+    ------
+    RuntimeError
+        If the expected 'detail' key is absent in the response
+
     """
     if not (issues := response.get("detail")):
         raise RuntimeError(
@@ -153,6 +158,24 @@ def parse_validation_response(
 
 
 def check_extra(extra_name: str) -> typing.Callable:
+    """Check for the presence of a given module extra.
+
+    Some features are unlocked by specifying an 'extra' when installing.
+    This decorator aims to catch cases where the required extra is not installed before
+    executing a function.
+
+    Parameters
+    ----------
+    extra_name : str
+        the name of the expected extra
+
+    Returns
+    -------
+    Callable
+        the decorated function
+
+    """
+
     def decorator(
         class_func: typing.Callable | None = None,
     ) -> typing.Callable | None:
@@ -187,6 +210,16 @@ def check_extra(extra_name: str) -> typing.Callable:
 
 
 def parse_pydantic_error(error: pydantic.ValidationError) -> str:
+    """Parse the output from Pydantic into a user-friendly form.
+
+    Uses the tabulate module to assemble the output of Pydantic into
+    a summary table instead of a list of error addresses.
+
+    Returns
+    -------
+    str
+        string of table defining all validation errors.
+    """
     out_table: list[str] = []
     error_string_cutoff: int = 50
     for data in json.loads(error.json()):

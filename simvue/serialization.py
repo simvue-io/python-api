@@ -24,7 +24,18 @@ from .utilities import check_extra
 
 
 def _is_torch_tensor(data: typing.Any) -> bool:
-    """Check if value is a PyTorch tensor or state dict."""
+    """Check if value is a PyTorch tensor or state dict.
+
+    Parameters
+    ----------
+    data : Any
+        object to check
+
+    Returns
+    -------
+    bool
+        whether or not object is a Pytorch Tensor type
+    """
     module_name = data.__class__.__module__
     class_name = data.__class__.__name__
 

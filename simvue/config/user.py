@@ -289,7 +289,7 @@ class SimvueConfiguration(pydantic.BaseModel):
             os.environ[key] = value
 
         if _env_vars:
-            _env_strs: Generator[str] = (f"{k}={v}" for k, v in _env_vars)
+            _env_strs: Generator[str] = (f"{k}={v}" for k, v in _env_vars.items())
             logger.debug("Loaded environment variables:\n%s", "\n\t".join(_env_strs))
 
         return _user_config
