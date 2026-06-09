@@ -39,18 +39,34 @@ __all__ = ["Grid"]
 
 
 def check_ordered_array(
-    axis_ticks: list[list[float]] | np.ndarray,
+    array: list[list[float]] | np.ndarray,
 ) -> list[list[float]]:
-    """Returns if array is ordered or reverse ordered."""
-    if isinstance(axis_ticks, np.ndarray):
-        axis_ticks = axis_ticks.tolist()
-    for i, array in enumerate(axis_ticks):
+    """Returns if a 2D array is ordered or reverse ordered.
+
+    Parameters
+    ----------
+    array : list[list[float]] | np.ndarray
+        array to check for ordering
+
+    Returns
+    -------
+    list[list[float]]
+        original array as list
+
+    Raises
+    ------
+    ValueError
+        if the values are unordered
+    """
+    if isinstance(array, np.ndarray):
+        array = array.tolist()
+    for i, array in enumerate(array):
         _array = np.array(array)
         if not np.all(np.sort(_array) == _array) or np.all(
             reversed(np.sort(_array)) == _array,
         ):
             raise ValueError(f"Axis {i} has unordered values.")
-    return axis_ticks
+    return array
 
 
 class Grid(SimvueObject):
@@ -126,6 +142,11 @@ class Grid(SimvueObject):
         ----------
         id_mapping : dict[str, str]
             mapping from offline identifier to new online identifier.
+
+        Raises
+        ------
+        RuntimeError
+            If metrics could not be attached to uploaded runs on reconnect.
 
         """
         _online_runs = (

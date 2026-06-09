@@ -25,6 +25,8 @@ __all__ = ["Tag"]
 
 
 class TagSort(Sort):
+    """Class defining the sorting of tag data when retrieved from the server."""
+
     @pydantic.field_validator("column")
     @classmethod
     def check_column(cls, column: str) -> str:

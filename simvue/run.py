@@ -91,6 +91,14 @@ logger = logging.getLogger(__name__)
 def check_run_initialised(
     function: typing.Callable[..., typing.Any],
 ) -> typing.Callable[..., typing.Any]:
+    """Decorator to ensure that the run object has been initialised.
+
+    A lot of functionality within the Run class only works if the object has first
+    been initialised by the user, this decorator catches the invalid case as soon
+    as possible.
+
+    """
+
     @functools.wraps(function)
     def _wrapper(self: Self, *args: typing.Any, **kwargs: typing.Any) -> typing.Any:
         # Tidy pydantic errors

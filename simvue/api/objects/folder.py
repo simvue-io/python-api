@@ -326,6 +326,23 @@ class Folder(SimvueObject):
 def get_folder_from_path(
     path: typing.Annotated[str, pydantic.Field(pattern=FOLDER_REGEX)],
 ) -> Folder:
+    """Retrieve a folder from its path.
+
+    Parameters
+    ----------
+    path : str
+        folder path on server
+
+    Returns
+    -------
+    Folder
+        object representing folder on the server
+
+    Raises
+    ------
+    ObjectNotFoundError
+        if no match was found for this path
+    """
     _folders = Folder.get(filters=json.dumps([f"path == {path}"]), count=1)
 
     if not (_first_entry := next(_folders, None)):

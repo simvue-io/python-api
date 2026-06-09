@@ -26,7 +26,25 @@ LogLevel = typing.Literal["debug", "info", "warning", "error", "critical"]
 
 
 def validate_timestamp(timestamp: str, *, raise_except: bool = True) -> bool:
-    """Validate a user-provided timestamp."""
+    """Validate a user-provided timestamp.
+
+    Parameters
+    -----------
+    timestamp : str
+        timestamp to check
+    raise_except : bool, optional
+        whether to raise an exception on failure, default True
+
+    Returns
+    -------
+    bool
+        if check passed successfully
+
+    Raises
+    ------
+    ValueError
+        if exception throwing is enabled and the check fails
+    """
     try:
         _ = datetime.datetime.strptime(timestamp, DATETIME_FORMAT).astimezone()
     except ValueError:
@@ -73,6 +91,8 @@ def simvue_timestamp(
 
 # Pydantic class to validate run.init()
 class RunInput(pydantic.BaseModel):
+    """Validate inputs for user run."""
+
     model_config = pydantic.ConfigDict(extra="forbid")
     name: str | None = pydantic.Field(None, pattern=NAME_REGEX)
     metadata: dict[MetadataKeyString, str | int | float | None] | None = None
@@ -84,6 +104,8 @@ class RunInput(pydantic.BaseModel):
 
 
 class MetricSet(pydantic.BaseModel):
+    """Model for a set of metrics retrieved from the server."""
+
     model_config = pydantic.ConfigDict(extra="forbid")
     time: float | int
     timestamp: typing.Annotated[str | None, pydantic.BeforeValidator(simvue_timestamp)]
@@ -92,6 +114,8 @@ class MetricSet(pydantic.BaseModel):
 
 
 class GridMetricSet(pydantic.BaseModel):
+    """Model for a set of grid metrics retrieved from the server."""
+
     model_config = pydantic.ConfigDict(
         arbitrary_types_allowed=True,
         extra="forbid",
@@ -110,12 +134,15 @@ class GridMetricSet(pydantic.BaseModel):
         value: np.ndarray | list[float] | list[list[float]],
         *_,
     ) -> list[float] | list[list[float]]:
+        """Serialize a numpy array."""
         if isinstance(value, list):
             return value
         return value.tolist()
 
 
 class EventSet(pydantic.BaseModel):
+    """Model for a set of events retrieved from the server."""
+
     model_config = pydantic.ConfigDict(extra="forbid")
     message: str
     log_level: (

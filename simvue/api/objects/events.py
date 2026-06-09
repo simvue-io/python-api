@@ -108,6 +108,11 @@ class Events(SimvueObject):
         -------
         Generator[EventSet]
 
+        Raises
+        ------
+        RuntimeError
+            if the expected 'data' key was not found in server response
+
         """
         _class_instance = cls(_read_only=True, _local=True)
         _count: int = 0
@@ -191,6 +196,16 @@ class Events(SimvueObject):
         window: int,
         filters: list[str] | None,
     ) -> list[dict[str, str | int]]:
+        """Retrieve events as a histogram.
+
+        Parameters
+        ----------
+        timestamp_begin : datetime.datetime
+            start point for event time range
+        timestamp_end : datetime.datetime
+            end point for event time range
+
+        """
         if timestamp_end - timestamp_begin <= datetime.timedelta(seconds=window):
             raise ValueError(
                 "Invalid arguments for datetime range, "

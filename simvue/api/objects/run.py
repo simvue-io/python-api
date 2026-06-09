@@ -836,6 +836,11 @@ class Run(SimvueObject):
         dict[str, Any]
             server response after updating abort status.
 
+        Raises
+        ------
+        RuntimeError
+            if no server URL has been specified or found
+
         """
         if not self._abort_url:
             raise RuntimeError("Cannot abort run, no endpoint defined")
