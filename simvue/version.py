@@ -1,3 +1,5 @@
+"""Retrieve current API version."""
+
 import importlib.metadata
 import pathlib
 

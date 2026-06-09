@@ -1,5 +1,4 @@
 """Metadata.
-========
 
 Contains functions for extracting additional metadata about the current project
 

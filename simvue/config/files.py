@@ -1,5 +1,4 @@
 """Simvue Config File Lists.
-========================
 
 Contains lists of valid Simvue configuration file names.
 

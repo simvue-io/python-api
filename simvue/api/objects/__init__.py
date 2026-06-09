@@ -1,5 +1,4 @@
 """Simvue API Objects.
-==================
 
 The following module defines objects which provide exact representations
 of information accessible via the Simvue RestAPI, this provides a lower

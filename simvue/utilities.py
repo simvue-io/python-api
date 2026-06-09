@@ -1,3 +1,5 @@
+"""Utility and global helper functions."""
+
 import contextlib
 import functools
 import hashlib

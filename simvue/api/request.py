@@ -1,5 +1,4 @@
 """Simvue API Connection.
-=====================
 
 Provides methods for interacting with a Simvue server which include retry
 policies. In cases where JSON is the expected form the data is firstly converted

@@ -1,5 +1,4 @@
 """URL Library.
-===========
 
 Module contains classes for easier handling of URLs.
 

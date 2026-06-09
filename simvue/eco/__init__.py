@@ -1,5 +1,4 @@
 """Simvue Eco.
-==========
 
 Contains functionality for green IT, monitoring emissions etc.
 NOTE: The metrics calculated by these methods should be used for relative

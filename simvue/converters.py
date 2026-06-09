@@ -1,5 +1,4 @@
 """Converter Functions.
-===================
 
 Contains functions for converting objects retrieved from the server between
 data types including creation of DataFrames for metrics

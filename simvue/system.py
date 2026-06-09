@@ -1,4 +1,4 @@
-"""Retrieve System Information for Metrics."""
+"""Retrieve System Information."""
 
 import contextlib
 import pathlib

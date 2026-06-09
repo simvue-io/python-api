@@ -1,5 +1,4 @@
 """Simvue Server Events.
-====================
 
 Contains a class for remotely connecting to Simvue events, or defining
 a new set of events given relevant arguments.

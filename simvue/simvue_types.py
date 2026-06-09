@@ -1,3 +1,5 @@
+"""Simvue Type objects for Python typing."""
+
 import typing
 
 try:

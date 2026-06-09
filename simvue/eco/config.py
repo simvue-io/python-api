@@ -1,5 +1,4 @@
 """Eco Config.
-==========
 
 Configuration file extension for configuring the Simvue Eco sub-module.
 """

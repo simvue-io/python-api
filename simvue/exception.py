@@ -1,5 +1,4 @@
 """Simvue Exception Types.
-======================
 
 Custom exceptions for handling of Simvue request scenarions.
 

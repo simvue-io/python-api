@@ -1,5 +1,4 @@
 """CO2 Monitor.
-===========
 
 Provides an interface for estimating CO2 usage for processes on the CPU.
 """

@@ -1,5 +1,4 @@
 """Simvue Runs.
-===========
 
 Contains a class for remotely connecting to Simvue runs, or defining
 a new run given relevant arguments.

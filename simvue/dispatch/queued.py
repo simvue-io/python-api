@@ -1,5 +1,4 @@
 """Queue Dispatcher.
-================
 
 The QueueDispatcher provides a queue based system for execution of a callback on
 a list of parameters. The purpose of the class is to apply constraints to how

@@ -1,5 +1,4 @@
 """Simvue Server Folder.
-====================
 
 Contains a class for remotely connecting to a Simvue folder, or defining
 a new folder given relevant arguments.

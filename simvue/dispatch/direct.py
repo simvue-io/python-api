@@ -1,3 +1,5 @@
+"""Direct dispatcher for instantaneous sending of objects."""
+
 import threading
 import typing
 

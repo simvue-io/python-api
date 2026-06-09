@@ -1,5 +1,4 @@
 """Simvue Configuration File Model.
-===============================
 
 Pydantic model for the Simvue TOML configuration file
 

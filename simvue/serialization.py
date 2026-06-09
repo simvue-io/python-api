@@ -1,5 +1,4 @@
 """Object Serialization.
-====================
 
 Contains serializers for storage of objects on the Simvue server
 """

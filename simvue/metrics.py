@@ -1,5 +1,4 @@
 """CPU/GPU Metrics.
-===============
 
 Get information relating to the usage of the CPU and GPU (where applicable)
 

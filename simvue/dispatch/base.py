@@ -1,3 +1,5 @@
+"""Dispatcher base class definitions."""
+
 import abc
 import threading
 import typing

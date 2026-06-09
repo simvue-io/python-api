@@ -1,5 +1,4 @@
 """CO2 Signal API Client.
-=====================
 
 Provides inteface to the CO2 Signal API,
 which provides real-time data on the carbon intensity of
