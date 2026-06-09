@@ -84,7 +84,9 @@ class CO2Monitor(pydantic.BaseModel):
 
     @pydantic.model_validator(mode="before")
     @classmethod
-    def check_api_arguments(cls, values: dict[str, Any]) -> dict[str, Any]:
+    def check_api_arguments(
+        cls, values: dict[str, typing.Any]
+    ) -> dict[str, typing.Any]:
         """Check Argument Combinations."""
         if not (
             values.get("co2_intensity")

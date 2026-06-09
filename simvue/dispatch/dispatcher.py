@@ -17,7 +17,7 @@ if typing.TYPE_CHECKING:
     from .base import DispatcherBaseClass
 
 
-def Dispatcher(
+def Dispatcher(  # noqa: N802
     mode: typing.Literal["direct", "queued"],
     callback: typing.Callable[[list[typing.Any], str], None],
     object_types: list[str],

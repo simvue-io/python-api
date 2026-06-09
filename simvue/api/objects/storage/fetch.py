@@ -132,8 +132,6 @@ class Storage:
             expected_type=list,
         )
 
-        _out_dict: dict[str, FileStorage | S3Storage] = {}
-
         for _entry in _json_response:
             _id = _entry.pop("id")
             if _entry["backend"] == "S3":

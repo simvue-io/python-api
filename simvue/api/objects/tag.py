@@ -107,7 +107,6 @@ class Tag(SimvueObject):
             tag object with staged attributes
 
         """
-        _data: dict[str, typing.Any] = {"name": name}
         return cls(
             name=name,
             server_url=server_url,

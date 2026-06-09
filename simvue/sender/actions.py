@@ -244,17 +244,15 @@ class UploadAction:
 
         except Exception as err:
             if throw_exceptions:
-                raise err
-            _exception_msg: str = (
-                f"Error while committing {_label} '{identifier}': {err}"
-            )
+                raise
+            _exception_msg: str = f"Error while committing {_label} '{identifier}'"
             if simvue_monitor_run:
-                simvue_monitor_run.log_event(_exception_msg)
+                simvue_monitor_run.log_event(f"{_exception_msg}: {err}")
                 simvue_monitor_run.log_alert(
                     name="sender_object_upload_failure",
                     state="critical",
                 )
-            cls.logger.error(_exception_msg)
+            cls.logger.exception(_exception_msg)
             cls._log_upload_failed(cache_directory, identifier, _data)
             return
 
@@ -1010,15 +1008,15 @@ class HeartbeatUploadAction(UploadAction):
         )
 
         try:
-            _json_response = get_json_from_response(
+            _ = get_json_from_response(
                 expected_status=[http.HTTPStatus.OK],
                 scenario=f"Attempt to send heartbeat to run {_online_id}",
                 response=_response,
             )
-        except RuntimeError as e:
+        except RuntimeError:
             if throw_exceptions:
-                raise e
-            cls.logger.exception(e)
+                raise
+            cls.logger.exception("Heartbeat submission failed for Sender")
 
     @override
     @classmethod
@@ -1136,10 +1134,10 @@ class CO2IntensityUploadAction(UploadAction):
                 co2_intensity=_local_config.eco.co2_intensity,
                 co2_signal_api_token=_local_config.eco.co2_signal_api_token,
             ).check_refresh()
-        except (ValueError, RuntimeError) as e:
+        except (ValueError, RuntimeError):
             if throw_exceptions:
-                raise e
-            cls.logger.exception(e)
+                raise
+            cls.logger.exception("CO2 Monitor initialisation failed")
 
 
 # Define the upload action ordering

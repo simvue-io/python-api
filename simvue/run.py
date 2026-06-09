@@ -12,7 +12,6 @@ import mimetypes
 import multiprocessing.synchronize
 import os
 import pathlib
-import platform
 import re
 import shlex
 import sys
@@ -1378,7 +1377,7 @@ class Run:
 
         try:
             self.set_tags(list(set(current_tags + tags)))
-        except Exception as err:
+        except Exception as err:  # noqa: BLE001
             self._error(f"Failed to update tags: {err}")
             return False
 
@@ -1448,7 +1447,7 @@ class Run:
             return False
 
         # FIXME: Temporary, this will eventually be removed
-        import semver
+        import semver  # noqa: PLC0415
 
         _log_level_server_version = semver.Version.parse("1.2.16")
         if (
@@ -2020,7 +2019,7 @@ class Run:
 
         if file_type:
             mimetypes.init()
-            mimetypes_valid = [value for _, value in mimetypes.types_map.items()]
+            mimetypes_valid = list(mimetypes.types_map.values())
             if file_type not in mimetypes_valid:
                 self._error("Invalid MIME type specified")
                 return False

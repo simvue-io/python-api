@@ -44,8 +44,8 @@ def check_ordered_array(
     """Returns if array is ordered or reverse ordered."""
     if isinstance(axis_ticks, np.ndarray):
         axis_ticks = axis_ticks.tolist()
-    for i, _array in enumerate(axis_ticks):
-        _array = np.array(_array)
+    for i, array in enumerate(axis_ticks):
+        _array = np.array(array)
         if not np.all(np.sort(_array) == _array) or np.all(
             reversed(np.sort(_array)) == _array,
         ):

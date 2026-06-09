@@ -93,7 +93,7 @@ extend-exclude = ["tests", "examples", "notebooks", "simvue/pynvml.py"]
 preview = true
 
 [tool.ruff.lint]
-ignore = ["COM812", "PLR0904", "PLR6301", "D203", "D212"]
+ignore = ["COM812", "PLR0904", "PLR6301", "D203", "D212", "PLW0717"]
 dummy-variable-rgx = "^_+$"
 extend-select = [
   "C90",

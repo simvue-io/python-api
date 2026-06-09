@@ -27,9 +27,9 @@ def validate_timestamp(timestamp: str, *, raise_except: bool = True) -> bool:
     """Validate a user-provided timestamp."""
     try:
         _ = datetime.datetime.strptime(timestamp, DATETIME_FORMAT).astimezone()
-    except ValueError as e:
+    except ValueError:
         if raise_except:
-            raise e
+            raise
         return False
 
     return True

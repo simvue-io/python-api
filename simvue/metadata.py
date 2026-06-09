@@ -15,7 +15,7 @@ import typing
 
 import toml
 import yaml
-from pip._internal.operations.freeze import freeze
+from pip._internal.operations.freeze import freeze  # noqa: PLC2701
 
 from simvue.models import simvue_timestamp
 
@@ -41,7 +41,7 @@ def git_info(repository: pathlib.Path) -> dict[str, typing.Any]:
 
     """
     try:
-        import git
+        import git  # noqa: PLC0415
     except ImportError:
         return {}
 

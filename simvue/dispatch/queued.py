@@ -125,7 +125,6 @@ class QueuedDispatcher(threading.Thread, DispatcherBaseClass):
         The length of the buffer is constrained.
         """
         _buffer: list[typing.Any] = []
-        _criteria: dict[str, int | float] = {}
         _threshold_totals: dict[str, float] = dict.fromkeys(self._thresholds, 0)
 
         while (

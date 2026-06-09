@@ -67,6 +67,6 @@ def sender_cli(
             throw_exceptions=True,
         )
         _sender.upload(objects_to_upload)
-    except Exception as err:
+    except Exception as err:  # noqa: BLE001
         _logger.critical("Exception running sender: %s", err)
         raise click.Abort from None

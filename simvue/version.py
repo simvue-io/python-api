@@ -7,7 +7,8 @@ try:
     __version__ = importlib.metadata.version("simvue")
 except importlib.metadata.PackageNotFoundError:
     _metadata = (
-        pathlib.Path(__file__)
+        pathlib
+        .Path(__file__)
         .parents[2]
         .joinpath(
             "pyproject.toml",

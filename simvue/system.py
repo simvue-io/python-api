@@ -1,21 +1,23 @@
+"""Retrieve System Information for Metrics."""
+
 import contextlib
 import pathlib
 import platform
 import shutil
 import socket
-import subprocess
+import subprocess  # noqa: S404
 import sys
 import typing
 
 
-def get_cpu_info():
+def get_cpu_info() -> tuple[str, str]:
     """Get CPU info."""
     model_name = ""
     arch = ""
 
     if _lscpu := shutil.which("lscpu"):
         with contextlib.suppress(subprocess.CalledProcessError):
-            info = subprocess.check_output(_lscpu).decode().strip()
+            info = subprocess.check_output(_lscpu).decode().strip()  # noqa: S603
             for line in info.split("\n"):
                 if "Model name" in line:
                     model_name = line.split(":")[1].strip()
@@ -27,7 +29,7 @@ def get_cpu_info():
     if not model_name and (_sysctl := shutil.which("sysctl")):
         with contextlib.suppress(subprocess.CalledProcessError):
             info = (
-                subprocess
+                subprocess  # noqa: S603
                 .check_output([_sysctl, "machdep.cpu.brand_string"])
                 .decode()
                 .strip()
@@ -38,7 +40,7 @@ def get_cpu_info():
     return model_name, arch
 
 
-def get_gpu_info():
+def get_gpu_info() -> dict[str, str]:
     """Get GPU info."""
     _gpu_info: dict[str, str] = {"name": "", "driver_version": ""}
 
@@ -46,7 +48,7 @@ def get_gpu_info():
         return _gpu_info
 
     with contextlib.suppress(subprocess.CalledProcessError, IndexError):
-        output = subprocess.check_output(
+        output = subprocess.check_output(  # noqa: S603
             [_nvidia_smi, "--query-gpu=name,driver_version", "--format=csv"],
         )
         lines = output.split(b"\n")

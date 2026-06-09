@@ -242,7 +242,7 @@ class AlertBase(SimvueObject):
         """Retrieve the status of this alert for a given run."""
         _offline_run: bool = run_id.startswith("offline")
 
-        if not self._offline and run_id.startswith("offline"):
+        if not self._offline and _offline_run:
             raise ValueError(
                 f"Cannot retrieve status of online alert '{self.id}' "
                 f"for offline run '{run_id}'",

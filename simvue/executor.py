@@ -15,7 +15,7 @@ import multiprocessing.synchronize
 import os
 import pathlib
 import shutil
-import subprocess
+import subprocess  # noqa: S404
 import threading
 import time
 import typing
@@ -58,7 +58,7 @@ def _execute_process(
         pathlib.Path(f"{runner_name}_{proc_id}.err").open("w", encoding="utf-8") as err,
         pathlib.Path(f"{runner_name}_{proc_id}.out").open("w", encoding="utf-8") as out,
     ):
-        _result = subprocess.Popen(
+        _result = subprocess.Popen(  # noqa: S603
             command,
             stdout=out,
             stderr=err,
@@ -342,6 +342,7 @@ class Executor:
             return []
 
         _current_processes: list[psutil.Process] = []
+        _child_processes: list[psutil.Process] = []
 
         for process in self._processes.values():
             with contextlib.suppress(psutil.NoSuchProcess):
@@ -350,9 +351,10 @@ class Executor:
         with contextlib.suppress(psutil.NoSuchProcess, psutil.ZombieProcess):
             for process in _current_processes:
                 for child in process.children(recursive=True):
-                    if child not in _current_processes:
-                        _current_processes.append(child)
+                    if child not in _child_processes:
+                        _child_processes.append(child)
 
+        _current_processes += _child_processes
         _current_pids = {_process.pid for _process in _current_processes}
         _previous_pids = {_process.pid for _process in self._all_processes}
 

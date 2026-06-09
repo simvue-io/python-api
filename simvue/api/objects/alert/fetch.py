@@ -193,9 +193,7 @@ class Alert:
         if (_data := _json_response.get("data")) is None:
             raise RuntimeError(f"Expected key 'data' for retrieval of {_label}s")
 
-        _out_dict: dict[str, AlertType] = {}
-
-        for _entry in _json_response["data"]:
+        for _entry in _data:
             _id = _entry.pop("id")
             if _entry["source"] == "events":
                 yield (

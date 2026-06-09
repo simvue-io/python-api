@@ -172,8 +172,6 @@ class Sender:
 
             logger.info("Uploading %s", action.object_type)
 
-            _n_objects: int = action.count(self._cache_directory)
-
             action.upload(
                 cache_directory=self._cache_directory,
                 id_mapping=self._id_mapping,

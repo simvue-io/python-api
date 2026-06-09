@@ -1006,12 +1006,6 @@ class Client:
             if invalid arguments are provided
 
         """
-        if not isinstance(run_ids, list):
-            raise ValueError("Invalid runs specified, must be a list of run names.")
-
-        if not isinstance(metric_names, list):
-            raise ValueError("Invalid names specified, must be a list of metric names.")
-
         data: DataFrame = self.get_metric_values(
             run_ids=run_ids,
             metric_names=metric_names,
@@ -1030,7 +1024,7 @@ class Client:
         # Undo multi-indexing
         flattened_df = data.reset_index()
 
-        import matplotlib.pyplot as plt
+        import matplotlib.pyplot as plt  # noqa: PLC0415
 
         for run in run_ids:
             for name in metric_names:

@@ -11,7 +11,7 @@ import logging
 import types
 import typing
 import uuid
-from collections.abc import Generator
+from collections.abc import Callable, Generator
 
 import msgpack
 import pydantic
@@ -50,7 +50,7 @@ except ImportError:
 T = typing.TypeVar("T", bound="SimvueObject")
 
 
-def staging_check(member_func: typing.Callable) -> typing.Callable:
+def staging_check(member_func: Callable) -> Callable:
     """Decorator for checking if requested attribute has uncommitted changes."""
 
     def _wrapper(self) -> typing.Any:
@@ -80,7 +80,7 @@ def staging_check(member_func: typing.Callable) -> typing.Callable:
     return _wrapper
 
 
-def write_only(attribute_func: typing.Callable) -> typing.Callable:
+def write_only(attribute_func: Callable) -> Callable:
     def _wrapper(self: "SimvueObject", *args, **kwargs) -> typing.Any:
         _sv_obj = getattr(self, "_sv_obj", self)
         if _sv_obj.is_read_only:
@@ -203,7 +203,6 @@ class SimvueObject(abc.ABC):
         _params: dict[str, str | bool] | None = None,
         _read_only: bool = True,
         _local: bool = False,
-        _user_agent: str | None = None,
         _offline: bool = False,
         **kwargs,
     ) -> None:
@@ -332,7 +331,7 @@ class SimvueObject(abc.ABC):
                 return self._staging[attribute]
             except KeyError as e:
                 if self._local:
-                    raise e
+                    raise
                 # If the key is not in staging, but the object is not in offline mode
                 # retrieve from the server and update cache instead
                 if not _offline_state and (
@@ -607,7 +606,7 @@ class SimvueObject(abc.ABC):
         """Returns if this instance is in read-only mode."""
         return self._read_only
 
-    def read_only(self, is_read_only: bool, *, clear_staged: bool = True) -> None:
+    def read_only(self, is_read_only: bool, *, clear_staged: bool = True) -> None:  # noqa: FBT001
         """Set whether this object is in read only state.
 
         Parameters
@@ -678,11 +677,11 @@ class SimvueObject(abc.ABC):
         return _response
 
     @property
-    def staging(self) -> dict[str, Any]:
+    def staging(self) -> dict[str, typing.Any]:
         """Return current staging for this object."""
         return self._staging
 
-    def append_to_staging(self, items: dict[str, Any]) -> None:
+    def append_to_staging(self, items: dict[str, typing.Any]) -> None:
         """Add additional items to staging."""
         self._staging |= items
 
@@ -888,7 +887,7 @@ class SimvueObject(abc.ABC):
         self._logger.debug("'%s' retrieved successfully", self._identifier)
 
         if not isinstance(_json_response, dict):
-            raise RuntimeError(
+            raise TypeError(
                 "Expected dictionary from JSON response "
                 f"during {self.label()} retrieval "
                 f"but got '{type(_json_response)}'",

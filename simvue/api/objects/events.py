@@ -206,8 +206,8 @@ class Events(SimvueObject):
             params={
                 "run": self._run_id,
                 "window": window,
-                "timestamp_begin": timestamp_begin,
-                "timestamp_end": timestamp_end,
+                "timestamp_begin": _time_begin,
+                "timestamp_end": _time_end,
             }
             | ({"filters": filters} if filters else {}),
         )
