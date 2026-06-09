@@ -950,6 +950,7 @@ class Run:
                 script="run_count.sh"
             )
         ```
+        """
 
         if isinstance(executable, pathlib.Path) and not executable.is_file():
             raise FileNotFoundError(f"Executable '{executable}' is not a valid file")
