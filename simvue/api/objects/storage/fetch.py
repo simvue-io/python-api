@@ -122,6 +122,7 @@ class Storage:
             _url,
             headers=_class_instance.user_config.headers,
             params={"start": offset, "count": count} | kwargs,
+            verify=_class_instance._user_config.server_verify,
         )
         _label: str = _class_instance.__class__.__name__.lower()
         _label = _label.replace("base", "")

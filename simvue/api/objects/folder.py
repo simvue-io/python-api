@@ -314,6 +314,7 @@ class Folder(SimvueObject):
             f"{_url}",
             headers=self._user_config.headers,
             data={"starred": starred},
+            verify=self._user_config.server_verify,
         )
         return get_json_from_response(
             expected_status=[http.HTTPStatus.OK],

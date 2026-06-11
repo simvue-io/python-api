@@ -638,8 +638,9 @@ class Run(SimvueObject):
         _url = self.url / "starred"
         _response = sv_put(
             f"{_url}",
-            headers=self.user_config.headers,
+            headers=self._user_config.headers,
             data={"starred": starred},
+            verify=self._user_config.server_verify,
         )
         return get_json_from_response(
             expected_status=[http.HTTPStatus.OK],
@@ -730,7 +731,12 @@ class Run(SimvueObject):
 
         _url = self.base_url
         _url /= f"{self._identifier}/heartbeat"
-        _response = sv_put(f"{_url}", headers=self._headers, data={})
+        _response = sv_put(
+            f"{_url}",
+            headers=self._headers,
+            data={},
+            verify=self._user_config.server_verify,
+        )
         return get_json_from_response(
             response=_response,
             expected_status=[http.HTTPStatus.OK],
@@ -770,7 +776,11 @@ class Run(SimvueObject):
         if self._offline or not self._identifier:
             return False
 
-        _response = sv_get(f"{self._abort_url}", headers=self._headers)
+        _response = sv_get(
+            f"{self._abort_url}",
+            headers=self._headers,
+            verify=self._user_config.server_verify,
+        )
         _json_response = get_json_from_response(
             response=_response,
             expected_status=[http.HTTPStatus.OK],
@@ -791,7 +801,11 @@ class Run(SimvueObject):
         if self._offline or not self._artifact_url:
             return []
 
-        _response = sv_get(url=self._artifact_url, headers=self._headers)
+        _response = sv_get(
+            url=self._artifact_url,
+            headers=self._headers,
+            verify=self._user_config.server_verify,
+        )
 
         return get_json_from_response(
             response=_response,
@@ -813,7 +827,11 @@ class Run(SimvueObject):
         if self._offline or not self._grid_url:
             return []
 
-        _response = sv_get(url=self._grid_url, headers=self._headers)
+        _response = sv_get(
+            url=self._grid_url,
+            headers=self._headers,
+            verify=self._user_config.server_verify,
+        )
 
         return get_json_from_response(
             response=_response,
@@ -849,6 +867,7 @@ class Run(SimvueObject):
             f"{self._abort_url}",
             headers=self._headers,
             data={"reason": reason},
+            verify=self._user_config.server_verify,
         )
 
         return get_json_from_response(

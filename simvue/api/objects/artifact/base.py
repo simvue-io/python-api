@@ -8,6 +8,7 @@ import datetime
 import http
 import io
 import logging
+import pathlib
 import typing
 
 import pydantic
@@ -109,6 +110,7 @@ class ArtifactBase(SimvueObject):
             url=f"{_run_artifacts_url}",
             headers=self._headers,
             json={"category": category},
+            verify=self._user_config.server_verify,
         )
 
         get_json_from_response(
@@ -157,6 +159,7 @@ class ArtifactBase(SimvueObject):
                 params={},
                 is_json=False,
                 timeout=timeout,
+                verify=self.storage_ca_cert,
                 files={"file": file},
                 data=_fields,
             )
@@ -168,6 +171,7 @@ class ArtifactBase(SimvueObject):
                 headers={},
                 is_json=False,
                 timeout=timeout,
+                verify=self.storage_ca_cert,
                 data=file,
             )
 
@@ -202,6 +206,15 @@ class ArtifactBase(SimvueObject):
             url=url,
             **kwargs,
         )
+
+    @property
+    def storage_ca_cert(self) -> str | bool:
+        """Return current storage CA certificate."""
+        _ca_cert: pathlib.Path | bool = (
+            self._user_config.server.certificates.storage_ca_cert
+        )
+
+        return f"{_ca_cert}" if isinstance(_ca_cert, pathlib.Path) else _ca_cert
 
     @property
     def checksum(self) -> str:
@@ -357,7 +370,9 @@ class ArtifactBase(SimvueObject):
             URL(self._user_config.server.url)
             / f"runs/{run_id}/artifacts/{self._identifier}"
         )
-        _response = sv_get(url=_run_url, header=self._headers)
+        _response = sv_get(
+            url=_run_url, header=self._headers, verify=self._user_config.server_verify
+        )
         _json_response = get_json_from_response(
             response=_response,
             expected_status=[http.HTTPStatus.OK, http.HTTPStatus.NOT_FOUND],
@@ -406,6 +421,7 @@ class ArtifactBase(SimvueObject):
         _response = sv_get(
             f"{self.download_url}",
             timeout=_timeout,
+            verify=self.storage_ca_cert,
             headers=None,
         )
 

@@ -72,6 +72,12 @@ class SimvueConfiguration(pydantic.BaseModel):
     _server_version: semver.Version | None = None
 
     @property
+    def server_verify(self) -> str | bool:
+        """Return current server CA certificate."""
+        _ca_cert: pathlib.Path | bool = self.server.certificates.server_ca_cert
+        return f"{_ca_cert}" if isinstance(_ca_cert, pathlib.Path) else _ca_cert
+
+    @property
     def server_version(self) -> semver.Version:
         """Retrieve current Server version."""
         if not self._server_version:
@@ -118,6 +124,7 @@ class SimvueConfiguration(pydantic.BaseModel):
         cls,
         token: str,
         url: str,
+        verify: str | bool,
         mode: typing.Literal["offline", "online", "disabled"],
     ) -> semver.Version | None:
         if mode in {"offline", "disabled"}:
@@ -129,7 +136,7 @@ class SimvueConfiguration(pydantic.BaseModel):
         }
         try:
             _url = URL(url) / "version"
-            _response = sv_get(f"{_url}", headers)
+            _response = sv_get(f"{_url}", headers, verify=verify)
 
             if _response.status_code == http.HTTPStatus.UNAUTHORIZED:
                 raise AssertionError("Unauthorised token")
@@ -176,9 +183,10 @@ class SimvueConfiguration(pydantic.BaseModel):
             raise ValueError("No token provided.")
 
         self._server_version = self._check_server(
-            self.server.token.get_secret_value(),
-            self.server.url,
-            self.run.mode,
+            token=self.server.token.get_secret_value(),
+            url=self.server.url,
+            verify=self.server_verify,
+            mode=self.run.mode,
         )
 
         return self

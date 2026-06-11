@@ -181,6 +181,7 @@ class Alert:
             f"{_url}",
             headers=_config.headers,
             params=_params | kwargs,
+            verify=_config.server_verify,
         )
 
         _label: str = cls.__name__.lower()

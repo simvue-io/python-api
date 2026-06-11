@@ -168,9 +168,14 @@ class Metrics(SimvueObject):
 
     @pydantic.validate_call
     def span(self, run_ids: list[str]) -> dict[str, int | float]:
-        """Returns the metrics span for the given runs."""
-        _url = self.base_url / "span"
-        _response = sv_get(url=f"{_url}", headers=self._headers, json=run_ids)
+        """Returns the metrics span for the given runs"""
+        _url = self._base_url / "span"
+        _response = sv_get(
+            url=f"{_url}",
+            headers=self._headers,
+            json=run_ids,
+            verify=self._user_config.server_verify,
+        )
         return get_json_from_response(
             response=_response,
             expected_status=[http.HTTPStatus.OK],
@@ -185,6 +190,7 @@ class Metrics(SimvueObject):
             url=f"{_url}",
             headers=self._headers,
             params={"runs": json.dumps(run_ids)},
+            verify=self._user_config.server_verify,
         )
         return get_json_from_response(
             response=_response,

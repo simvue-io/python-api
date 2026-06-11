@@ -720,6 +720,7 @@ class SimvueObject(abc.ABC):
             headers=self._headers | {"Content-Type": "application/msgpack"},
             params=self._params or {},
             data=batch_data,
+            verify=self._user_config.server_verify,
             is_json=True,
         )
 
@@ -767,6 +768,7 @@ class SimvueObject(abc.ABC):
             params=self._params or {},
             data=data or kwargs,
             is_json=is_json,
+            verify=self._user_config.server_verify,
         )
 
         if _response.status_code == http.HTTPStatus.FORBIDDEN:
@@ -809,6 +811,7 @@ class SimvueObject(abc.ABC):
             headers=self._headers,
             data=kwargs,
             is_json=True,
+            verify=self._user_config.server_verify,
         )
 
         if _response.status_code == http.HTTPStatus.FORBIDDEN:
@@ -843,7 +846,12 @@ class SimvueObject(abc.ABC):
 
         if not self.url:
             raise RuntimeError(f"Identifier for instance of {self.label()} Unknown")
-        _response = sv_delete(url=f"{self.url}", headers=self._headers, params=kwargs)
+        _response = sv_delete(
+            url=f"{self.url}",
+            headers=self._headers,
+            params=kwargs,
+            verify=self._user_config.server_verify,
+        )
         _json_response = get_json_from_response(
             response=_response,
             expected_status=[http.HTTPStatus.OK, http.HTTPStatus.NO_CONTENT],
@@ -870,6 +878,7 @@ class SimvueObject(abc.ABC):
             url=f"{url or self.url}",
             headers=self._headers,
             params=kwargs,
+            verify=self._user_config.server_verify,
         )
 
         if _response.status_code == http.HTTPStatus.NOT_FOUND:

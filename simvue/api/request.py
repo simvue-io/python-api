@@ -66,6 +66,7 @@ def post(
     data: typing.Any,
     is_json: bool = True,
     timeout: int | None = None,
+    verify: str | bool = True,
     files: dict[str, typing.Any] | None = None,
 ) -> requests.Response:
     """HTTP POST with retries.
@@ -106,6 +107,7 @@ def post(
         data=data_sent,
         timeout=timeout,
         files=files,
+        verify=verify,
     )
 
     if response.status_code == http.HTTPStatus.UNPROCESSABLE_ENTITY:
@@ -142,6 +144,7 @@ def put(
     data: dict[str, typing.Any] | None = None,
     json: dict[str, typing.Any] | None = None,
     is_json: bool = True,
+    verify: bool | str = True,
     timeout: int = DEFAULT_API_TIMEOUT,
 ) -> requests.Response:
     """HTTP PUT with retries.
@@ -181,6 +184,7 @@ def put(
         data=data_sent,
         timeout=timeout,
         json=json,
+        verify=verify,
     )
 
     if response.status_code in RETRY_STATUSES:
@@ -208,6 +212,7 @@ def get(
     headers: dict[str, str] | None = None,
     params: dict[str, str | int | float | None] | None = None,
     timeout: int = DEFAULT_API_TIMEOUT,
+    verify: str | bool = True,
     json: dict[str, typing.Any] | None = None,
 ) -> requests.Response:
     """HTTP GET.
@@ -238,6 +243,7 @@ def get(
         timeout=timeout,
         params=params,
         json=json,
+        verify=verify
     )
 
     if response.status_code in RETRY_STATUSES:
@@ -264,6 +270,7 @@ def delete(
     url: str,
     headers: dict[str, str],
     timeout: int = DEFAULT_API_TIMEOUT,
+    verify: str | bool = True,
     params: dict[str, typing.Any] | None = None,
 ) -> requests.Response:
     """HTTP DELETE.
@@ -286,7 +293,7 @@ def delete(
 
     """
     logger.debug("DELETE: %s\n\tparams=%s", url, params)
-    response = requests.delete(url, headers=headers, timeout=timeout, params=params)
+    response = requests.delete(url, headers=headers, timeout=timeout, params=params, verify=verify)
 
     if response.status_code in RETRY_STATUSES:
         raise RetryableHTTPError(

@@ -148,7 +148,9 @@ class Stats(SimvueObject):
 
         """
         _url: URL = URL(self._user_config.server.url) / "whoami"
-        _response = sv_get(url=f"{_url}", headers=self._headers)
+        _response = sv_get(
+            url=f"{_url}", headers=self._headers, verify=self._user_config.server_verify
+        )
         return get_json_from_response(
             response=_response,
             expected_status=[http.HTTPStatus.OK],

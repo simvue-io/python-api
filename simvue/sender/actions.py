@@ -1005,6 +1005,7 @@ class HeartbeatUploadAction(UploadAction):
         _response: requests.Response = sv_put(
             url=f"{_local_config.server.url}/runs/{_online_id}/heartbeat",
             headers=_local_config.headers,
+            verify=_local_config.server_verify,
         )
 
         try:
