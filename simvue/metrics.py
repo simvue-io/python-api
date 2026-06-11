@@ -1,6 +1,4 @@
-"""
-CPU/GPU Metrics
-===============
+"""CPU/GPU Metrics.
 
 Get information relating to the usage of the CPU and GPU (where applicable)
 
@@ -8,8 +6,8 @@ Get information relating to the usage of the CPU and GPU (where applicable)
 
 import contextlib
 import logging
-import psutil
 
+import psutil
 
 from .pynvml import (
     nvmlDeviceGetComputeRunningProcesses,
@@ -39,6 +37,7 @@ def get_process_memory(processes: list[psutil.Process]) -> int:
     -------
     int
         total process memory
+
     """
     rss: int = 0
     for process in processes:
@@ -49,9 +48,10 @@ def get_process_memory(processes: list[psutil.Process]) -> int:
 
 
 def get_process_cpu(
-    processes: list[psutil.Process], interval: float | None = None
+    processes: list[psutil.Process],
+    interval: float | None = None,
 ) -> float:
-    """Get the CPU usage
+    """Get the CPU usage.
 
     If first time being called, use a small interval to collect initial CPU metrics.
 
@@ -60,12 +60,14 @@ def get_process_cpu(
     processes: list[psutil.Process]
         list of processes to track for CPU usage.
     interval: float, optional
-        interval to measure across, default is None, use previous measure time difference.
+        interval to measure across, default is None,
+        use previous measure time difference.
 
     Returns
     -------
     float
         CPU percentage usage
+
     """
     cpu_percent: int = 0
     for process in processes:
@@ -89,6 +91,7 @@ def is_gpu_used(handle, processes: list[psutil.Process]) -> bool:
     -------
     bool
         if GPU is being used
+
     """
     pids = [process.pid for process in processes]
 
@@ -113,6 +116,7 @@ def get_gpu_metrics(processes: list[psutil.Process]) -> list[tuple[float, float]
         For each GPU identified:
             - gpu_percent
             - gpu_memory
+
     """
     gpu_metrics: list[tuple[float, float]] = []
 
@@ -148,6 +152,7 @@ class SystemResourceMeasurement:
             processes to measure across.
         interval: float | None
             interval to measure, if None previous measure time used for interval.
+
         """
         self.cpu_percent: float | None = get_process_cpu(processes, interval=interval)
         self.cpu_memory: float | None = get_process_memory(processes)

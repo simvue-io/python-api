@@ -9,11 +9,14 @@ try:
     from typing import Self, override
 except ImportError:
     from typing_extensions import Self, override
-from collections.abc import Generator
-import pydantic
-import datetime
 
-from simvue.api.objects.base import write_only, SimvueObject, staging_check
+import datetime
+import typing
+from collections.abc import Generator
+
+import pydantic
+
+from simvue.api.objects.base import SimvueObject, staging_check, write_only
 from simvue.models import DATETIME_FORMAT
 
 
@@ -33,7 +36,7 @@ class Tenant(SimvueObject):
         server_token: pydantic.SecretStr | None = None,
         **kwargs,
     ) -> None:
-        """Initialise a Tenant
+        """Initialise a Tenant.
 
         If an identifier is provided a connection will be made to the
         object matching the identifier on the target server.
@@ -51,9 +54,13 @@ class Tenant(SimvueObject):
             token for alternative server, default None
         **kwargs : dict
             any additional arguments to be passed to the object initialiser
+
         """
         super().__init__(
-            identifier, server_url=server_url, server_token=server_token, **kwargs
+            identifier,
+            server_url=server_url,
+            server_token=server_token,
+            **kwargs,
         )
 
     @override
@@ -123,7 +130,7 @@ class Tenant(SimvueObject):
         offset: pydantic.NonNegativeInt | None = None,
         server_url: str | None = None,
         server_token: pydantic.SecretStr | None = None,
-        **kwargs,
+        **kwargs: typing.Any,
     ) -> Generator[tuple[str, Self | None]]:
         """Retrieve tenants from the server.
 
@@ -137,6 +144,8 @@ class Tenant(SimvueObject):
             alternative server URL, default None
         server_token : str | None, optional
             token for alternative server, default None
+        **kwargs : Any
+            additional arguments for retrieval
 
         Yields
         ------
@@ -146,86 +155,95 @@ class Tenant(SimvueObject):
         Returns
         -------
         Generator[tuple[str, Tenant | None]]
+
         """
         # Currently no tenant filters
         _ = kwargs.pop("filters", None)
         return super().get(
-            count=count, offset=offset, server_url=server_url, server_token=server_token
+            count=count,
+            offset=offset,
+            server_url=server_url,
+            server_token=server_token,
         )
 
     @property
     def name(self) -> str:
-        """Retrieve the name of the tenant"""
+        """Retrieve the name of the tenant."""
         return self._get_attribute("name")
 
     @name.setter
     @write_only
     @pydantic.validate_call
     def name(self, name: str) -> None:
-        """Change name of tenant"""
+        """Change name of tenant."""
         self._staging["name"] = name
 
     @property
     @staging_check
     def is_enabled(self) -> bool:
-        """Retrieve if tenant is enabled"""
+        """Retrieve if tenant is enabled."""
         return self._get_attribute("is_enabled")
 
     @is_enabled.setter
     @write_only
     @pydantic.validate_call
     def is_enabled(self, is_enabled: bool) -> None:
-        """Enable/disable tenant"""
+        """Enable/disable tenant."""
         self._staging["is_enabled"] = is_enabled
 
     @property
     @staging_check
     def max_request_rate(self) -> int:
-        """Retrieve the tenant's maximum request rate"""
+        """Retrieve the tenant's maximum request rate."""
         return self._get_attribute("max_request_rate")
 
     @max_request_rate.setter
     @write_only
     @pydantic.validate_call
     def max_request_rate(self, max_request_rate: int) -> None:
-        """Update tenant's maximum request rate"""
+        """Update tenant's maximum request rate."""
         self._staging["max_request_rate"] = max_request_rate
 
     @property
     @staging_check
     def max_runs(self) -> int:
-        """Retrieve the tenant's maximum runs"""
+        """Retrieve the tenant's maximum runs."""
         return self._get_attribute("max_runs")
 
     @max_runs.setter
     @write_only
     @pydantic.validate_call
     def max_runs(self, max_runs: int) -> None:
-        """Update tenant's maximum runs"""
+        """Update tenant's maximum runs."""
         self._staging["max_runs"] = max_runs
 
     @property
     @staging_check
     def max_data_volume(self) -> int:
-        """Retrieve the tenant's maximum data volume"""
+        """Retrieve the tenant's maximum data volume."""
         return self._get_attribute("max_data_volume")
 
     @max_data_volume.setter
     @write_only
     @pydantic.validate_call
     def max_data_volume(self, max_data_volume: int) -> None:
-        """Update tenant's maximum data volume"""
+        """Update tenant's maximum data volume."""
         self._staging["max_data_volume"] = max_data_volume
 
     @property
     def created(self) -> datetime.datetime | None:
-        """Set/retrieve created datetime for the run.
+        """Set/retrieve created datetime in UTC for the run.
 
         Returns
         -------
         datetime.datetime
+
         """
         _created: str | None = self._get_attribute("created")
         return (
-            datetime.datetime.strptime(_created, DATETIME_FORMAT) if _created else None
+            datetime.datetime.strptime(_created, DATETIME_FORMAT).astimezone(
+                datetime.UTC,
+            )
+            if _created
+            else None
         )

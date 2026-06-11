@@ -1,6 +1,4 @@
-"""
-URL Library
-===========
+"""URL Library.
 
 Module contains classes for easier handling of URLs.
 
@@ -10,8 +8,8 @@ try:
     from typing import Self
 except ImportError:
     from typing_extensions import Self
-import urllib.parse
 import copy
+import urllib.parse
 
 import pydantic
 
@@ -21,8 +19,8 @@ class URL:
 
     @pydantic.validate_call
     def __init__(self, url: str) -> None:
-        """Initialise a url from string form"""
-        url = url[:-1] if url.endswith("/") else url
+        """Initialise a url from string form."""
+        url = url.removesuffix("/")
 
         _url = urllib.parse.urlparse(url)
         self._scheme: str = _url.scheme
@@ -32,21 +30,21 @@ class URL:
         self._fragment: str = _url.fragment
 
     def __truediv__(self, other: str) -> Self:
-        """Define URL extension through use of '/'"""
+        """Define URL extension through use of '/'."""
         _new = copy.deepcopy(self)
         _new /= other
         return _new
 
     def __repr__(self) -> str:
-        """Representation of URL"""
+        """Representation of URL."""
         _out_str = f"{self.__class__.__module__}.{self.__class__.__qualname__}"
         return f"{_out_str}(url={self.__str__()!r})"
 
     @pydantic.validate_call
     def __itruediv__(self, other: str) -> Self:
-        """Define URL extension through use of '/'"""
-        other = other[1:] if other.startswith("/") else other
-        other = other[:-1] if other.endswith("/") else other
+        """Define URL extension through use of '/'."""
+        other = other.removeprefix("/")
+        other = other.removesuffix("/")
 
         self._path = f"{self._path}/{other}" if other else self._path
         return self
@@ -72,7 +70,7 @@ class URL:
         return self._port
 
     def __str__(self) -> str:
-        """Construct string form of the URL"""
+        """Construct string form of the URL."""
         _out_str: str = ""
         if self.scheme:
             _out_str += f"{self.scheme}://"

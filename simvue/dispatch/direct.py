@@ -1,3 +1,5 @@
+"""Direct dispatcher for instantaneous sending of objects."""
+
 import threading
 import typing
 
@@ -5,7 +7,7 @@ from .base import DispatcherBaseClass
 
 
 class DirectDispatcher(DispatcherBaseClass):
-    """The DirectDispatcher executes the provided callback immediately"""
+    """The DirectDispatcher executes the provided callback immediately."""
 
     def __init__(
         self,
@@ -15,7 +17,7 @@ class DirectDispatcher(DispatcherBaseClass):
         termination_trigger: threading.Event,
         thresholds: dict[str, int | float] | None = None,
     ) -> None:
-        """Initialise a new DirectDispatcher instance
+        """Initialise a new DirectDispatcher instance.
 
         Parameters
         ----------
@@ -29,6 +31,7 @@ class DirectDispatcher(DispatcherBaseClass):
             if metadata is provided during item addition, specify
             thresholds under which dispatch of an item is permitted,
             default is None
+
         """
         super().__init__(
             callback=callback,
@@ -45,31 +48,27 @@ class DirectDispatcher(DispatcherBaseClass):
         metadata: dict[str, int | float] | None = None,
         **__,
     ) -> None:
-        """Execute callback on the given item"""
+        """Execute callback on the given item."""
         super().add_item(item, object_type=object_type, metadata=metadata)
         self._callback([item], object_type)
 
     def run(self) -> None:
-        """Run does not execute anything in this context"""
-        pass
+        """Run does not execute anything in this context."""
 
     def start(self) -> None:
-        """Start does not execute anything in this context"""
-        pass
+        """Start does not execute anything in this context."""
 
     def join(self) -> None:
-        """Join does not execute anything in this context"""
-        pass
+        """Join does not execute anything in this context."""
 
     def purge(self) -> None:
-        """Purge does not execute anything in this context"""
-        pass
+        """Purge does not execute anything in this context."""
 
     def is_alive(self) -> bool:
-        """As unthreaded, state as not alive always"""
+        """As unthreaded, state as not alive always."""
         return False
 
     @property
     def empty(self) -> bool:
-        """No queue so always empty"""
+        """No queue so always empty."""
         return True

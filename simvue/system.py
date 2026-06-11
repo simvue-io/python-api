@@ -1,86 +1,107 @@
-import os
-import platform
-import socket
-import subprocess
-import shutil
-import sys
+"""Retrieve System Information."""
+
 import contextlib
+import pathlib
+import platform
+import shutil
+import socket
+import subprocess  # noqa: S404
+import sys
 import typing
 
 
-def get_cpu_info():
-    """
-    Get CPU info
-    """
-    model_name = ""
-    arch = ""
+def get_cpu_info() -> tuple[str, str]:
+    """Retrieve current system CPU information.
 
-    if shutil.which("lscpu"):
+    Returns
+    -------
+    tuple[str, str]
+        CPU model name
+        CPU architecture
+    """
+    _model_name: str = ""
+    _arch: str = ""
+
+    if _lscpu := shutil.which("lscpu"):
         with contextlib.suppress(subprocess.CalledProcessError):
-            info = subprocess.check_output("lscpu").decode().strip()
-            for line in info.split("\n"):
+            _info = subprocess.check_output(_lscpu).decode().strip()  # noqa: S603
+            for line in _info.split("\n"):
                 if "Model name" in line:
-                    model_name = line.split(":")[1].strip()
+                    _model_name = line.split(":")[1].strip()
                 if "Architecture" in line:
-                    arch = line.split(":")[1].strip()
+                    _arch = line.split(":")[1].strip()
 
-    # TODO: Try /proc/cpuinfo if process fails
+    _arch = _arch or platform.machine()
 
-    arch = arch or platform.machine()
-
-    if not model_name and shutil.which("sysctl"):
+    if not _model_name and (_sysctl := shutil.which("sysctl")):
         with contextlib.suppress(subprocess.CalledProcessError):
             info = (
-                subprocess.check_output(["sysctl", "machdep.cpu.brand_string"])
+                subprocess  # noqa: S603
+                .check_output([_sysctl, "machdep.cpu.brand_string"])
                 .decode()
                 .strip()
             )
             if "machdep.cpu.brand_string:" in info:
-                model_name = info.split("machdep.cpu.brand_string: ")[1]
+                _model_name = info.split("machdep.cpu.brand_string: ")[1]
 
-    return model_name, arch
+    return _model_name, _arch
 
 
-def get_gpu_info():
-    """
-    Get GPU info
+def get_gpu_info() -> dict[str, str]:
+    """Retrieve current system GPU info.
+
+    If a GPU is available retrieve information on the hardware.
+
+    Returns
+    -------
+    dict[str, str]
+        information on GPU name and drivers
     """
     _gpu_info: dict[str, str] = {"name": "", "driver_version": ""}
 
-    if shutil.which("nvidia-smi"):
-        with contextlib.suppress(subprocess.CalledProcessError, IndexError):
-            output = subprocess.check_output(
-                ["nvidia-smi", "--query-gpu=name,driver_version", "--format=csv"]
-            )
-            lines = output.split(b"\n")
-            tokens = lines[1].split(b", ")
-            _gpu_info["name"] = tokens[0].decode()
-            _gpu_info["driver_version"] = tokens[1].decode()
+    if not (_nvidia_smi := shutil.which("nvidia-smi")):
+        return _gpu_info
+
+    with contextlib.suppress(subprocess.CalledProcessError, IndexError):
+        output = subprocess.check_output(  # noqa: S603
+            [_nvidia_smi, "--query-gpu=name,driver_version", "--format=csv"],
+        )
+        lines = output.split(b"\n")
+        tokens = lines[1].split(b", ")
+        _gpu_info["name"] = tokens[0].decode()
+        _gpu_info["driver_version"] = tokens[1].decode()
 
     return _gpu_info
 
 
 def get_system() -> dict[str, typing.Any]:
-    """
-    Get system details
-    """
-    cpu = get_cpu_info()
-    gpu = get_gpu_info()
+    """Retrieve information on the current system.
 
-    system: dict[str, typing.Any] = {"cwd": os.getcwd()}
-    system["hostname"] = socket.gethostname()
-    system["pythonversion"] = (
+    Gathers various metadata on the current system including current user,
+    hardware specifictions, Python version etc.
+
+    Returns
+    -------
+    dict[str, Any]
+        a dictionary containing gathered system information
+    """
+    _cpu = get_cpu_info()
+    _gpu = get_gpu_info()
+
+    _system: dict[str, typing.Any] = {"cwd": f"{pathlib.Path.cwd()}"}
+    _system["hostname"] = socket.gethostname()
+    _system["pythonversion"] = (
         f"{sys.version_info.major}.{sys.version_info.minor}.{sys.version_info.micro}"
     )
-    system["platform"] = {}
-    system["platform"]["system"] = platform.system()
-    system["platform"]["release"] = platform.release()
-    system["platform"]["version"] = platform.version()
-    system["cpu"] = {}
-    system["cpu"]["arch"] = cpu[1]
-    system["cpu"]["processor"] = cpu[0]
-    system["gpu"] = {}
-    system["gpu"]["name"] = gpu["name"]
-    system["gpu"]["driver"] = gpu["driver_version"]
+    _system["platform"] = {}
+    _system["platform"]["system"] = platform.system()
+    _system["platform"]["release"] = platform.release()
+    _system["platform"]["version"] = platform.version()
+    _system["cpu"] = {}
+    _system["cpu"]["arch"] = _cpu[1]
+    _system["cpu"]["processor"] = _cpu[0]
+    _system["gpu"] = {}
+    _system["gpu"]["name"] = _gpu["name"]
+    _system["gpu"]["driver"] = _gpu["driver_version"]
 
-    return system
+    return _system

@@ -2,10 +2,10 @@
 
 import logging
 import pathlib
+
 import click
 
-from simvue.sender import Sender, UPLOAD_ORDER, UploadItem
-
+from simvue.sender import UPLOAD_ORDER, Sender, UploadItem
 
 _logger = logging.getLogger(__name__)
 _logger.setLevel(logging.INFO)
@@ -26,7 +26,8 @@ _logger.setLevel(logging.INFO)
     type=int,
     required=False,
     default=10,
-    help="The number of objects of a given type above which items will be sent to the server in parallel, by default 10",
+    help="The number of objects of a given type above which items will be "
+    "sent to the server in parallel, by default 10",
 )
 @click.option(
     "-o",
@@ -66,6 +67,6 @@ def sender_cli(
             throw_exceptions=True,
         )
         _sender.upload(objects_to_upload)
-    except Exception as err:
-        _logger.critical("Exception running sender: %s", str(err))
-        raise click.Abort
+    except Exception as err:  # noqa: BLE001
+        _logger.critical("Exception running sender: %s", err)
+        raise click.Abort from None

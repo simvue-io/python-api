@@ -1,6 +1,4 @@
-"""
-Simvue API Objects
-==================
+"""Simvue API Objects.
 
 The following module defines objects which provide exact representations
 of information accessible via the Simvue RestAPI, this provides a lower
@@ -12,50 +10,49 @@ from .administrator import Tenant, User
 from .alert import (
     Alert,
     EventsAlert,
-    MetricsThresholdAlert,
     MetricsRangeAlert,
+    MetricsThresholdAlert,
     UserAlert,
 )
-from .storage import (
-    S3Storage,
-    FileStorage,
-    Storage,
-)
 from .artifact import (
+    Artifact,
     FileArtifact,
     ObjectArtifact,
-    Artifact,
 )
-
-from .stats import Stats
-from .run import Run
-from .tag import Tag
-from .folder import Folder, get_folder_from_path
 from .events import Events as Events
-from .metrics import Metrics as Metrics
+from .folder import Folder, get_folder_from_path
 from .grids import Grid, GridMetrics
+from .metrics import Metrics as Metrics
+from .run import Run
+from .stats import Stats
+from .storage import (
+    FileStorage,
+    S3Storage,
+    Storage,
+)
+from .tag import Tag
 
 __all__ = [
+    "Alert",
+    "Artifact",
+    "Events",
+    "EventsAlert",
+    "FileArtifact",
+    "FileStorage",
+    "Folder",
     "Grid",
     "GridMetrics",
     "Metrics",
-    "Events",
-    "get_folder_from_path",
-    "Folder",
-    "Stats",
-    "Run",
-    "Tag",
-    "Artifact",
-    "FileArtifact",
-    "ObjectArtifact",
-    "S3Storage",
-    "FileStorage",
-    "Storage",
     "MetricsRangeAlert",
     "MetricsThresholdAlert",
-    "UserAlert",
-    "EventsAlert",
-    "Alert",
+    "ObjectArtifact",
+    "Run",
+    "S3Storage",
+    "Stats",
+    "Storage",
+    "Tag",
     "Tenant",
     "User",
+    "UserAlert",
+    "get_folder_from_path",
 ]

@@ -1,6 +1,4 @@
-"""
-Simvue Configuration File Models
-================================
+"""Simvue Configuration File Models.
 
 Pydantic models for elements of the Simvue configuration file
 
@@ -8,17 +6,17 @@ Pydantic models for elements of the Simvue configuration file
 
 import logging
 import os
-import time
-import pydantic
-import typing
 import pathlib
+import time
+import typing
+
+import pydantic
 
 import simvue.models as sv_models
-from simvue.utilities import get_expiry
 from simvue.api.url import URL
+from simvue.utilities import get_expiry
 
-
-logger = logging.getLogger(__file__)
+logger = logging.getLogger(__name__)
 
 
 class CertificateSpecifications(pydantic.BaseModel):
@@ -60,18 +58,18 @@ class ServerSpecifications(pydantic.BaseModel):
     @classmethod
     def url_to_api_url(cls, v: typing.Any) -> str | None:
         if not v:
-            return
+            return None
         if f"{v}".endswith("/api"):
             return f"{v}"
         _url = URL(f"{v}") / "api"
         return f"{_url}"
 
     @pydantic.field_validator("token")
-    def check_token(cls, v: typing.Any) -> str | None:
+    @classmethod
+    def check_token(cls, v: pydantic.SecretStr | None) -> pydantic.SecretStr | None:
         if not v:
-            return
-        value = v.get_secret_value()
-        if not (expiry := get_expiry(value)):
+            return None
+        if not (expiry := get_expiry(v.get_secret_value())):
             raise AssertionError("Failed to parse Simvue token - invalid token form")
         if time.time() - expiry > 0:
             raise AssertionError("Simvue token has expired")

@@ -1,15 +1,17 @@
 """Simvue RestAPI Folders Filter."""
 
 import typing
+
 import pydantic as pyd
 
 try:
     from typing import Self
 except ImportError:
-    from typing_extensions import Self  # noqa: UP035
+    from typing_extensions import Self
 
 from simvue.models import FOLDER_REGEX
 from simvue.utilities import prettify_pydantic
+
 from .base import RestAPIFilter
 
 
@@ -19,7 +21,8 @@ class FoldersFilter(RestAPIFilter):
     @prettify_pydantic
     @pyd.validate_call
     def has_path(
-        self, name: typing.Annotated[str, pyd.Field(pattern=FOLDER_REGEX)]
+        self,
+        name: typing.Annotated[str, pyd.Field(pattern=FOLDER_REGEX)],
     ) -> Self:
         """Check if a folder has the given path."""
         self._filters.append(f"path == {name}")

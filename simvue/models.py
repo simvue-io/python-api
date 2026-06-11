@@ -1,9 +1,10 @@
+"""Pydantic Validation models for input value checking."""
+
 import datetime
 import typing
-import numpy
-import warnings
-import pydantic
 
+import numpy as np
+import pydantic
 
 FOLDER_REGEX: str = r"^/.*"
 NAME_REGEX: str = r"^[a-zA-Z0-9\-\_\s\/\.:]+$"
@@ -12,25 +13,43 @@ DATETIME_FORMAT: str = "%Y-%m-%dT%H:%M:%S.%f"
 OBJECT_ID: str = r"^[A-Za-z0-9]{22}$"
 
 MetadataKeyString = typing.Annotated[
-    str, pydantic.StringConstraints(pattern=r"^[\w\-\s\.]+$")
+    str,
+    pydantic.StringConstraints(pattern=r"^[\w\-\s\.]+$"),
 ]
 TagString = typing.Annotated[str, pydantic.StringConstraints(pattern=r"^[\w\-\s\.]+$")]
 MetricKeyString = typing.Annotated[
-    str, pydantic.StringConstraints(pattern=METRIC_KEY_REGEX)
+    str,
+    pydantic.StringConstraints(pattern=METRIC_KEY_REGEX),
 ]
 ObjectID = typing.Annotated[str, pydantic.StringConstraints(pattern=OBJECT_ID)]
 LogLevel = typing.Literal["debug", "info", "warning", "error", "critical"]
 
 
-def validate_timestamp(timestamp: str, raise_except: bool = True) -> bool:
-    """
-    Validate a user-provided timestamp
+def validate_timestamp(timestamp: str, *, raise_except: bool = True) -> bool:
+    """Validate a user-provided timestamp.
+
+    Parameters
+    -----------
+    timestamp : str
+        timestamp to check
+    raise_except : bool, optional
+        whether to raise an exception on failure, default True
+
+    Returns
+    -------
+    bool
+        if check passed successfully
+
+    Raises
+    ------
+    ValueError
+        if exception throwing is enabled and the check fails
     """
     try:
-        _ = datetime.datetime.strptime(timestamp, DATETIME_FORMAT)
-    except ValueError as e:
+        _ = datetime.datetime.strptime(timestamp, DATETIME_FORMAT).astimezone()
+    except ValueError:
         if raise_except:
-            raise e
+            raise
         return False
 
     return True
@@ -42,7 +61,7 @@ def simvue_timestamp(
     | typing.Annotated[str | None, pydantic.BeforeValidator(validate_timestamp)]
     | None = None,
 ) -> str:
-    """Return the Simvue valid timestamp
+    """Return the Simvue valid timestamp.
 
     Parameters
     ----------
@@ -55,25 +74,25 @@ def simvue_timestamp(
     -------
     str
         Datetime string valid for the Simvue server
+
     """
-    if isinstance(date_time, str):
-        warnings.warn(
-            "Timestamps as strings for object recording will be deprecated in Python API >= 2.3"
-        )
     if not date_time:
-        date_time = datetime.datetime.now(datetime.timezone.utc)
+        date_time = datetime.datetime.now(datetime.UTC)
     elif isinstance(date_time, str):
-        _local_time = datetime.datetime.now().tzinfo
+        _local_time = datetime.datetime.now(datetime.UTC).astimezone().tzinfo
         date_time = (
-            datetime.datetime.strptime(date_time, DATETIME_FORMAT)
+            datetime.datetime
+            .strptime(date_time, DATETIME_FORMAT)
             .replace(tzinfo=_local_time)
-            .astimezone(datetime.timezone.utc)
+            .astimezone(datetime.UTC)
         )
     return date_time.strftime(DATETIME_FORMAT)
 
 
 # Pydantic class to validate run.init()
 class RunInput(pydantic.BaseModel):
+    """Validate inputs for user run."""
+
     model_config = pydantic.ConfigDict(extra="forbid")
     name: str | None = pydantic.Field(None, pattern=NAME_REGEX)
     metadata: dict[MetadataKeyString, str | int | float | None] | None = None
@@ -85,6 +104,8 @@ class RunInput(pydantic.BaseModel):
 
 
 class MetricSet(pydantic.BaseModel):
+    """Model for a set of metrics retrieved from the server."""
+
     model_config = pydantic.ConfigDict(extra="forbid")
     time: float | int
     timestamp: typing.Annotated[str | None, pydantic.BeforeValidator(simvue_timestamp)]
@@ -93,26 +114,35 @@ class MetricSet(pydantic.BaseModel):
 
 
 class GridMetricSet(pydantic.BaseModel):
+    """Model for a set of grid metrics retrieved from the server."""
+
     model_config = pydantic.ConfigDict(
-        arbitrary_types_allowed=True, extra="forbid", validate_default=True
+        arbitrary_types_allowed=True,
+        extra="forbid",
+        validate_default=True,
     )
     time: float | int
     timestamp: typing.Annotated[str | None, pydantic.BeforeValidator(simvue_timestamp)]
     step: pydantic.NonNegativeInt
-    array: list[float] | list[list[float]] | numpy.ndarray
+    array: list[float] | list[list[float]] | np.ndarray
     grid: str
     metric: str
 
     @pydantic.field_serializer("array", when_used="always")
     def serialize_array(
-        self, value: numpy.ndarray | list[float] | list[list[float]], *_
+        self,
+        value: np.ndarray | list[float] | list[list[float]],
+        *_,
     ) -> list[float] | list[list[float]]:
+        """Serialize a numpy array."""
         if isinstance(value, list):
             return value
         return value.tolist()
 
 
 class EventSet(pydantic.BaseModel):
+    """Model for a set of events retrieved from the server."""
+
     model_config = pydantic.ConfigDict(extra="forbid")
     message: str
     log_level: (

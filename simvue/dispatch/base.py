@@ -1,5 +1,7 @@
-import threading
+"""Dispatcher base class definitions."""
+
 import abc
+import threading
 import typing
 
 from simvue.exception import ObjectDispatchError
@@ -34,6 +36,7 @@ class DispatcherBaseClass(abc.ABC):
             any additional thresholds to consider when handling items.
             This assumes metadata defining the values to compare to
             such thresholds is included when appending.
+
         """
         super().__init__()
         self._thresholds: dict[str, int | float] = thresholds or {}
@@ -60,6 +63,7 @@ class DispatcherBaseClass(abc.ABC):
         metadata : dict[str, int | float] | None, optional
             additional metadata relating to the item to be
             used for threshold comparisons
+
         """
         _ = item
         _ = object_type
@@ -68,36 +72,32 @@ class DispatcherBaseClass(abc.ABC):
         for key, threshold in self._thresholds.items():
             if key in metadata and metadata[key] > threshold:
                 raise ObjectDispatchError(
-                    label=key, threshold=threshold, value=metadata[key]
+                    label=key,
+                    threshold=threshold,
+                    value=metadata[key],
                 )
 
     @abc.abstractmethod
     def run(self) -> None:
         """Start the dispatcher."""
-        pass
 
     @abc.abstractmethod
     def start(self) -> None:
         """Not used, this allows the class to be similar to a thread."""
-        pass
 
     @abc.abstractmethod
     def join(self) -> None:
         """Not used, this allows the class to be similar to a thread."""
-        pass
 
     @abc.abstractmethod
     def purge(self) -> None:
         """Clear the dispatcher of items."""
-        pass
 
     @abc.abstractmethod
     def is_alive(self) -> bool:
         """Whether the dispatcher is operating correctly."""
-        pass
 
     @property
     @abc.abstractmethod
     def empty(self) -> bool:
         """Whether the dispatcher is empty."""
-        pass

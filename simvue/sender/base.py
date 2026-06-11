@@ -8,12 +8,13 @@ import datetime
 import logging
 import threading
 import typing
-import pydantic
-import psutil
 
-from simvue.sender.actions import UPLOAD_ACTION_ORDER
+import psutil
+import pydantic
+
 from simvue.config.user import SimvueConfiguration
 from simvue.run import Run
+from simvue.sender.actions import UPLOAD_ACTION_ORDER
 
 logger = logging.getLogger(__name__)
 
@@ -41,6 +42,7 @@ class Sender:
     @pydantic.validate_call
     def __init__(
         self,
+        *,
         cache_directory: pydantic.DirectoryPath | None = None,
         max_workers: pydantic.PositiveInt = 5,
         threading_threshold: pydantic.PositiveInt = 10,
@@ -65,8 +67,13 @@ class Sender:
             default is False (exceptions will be logged)
         retry_failed_uploads : bool, optional
             Whether to retry sending objects which previously failed, by default False
+        run_notification : 'none' | 'all' | 'email', optional
+            Notification setting for the sender session, default is no notifications.
+        run_retention_period : str | None, optional
+            Specify the retention period as a string, default of None sets no limit.
         monitor_uploads : bool, optional
             Whether to track uploads as a Simvue run, by default False
+
         """
         _local_config: SimvueConfiguration = SimvueConfiguration.fetch(mode="online")
         self._cache_directory = cache_directory or _local_config.offline.cache
@@ -92,7 +99,7 @@ class Sender:
         if not self._lock_path:
             raise RuntimeError("Expected lock file path, but none initialised.")
         return self._lock_path.exists() and psutil.pid_exists(
-            int(self._lock_path.read_text())
+            int(self._lock_path.read_text()),
         )
 
     @property
@@ -113,7 +120,7 @@ class Sender:
     def _initialise_monitor_run(self) -> Run:
         """Create a Simvue run for monitoring upload."""
         _time_stamp: str = datetime.datetime.now(tz=datetime.UTC).strftime(
-            "%Y_%m_%d_%H_%M_%S"
+            "%Y_%m_%d_%H_%M_%S",
         )
         _run = Run(mode="online")
         _ = _run.init(
@@ -149,7 +156,9 @@ class Sender:
         Parameters
         ----------
         objects_to_upload : list[str]
-            Types of objects to upload, by default uploads all types of objects present in cache
+            Types of objects to upload, by default uploads all types
+            of objects present in cache
+
         """
         self._lock()
 
@@ -162,8 +171,6 @@ class Sender:
                 continue
 
             logger.info("Uploading %s", action.object_type)
-
-            _n_objects: int = action.count(self._cache_directory)
 
             action.upload(
                 cache_directory=self._cache_directory,

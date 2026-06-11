@@ -5,25 +5,27 @@ Interface to event-based Simvue alerts.
 """
 
 import typing
-import pydantic
-
 from collections.abc import Generator
+
+import pydantic
 
 try:
     from typing import Self, override
 except ImportError:
     from typing_extensions import Self, override
 
-from simvue.api.objects.base import write_only, staging_check
-from .base import AlertBase
+from simvue.api.objects.base import staging_check, write_only
 from simvue.models import NAME_REGEX
+
+from .base import AlertBase
 
 
 class EventsAlert(AlertBase):
     """Simvue Events Alert.
 
-    This class is used to connect to/create event-based alert objects on the Simvue server,
-    any modification of EventsAlert instance attributes is mirrored on the remote object.
+    This class is used to connect to/create event-based alert objects
+    on the Simvue server, any modification of EventsAlert instance
+    attributes is mirrored on the remote object.
 
     """
 
@@ -36,11 +38,12 @@ class EventsAlert(AlertBase):
         server_token: pydantic.SecretStr | None = None,
         **kwargs,
     ) -> None:
-        """Initialise an Events Alert
+        """Initialise an Events Alert.
 
         If an identifier is provided a connection will be made to the
         object matching the identifier on the target server.
-        Else a new EventsAlert instance will be created using arguments provided in kwargs.
+        Else a new EventsAlert instance will be created using
+        arguments provided in kwargs.
 
         Parameters
         ----------
@@ -52,10 +55,14 @@ class EventsAlert(AlertBase):
             token for alternative server, default None
         **kwargs : dict
             any additional arguments to be passed to the object initialiser
+
         """
         self.alert = EventAlertDefinition(self)
         super().__init__(
-            identifier, server_url=server_url, server_token=server_token, **kwargs
+            identifier,
+            server_url=server_url,
+            server_token=server_token,
+            **kwargs,
         )
 
     @override
@@ -68,7 +75,7 @@ class EventsAlert(AlertBase):
         server_url: str | None = None,
         server_token: pydantic.SecretStr | None = None,
     ) -> Generator[dict[str, typing.Any]]:
-        """Retrieve only alerts of the event alert type"""
+        """Retrieve only alerts of the event alert type."""
         raise NotImplementedError("Retrieval of only event alerts is not yet supported")
 
     @classmethod
@@ -87,7 +94,7 @@ class EventsAlert(AlertBase):
         server_token: pydantic.SecretStr | None = None,
         **_,
     ) -> Self:
-        """Create a new event-based alert
+        """Create a new event-based alert.
 
         Note parameters are keyword arguments only.
 
@@ -118,7 +125,6 @@ class EventsAlert(AlertBase):
            a new event alert with changes staged
 
         """
-
         _alert_definition = {"pattern": pattern, "frequency": frequency}
         _alert = cls(
             name=name,
@@ -145,46 +151,49 @@ class EventsAlert(AlertBase):
 
 
 class EventAlertDefinition:
-    """Event alert definition sub-class"""
+    """Event alert definition sub-class."""
 
     def __init__(self, alert: EventsAlert) -> None:
-        """Initialise an alert definition with its parent alert"""
+        """Initialise an alert definition with its parent alert."""
         self._sv_obj = alert
 
     def __eq__(self, other: "EventAlertDefinition") -> bool:
-        """Compare this definition with that of another EventAlert"""
+        """Compare this definition with that of another EventAlert."""
         return all(
             [
                 self.frequency == other.frequency,
                 self.pattern == other.pattern,
-            ]
+            ],
         )
+
+    def __hash__(self) -> int:
+        return hash(f"{self.frequency}+{self.pattern}")
 
     @property
     def pattern(self) -> str:
-        """Retrieve the event log pattern monitored by this alert"""
+        """Retrieve the event log pattern monitored by this alert."""
         try:
             return self._sv_obj.get_alert()["pattern"]
         except KeyError as e:
             raise RuntimeError(
-                "Expected key 'pattern' in alert definition retrieval"
+                "Expected key 'pattern' in alert definition retrieval",
             ) from e
 
     @property
     @staging_check
     def frequency(self) -> int:
-        """Retrieve the update frequency for this alert"""
+        """Retrieve the update frequency for this alert."""
         try:
             return self._sv_obj.get_alert()["frequency"]
         except KeyError as e:
             raise RuntimeError(
-                "Expected key 'frequency' in alert definition retrieval"
+                "Expected key 'frequency' in alert definition retrieval",
             ) from e
 
     @frequency.setter
     @write_only
     @pydantic.validate_call
     def frequency(self, frequency: int) -> None:
-        """Set the update frequency for this alert"""
+        """Set the update frequency for this alert."""
         _alert = self._sv_obj.get_alert() | {"frequency": frequency}
-        self._sv_obj._staging["alert"] = _alert
+        self._sv_obj.staging["alert"] = _alert

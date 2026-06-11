@@ -1,6 +1,4 @@
-"""
-Eco Config
-==========
+"""Eco Config.
 
 Configuration file extension for configuring the Simvue Eco sub-module.
 """
@@ -21,6 +19,7 @@ class EcoConfig(pydantic.BaseModel):
         the TDP for the CPU
     gpu_thermal_design_power: int | None, optional
         the TDP for each GPU
+
     """
 
     co2_signal_api_token: pydantic.SecretStr | None = None
@@ -28,6 +27,7 @@ class EcoConfig(pydantic.BaseModel):
     cpu_n_cores: pydantic.PositiveInt | None = None
     gpu_thermal_design_power: pydantic.PositiveInt | None = None
     intensity_refresh_interval: pydantic.PositiveInt | str | None = pydantic.Field(
-        default="1 hour", gt=2 * 60
+        default="1 hour",
+        gt=2 * 60,
     )
     co2_intensity: float | None = None

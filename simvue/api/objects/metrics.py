@@ -6,16 +6,17 @@ a new set of metrics given relevant arguments.
 """
 
 import http
-import typing
 import json
+import typing
+from collections.abc import Generator
 
 import pydantic
 
-from collections.abc import Generator
+from simvue.api.request import get as sv_get
+from simvue.api.request import get_json_from_response
+from simvue.models import MetricSet
 
 from .base import SimvueObject
-from simvue.models import MetricSet
-from simvue.api.request import get as sv_get, get_json_from_response
 
 try:
     from typing import Self, override
@@ -53,9 +54,13 @@ class Metrics(SimvueObject):
             token for alternative server, default None
         **kwargs : dict
             any additional arguments to be passed to the object initialiser
+
         """
         super().__init__(
-            identifier=None, server_url=server_url, server_token=server_token, **kwargs
+            identifier=identifier,
+            server_url=server_url,
+            server_token=server_token,
+            **kwargs,
         )
         self._run_id = self._staging.get("run")
         self._is_set = True
@@ -71,7 +76,7 @@ class Metrics(SimvueObject):
         offline: bool = False,
         server_url: str | None = None,
         server_token: pydantic.SecretStr | None = None,
-        **kwargs,
+        **kwargs: typing.Any,
     ) -> Self:
         """Create a new Metrics entry on the Simvue server.
 
@@ -87,11 +92,14 @@ class Metrics(SimvueObject):
             alternative server URL, default None
         server_token : str | None, optional
             token for alternative server, default None
+        **kwargs : Any
+            additional arguments for object creation
 
         Returns
         -------
         Metrics
             metrics object
+
         """
         return cls(
             run=run,
@@ -115,7 +123,7 @@ class Metrics(SimvueObject):
         offset: pydantic.PositiveInt | None = None,
         server_url: str | None = None,
         server_token: pydantic.SecretStr | None = None,
-        **kwargs,
+        **kwargs: typing.Any,
     ) -> Generator[dict[str, dict[str, list[dict[str, float]]]]]:
         """Retrieve metrics from the server for a given set of runs.
 
@@ -138,11 +146,14 @@ class Metrics(SimvueObject):
             alternative server URL, default None
         server_token : str | None, optional
             token for alternative server, default None
+        **kwargs : Any
+            additional arguments for retrieval
 
         Yields
         ------
         dict[str,  dict[str, list[dict[str, float]]]
             metric set object containing metrics for run.
+
         """
         yield from cls._get_all_objects(
             offset=offset,
@@ -173,8 +184,8 @@ class Metrics(SimvueObject):
 
     @pydantic.validate_call
     def names(self, run_ids: list[str]) -> list[str]:
-        """Returns the metric names for the given runs"""
-        _url = self._base_url / "names"
+        """Returns the metric names for the given runs."""
+        _url = self.base_url / "names"
         _response = sv_get(
             url=f"{_url}",
             headers=self._headers,
@@ -192,7 +203,7 @@ class Metrics(SimvueObject):
         return super()._post_single(is_json=False, **kwargs)
 
     def delete(self, **kwargs) -> dict[str, typing.Any]:
-        """Metrics cannot be deleted"""
+        """Metrics cannot be deleted."""
         raise NotImplementedError("Cannot delete metric set")
 
     def on_reconnect(self, id_mapping: dict[str, str]):
@@ -214,5 +225,6 @@ class Metrics(SimvueObject):
         -------
         dict[str, Any]
             dictionary representation of metrics object.
+
         """
         return self._staging
