@@ -28,8 +28,8 @@ class CertificateSpecifications(pydantic.BaseModel):
     @pydantic.model_validator(mode="before")
     @classmethod
     def check_for_cert_env(
-        cls, values: dict[str, pathlib.Path | None | str]
-    ) -> dict[str, pathlib.Path | None | str]:
+        cls, values: dict[str, pathlib.Path | str | None]
+    ) -> dict[str, pathlib.Path | str | None]:
         """Check for CA certificate for storage specification in environment."""
         if (
             _env_ca_cert := os.environ.get("SIMVUE_STORAGE_CA_CERTIFICATE")
@@ -38,7 +38,7 @@ class CertificateSpecifications(pydantic.BaseModel):
         if (_env_ca_cert := os.environ.get("SIMVUE_SERVER_CA_CERTIFICATE")) is not None:
             values["server_ca_cert"] = _env_ca_cert
         if _env_client_cert := os.environ.get("SIMVUE_SERVER_CLIENT_CERTIFICATE"):
-            values["client_cert"] = _env_ca_cert
+            values["client_cert"] = _env_client_cert
         return values
 
 

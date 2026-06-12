@@ -204,7 +204,15 @@ class Events(SimvueObject):
             start point for event time range
         timestamp_end : datetime.datetime
             end point for event time range
+        window : int
+            the interval for metric aggregation
+        filters : list[str] | None
+            filters to apply to select on runs
 
+        Returns
+        -------
+        list[dict[str, str | int]]
+            histogram response from server
         """
         if timestamp_end - timestamp_begin <= datetime.timedelta(seconds=window):
             raise ValueError(

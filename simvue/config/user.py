@@ -122,10 +122,11 @@ class SimvueConfiguration(pydantic.BaseModel):
     @functools.lru_cache
     def _check_server(
         cls,
+        *,
         token: str,
         url: str,
-        verify: str | bool,
         mode: typing.Literal["offline", "online", "disabled"],
+        verify: str | bool,
     ) -> semver.Version | None:
         if mode in {"offline", "disabled"}:
             return None
