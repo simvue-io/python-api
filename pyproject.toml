@@ -1,6 +1,6 @@
 [project]
 name = "simvue"
-version = "2.5.6"
+version = "2.5.7"
 description = "Simulation tracking and monitoring"
 authors = [{ name = "Simvue Development Team", email = "info@simvue.io" }]
 license = "Apache-2.0"

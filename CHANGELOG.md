@@ -1,5 +1,9 @@
 # Change Log
 
+## [v2.5.7](https://github.com/simvue-io/python-api/releases/tag/v2.5.7) - 2026-06-12
+
+- Fix alert de-duplication for offline mode.
+
 ## [v2.5.6](https://github.com/simvue-io/python-api/releases/tag/v2.5.6) - 2026-06-12
 
 - Minor bug fixes arising from heavier linting of code base.
