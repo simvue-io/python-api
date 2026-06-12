@@ -60,8 +60,8 @@ def check_ordered_array(
     """
     if isinstance(array, np.ndarray):
         array = array.tolist()
-    for i, array in enumerate(array):
-        _array = np.array(array)
+    for i, element in enumerate(array):
+        _array = np.array(element)
         if not np.all(np.sort(_array) == _array) or np.all(
             reversed(np.sort(_array)) == _array,
         ):

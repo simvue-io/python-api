@@ -122,10 +122,11 @@ class SimvueConfiguration(pydantic.BaseModel):
     @functools.lru_cache
     def _check_server(
         cls,
+        *,
         token: str,
         url: str,
-        verify: str | bool,
         mode: typing.Literal["offline", "online", "disabled"],
+        verify: str | bool,
     ) -> semver.Version | None:
         if mode in {"offline", "disabled"}:
             return None
@@ -136,7 +137,7 @@ class SimvueConfiguration(pydantic.BaseModel):
         }
         try:
             _url = URL(url) / "version"
-            _response = sv_get(f"{_url}", headers, verify=verify)
+            _response = sv_get(f"{_url}", headers=headers, verify=verify)
 
             if _response.status_code == http.HTTPStatus.UNAUTHORIZED:
                 raise AssertionError("Unauthorised token")

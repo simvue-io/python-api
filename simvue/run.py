@@ -1642,19 +1642,22 @@ class Run:
         ```
 
         """
-        if isinstance(axes_ticks, np.ndarray):
-            axes_ticks = axes_ticks.tolist()
+        _axes_ticks = (
+            axes_ticks.tolist() if isinstance(axes_ticks, np.ndarray) else axes_ticks
+        )
 
         grid_name = grid_name or metric_name
 
-        if grid_name not in self._grids and (axes_labels is None or axes_ticks is None):
+        if grid_name not in self._grids and (
+            axes_labels is None or _axes_ticks is None
+        ):
             self._error(f"Grid '{grid_name}' is not defined.")
             return False
 
-        if axes_labels is not None and axes_ticks is not None:
+        if axes_labels is not None and _axes_ticks is not None:
             _new_grid = Grid.new(
                 name=grid_name,
-                grid=axes_ticks,
+                grid=_axes_ticks,
                 labels=axes_labels,
                 offline=self.mode == "offline",
                 server_url=self._user_config.server.url,

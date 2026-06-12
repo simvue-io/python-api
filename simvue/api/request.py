@@ -87,6 +87,9 @@ def post(
         timeout for the request
     files : dict[str, Any] | None = None
         file data for this request
+    verify : str | bool, optional
+        whether to verify the request, if a string, the certificate
+        to use for verification
 
     Returns
     -------
@@ -163,6 +166,9 @@ def put(
         send as JSON string, by default True
     timeout : int, optional
         timeout of request, by default DEFAULT_API_TIMEOUT
+    verify : str | bool, optional
+        whether to verify the request, if a string, the certificate
+        to use for verification
 
     Returns
     -------
@@ -209,11 +215,12 @@ def put(
 )
 def get(
     url: str,
+    *,
     headers: dict[str, str] | None = None,
     params: dict[str, str | int | float | None] | None = None,
     timeout: int = DEFAULT_API_TIMEOUT,
-    verify: str | bool = True,
     json: dict[str, typing.Any] | None = None,
+    verify: str | bool = True,
 ) -> requests.Response:
     """HTTP GET.
 
@@ -229,6 +236,9 @@ def get(
         timeout of request, by default DEFAULT_API_TIMEOUT
     json : dict[str, Any] | None, optional
         any json to send in request
+    verify : str | bool, optional
+        whether to verify the request, if a string, the certificate
+        to use for verification
 
     Returns
     -------
@@ -238,12 +248,7 @@ def get(
     """
     logger.debug("GET: %s\n\tparams=%s", url, params)
     response = requests.get(
-        url,
-        headers=headers,
-        timeout=timeout,
-        params=params,
-        json=json,
-        verify=verify
+        url, headers=headers, timeout=timeout, params=params, json=json, verify=verify
     )
 
     if response.status_code in RETRY_STATUSES:
@@ -268,10 +273,11 @@ def get(
 )
 def delete(
     url: str,
+    *,
     headers: dict[str, str],
     timeout: int = DEFAULT_API_TIMEOUT,
-    verify: str | bool = True,
     params: dict[str, typing.Any] | None = None,
+    verify: str | bool = True,
 ) -> requests.Response:
     """HTTP DELETE.
 
@@ -285,6 +291,9 @@ def delete(
         timeout of request, by default DEFAULT_API_TIMEOUT
     params : dict, optional
         parameters for deletion
+    verify : str | bool, optional
+        whether to verify the request, if a string, the certificate
+        to use for verification
 
     Returns
     -------
@@ -293,7 +302,9 @@ def delete(
 
     """
     logger.debug("DELETE: %s\n\tparams=%s", url, params)
-    response = requests.delete(url, headers=headers, timeout=timeout, params=params, verify=verify)
+    response = requests.delete(
+        url, headers=headers, timeout=timeout, params=params, verify=verify
+    )
 
     if response.status_code in RETRY_STATUSES:
         raise RetryableHTTPError(
