@@ -137,7 +137,7 @@ class SimvueConfiguration(pydantic.BaseModel):
         }
         try:
             _url = URL(url) / "version"
-            _response = sv_get(f"{_url}", headers, verify=verify)
+            _response = sv_get(f"{_url}", headers=headers, verify=verify)
 
             if _response.status_code == http.HTTPStatus.UNAUTHORIZED:
                 raise AssertionError("Unauthorised token")
