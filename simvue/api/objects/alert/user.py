@@ -101,7 +101,7 @@ class UserAlert(AlertBase):
             token for alternative server, default None
 
         """
-        return cls(
+        _alert = cls(
             name=name,
             description=description,
             notification=notification,
@@ -109,10 +109,11 @@ class UserAlert(AlertBase):
             enabled=enabled,
             server_url=server_url,
             server_token=server_token,
-            _params={"deduplicate": True},
             _read_only=False,
             _offline=offline,
         )
+        _alert._params = {"deduplicate": True}
+        return _alert
 
     @override
     def _compare_objects(self, other: "AlertBase") -> bool:

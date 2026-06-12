@@ -76,9 +76,6 @@ try:
 except ImportError:
     from typing_extensions import Self
 
-if typing.TYPE_CHECKING:
-    from simvue.api.objects.alert.base import AlertBase
-
 
 HEARTBEAT_INTERVAL: int = 60
 RESOURCES_METRIC_PREFIX: str = "resources"
@@ -2317,18 +2314,6 @@ class Run:
 
         return True
 
-    def _check_if_alert_exists(self, alert: "AlertBase") -> str | None:
-        """Check if an existing alert matches definition."""
-        # If the alert already exists just add the existing one
-        for _id, _existing_alert in Alert.get(
-            offline=self.mode == "offline",
-            server_url=self._user_config.server.url,
-            server_token=self._user_config.server.token,
-        ):
-            if _existing_alert == alert:
-                return _id
-        return None
-
     @skip_if_failed("_aborted", "_suppress_errors", on_failure_return=None)
     @pydantic.validate_call
     def create_metric_range_alert(
@@ -2412,12 +2397,6 @@ class Run:
             server_url=self._user_config.server.url,
             server_token=self._user_config.server.token,
         )
-
-        # If the alert already exists just add the existing one
-        if _existing_id := self._check_if_alert_exists(_alert):
-            if attach_to_run:
-                self.add_alerts(ids=[_existing_id])
-            return _existing_id
 
         _alert.abort = trigger_abort
         _alert.commit()
@@ -2506,12 +2485,6 @@ class Run:
             server_token=self._user_config.server.token,
         )
 
-        # If the alert already exists just add the existing one
-        if _existing_id := self._check_if_alert_exists(_alert):
-            if attach_to_run:
-                self.add_alerts(ids=[_existing_id])
-            return _existing_id
-
         _alert.abort = trigger_abort
         _alert.commit()
         if attach_to_run:
@@ -2571,12 +2544,6 @@ class Run:
             server_token=self._user_config.server.token,
         )
 
-        # If the alert already exists just add the existing one
-        if _existing_id := self._check_if_alert_exists(_alert):
-            if attach_to_run:
-                self.add_alerts(ids=[_existing_id])
-            return _existing_id
-
         _alert.abort = trigger_abort
         _alert.commit()
 
@@ -2629,12 +2596,6 @@ class Run:
             server_url=self._user_config.server.url,
             server_token=self._user_config.server.token,
         )
-
-        # If the alert already exists just add the existing one
-        if _existing_id := self._check_if_alert_exists(_alert):
-            if attach_to_run:
-                self.add_alerts(ids=[_existing_id])
-            return _existing_id
 
         _alert.abort = trigger_abort
         _alert.commit()
