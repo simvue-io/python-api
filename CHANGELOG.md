@@ -1,5 +1,11 @@
 # Change Log
 
+## [v2.5.6](https://github.com/simvue-io/python-api/releases/tag/v2.5.6) - 2026-06-12
+
+- Minor bug fixes arising from heavier linting of code base.
+- Restore allowing use of callback trigger in executor for Windows.
+- Added CA certificate support for API queries.
+
 ## [v2.5.5](https://github.com/simvue-io/python-api/releases/tag/v2.5.5) - 2026-05-29
 
 - Added additional filter options
