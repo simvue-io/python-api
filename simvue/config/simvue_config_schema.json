@@ -1,5 +1,64 @@
 {
   "$defs": {
+    "CertificateSpecifications": {
+      "properties": {
+        "client_cert": {
+          "anyOf": [
+            {
+              "format": "file-path",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Client Cert"
+        },
+        "client_key": {
+          "anyOf": [
+            {
+              "format": "password",
+              "type": "string",
+              "writeOnly": true
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Client Key"
+        },
+        "server_ca_cert": {
+          "anyOf": [
+            {
+              "format": "file-path",
+              "type": "string"
+            },
+            {
+              "type": "boolean"
+            }
+          ],
+          "default": true,
+          "title": "Server Ca Cert"
+        },
+        "storage_ca_cert": {
+          "anyOf": [
+            {
+              "format": "file-path",
+              "type": "string"
+            },
+            {
+              "type": "boolean"
+            }
+          ],
+          "default": true,
+          "title": "Storage Ca Cert"
+        }
+      },
+      "title": "CertificateSpecifications",
+      "type": "object"
+    },
     "ClientGeneralOptions": {
       "properties": {
         "debug": {
@@ -254,6 +313,9 @@
     "ServerSpecifications": {
       "additionalProperties": false,
       "properties": {
+        "certificates": {
+          "$ref": "#/$defs/CertificateSpecifications"
+        },
         "env": {
           "anyOf": [
             {
