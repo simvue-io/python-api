@@ -14,6 +14,7 @@ import typing
 import pydantic
 import semver
 import toml
+from pandas.core.common import contextlib
 
 try:
     from typing import Self
@@ -70,6 +71,7 @@ class SimvueConfiguration(pydantic.BaseModel):
     eco: EcoConfig = EcoConfig()
     current_profile: str | None = None
     _server_version: semver.Version | None = None
+    _nosim_version: semver.Version | None = None
 
     @property
     def server_verify(self) -> str | bool:
@@ -83,6 +85,11 @@ class SimvueConfiguration(pydantic.BaseModel):
         if not self._server_version:
             raise RuntimeError("Expected server version to be defined")
         return self._server_version
+
+    @property
+    def nosim_version(self) -> semver.Version | None:
+        """Retrieve current noSim version if available."""
+        return self._nosim_version
 
     @classmethod
     def _load_pyproject_configs(cls) -> dict | None:
@@ -127,14 +134,16 @@ class SimvueConfiguration(pydantic.BaseModel):
         url: str,
         mode: typing.Literal["offline", "online", "disabled"],
         verify: str | bool,
-    ) -> semver.Version | None:
+    ) -> tuple[semver.Version | None, semver.Version | None]:
         if mode in {"offline", "disabled"}:
-            return None
+            return None, None
 
         headers: dict[str, str] = {
             "Authorization": f"Bearer {token}",
             "User-Agent": f"Simvue Python client {__version__}",
         }
+
+        # Retrieve Server version
         try:
             _url = URL(url) / "version"
             _response = sv_get(f"{_url}", headers=headers, verify=verify)
@@ -152,6 +161,22 @@ class SimvueConfiguration(pydantic.BaseModel):
                 f"Exception retrieving server version:\n {err!s}",
             ) from err
 
+        _no_sim_version_str: str = ""
+        _no_sim_version: semver.Version | None = None
+
+        # Retrieve noSim version if applicable
+        with contextlib.suppress(Exception):
+            _url = URL(url) / "nosim" / "version"
+            _response = sv_get(f"{_url}", headers=headers, verify=verify)
+
+            if _response.status_code == http.HTTPStatus.UNAUTHORIZED:
+                raise AssertionError("Unauthorised token")
+
+            if _response.status_code != http.HTTPStatus.NOT_FOUND and (
+                _no_sim_version_str := _response.json().get("version")
+            ):
+                _no_sim_version = semver.Version.parse(_no_sim_version_str)
+
         _version = semver.Version.parse(_version_str)
 
         if (
@@ -159,16 +184,18 @@ class SimvueConfiguration(pydantic.BaseModel):
             and _version >= SIMVUE_SERVER_UPPER_CONSTRAINT
         ):
             raise AssertionError(
-                f"Python API v{_version_str} is not compatible "
-                "with Simvue server versions "
-                f">= {SIMVUE_SERVER_UPPER_CONSTRAINT}",
+                f"Python API v{__version__} is not compatible "
+                "with the current Simvue server version: "
+                f"{_version_str} >= {SIMVUE_SERVER_UPPER_CONSTRAINT}",
             )
         if SIMVUE_SERVER_LOWER_CONSTRAINT and _version < SIMVUE_SERVER_LOWER_CONSTRAINT:
             raise AssertionError(
-                f"Python API v{_version_str} is not compatible with Simvue "
-                f"server versions < {SIMVUE_SERVER_LOWER_CONSTRAINT}",
+                f"Python API v{__version__} is not compatible "
+                "with the current Simvue server version: "
+                f"{_version_str} < {SIMVUE_SERVER_UPPER_CONSTRAINT}",
             )
-        return _version
+
+        return _version, _no_sim_version
 
     @pydantic.validate_call
     def write(self, out_directory: pydantic.DirectoryPath) -> None:
@@ -183,7 +210,7 @@ class SimvueConfiguration(pydantic.BaseModel):
         if not self.server.token:
             raise ValueError("No token provided.")
 
-        self._server_version = self._check_server(
+        self._server_version, self._nosim_version = self._check_server(
             token=self.server.token.get_secret_value(),
             url=self.server.url,
             verify=self.server_verify,

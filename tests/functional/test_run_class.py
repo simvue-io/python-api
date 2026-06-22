@@ -814,6 +814,9 @@ def test_set_folder_details(request: pytest.FixtureRequest) -> None:
     with sv_run.Run() as run:
         folder_name: str = f"/simvue_unit_testing/{_uuid}"
         description: str = "test description"
+        metadata: dict[str, str] = {
+            "test_name": "test_set_folder_details"
+        }
         tags: list[str] = [
             "simvue_client_unit_tests",
             "test_set_folder_details"
@@ -824,7 +827,7 @@ def test_set_folder_details(request: pytest.FixtureRequest) -> None:
             visibility="tenant" if os.environ.get("CI") else None,
             retention_period=os.environ.get("SIMVUE_TESTING_RETENTION_PERIOD", "2 mins"),
         )
-        run.set_folder_details(tags=tags, description=description)
+        run.set_folder_details(tags=tags, description=description, metadata=metadata)
 
     client = sv_cl.Client()
     _folder = client.get_folder(folder_path=folder_name)
