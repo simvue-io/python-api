@@ -161,8 +161,8 @@ class SimvueConfiguration(pydantic.BaseModel):
                 f"Exception retrieving server version:\n {err!s}",
             ) from err
 
-        _no_sim_version_str: str = ""
-        _no_sim_version: semver.Version | None = None
+        _nosim_version_str: str = ""
+        _nosim_version: semver.Version | None = None
 
         # Retrieve noSim version if applicable
         with contextlib.suppress(Exception):
@@ -172,10 +172,10 @@ class SimvueConfiguration(pydantic.BaseModel):
             if _response.status_code == http.HTTPStatus.UNAUTHORIZED:
                 raise AssertionError("Unauthorised token")
 
-            if _response.status_code != http.HTTPStatus.NOT_FOUND and (
-                _no_sim_version_str := _response.json().get("version")
+            if _response.status_code == http.HTTPStatus.OK and (
+                _nosim_version_str := _response.json().get("version")
             ):
-                _no_sim_version = semver.Version.parse(_no_sim_version_str)
+                _nosim_version = semver.Version.parse(_nosim_version_str)
 
         _version = semver.Version.parse(_version_str)
 
@@ -192,10 +192,10 @@ class SimvueConfiguration(pydantic.BaseModel):
             raise AssertionError(
                 f"Python API v{__version__} is not compatible "
                 "with the current Simvue server version: "
-                f"{_version_str} < {SIMVUE_SERVER_UPPER_CONSTRAINT}",
+                f"{_version_str} < {SIMVUE_SERVER_LOWER_CONSTRAINT}",
             )
 
-        return _version, _no_sim_version
+        return _version, _nosim_version
 
     @pydantic.validate_call
     def write(self, out_directory: pydantic.DirectoryPath) -> None:
