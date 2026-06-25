@@ -4,6 +4,7 @@ Pydantic model for the Simvue TOML configuration file
 
 """
 
+import contextlib
 import functools
 import http
 import logging
@@ -14,7 +15,6 @@ import typing
 import pydantic
 import semver
 import toml
-from pandas.core.common import contextlib
 
 try:
     from typing import Self
