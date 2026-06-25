@@ -1,5 +1,10 @@
 # Change Log
 
+## [v2.5.8](https://github.com/simvue-io/python-api/releases/tag/v2.5.8) - 2026-06-25
+
+- Fixed reference to `Self` in eco module for Python3.10.
+- Added retrieval of noSim version from server.
+
 ## [v2.5.7](https://github.com/simvue-io/python-api/releases/tag/v2.5.7) - 2026-06-12
 
 - Fix alert de-duplication for offline mode.
