@@ -20,6 +20,11 @@ import requests
 
 from simvue.api.request import DEFAULT_API_TIMEOUT
 
+try:
+    from typing import Self
+except ImportError:
+    from typing_extensions import Self
+
 CO2_SIGNAL_API_ENDPOINT: str = (
     "https://api.electricitymap.org/v3/carbon-intensity/latest"
 )
@@ -82,7 +87,7 @@ class APIClient(pydantic.BaseModel):
     timeout: pydantic.PositiveInt = 10
 
     @pydantic.model_validator(mode="after")
-    def post_init(self) -> typing.Self:
+    def post_init(self) -> Self:
         """Post-initialise the CO2 Signal API client."""
         if not self.co2_api_token:
             raise ValueError("API token is required for ElectricityMaps API.")
