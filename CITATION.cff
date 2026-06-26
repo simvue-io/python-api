@@ -11,27 +11,27 @@ authors:
   - given-names: Andrew
     family-names: Lahiff
     affiliation: United Kingdom Atomic Energy Authority
-    orcid: 'https://orcid.org/0000-0002-2785-4116'
+    orcid: "https://orcid.org/0000-0002-2785-4116"
   - given-names: Aby
     family-names: Abraham
     affiliation: United Kingdom Atomic Energy Authority
   - given-names: Vignesh
     family-names: Gopakumar
-    orcid: 'https://orcid.org/0000-0003-0904-3448'
+    orcid: "https://orcid.org/0000-0003-0904-3448"
     affiliation: United Kingdom Atomic Energy Authority
   - given-names: Kristian
     family-names: Zarebski
     affiliation: United Kingdom Atomic Energy Authority
-    orcid: 'https://orcid.org/0000-0002-6773-1049'
+    orcid: "https://orcid.org/0000-0002-6773-1049"
   - given-names: Matthew
     family-names: Field
     affiliation: United Kingdom Atomic Energy Authority
-    orcid: 'https://orcid.org/0009-0004-1390-0697'
+    orcid: "https://orcid.org/0009-0004-1390-0697"
   - given-names: James
     family-names: Panayis
     affiliation: United Kingdom Atomic Energy Authority
-repository-code: 'https://github.com/simvue-io/client'
-url: 'https://simvue.io/'
+repository-code: "https://github.com/simvue-io/client"
+url: "https://simvue.io/"
 abstract: >-
   Simvue allows users to organise and gain insights in simulations,
   processing tasks and AI/ML training by capturing metadata and
@@ -43,6 +43,6 @@ keywords:
   - alerting
   - simulation
 license: Apache-2.0
-commit: 6321406e691db68adb5359b18b1f7866f51b8cba
-version: 2.5.8
-date-released: '2026-06-25'
+commit: 0d836cd2a9784b7bcad3628eb2885f9c700caf36
+version: 2.5.9
+date-released: "2026-06-26"
