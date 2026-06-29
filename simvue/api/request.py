@@ -326,7 +326,7 @@ def get_json_from_response(
         json_response = response.json()
         json_response = json_response or ({} if expected_type is dict else [])
         decode_error = ""
-    except json_module.JSONDecodeError as e:
+    except requests.exceptions.JSONDecodeError as e:
         json_response = {} if allow_parse_failure else None
         decode_error = f"{e}"
 
@@ -419,7 +419,7 @@ def get_paginated(
                 _response.json().get("count", 0) < _offset
             ):
                 break
-    except json_module.JSONDecodeError:
+    except requests.exceptions.JSONDecodeError:
         raise RuntimeError(
             f"[{_response.status_code}] Failed to retrieve content from server: "
             + _response.text,
