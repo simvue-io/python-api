@@ -1141,6 +1141,84 @@ class CO2IntensityUploadAction(UploadAction):
             cls.logger.exception("CO2 Monitor initialisation failed")
 
 
+class ServerVersionAction(UploadAction):
+    object_type: str = "version"
+
+    @override
+    @classmethod
+    def initialise_object(cls, online_id: ObjectID | None, **data) -> None:
+        """No initialiser for this action."""
+        _ = online_id
+        _ = data
+
+    @override
+    @classmethod
+    def pre_tasks(
+        cls,
+        offline_id: str,
+        data: dict[str, typing.Any],
+        cache_directory: pathlib.Path,
+    ) -> None:
+        """No pre-tasks for this action."""
+        _ = offline_id
+        _ = data
+        _ = cache_directory
+
+    @override
+    @classmethod
+    def post_tasks(
+        cls,
+        offline_id: str,
+        online_id: ObjectID | None,
+        data: dict[str, typing.Any],
+        cache_directory: pathlib.Path,
+    ) -> None:
+        """No post-tasks for this action."""
+        _ = offline_id
+        _ = data
+        _ = cache_directory
+
+    @override
+    @classmethod
+    def upload(
+        cls,
+        *,
+        cache_directory: pathlib.Path,
+        throw_exceptions: bool = False,
+        retry_failed: bool = False,
+        **_: object,
+    ) -> None:
+        """Download latest version."""
+        _config: SimvueConfiguration = SimvueConfiguration.fetch(mode="online")
+
+        with cls.json_file(cache_directory).open("w") as out_f:
+            json.dump(
+                {
+                    "server": f"{_config.server_version}",
+                    "nosim": f"{_config.nosim_version}",
+                },
+                out_f,
+                indent=2,
+            )
+
+    @classmethod
+    def json_file(cls, cache_directory: pathlib.Path, *_: object) -> pathlib.Path:
+        """Returns the local cache JSON file for an upload.
+
+        Parameters
+        ----------
+        cache_directory : pathlib.Path
+            the cache directory to search
+
+        Returns
+        -------
+        pathlib.Path
+            path of local JSON file
+
+        """
+        return cache_directory.joinpath(f"{cls.object_type}.json")
+
+
 # Define the upload action ordering
 UPLOAD_ACTION_ORDER: tuple[type[UploadAction], ...] = (
     TenantUploadAction,
@@ -1157,4 +1235,5 @@ UPLOAD_ACTION_ORDER: tuple[type[UploadAction], ...] = (
     EventsUploadAction,
     HeartbeatUploadAction,
     CO2IntensityUploadAction,
+    ServerVersionAction,
 )

@@ -1859,7 +1859,7 @@ wheels = [
 
 [[package]]
 name = "simvue"
-version = "2.5.7"
+version = "2.5.9"
 source = { editable = "." }
 dependencies = [
     { name = "click" },
