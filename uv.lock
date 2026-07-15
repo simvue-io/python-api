@@ -1859,7 +1859,7 @@ wheels = [
 
 [[package]]
 name = "simvue"
-version = "2.5.7"
+version = "2.5.9"
 source = { editable = "." }
 dependencies = [
     { name = "click" },
@@ -1919,7 +1919,7 @@ requires-dist = [
     { name = "gitpython", specifier = ">=3.1.44,<4.0.0" },
     { name = "humanfriendly", specifier = ">=10.0,<11.0" },
     { name = "matplotlib", marker = "extra == 'plot'", specifier = ">=3.10.0,<4.0.0" },
-    { name = "msgpack", specifier = ">=1.1.0,<2.0.0" },
+    { name = "msgpack", specifier = ">=1.2.1" },
     { name = "numpy", specifier = ">=2.0.0,<3.0.0" },
     { name = "pandas", specifier = ">=2.2.3,<3.0.0" },
     { name = "pip", specifier = ">=26.1.2" },
