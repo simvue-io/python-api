@@ -409,7 +409,9 @@ class ArtifactBase(SimvueObject):
                 f"Could not retrieve URL for artifact '{self._identifier}'",
             )
 
-        _timeout = BASE_TIMEOUT + DOWNLOAD_TIMEOUT_PER_MB * self.size / 1024 / 1024
+        _timeout: int = int(
+            BASE_TIMEOUT + DOWNLOAD_TIMEOUT_PER_MB * self.size / 1024 // 1024
+        )
 
         self._logger.debug(
             "Will wait %s for download of file %s of size %s",
@@ -425,12 +427,12 @@ class ArtifactBase(SimvueObject):
             headers=None,
         )
 
-        get_json_from_response(
-            response=_response,
-            allow_parse_failure=True,
-            expected_status=[http.HTTPStatus.OK],
-            scenario=f"Retrieval of file for {self.label()} '{self._identifier}'",
-        )
+        if _response.status_code != http.HTTPStatus.OK:
+            raise RuntimeError(
+                f"Retrieval of file date for {self.label()} '{self._identifier}' "
+                + f"failed for url '{self.download_url}' "
+                + f"with status code {_response.status_code}"
+            )
 
         _total_length: str | None = _response.headers.get("content-length")
 
