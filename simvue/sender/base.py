@@ -33,6 +33,7 @@ UploadItem = typing.Literal[
     "events",
     "heartbeat",
     "co2_intensity",
+    "version",
 ]
 
 UPLOAD_ORDER: list[str] = [action.object_type for action in UPLOAD_ACTION_ORDER]

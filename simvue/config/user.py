@@ -7,6 +7,7 @@ Pydantic model for the Simvue TOML configuration file
 import contextlib
 import functools
 import http
+import json
 import logging
 import os
 import pathlib
@@ -125,18 +126,40 @@ class SimvueConfiguration(pydantic.BaseModel):
 
         return _simvue_setup
 
-    @classmethod
+    @staticmethod
     @functools.lru_cache
     def _check_server(
-        cls,
         *,
         token: str,
+        offline_cache: pathlib.Path | None,
         url: str,
         mode: typing.Literal["offline", "online", "disabled"],
         verify: str | bool,
     ) -> tuple[semver.Version | None, semver.Version | None]:
-        if mode in {"offline", "disabled"}:
-            return None, None
+        _offline_version_data: tuple[semver.Version | None, semver.Version | None] = (
+            None,
+            None,
+        )
+
+        if (
+            offline_cache
+            and (_version_file := offline_cache.joinpath("version.json")).exists()
+        ):
+            with _version_file.open() as in_f:
+                _local_version_data = json.load(in_f)
+                try:
+                    _offline_version_data = (
+                        semver.Version.parse(_local_version_data.get("server")),
+                        semver.Version.parse(_local_version_data.get("nosim")),
+                    )
+                except ValueError as e:
+                    raise AssertionError(
+                        "Failed to parse local server version information, "
+                        f"is '{_version_file}' a valid JSON file?"
+                    ) from e
+
+        if mode in {"offline", "disabled"} or os.environ.get("SIMVUE_NO_SERVER_CHECK"):
+            return _offline_version_data
 
         headers: dict[str, str] = {
             "Authorization": f"Bearer {token}",
@@ -204,9 +227,6 @@ class SimvueConfiguration(pydantic.BaseModel):
 
     @pydantic.model_validator(mode="after")
     def check_valid_server(self) -> Self:
-        if os.environ.get("SIMVUE_NO_SERVER_CHECK"):
-            return self
-
         if not self.server.token:
             raise ValueError("No token provided.")
 
@@ -215,6 +235,7 @@ class SimvueConfiguration(pydantic.BaseModel):
             url=self.server.url,
             verify=self.server_verify,
             mode=self.run.mode,
+            offline_cache=self.offline.cache,
         )
 
         return self
