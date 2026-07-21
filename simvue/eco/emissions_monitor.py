@@ -79,7 +79,9 @@ class CO2Monitor(pydantic.BaseModel):
     co2_signal_api_token: pydantic.SecretStr | None
     offline: bool = False
 
-    _last_local_write = pydantic.PrivateAttr(datetime.datetime.now(tz=datetime.UTC))
+    _last_local_write = pydantic.PrivateAttr(
+        datetime.datetime.now(tz=datetime.timezone.utc)
+    )
 
     @pydantic.model_validator(mode="before")
     @classmethod
@@ -154,7 +156,7 @@ class CO2Monitor(pydantic.BaseModel):
         self._local_data: dict[str, str | dict[str, float | str]] | None = (
             self._load_local_data() or {}
         )
-        self._measure_time = datetime.datetime.now(datetime.UTC)
+        self._measure_time = datetime.datetime.now(datetime.timezone.utc)
 
         self._client: APIClient | None = (
             None
@@ -167,7 +169,7 @@ class CO2Monitor(pydantic.BaseModel):
 
     def now(self) -> str:
         """Return data file timestamp for the current time."""
-        _now: datetime.datetime = datetime.datetime.now(datetime.UTC)
+        _now: datetime.datetime = datetime.datetime.now(datetime.timezone.utc)
         return _now.strftime(TIME_FORMAT)
 
     @property
@@ -176,11 +178,11 @@ class CO2Monitor(pydantic.BaseModel):
         if not self.intensity_refresh_interval:
             return False
 
-        _now: datetime.datetime = datetime.datetime.now(tz=datetime.UTC)
+        _now: datetime.datetime = datetime.datetime.now(tz=datetime.timezone.utc)
         _latest_time: datetime.datetime = datetime.datetime.strptime(
             self._local_data["last_updated"],
             TIME_FORMAT,
-        ).replace(tzinfo=datetime.UTC)
+        ).replace(tzinfo=datetime.timezone.utc)
         return (_now - _latest_time).seconds > self.intensity_refresh_interval
 
     def _load_local_data(self) -> dict[str, str | dict[str, str | float]] | None:
@@ -215,7 +217,7 @@ class CO2Monitor(pydantic.BaseModel):
             and (
                 _check_write := datetime.datetime.fromtimestamp(
                     os.path.getmtime(f"{self._data_file_path}"),
-                    tz=datetime.UTC,
+                    tz=datetime.timezone.utc,
                 )
             )
             > self._last_local_write

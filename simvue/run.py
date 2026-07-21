@@ -1430,7 +1430,7 @@ class Run:
 
             run.log_event(
                 message="Good Night",
-                timestamp=datetime.datetime.now(datetime.UTC),
+                timestamp=datetime.datetime.now(datetime.timezone.utc),
                 log_level="debug"
             )
         ```

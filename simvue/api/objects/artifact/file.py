@@ -141,7 +141,7 @@ class FileArtifact(ArtifactBase):
                 _local_staging_dir.mkdir(parents=True, exist_ok=True)
                 _local_staging_file = _local_staging_dir.joinpath(
                     f"{file_path.stem}_"
-                    f"{datetime.datetime.now(tz=datetime.UTC).strftime('%Y-%m-%d_%H-%M-%S_%f')[:-3]}.file",
+                    f"{datetime.datetime.now(tz=datetime.timezone.utc).strftime('%Y-%m-%d_%H-%M-%S_%f')[:-3]}.file",
                 )
                 shutil.copy(file_path, _local_staging_file)
                 file_path = _local_staging_file

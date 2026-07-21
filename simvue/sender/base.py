@@ -120,7 +120,7 @@ class Sender:
 
     def _initialise_monitor_run(self) -> Run:
         """Create a Simvue run for monitoring upload."""
-        _time_stamp: str = datetime.datetime.now(tz=datetime.UTC).strftime(
+        _time_stamp: str = datetime.datetime.now(tz=datetime.timezone.utc).strftime(
             "%Y_%m_%d_%H_%M_%S",
         )
         _run = Run(mode="online")

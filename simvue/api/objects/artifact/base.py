@@ -305,7 +305,7 @@ class ArtifactBase(SimvueObject):
         _created: str | None = self._get_attribute("created")
         return (
             datetime.datetime.strptime(_created, DATETIME_FORMAT).astimezone(
-                datetime.UTC,
+                datetime.timezone.utc,
             )
             if _created
             else None
