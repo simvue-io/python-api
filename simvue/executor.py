@@ -35,7 +35,7 @@ class CompletionCallback(typing.Protocol):
 
 
 def get_current_shell() -> str | None:
-    """Return the users current shell executable."""
+    """Return the users current shell executable if found."""
     try:
         _process = psutil.Process(os.getppid())
         return os.environ.get("SHELL", _process.exe())
@@ -156,7 +156,7 @@ class Executor:
     def _kwarg_assembly(kwargs, executable: str | None) -> list[str]:
         _arguments: list[str] = []
         _shell_is_pwsh: bool = any(
-            shell in get_current_shell() for shell in ("pwsh", "powershell")
+            shell in (get_current_shell() or "") for shell in ("pwsh", "powershell")
         )
         _exec_is_pwsh: bool = executable in {"pwsh", "powershell", None}
         _use_pwsh: bool = _shell_is_pwsh and _exec_is_pwsh

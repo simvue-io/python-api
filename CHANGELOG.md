@@ -1,5 +1,13 @@
 # Change Log
 
+## Unreleased
+
+- Fix case where shell cannot be found for `add_process`.
+- Fix UTC compatibility for Python 3.10.
+- Added retrieval of server version in `Sender`.
+- Fixed memory issue when downloading large data files.
+- Fixed incorrect exception catch for JSON responses.
+
 ## [v2.5.9](https://github.com/simvue-io/python-api/releases/tag/v2.5.9) - 2026-06-26
 
 - Fixed bug with error handling in logging handler
