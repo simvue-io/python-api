@@ -1,12 +1,14 @@
 # Change Log
 
-## Unreleased
+## [v2.5.10](https://github.com/simvue-io/python-api/releases/tag/v2.5.10) - 2026-08-10
 
 - Fix case where shell cannot be found for `add_process`.
 - Fix UTC compatibility for Python 3.10.
 - Added retrieval of server version in `Sender`.
 - Fixed memory issue when downloading large data files.
 - Fixed incorrect exception catch for JSON responses.
+- Updated S3 Storage arguments for AWS buckets.
+- Fixed serialisation of Pandas DataFrames.
 
 ## [v2.5.9](https://github.com/simvue-io/python-api/releases/tag/v2.5.9) - 2026-06-26
 
