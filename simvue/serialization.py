@@ -73,13 +73,13 @@ def serialize_object(data: typing.Any, *, allow_pickle: bool) -> tuple[str, str]
     module_name = data.__class__.__module__
     class_name = data.__class__.__name__
 
-    if module_name == "plotly.graph_objs._figure" and class_name == "Figure":
+    if module_name.startswith("plotly") and class_name == "Figure":
         return _serialize_plotly_figure(data)
-    if module_name == "matplotlib.figure" and class_name == "Figure":
+    if module_name.startswith("matplotlib") and class_name == "Figure":
         return _serialize_matplotlib_figure(data)
-    if module_name == "numpy" and class_name == "ndarray":
+    if module_name.startswith("numpy") and class_name == "ndarray":
         return _serialize_np_array(data)
-    if module_name == "pandas.core.frame" and class_name == "DataFrame":
+    if module_name.startswith("pandas") and class_name == "DataFrame":
         return _serialize_dataframe(data)
     if _is_torch_tensor(data):
         return _serialize_torch_tensor(data)
