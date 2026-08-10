@@ -141,22 +141,31 @@ class SimvueConfiguration(pydantic.BaseModel):
             None,
         )
 
+        _version_file: pathlib.Path | None = (
+            offline_cache.joinpath("version.json") if offline_cache else None
+        )
+
+        # Safety in case a broken empty version cache was written
         if (
-            offline_cache
-            and (_version_file := offline_cache.joinpath("version.json")).exists()
+            _version_file
+            and _version_file.exists()
+            and _version_file.stat().st_size == 0
         ):
+            _version_file.unlink()
+
+        if _version_file and _version_file.exists():
             with _version_file.open() as in_f:
                 _local_version_data = json.load(in_f)
-                try:
-                    _offline_version_data = (
-                        semver.Version.parse(_local_version_data.get("server")),
-                        semver.Version.parse(_local_version_data.get("nosim")),
-                    )
-                except ValueError as e:
-                    raise AssertionError(
-                        "Failed to parse local server version information, "
-                        f"is '{_version_file}' a valid JSON file?"
-                    ) from e
+            try:
+                _offline_version_data = (
+                    semver.Version.parse(_local_version_data.get("server")),
+                    semver.Version.parse(_local_version_data.get("nosim")),
+                )
+            except ValueError as e:
+                raise AssertionError(
+                    "Failed to parse local server version information, "
+                    + f"is '{_version_file}' a valid JSON file?"
+                ) from e
 
         if mode in {"offline", "disabled"} or os.environ.get("SIMVUE_NO_SERVER_CHECK"):
             return _offline_version_data

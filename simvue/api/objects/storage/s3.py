@@ -77,16 +77,16 @@ class S3Storage(StorageBase):
         cls,
         *,
         name: typing.Annotated[str, pydantic.Field(pattern=NAME_REGEX)],
-        disable_check: bool,
-        endpoint_url: pydantic.HttpUrl,
-        access_key_id: str,
-        secret_access_key: pydantic.SecretStr,
         bucket: str,
-        is_tenant_useable: bool,
-        is_default: bool,
-        is_enabled: bool,
+        endpoint_url: pydantic.HttpUrl | None = None,
+        access_key_id: str | None = None,
+        secret_access_key: pydantic.SecretStr | None = None,
         region_name: str | None = None,
         ca_cert: pydantic.SecretStr | None = None,
+        disable_check: bool = False,
+        is_tenant_useable: bool = True,
+        is_default: bool = False,
+        is_enabled: bool = True,
         offline: bool = False,
         server_url: str | None = None,
         server_token: pydantic.SecretStr | None = None,
@@ -98,20 +98,20 @@ class S3Storage(StorageBase):
         ----------
         name : str
             name to allocated to this storage system
-        disable_check : bool
-            whether to disable checks for this system
-        endpoint_url : str
-            endpoint defining the S3 upload URL
-        access_key_id : str
-            the access key identifier for the storage
-        secret_access_key : str
-            the secret access key, stored as a secret string
         bucket : str
             the bucket associated with this storage system
+        endpoint_url : str | None, optional
+            endpoint defining the S3 upload URL
+        access_key_id : str | None, optional
+            the access key identifier for the storage
+        secret_access_key : str | None, optional
+            the secret access key, stored as a secret string
         region_name : str | None, optional
             the region name associated with this storage system if applicable
         ca_cert : str | None, optional
             provide a CA certificate for this storage
+        disable_check : bool, optional
+            whether to disable checks for this system, default False
         is_tenant_useable : bool
             whether this system is usable by the current tenant
         is_enabled : bool
@@ -132,11 +132,17 @@ class S3Storage(StorageBase):
 
         """
         _config: dict[str, str] = {
-            "endpoint_url": str(endpoint_url),
-            "access_key_id": access_key_id,
-            "secret_access_key": secret_access_key.get_secret_value(),
             "bucket": bucket,
         }
+
+        if access_key_id:
+            _config["access_key_id"] = access_key_id
+
+        if secret_access_key:
+            _config["secret_access_key"] = secret_access_key.get_secret_value()
+
+        if endpoint_url:
+            _config["endpoint_url"] = f"{endpoint_url}"
 
         if region_name:
             _config["region_name"] = region_name
@@ -178,13 +184,13 @@ class Config:
 
     @property
     @staging_check
-    def endpoint_url(self) -> str:
+    def endpoint_url(self) -> str | None:
         """Set/retrieve the endpoint URL for this storage.
 
         Returns
         -------
-        str
-            the endpoint for this storage object
+        str | None
+            the endpoint for this storage object if applicable
 
         """
         try:
@@ -197,8 +203,10 @@ class Config:
     @endpoint_url.setter
     @write_only
     @pydantic.validate_call
-    def endpoint_url(self, endpoint_url: pydantic.HttpUrl) -> None:
-        _config = self._sv_obj.get_config() | {"endpoint_url": str(endpoint_url)}
+    def endpoint_url(self, endpoint_url: pydantic.HttpUrl | None) -> None:
+        _config = self._sv_obj.get_config() | {
+            "endpoint_url": str(endpoint_url) if endpoint_url else None
+        }
         self._sv_obj.append_to_staging({"config": _config})
 
     @property

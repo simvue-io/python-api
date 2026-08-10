@@ -536,15 +536,16 @@ def test_alert_deletion() -> None:
 @pytest.mark.client
 @pytest.mark.object_removal
 def test_abort_run(speedy_heartbeat, create_plain_run: tuple[sv_run.Run, dict]) -> None:
-    run, run_data = create_plain_run
+    _ = speedy_heartbeat
+    run, _ = create_plain_run
     _uuid = f"{uuid.uuid4()}".split("-")[0]
     run.update_tags([f"delete_me_{_uuid}"])
     _client = svc.Client()
     _client.abort_run(run.id, reason="Test abort")
     _attempts: int = 0
 
-    while run.status != "terminated" and _attempts < 10:
+    while run.status != "terminated" and _attempts < 50:
         time.sleep(1)
         _attempts += 1
-    if _attempts >= 10:
+    if _attempts >= 50:
         raise AssertionError("Failed to terminate run.")

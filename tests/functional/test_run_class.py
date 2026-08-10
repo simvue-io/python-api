@@ -1448,13 +1448,15 @@ def test_kill_all_processes(create_plain_run: tuple[sv_run.Run, dict]) -> None:
     run.config(system_metrics_interval=1)
     run.add_process(identifier=f"forever_long_a_{os.environ.get('PYTEST_XDIST_WORKER', 0)}", executable="bash", c="sleep 10000")
     run.add_process(identifier=f"forever_long_b_{os.environ.get('PYTEST_XDIST_WORKER', 0)}", executable="bash", c="sleep 10000")
-    processes = [
+    parent_processes = [
         psutil.Process(process.pid) for process in run._executor._processes.values()
     ]
+    processes = list(parent_processes)
+    for process in parent_processes:
+        processes.extend(process.children(recursive=True))
     run.kill_all_processes()
     for process in processes:
         assert not process.is_running()
-        assert all(not child.is_running() for child in process.children(recursive=True))
 
 
 @pytest.mark.run
