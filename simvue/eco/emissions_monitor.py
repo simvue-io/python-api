@@ -18,6 +18,11 @@ import pydantic
 
 from simvue.eco.api_client import APIClient, CO2SignalResponse
 
+try:
+    from typing import Self
+except ImportError:
+    from typing_extensions import Self
+
 if typing.TYPE_CHECKING:
     import pathlib
 
@@ -123,7 +128,7 @@ class CO2Monitor(pydantic.BaseModel):
         return values
 
     @pydantic.model_validator(mode="after")
-    def post_init_setup(self) -> typing.Self:
+    def post_init_setup(self) -> Self:
         """Post initialisation setup."""
         if self.intensity_refresh_interval and isinstance(
             self.intensity_refresh_interval,
