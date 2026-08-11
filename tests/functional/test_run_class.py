@@ -1448,9 +1448,11 @@ def test_kill_all_processes(create_plain_run: tuple[sv_run.Run, dict]) -> None:
     run.config(system_metrics_interval=1)
     run.add_process(identifier=f"forever_long_a_{os.environ.get('PYTEST_XDIST_WORKER', 0)}", executable="bash", c="sleep 10000")
     run.add_process(identifier=f"forever_long_b_{os.environ.get('PYTEST_XDIST_WORKER', 0)}", executable="bash", c="sleep 10000")
-    parent_processes = [
-        psutil.Process(process.pid) for process in run._executor._processes.values()
-    ]
+    parent_processes: list[Process] = []
+    for process in run._executor._processes.values():
+        with contextlib.suppress(psutil.NoSuchProcess):
+            parent_processes.append(psutil.Process(process.pid))
+
     processes = list(parent_processes)
     for process in parent_processes:
         processes.extend(process.children(recursive=True))
