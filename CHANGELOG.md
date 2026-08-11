@@ -1,6 +1,6 @@
 # Change Log
 
-## [v2.5.10](https://github.com/simvue-io/python-api/releases/tag/v2.5.10) - 2026-08-10
+## [v2.5.10](https://github.com/simvue-io/python-api/releases/tag/v2.5.10) - 2026-08-11
 
 - Fix case where shell cannot be found for `add_process`.
 - Fix UTC compatibility for Python 3.10.
