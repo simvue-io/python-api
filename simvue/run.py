@@ -299,6 +299,13 @@ class Run:
         # Exception handling
         self._handle_exception_throw(exc_type, value, traceback)
 
+        if exc_type:
+            click.secho(
+                f"[simvue] Operation failed with {exc_type.__name__}: {value}.",
+                fg="red" if self._term_color else None,
+                bold=self._term_color,
+            )
+
         self._tidy_run()
 
     @property
