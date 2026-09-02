@@ -54,6 +54,8 @@ def _execute_process(
 ) -> tuple[subprocess.Popen, threading.Thread | None]:
     thread_out = None
 
+    logger.debug(f"Launching process '{' '.join(command)}'.")
+
     with (
         pathlib.Path(f"{runner_name}_{proc_id}.err").open("w", encoding="utf-8") as err,
         pathlib.Path(f"{runner_name}_{proc_id}.out").open("w", encoding="utf-8") as out,

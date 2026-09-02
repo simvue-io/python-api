@@ -276,6 +276,12 @@ class Run:
             if _traceback_out
             else f"An exception was thrown: {_exception_thrown}"
         )
+        if exc_type:
+            click.secho(
+                f"[simvue] Operation failed with {exc_type.__name__}: {value}.\n{_event_msg}",
+                fg="red" if self._term_color else None,
+                bold=self._term_color,
+            )
 
         # If the dispatcher has already been aborted then this will
         # fail so just continue without the event
