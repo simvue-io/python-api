@@ -14,6 +14,7 @@ from collections.abc import Generator
 
 import requests
 from tenacity import (
+    RetryCallState,
     retry,
     retry_if_exception_type,
     stop_after_attempt,
@@ -46,6 +47,17 @@ class RetryableHTTPError(Exception):
     pass
 
 
+def _rewind_request_streams(retry_state: RetryCallState) -> None:
+    """Rewind file-like request bodies before retrying."""
+    files = retry_state.kwargs.get("files") or {}
+    streams = (*files.values(), retry_state.kwargs.get("data"))
+
+    for value in streams:
+        stream = value[1] if isinstance(value, tuple) else value
+        if callable(seek := getattr(stream, "seek", None)):
+            seek(0)
+
+
 @retry(
     wait=wait_exponential(multiplier=RETRY_MULTIPLIER, min=RETRY_MIN, max=RETRY_MAX),
     stop=stop_after_attempt(RETRY_STOP),
@@ -56,6 +68,7 @@ class RetryableHTTPError(Exception):
             requests.exceptions.ConnectionError,
         ),
     ),
+    before_sleep=_rewind_request_streams,
     reraise=True,
 )
 def post(
@@ -138,6 +151,7 @@ def post(
         ),
     ),
     stop=stop_after_attempt(RETRY_STOP),
+    before_sleep=_rewind_request_streams,
     reraise=True,
 )
 def put(
