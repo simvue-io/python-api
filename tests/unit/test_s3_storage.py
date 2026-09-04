@@ -54,7 +54,7 @@ def test_create_s3_offline(offline_cache_setup) -> None:
         region_name="eu-fiction-1",
         access_key_id="dummy_key",
         secret_access_key="not_a_key",
-        bucket="dummy_bucket",
+        bucket="dummy-bucket",
         is_default=False,
         is_tenant_useable=False,
         is_enabled=False,
