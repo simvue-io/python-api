@@ -280,7 +280,7 @@ class Client:
             count=count_limit,
             offset=start_index,
             attributes=json.dumps(attributes) if attributes is not None else None,
-            filters=json.dumps(filters) if filters is not None else None,
+            filters=json.dumps(filters),
             return_basic=True,
             return_system=system_info,
             return_timing=timing_info,
