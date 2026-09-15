@@ -2034,7 +2034,7 @@ wheels = [
 
 [[package]]
 name = "simvue"
-version = "2.5.9"
+version = "2.5.10"
 source = { editable = "." }
 dependencies = [
     { name = "click" },
@@ -2090,11 +2090,11 @@ dev = [
 [package.metadata]
 requires-dist = [
     { name = "click", specifier = ">=8.4.1,<9.0.0" },
-    { name = "deepmerge", specifier = ">=2.0,<3.0" },
+    { name = "deepmerge", specifier = ">=2.0,<4.0" },
     { name = "email-validator", specifier = ">=2.2.0,<3.0.0" },
     { name = "flatdict", specifier = "==4.1.0" },
     { name = "geocoder", specifier = ">=1.38.1,<2.0.0" },
-    { name = "gitpython", specifier = ">=3.1.57,<4.0.0" },
+    { name = "gitpython", specifier = ">=3.1.59,<4.0.0" },
     { name = "humanfriendly", specifier = ">=10.0,<11.0" },
     { name = "matplotlib", marker = "extra == 'plot'", specifier = ">=3.10.0,<4.0.0" },
     { name = "msgpack", specifier = ">=1.2.1" },
