@@ -8,7 +8,7 @@ import pydantic
 
 FOLDER_REGEX: str = r"^/.*"
 NAME_REGEX: str = r"^[a-zA-Z0-9\-\_\s\/\.:]+$"
-METRIC_KEY_REGEX: str = r"^[a-zA-Z0-9\-\_\s\/\.:=><+\(\)]+$"
+METRIC_KEY_REGEX: str = r"^[a-zA-Z0-9\-\_\s\/\.:=><+\(\)%]+$"
 DATETIME_FORMAT: str = "%Y-%m-%dT%H:%M:%S.%f"
 OBJECT_ID: str = r"^[A-Za-z0-9]{22}$"
 
