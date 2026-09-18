@@ -22,6 +22,7 @@ import traceback as tb
 import types
 import typing
 import uuid
+import warnings
 
 import click
 import humanfriendly
@@ -1930,6 +1931,7 @@ class Run:
         category: typing.Literal["input", "output", "code"],
         file_type: str | None = None,
         preserve_path: bool = False,
+        preserve_path_relative_to: typing.Literal["cwd", "git"] | None = None,
         snapshot: bool = False,
         name: typing.Annotated[str, pydantic.Field(pattern=NAME_REGEX)] | None = None,
         metadata: dict[str, typing.Any] | None = None,
@@ -1948,7 +1950,11 @@ class Run:
         file_type : str, optional
             the MIME file type else this is deduced, by default None
         preserve_path : bool, optional
-            whether to preserve the path during storage, by default False
+            (DEPRECATED) whether to preserve the path during storage, by default False
+        preserve_path_relative_to : Literal['cwd', 'git'] | None, optional
+            preserve the file name path relative to either the current
+            working directory 'cwd', or the closest identified Git project
+            root 'git'. Default is None, do not preserve path.
         snapshot : bool, optional
             whether to take a snapshot of the file before uploading, by default False
         name : str, optional
@@ -1962,6 +1968,15 @@ class Run:
             whether the upload was successful
 
         """
+        if preserve_path:
+            warnings.warn(
+                "Argument 'preserve_path' will be deprecated in Simvue Python API "
+                + "v2.6, use 'preserve_path_relative_to' instead. Naively assumining "
+                + "option 'cwd' for argument 'preserve_path_relative_to'.",
+                FutureWarning,
+                stacklevel=2,
+            )
+            preserve_path_relative_to = "cwd"
         if not self._sv_obj or not self.id:
             self._error("Cannot save files, run not initialised")
             return False
@@ -1970,18 +1985,29 @@ class Run:
             self._error("Cannot upload output files for runs in the created state")
             return False
 
-        _git_directory: pathlib.Path | None = find_first_instance_of_file(".git").parent
-        _project_root = _git_directory.parent if _git_directory else pathlib.Path.cwd()
-        _relative_path = file_path.relative_to(_project_root)
+        _relative_path: pathlib.Path | None = None
+        _stored_file_name: str | None = None
 
-        _stored_file_name: str = f"{_relative_path}"
+        if preserve_path_relative_to == "git":
+            _git_directory: pathlib.Path | None = find_first_instance_of_file(".git")
+            if not _git_directory:
+                self._error(
+                    f"Cannot save file '{file_path}' with path "
+                    + "preservation set to mode 'git', no Git project found."
+                )
+                return False
+            _relative_path: pathlib.Path = file_path.relative_to(_git_directory.parent)
+            _stored_file_name = f"{_relative_path}"
+        elif preserve_path_relative_to == "cwd":
+            _relative_path = file_path.relative_to(pathlib.Path.cwd())
+            _stored_file_name = f"{_relative_path}"
 
         # Windows Paths are not compatible so need to convert them
-        if platform.system() == "Windows":
+        if _relative_path and platform.system() == "Windows":
             _windows_path = pathlib.PureWindowsPath(_relative_path)
             _stored_file_name = _windows_path.as_posix()
 
-        if preserve_path and _stored_file_name.startswith("./"):
+        if _stored_file_name and _stored_file_name.startswith("./"):
             _stored_file_name = _stored_file_name[2:]
         elif not preserve_path:
             _stored_file_name = file_path.name
