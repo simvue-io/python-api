@@ -37,7 +37,11 @@ from simvue.api.objects.alert.fetch import Alert
 from simvue.api.objects.folder import Folder
 from simvue.api.objects.grids import GridMetrics
 from simvue.exception import ObjectDispatchError, ObjectNotFoundError, SimvueRunError
-from simvue.utilities import prettify_pydantic
+from simvue.utilities import (
+    find_first_instance_of_file,
+    prettify_pydantic,
+    skip_if_failed,
+)
 
 from .api.objects import (
     Events,
@@ -69,10 +73,6 @@ from .models import (
     validate_timestamp,
 )
 from .system import get_system
-from .utilities import (
-    find_first_instance_of_file,
-    skip_if_failed,
-)
 
 try:
     from typing import Self

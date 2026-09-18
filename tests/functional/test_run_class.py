@@ -25,9 +25,9 @@ from simvue.exception import ObjectNotFoundError, SimvueRunError
 from simvue.sender import Sender
 import simvue.run as sv_run
 import simvue.client as sv_cl
-import simvue.config.user as sv_cfg
 
 from simvue.api.objects import Run as RunObject
+from simvue.utilities import find_first_instance_of_file
 
 if typing.TYPE_CHECKING:
     from .conftest import CountingLogHandler
@@ -868,12 +868,21 @@ def test_save_file_online(
     empty_file: bool,
     category: typing.Literal["input", "output", "code"],
     snapshot: bool,
-    capfd,
     request,
+    mocker: pytest_mock.MockerFixture
 ) -> None:
     _uuid = f"{uuid.uuid4()}".split("-")[0]
     file_type: str = "text/plain" if valid_mimetype else "text/text"
     with tempfile.TemporaryDirectory() as tempd:
+        if preserve_path_relative_to == "cwd":
+            mocker.patch("pathlib.Path.cwd", lambda *_: pathlib.Path(tempd))
+        elif preserve_path_relative_to == "git":
+            _orig_find = find_first_instance_of_file
+            def _mock_find(file_names, *args, **kwargs):
+                if file_names == ".git":
+                    return pathlib.Path(tempd).joinpath(".git")
+                return _orig_find(file_names, *args, **kwargs)
+            mocker.patch("simvue.run.find_first_instance_of_file", _mock_find)
         out_name = pathlib.Path(tempd).joinpath("test_file.txt")
         if not empty_file:
             with out_name.open(
@@ -916,18 +925,16 @@ def test_save_file_online(
                     )
                 return
 
-            variable = capfd.readouterr()
         time.sleep(1.0)
         os.remove(out_name)
         client = sv_cl.Client()
         base_name = name or out_name.name
-        if preserve_path:
+        if preserve_path_relative_to:
             out_loc = pathlib.Path(tempd) / out_name.parent
             stored_name = out_name.parent / pathlib.Path(base_name)
         else:
             out_loc = pathlib.Path(tempd)
             stored_name = pathlib.Path(base_name)
-        out_file = out_loc.joinpath(name or out_name.name)
         client.get_artifact_as_file(
             run_id=simvue_run.id, name=f"{name or stored_name}", output_dir=tempd
         )
@@ -958,11 +965,22 @@ def test_save_file_offline(
     empty_file: bool,
     category: typing.Literal["input", "output", "code"],
     capfd,
+    mocker: pytest_mock.MockerFixture
 ) -> None:
     simvue_run, _ = create_plain_run_offline
     run_name = simvue_run.name
     file_type: str = "text/plain"
     with tempfile.TemporaryDirectory() as tempd:
+        out_name = pathlib.Path(tempd).joinpath("test_file.txt")
+        if preserve_path_relative_to == "cwd":
+            mocker.patch("pathlib.Path.cwd", lambda *_: pathlib.Path(tempd))
+        elif preserve_path_relative_to == "git":
+            _orig_find = find_first_instance_of_file
+            def _mock_find(file_names, *args, **kwargs):
+                if file_names == ".git":
+                    return pathlib.Path(tempd).joinpath(".git")
+                return _orig_find(file_names, *args, **kwargs)
+            mocker.patch("simvue.run.find_first_instance_of_file", _mock_find)
         out_name = pathlib.Path(tempd).joinpath("test_file.txt")
         if not empty_file:
             with out_name.open(
