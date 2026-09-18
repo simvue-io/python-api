@@ -12,6 +12,7 @@ import mimetypes
 import multiprocessing.synchronize
 import os
 import pathlib
+import platform
 import re
 import shlex
 import sys
@@ -68,6 +69,7 @@ from .models import (
 )
 from .system import get_system
 from .utilities import (
+    find_first_instance_of_file,
     skip_if_failed,
 )
 
@@ -278,7 +280,8 @@ class Run:
         )
         if exc_type:
             click.secho(
-                f"[simvue] Operation failed with {exc_type.__name__}: {value}.\n{_event_msg}",
+                f"[simvue] Operation failed with {exc_type.__name__}: "
+                + f"{value}.\n{_event_msg}",
                 fg="red" if self._term_color else None,
                 bold=self._term_color,
             )
@@ -1967,17 +1970,26 @@ class Run:
             self._error("Cannot upload output files for runs in the created state")
             return False
 
-        stored_file_name: str = f"{file_path}"
+        _git_directory: pathlib.Path | None = find_first_instance_of_file(".git").parent
+        _project_root = _git_directory.parent if _git_directory else pathlib.Path.cwd()
+        _relative_path = file_path.relative_to(_project_root)
 
-        if preserve_path and stored_file_name.startswith("./"):
-            stored_file_name = stored_file_name[2:]
+        _stored_file_name: str = f"{_relative_path}"
+
+        # Windows Paths are not compatible so need to convert them
+        if platform.system() == "Windows":
+            _windows_path = pathlib.PureWindowsPath(_relative_path)
+            _stored_file_name = _windows_path.as_posix()
+
+        if preserve_path and _stored_file_name.startswith("./"):
+            _stored_file_name = _stored_file_name[2:]
         elif not preserve_path:
-            stored_file_name = file_path.name
+            _stored_file_name = file_path.name
 
         try:
             # Register file
             _artifact = FileArtifact.new(
-                name=name or stored_file_name,
+                name=name or _stored_file_name,
                 storage=self._storage_id,
                 file_path=file_path,
                 offline=self.mode == "offline",
