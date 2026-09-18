@@ -981,7 +981,6 @@ def test_save_file_offline(
                     return pathlib.Path(tempd).joinpath(".git")
                 return _orig_find(file_names, *args, **kwargs)
             mocker.patch("simvue.run.find_first_instance_of_file", _mock_find)
-        out_name = pathlib.Path(tempd).joinpath("test_file.txt")
         if not empty_file:
             with out_name.open(
                 "w",
@@ -1010,7 +1009,7 @@ def test_save_file_offline(
         os.remove(out_name)
         client = sv_cl.Client()
         base_name = name or out_name.name
-        if preserve_path:
+        if preserve_path_relative_to:
             out_loc = pathlib.Path(tempd) / out_name.parent
             stored_name = out_name.parent / pathlib.Path(base_name)
         else:

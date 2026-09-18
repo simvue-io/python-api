@@ -1987,6 +1987,13 @@ class Run:
 
         _relative_path: pathlib.Path | None = None
         _stored_file_name: str | None = None
+        _name_search_path: pathlib.Path = file_path
+
+        # Windows Paths are not compatible so need to convert them
+        if platform.system() == "Windows":
+            _windows_path = pathlib.PureWindowsPath(file_path)
+            _stored_file_name = _windows_path.as_posix()
+            _name_search_path = pathlib.Path(_stored_file_name)
 
         if preserve_path_relative_to == "git":
             _git_directory: pathlib.Path | None = find_first_instance_of_file(".git")
@@ -1996,18 +2003,13 @@ class Run:
                     + "preservation set to mode 'git', no Git project found."
                 )
                 return False
-            _relative_path: pathlib.Path = file_path.resolve().relative_to(
+            _relative_path = _name_search_path.resolve().relative_to(
                 _git_directory.parent
             )
             _stored_file_name = f"{_relative_path}"
         elif preserve_path_relative_to == "cwd":
-            _relative_path = file_path.resolve().relative_to(pathlib.Path.cwd())
+            _relative_path = _name_search_path.resolve().relative_to(pathlib.Path.cwd())
             _stored_file_name = f"{_relative_path}"
-
-        # Windows Paths are not compatible so need to convert them
-        if platform.system() == "Windows":
-            _windows_path = pathlib.PureWindowsPath(file_path)
-            _stored_file_name = _windows_path.as_posix()
 
         if _stored_file_name and _stored_file_name.startswith("./"):
             _stored_file_name = _stored_file_name[2:]
