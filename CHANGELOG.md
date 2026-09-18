@@ -1,5 +1,11 @@
 # Change Log
 
+# Unreleased
+
+- Allow `%` in metric names.
+- Fix use of paths as artifact names for Windows systems.
+- Remove option for storage of full system path for security.
+
 ## [v2.5.10](https://github.com/simvue-io/python-api/releases/tag/v2.5.10) - 2026-08-10
 
 - Fix case where shell cannot be found for `add_process`.

@@ -12,6 +12,7 @@ import mimetypes
 import multiprocessing.synchronize
 import os
 import pathlib
+import platform
 import re
 import shlex
 import sys
@@ -21,6 +22,7 @@ import traceback as tb
 import types
 import typing
 import uuid
+import warnings
 
 import click
 import humanfriendly
@@ -35,7 +37,11 @@ from simvue.api.objects.alert.fetch import Alert
 from simvue.api.objects.folder import Folder
 from simvue.api.objects.grids import GridMetrics
 from simvue.exception import ObjectDispatchError, ObjectNotFoundError, SimvueRunError
-from simvue.utilities import prettify_pydantic
+from simvue.utilities import (
+    find_first_instance_of_file,
+    prettify_pydantic,
+    skip_if_failed,
+)
 
 from .api.objects import (
     Events,
@@ -67,9 +73,6 @@ from .models import (
     validate_timestamp,
 )
 from .system import get_system
-from .utilities import (
-    skip_if_failed,
-)
 
 try:
     from typing import Self
@@ -278,7 +281,8 @@ class Run:
         )
         if exc_type:
             click.secho(
-                f"[simvue] Operation failed with {exc_type.__name__}: {value}.\n{_event_msg}",
+                f"[simvue] Operation failed with {exc_type.__name__}: "
+                + f"{value}.\n{_event_msg}",
                 fg="red" if self._term_color else None,
                 bold=self._term_color,
             )
@@ -1927,6 +1931,7 @@ class Run:
         category: typing.Literal["input", "output", "code"],
         file_type: str | None = None,
         preserve_path: bool = False,
+        preserve_path_relative_to: typing.Literal["cwd", "git"] | None = None,
         snapshot: bool = False,
         name: typing.Annotated[str, pydantic.Field(pattern=NAME_REGEX)] | None = None,
         metadata: dict[str, typing.Any] | None = None,
@@ -1945,7 +1950,11 @@ class Run:
         file_type : str, optional
             the MIME file type else this is deduced, by default None
         preserve_path : bool, optional
-            whether to preserve the path during storage, by default False
+            (DEPRECATED) whether to preserve the path during storage, by default False
+        preserve_path_relative_to : Literal['cwd', 'git'] | None, optional
+            preserve the file name path relative to either the current
+            working directory 'cwd', or the closest identified Git project
+            root 'git'. Default is None, do not preserve path.
         snapshot : bool, optional
             whether to take a snapshot of the file before uploading, by default False
         name : str, optional
@@ -1959,6 +1968,15 @@ class Run:
             whether the upload was successful
 
         """
+        if preserve_path:
+            warnings.warn(
+                "Argument 'preserve_path' will be deprecated in Simvue Python API "
+                + "v2.6, use 'preserve_path_relative_to' instead. Naively assumining "
+                + "option 'cwd' for argument 'preserve_path_relative_to'.",
+                FutureWarning,
+                stacklevel=2,
+            )
+            preserve_path_relative_to = "cwd"
         if not self._sv_obj or not self.id:
             self._error("Cannot save files, run not initialised")
             return False
@@ -1967,17 +1985,41 @@ class Run:
             self._error("Cannot upload output files for runs in the created state")
             return False
 
-        stored_file_name: str = f"{file_path}"
+        _relative_path: pathlib.Path | None = None
+        _stored_file_name: str | None = None
+        _name_search_path: pathlib.Path = file_path
 
-        if preserve_path and stored_file_name.startswith("./"):
-            stored_file_name = stored_file_name[2:]
-        elif not preserve_path:
-            stored_file_name = file_path.name
+        # Windows Paths are not compatible so need to convert them
+        if platform.system() == "Windows":
+            _windows_path = pathlib.PureWindowsPath(file_path)
+            _stored_file_name = _windows_path.as_posix()
+            _name_search_path = pathlib.Path(_stored_file_name)
+
+        if preserve_path_relative_to == "git":
+            _git_directory: pathlib.Path | None = find_first_instance_of_file(".git")
+            if not _git_directory:
+                self._error(
+                    f"Cannot save file '{file_path}' with path "
+                    + "preservation set to mode 'git', no Git project found."
+                )
+                return False
+            _relative_path = _name_search_path.resolve().relative_to(
+                _git_directory.parent
+            )
+            _stored_file_name = f"{_relative_path}"
+        elif preserve_path_relative_to == "cwd":
+            _relative_path = _name_search_path.resolve().relative_to(pathlib.Path.cwd())
+            _stored_file_name = f"{_relative_path}"
+
+        if _stored_file_name and _stored_file_name.startswith("./"):
+            _stored_file_name = _stored_file_name[2:]
+        elif not preserve_path_relative_to:
+            _stored_file_name = file_path.name
 
         try:
             # Register file
             _artifact = FileArtifact.new(
-                name=name or stored_file_name,
+                name=name or _stored_file_name,
                 storage=self._storage_id,
                 file_path=file_path,
                 offline=self.mode == "offline",
