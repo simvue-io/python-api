@@ -1996,20 +1996,22 @@ class Run:
                     + "preservation set to mode 'git', no Git project found."
                 )
                 return False
-            _relative_path: pathlib.Path = file_path.relative_to(_git_directory.parent)
+            _relative_path: pathlib.Path = file_path.resolve().relative_to(
+                _git_directory.parent
+            )
             _stored_file_name = f"{_relative_path}"
         elif preserve_path_relative_to == "cwd":
-            _relative_path = file_path.relative_to(pathlib.Path.cwd())
+            _relative_path = file_path.resolve().relative_to(pathlib.Path.cwd())
             _stored_file_name = f"{_relative_path}"
 
         # Windows Paths are not compatible so need to convert them
-        if _relative_path and platform.system() == "Windows":
-            _windows_path = pathlib.PureWindowsPath(_relative_path)
+        if platform.system() == "Windows":
+            _windows_path = pathlib.PureWindowsPath(file_path)
             _stored_file_name = _windows_path.as_posix()
 
         if _stored_file_name and _stored_file_name.startswith("./"):
             _stored_file_name = _stored_file_name[2:]
-        elif not preserve_path:
+        elif not preserve_path_relative_to:
             _stored_file_name = file_path.name
 
         try:
