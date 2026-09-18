@@ -851,21 +851,20 @@ def test_set_folder_details(request: pytest.FixtureRequest) -> None:
     "snapshot", (True, False)
 )
 @pytest.mark.parametrize(
-    "valid_mimetype,preserve_path,name,allow_pickle,empty_file,category",
+    "valid_mimetype,preserve_path_relative_to,name,empty_file,category",
     [
-        (True, False, None, False, False, "input"),
-        (False, True, None, False, False, "output"),
-        (False, False, "test_file", False, False, "code"),
-        (False, False, None, True, False, "input"),
-        (False, False, None, False, True, "code"),
+        (True, None, None, False, "input"),
+        (False, "git", None, False, "output"),
+        (False, "cwd", "test_file", False, "code"),
+        (False, "git", None, False, "input"),
+        (False, None, None, True, "code"),
     ],
     ids=[f"scenario_{i}" for i in range(1, 6)],
 )
 def test_save_file_online(
     valid_mimetype: bool,
-    preserve_path: bool,
+    preserve_path_relative_to: typing.Literal["git", "cwd"] | None,
     name: str | None,
-    allow_pickle: bool,
     empty_file: bool,
     category: typing.Literal["input", "output", "code"],
     snapshot: bool,
@@ -900,7 +899,7 @@ def test_save_file_online(
                     out_name,
                     category=category,
                     file_type=file_type,
-                    preserve_path=preserve_path,
+                    preserve_path_relative_to=preserve_path_relative_to,
                     name=name,
                     snapshot=snapshot
                 )
@@ -910,7 +909,7 @@ def test_save_file_online(
                         out_name,
                         category=category,
                         file_type=file_type,
-                        preserve_path=preserve_path,
+                        preserve_path_relative_to=preserve_path_relative_to,
                     )
                 return
 
@@ -938,22 +937,20 @@ def test_save_file_online(
     "snapshot", (True, False)
 )
 @pytest.mark.parametrize(
-    "preserve_path,name,allow_pickle,empty_file,category",
+    "preserve_path_relative_to,name,empty_file,category",
     [
-        (False, None, False, False, "input"),
-        (True, None, False, False, "output"),
-        (False, "test_file", False, False, "code"),
-        (False, None, True, False, "input"),
-        (False, None, False, True, "code"),
+        ("git", None, False, "input"),
+        ("cwd", None, False, "output"),
+        (None, "test_file", False, "code"),
+        ("git", None, False, "input"),
+        (None, None, True, "code"),
     ],
     ids=[f"scenario_{i}" for i in range(1, 6)],
 )
 def test_save_file_offline(
     create_plain_run_offline: tuple[sv_run.Run, dict],
-    preserve_path: bool,
+    preserve_path_relative_to: typing.Literal["git", "cwd"] | None,
     name: str | None,
-    allow_pickle: bool,
-    empty_file: bool,
     snapshot: bool,
     category: typing.Literal["input", "output", "code"],
     capfd,
@@ -972,7 +969,7 @@ def test_save_file_offline(
             out_name,
             category=category,
             file_type=file_type,
-            preserve_path=preserve_path,
+            preserve_path_relative_to=preserve_path_relative_to,
             name=name,
             snapshot=snapshot
         )
