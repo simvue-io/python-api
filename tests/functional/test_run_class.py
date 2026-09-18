@@ -874,11 +874,14 @@ def test_save_file_online(
     _uuid = f"{uuid.uuid4()}".split("-")[0]
     file_type: str = "text/plain" if valid_mimetype else "text/text"
     with tempfile.TemporaryDirectory() as tempd:
-        with open(
-            (out_name := pathlib.Path(tempd).joinpath("test_file.txt")),
-            "w",
-        ) as out_f:
-            out_f.write("" if empty_file else "test data entry")
+        out_name = pathlib.Path(tempd).joinpath("test_file.txt")
+        if not empty_file:
+            with out_name.open(
+                "w",
+            ) as out_f:
+                out_f.write("test data entry")
+        else:
+            out_name.touch()
         with sv_run.Run() as simvue_run:
             folder_name: str = f"/simvue_unit_testing/{_uuid}"
             tags: list[str] = [
@@ -952,6 +955,7 @@ def test_save_file_offline(
     preserve_path_relative_to: typing.Literal["git", "cwd"] | None,
     name: str | None,
     snapshot: bool,
+    empty_file: bool,
     category: typing.Literal["input", "output", "code"],
     capfd,
 ) -> None:
@@ -959,11 +963,14 @@ def test_save_file_offline(
     run_name = simvue_run.name
     file_type: str = "text/plain"
     with tempfile.TemporaryDirectory() as tempd:
-        with open(
-            (out_name := pathlib.Path(tempd).joinpath("test_file.txt")),
-            "w",
-        ) as out_f:
-            out_f.write("test data entry")
+        out_name = pathlib.Path(tempd).joinpath("test_file.txt")
+        if not empty_file:
+            with out_name.open(
+                "w",
+            ) as out_f:
+                out_f.write("test data entry")
+        else:
+            out_name.touch()
 
         simvue_run.save_file(
             out_name,
