@@ -1387,10 +1387,13 @@ def test_abort_on_alert_process(mocker: pytest_mock.MockerFixture) -> None:
     run.add_process(
         identifier=f"forever_long_{os.environ.get('PYTEST_XDIST_WORKER', 0)}",
         executable="bash",
-        c="&".join(["sleep 10"] * N_PROCESSES),
+        c="&".join(["sleep 100"] * N_PROCESSES),
     )
     process_id = list(run._executor._processes.values())[0].pid
-    process = psutil.Process(process_id)
+    try:
+        process = psutil.Process(process_id)
+    except psutil.NoSuchProcess:
+        raise RuntimeError("Test failed due to process termination before assertion.")
     assert len(child_processes := process.children(recursive=True)) == 3
     time.sleep(2)
     client = sv_cl.Client()
@@ -1436,46 +1439,61 @@ def test_abort_on_alert_python(
 @pytest.mark.run
 @pytest.mark.online
 def test_abort_on_alert_raise(
-    create_plain_run: tuple[sv_run.Run, dict]
 ) -> None:
+    _uuid = f"{uuid.uuid4()}".split("-")[0]
+    with simvue.Run() as run:
+        run.init(
+            name="test_kill_all_processes",
+            folder=f"/simvue_unit_testing/{_uuid}",
+            retention_period=os.environ.get("SIMVUE_TESTING_RETENTION_PERIOD", "2 mins"),
+            timeout=None,
+            visibility="tenant" if os.environ.get("CI") else None,
+        )
 
-    run, _ = create_plain_run
-    run.config(system_metrics_interval=1)
-    run._heartbeat_interval = 1
-    run._testing = True
-    alert_id = run.create_user_alert("abort_test", trigger_abort=True)
-    run.add_process(identifier=f"forever_long_other_{os.environ.get('PYTEST_XDIST_WORKER', 0)}", executable="bash", c="sleep 10")
-    run.log_alert(identifier=alert_id, state="critical")
-    _alert = Alert(identifier=alert_id)
-    assert _alert.get_status(run.id) == "critical"
-    counter = 0
-    while run._status != "terminated" and counter < 15:
-        time.sleep(1)
-        assert run._sv_obj.abort_trigger, "Abort trigger was not set"
-        counter += 1
-    if counter >= 15:
-        run.kill_all_processes()
-        raise AssertionError("Run was not terminated")
+        run.config(system_metrics_interval=1)
+        run._heartbeat_interval = 1
+        run._testing = True
+        alert_id = run.create_user_alert("abort_test", trigger_abort=True)
+        run.add_process(identifier=f"forever_long_other_{os.environ.get('PYTEST_XDIST_WORKER', 0)}", executable="bash", c="sleep 10")
+        run.log_alert(identifier=alert_id, state="critical")
+        _alert = Alert(identifier=alert_id)
+        assert _alert.get_status(run.id) == "critical"
+        counter = 0
+        while run._status != "terminated" and counter < 15:
+            time.sleep(1)
+            assert run._sv_obj.abort_trigger, "Abort trigger was not set"
+            counter += 1
+        if counter >= 15:
+            run.kill_all_processes()
+            raise AssertionError("Run was not terminated")
 
 
 @pytest.mark.run
 @pytest.mark.online
-def test_kill_all_processes(create_plain_run: tuple[sv_run.Run, dict]) -> None:
-    run, _ = create_plain_run
-    run.config(system_metrics_interval=1)
-    run.add_process(identifier=f"forever_long_a_{os.environ.get('PYTEST_XDIST_WORKER', 0)}", executable="bash", c="sleep 10000")
-    run.add_process(identifier=f"forever_long_b_{os.environ.get('PYTEST_XDIST_WORKER', 0)}", executable="bash", c="sleep 10000")
-    parent_processes: list[Process] = []
-    for process in run._executor._processes.values():
-        with contextlib.suppress(psutil.NoSuchProcess):
-            parent_processes.append(psutil.Process(process.pid))
+def test_kill_all_processes() -> None:
+    _uuid = f"{uuid.uuid4()}".split("-")[0]
+    with simvue.Run() as run:
+        run.init(
+            name="test_kill_all_processes",
+            folder=f"/simvue_unit_testing/{_uuid}",
+            retention_period=os.environ.get("SIMVUE_TESTING_RETENTION_PERIOD", "2 mins"),
+            timeout=None,
+            visibility="tenant" if os.environ.get("CI") else None,
+        )
+        run.config(system_metrics_interval=1)
+        run.add_process(identifier=f"forever_long_a_{os.environ.get('PYTEST_XDIST_WORKER', 0)}", executable="bash", c="sleep 10000")
+        run.add_process(identifier=f"forever_long_b_{os.environ.get('PYTEST_XDIST_WORKER', 0)}", executable="bash", c="sleep 10000")
+        parent_processes: list[Process] = []
+        for process in run._executor._processes.values():
+            with contextlib.suppress(psutil.NoSuchProcess):
+                parent_processes.append(psutil.Process(process.pid))
 
-    processes = list(parent_processes)
-    for process in parent_processes:
-        processes.extend(process.children(recursive=True))
-    run.kill_all_processes()
-    for process in processes:
-        assert not process.is_running()
+        processes = list(parent_processes)
+        for process in parent_processes:
+            processes.extend(process.children(recursive=True))
+        run.kill_all_processes()
+        for process in processes:
+            assert not process.is_running()
 
 
 @pytest.mark.run
