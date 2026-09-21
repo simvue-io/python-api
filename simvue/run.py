@@ -1502,22 +1502,24 @@ class Run:
             return True
 
         if not self._sv_obj or not self._dispatcher:
-            self._error("Cannot log metrics, run not initialised", join_on_fail)
+            self._error(
+                "Cannot log metrics, run not initialised", join_threads=join_on_fail
+            )
             return False
 
         if not self._active:
-            self._error("Run is not active", join_on_fail)
+            self._error("Run is not active", join_threads=join_on_fail)
             return False
 
         if self._status != "running":
             self._error(
                 "Cannot log metrics when not in the running state",
-                join_on_fail,
+                join_threads=join_on_fail,
             )
             return False
 
         if isinstance(timestamp, str) and not validate_timestamp(timestamp):
-            self._error("Invalid timestamp format", join_on_fail)
+            self._error("Invalid timestamp format", join_threads=join_on_fail)
             return False
 
         _data: dict[str, typing.Any] = {
@@ -1557,22 +1559,24 @@ class Run:
             return True
 
         if not self._sv_obj or not self._dispatcher:
-            self._error("Cannot log tensors, run not initialised", join_on_fail)
+            self._error(
+                "Cannot log tensors, run not initialised", join_threads=join_on_fail
+            )
             return False
 
         if not self._active:
-            self._error("Run is not active", join_on_fail)
+            self._error("Run is not active", join_threads=join_on_fail)
             return False
 
         if self._status != "running":
             self._error(
                 "Cannot log tensors when not in the running state",
-                join_on_fail,
+                join_threads=join_on_fail,
             )
             return False
 
         if isinstance(timestamp, str) and not validate_timestamp(timestamp):
-            self._error("Invalid timestamp format", join_on_fail)
+            self._error("Invalid timestamp format", join_threads=join_on_fail)
             return False
 
         for tensor, array in tensors.items():
