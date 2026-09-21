@@ -9,6 +9,7 @@ import logging
 import mimetypes
 import os
 import pathlib
+import platform
 import typing
 
 import jwt
@@ -417,3 +418,62 @@ staging_merger = Merger(
     # the case where the types conflict:
     ["override"],
 )
+
+
+def get_file_artifact_storage_name(
+    preserve_path_relative_to: typing.Literal["git", "cwd"] | None,
+    file_path: pathlib.Path,
+) -> str:
+    """Get the default name for a file artifact from the file path.
+
+    For security the full path on the file system is not stored, instead
+    a relative path is used with respect to either the current working directory
+    or the Git project root directory.
+
+    Parameters
+    ----------
+    preserve_path_relative_to : Literal['git', 'cwd'] | None
+        get relative path as name either relative to the Git project root, or the
+        current working directory. If None, just use the file name.
+    file_path : pathlib.Path
+        the path of the target file to save.
+
+    Returns
+    -------
+    str
+        the name for the artifact.
+
+    Raises
+    ------
+        RuntimeError
+            If 'git' is selected as the root, and the file is not part of a Git project.
+    """
+    _relative_path: pathlib.Path | None = None
+    _stored_file_name: str | None = None
+    _name_search_path: pathlib.Path = file_path
+
+    # Windows Paths are not compatible so need to convert them
+    if platform.system() == "Windows":
+        _windows_path = pathlib.PureWindowsPath(file_path)
+        _stored_file_name = _windows_path.as_posix()
+        _name_search_path = pathlib.Path(_stored_file_name)
+
+    if preserve_path_relative_to == "git":
+        _git_directory: pathlib.Path | None = find_first_instance_of_file(".git")
+        if not _git_directory:
+            raise RuntimeError(
+                f"Cannot save file '{file_path}' with path "
+                + "preservation set to mode 'git', no Git project found."
+            )
+        _relative_path = _name_search_path.resolve().relative_to(_git_directory.parent)
+        _stored_file_name = f"{_relative_path}"
+    elif preserve_path_relative_to == "cwd":
+        _relative_path = _name_search_path.resolve().relative_to(pathlib.Path.cwd())
+        _stored_file_name = f"{_relative_path}"
+    else:
+        _stored_file_name = file_path.name
+
+    if _stored_file_name and _stored_file_name.startswith("./"):
+        _stored_file_name = _stored_file_name[2:]
+
+    return _stored_file_name

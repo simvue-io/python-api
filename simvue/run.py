@@ -12,7 +12,6 @@ import mimetypes
 import multiprocessing.synchronize
 import os
 import pathlib
-import platform
 import re
 import shlex
 import sys
@@ -38,7 +37,7 @@ from simvue.api.objects.folder import Folder
 from simvue.api.objects.grids import GridMetrics
 from simvue.exception import ObjectDispatchError, ObjectNotFoundError, SimvueRunError
 from simvue.utilities import (
-    find_first_instance_of_file,
+    get_file_artifact_storage_name,
     prettify_pydantic,
     skip_if_failed,
 )
@@ -1977,6 +1976,10 @@ class Run:
                 stacklevel=2,
             )
             preserve_path_relative_to = "cwd"
+
+        _stored_file_name = get_file_artifact_storage_name(
+            preserve_path_relative_to=preserve_path_relative_to, file_path=file_path
+        )
         if not self._sv_obj or not self.id:
             self._error("Cannot save files, run not initialised")
             return False
@@ -1984,37 +1987,6 @@ class Run:
         if self._status == "created" and category == "output":
             self._error("Cannot upload output files for runs in the created state")
             return False
-
-        _relative_path: pathlib.Path | None = None
-        _stored_file_name: str | None = None
-        _name_search_path: pathlib.Path = file_path
-
-        # Windows Paths are not compatible so need to convert them
-        if platform.system() == "Windows":
-            _windows_path = pathlib.PureWindowsPath(file_path)
-            _stored_file_name = _windows_path.as_posix()
-            _name_search_path = pathlib.Path(_stored_file_name)
-
-        if preserve_path_relative_to == "git":
-            _git_directory: pathlib.Path | None = find_first_instance_of_file(".git")
-            if not _git_directory:
-                self._error(
-                    f"Cannot save file '{file_path}' with path "
-                    + "preservation set to mode 'git', no Git project found."
-                )
-                return False
-            _relative_path = _name_search_path.resolve().relative_to(
-                _git_directory.parent
-            )
-            _stored_file_name = f"{_relative_path}"
-        elif preserve_path_relative_to == "cwd":
-            _relative_path = _name_search_path.resolve().relative_to(pathlib.Path.cwd())
-            _stored_file_name = f"{_relative_path}"
-
-        if _stored_file_name and _stored_file_name.startswith("./"):
-            _stored_file_name = _stored_file_name[2:]
-        elif not preserve_path_relative_to:
-            _stored_file_name = file_path.name
 
         try:
             # Register file
