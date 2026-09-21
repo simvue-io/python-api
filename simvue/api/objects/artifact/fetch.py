@@ -215,10 +215,13 @@ class Artifact:
             headers=_config.headers,
             verify=_config.server_verify,
         )
+        if _response.status_code == http.HTTPStatus.NOT_FOUND:
+            return None
+
         _json_response = get_json_from_response(
             expected_type=list,
             response=_response,
-            expected_status=[http.HTTPStatus.OK, http.HTTPStatus.NOT_FOUND],
+            expected_status=[http.HTTPStatus.OK],
             scenario=f"Retrieval of artifact '{name}' for run '{run_id}'",
         )
 
