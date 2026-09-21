@@ -22,9 +22,9 @@ BASE_MODEL_CONFIG = pydantic.ConfigDict(extra="forbid", strict=True)
 
 
 class MetadataSpecifications(pydantic.BaseModel):
-    environment: bool = True
-    git: bool = True
-    system: bool = True
+    environment: bool = os.environ.get("SIMVUE_DISABLE_ENVIRONMENT_METRICS") is None
+    git: bool = os.environ.get("SIMVUE_DISABLE_GIT_METRICS") is None
+    system: bool = os.environ.get("SIMVUE_DISABLE_SYSTEM_METRICS") is None
     record_shell_vars: list[str] | None = None
     custom: dict[str, str | int | float | bool] | None = None
 
