@@ -465,10 +465,14 @@ def get_file_artifact_storage_name(
                 f"Cannot save file '{file_path}' with path "
                 + "preservation set to mode 'git', no Git project found."
             )
-        _relative_path = _name_search_path.resolve().relative_to(_git_directory.parent)
+        _relative_path = _name_search_path.resolve().relative_to(
+            _git_directory.parent.resolve()
+        )
         _stored_file_name = f"{_relative_path}"
     elif preserve_path_relative_to == "cwd":
-        _relative_path = _name_search_path.resolve().relative_to(pathlib.Path.cwd())
+        _relative_path = _name_search_path.resolve().relative_to(
+            pathlib.Path.cwd().resolve()
+        )
         _stored_file_name = f"{_relative_path}"
     else:
         _stored_file_name = file_path.name
