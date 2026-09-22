@@ -52,7 +52,7 @@ def test_js_env() -> None:
 @pytest.mark.metadata
 @pytest.mark.local
 def test_environment() -> None:
-    metadata = sv_meta.environment(pathlib.Path(__file__).parents[1].joinpath("example_data"))
+    metadata = sv_meta.environment(repository=pathlib.Path(__file__).parents[1].joinpath("example_data"))
     assert metadata["python"]["project"]["name"] == "example-repo"
     assert metadata["rust"]["project"]["name"] == "example_project"
     assert metadata["julia"]["project"]["name"] == "Julia Demo Project"

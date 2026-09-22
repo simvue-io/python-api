@@ -1566,7 +1566,7 @@ def test_env_var_metadata() -> None:
     }
     os.environ.update(_recorded_env)
     with simvue.Run() as run:
-        run.init(
+        _ = run.init(
             name="test_reconnect",
             folder="/simvue_unit_testing",
             retention_period="2 minutes",
@@ -1575,6 +1575,7 @@ def test_env_var_metadata() -> None:
             record_shell_vars={"SIMVUE_RUN_TEST_VAR_*"}
         )
     _recorded_meta = RunObject(identifier=run.id).metadata
+    assert "shell" in _recorded_meta
     assert all(key in _recorded_meta.get("shell") for key in _recorded_env)
 
 @pytest.mark.run
@@ -1630,7 +1631,7 @@ def test_run_environment_metadata(environment: str, mocker: pytest_mock.MockerFi
             running=False,
             visibility="tenant" if os.environ.get("CI") else None,
         )
-        run.update_metadata(env_func(_target_dir))
+        run.update_metadata(env_func(repository=_target_dir))
 
 
 @pytest.mark.online

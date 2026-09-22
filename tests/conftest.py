@@ -168,8 +168,11 @@ def create_test_run_offline(request, monkeypatch: pytest.MonkeyPatch, prevent_sc
 
 
 @pytest.fixture
-def create_plain_run(request, prevent_script_exit, mocker) -> Generator[tuple[sv_run.Run, dict]]:
+def create_plain_run(request, prevent_script_exit, mocker, monkeypatch) -> Generator[tuple[sv_run.Run, dict]]:
     _ = prevent_script_exit
+    monkeypatch.setenv("SIMVUE_DISABLE_ENVIRONMENT_METRICS", "True")
+    monkeypatch.setenv("SIMVUE_DISABLE_GIT_METRICS", "True")
+    monkeypatch.setenv("SIMVUE_DISABLE_SYSTEM_METRICS", "True")
     def testing_exit(status: int) -> None:
         raise SystemExit(status)
     with sv_run.Run() as run:
