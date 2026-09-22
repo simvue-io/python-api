@@ -1566,7 +1566,7 @@ def test_env_var_metadata() -> None:
     }
     os.environ.update(_recorded_env)
     with simvue.Run() as run:
-        run.init(
+        _ = run.init(
             name="test_reconnect",
             folder="/simvue_unit_testing",
             retention_period="2 minutes",
@@ -1575,6 +1575,7 @@ def test_env_var_metadata() -> None:
             record_shell_vars={"SIMVUE_RUN_TEST_VAR_*"}
         )
     _recorded_meta = RunObject(identifier=run.id).metadata
+    assert "shell" in _recorded_meta
     assert all(key in _recorded_meta.get("shell") for key in _recorded_env)
 
 @pytest.mark.run

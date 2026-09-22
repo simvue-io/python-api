@@ -824,6 +824,7 @@ class Run:
         self._sv_obj.alerts = []
         self._sv_obj.created = time.time()
         self._sv_obj.notifications = notification
+        self._sv_obj.metadata = _session_metadata
 
         if self._status == "running" and self._user_config.run.metadata.system:
             self._sv_obj.system = get_system()

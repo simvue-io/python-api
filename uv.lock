@@ -2101,7 +2101,7 @@ requires-dist = [
     { name = "numpy", specifier = ">=2.0.0,<3.0.0" },
     { name = "pandas", specifier = ">=2.2.3,<3.0.6" },
     { name = "pip", specifier = ">=26.1.2" },
-    { name = "plotly", marker = "extra == 'plot'", specifier = ">=6.0.0,<7.0.0" },
+    { name = "plotly", marker = "extra == 'plot'", specifier = ">=6.0.0,<8.0.0" },
     { name = "psutil", specifier = ">=6.1.1,<8.0.0" },
     { name = "pydantic", specifier = ">=2.11,<3.0.0" },
     { name = "pydantic-extra-types", specifier = ">=2.10.5,<3.0.0" },
