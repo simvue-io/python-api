@@ -18,7 +18,7 @@ from simvue.utilities import get_expiry
 
 logger = logging.getLogger(__name__)
 
-BASE_MODEL_CONFIG = pydantic.ConfigDict(extra="forbid", strict=True)
+BASE_MODEL_CONFIG = pydantic.ConfigDict(extra="forbid")
 
 
 class MetadataSpecifications(pydantic.BaseModel):
@@ -56,7 +56,9 @@ class CertificateSpecifications(pydantic.BaseModel):
 
 
 class ServerSpecifications(pydantic.BaseModel):
-    model_config: typing.ClassVar[pydantic.ConfigDict] = BASE_MODEL_CONFIG
+    model_config: typing.ClassVar[pydantic.ConfigDict] = BASE_MODEL_CONFIG | {
+        "extra": "forbid"
+    }
     url: pydantic.AnyHttpUrl | None
     token: pydantic.SecretStr | None
     env: dict[str, str] | None = None
