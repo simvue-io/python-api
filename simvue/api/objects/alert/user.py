@@ -5,14 +5,13 @@ Class for connecting with a local/remote user defined alert.
 """
 
 import typing
-from typing import cast
 
 import pydantic
 
 try:
     from typing import Self, override
 except ImportError:
-    from typing_extensions import Self, override  # noqa: UP035
+    from typing_extensions import Self, override
 import http
 
 from simvue.api.request import get_json_from_response
@@ -23,34 +22,49 @@ from .base import AlertBase
 
 
 class UserAlert(AlertBase):
-    """
-    Simvue User Alert
-    =================
+    """Simvue User Alert.
 
     This class is used to connect to/create user alert objects on the Simvue server,
     any modification of UserAlert instance attributes is mirrored on the remote object.
 
     """
 
-    def __init__(self, identifier: str | None = None, **kwargs) -> None:
-        """Initialise a User Alert
+    @override
+    def __init__(
+        self,
+        identifier: str | None = None,
+        server_url: str | None = None,
+        server_token: pydantic.SecretStr | None = None,
+        **kwargs,
+    ) -> None:
+        """Initialise a User Alert.
 
         If an identifier is provided a connection will be made to the
         object matching the identifier on the target server.
-        Else a new UserAlert instance will be created using arguments provided in kwargs.
+        Else a new UserAlert instance will be created using arguments
+        provided in kwargs.
 
         Parameters
         ----------
         identifier : str, optional
             the remote server unique id for the target folder
+        server_url: str | None, optional
+            alternative server URL, default None
+        server_token : str | None, optional
+            token for alternative server, default None
         **kwargs : dict
             any additional arguments to be passed to the object initialiser
-        """
-        super().__init__(identifier, **kwargs)
-        self._local_status: dict[str, str | None] = cast(
-            "dict[str, str | None]", kwargs.pop("status", {})
-        )
 
+        """
+        super().__init__(
+            identifier,
+            server_url=server_url,
+            server_token=server_token,
+            **kwargs,
+        )
+        self._local_status: dict[str, str | None] = kwargs.pop("status", {})
+
+    @override
     @classmethod
     @pydantic.validate_call
     @override
@@ -62,7 +76,9 @@ class UserAlert(AlertBase):
         notification: typing.Literal["none", "email"],
         enabled: bool = True,
         offline: bool = False,
-        **_: object,
+        server_url: str | None = None,
+        server_token: pydantic.SecretStr | None = None,
+        **_,
     ) -> Self:
         """Create a new user-defined alert.
 
@@ -80,14 +96,20 @@ class UserAlert(AlertBase):
             whether this alert is enabled upon creation, default is True
         offline : bool, optional
             whether this alert should be created locally, default is False
+        server_url: str | None, optional
+            alternative server URL, default None
+        server_token : str | None, optional
+            token for alternative server, default None
 
         """
-        _alert = UserAlert(
+        _alert = cls(
             name=name,
             description=description,
             notification=notification,
             source="user",
             enabled=enabled,
+            server_url=server_url,
+            server_token=server_token,
             _read_only=False,
             _offline=offline,
         )
@@ -103,7 +125,9 @@ class UserAlert(AlertBase):
     @classmethod
     @override
     def get(
-        cls, count: int | None = None, offset: int | None = None
+        cls,
+        count: int | None = None,
+        offset: int | None = None,
     ) -> dict[str, typing.Any]:
         """Return only UserAlerts."""
         raise NotImplementedError("Retrieve of only user alerts is not yet supported")
@@ -131,11 +155,17 @@ class UserAlert(AlertBase):
                 self._staging["status"] = {}
             self._staging["status"][run_id] = status
             return
+        if run_id.startswith("offline"):
+            raise ValueError(
+                f"Cannot set status of online alert '{self.id}' for "
+                f"offline run '{run_id}'",
+            )
 
         _response = sv_put(
             url=self.url / "status" / run_id,
             data={"status": status},
             headers=self._headers,
+            verify=self._user_config.server_verify,
         )
 
         get_json_from_response(

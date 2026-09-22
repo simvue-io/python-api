@@ -15,6 +15,6 @@ def test_pytorch_tensor_mime_type() -> None:
     """
     torch.manual_seed(1724)
     array = torch.rand(2, 3)
-    _, mime_type = serialize_object(array, False)
+    _, mime_type = serialize_object(array, allow_pickle=False)
 
     assert (mime_type == 'application/vnd.simvue.torch.v1')

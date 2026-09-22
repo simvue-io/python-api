@@ -1,6 +1,12 @@
-"""Object artifact handling."""
+"""Simvue Object Artifacts.
+
+Classes for interacting with object based artifacts defined
+locally or on a Simvue server
+
+"""
 
 import io
+import pathlib
 import sys
 import typing
 
@@ -8,59 +14,57 @@ import pydantic
 
 from simvue.models import NAME_REGEX
 from simvue.serialization import serialize_object
-from simvue.utilities import calculate_sha256
+from simvue.utilities import calculate_object_sha256
 
 from .base import ArtifactBase
 
-if typing.TYPE_CHECKING:
-    import pathlib
-
-    from _typeshed import ReadableBuffer
-
 try:
-    from typing import Self
+    from typing import Self, override
 except ImportError:
-    from typing import Self
-
-try:
-    from typing import override
-except ImportError:
-    from typing_extensions import override  # noqa: UP035
+    from typing_extensions import Self, override
 
 
 class ObjectArtifact(ArtifactBase):
+    """Simvue Object Artifact.
+
+    This class is used to connect to/create file object artifact
+    objects on the Simvue server, any modification of instance
+    attributes is mirrored on the remote object.
+
     """
-    Simvue Object Artifact
-    ======================
 
-    This class is used to connect to/create file object artifact objects on the Simvue server,
-    any modification of instance attributes is mirrored on the remote object.
-
-    """
-
+    @override
     def __init__(
         self,
         identifier: str | None = None,
         *,
-        _read_only: bool = True,
-        **kwargs: object,
+        server_url: str | None = None,
+        server_token: pydantic.SecretStr | None = None,
+        **kwargs,
     ) -> None:
-        """Initialise a Object Artifact
+        """Initialise a Object Artifact.
 
         If an identifier is provided a connection will be made to the
         object matching the identifier on the target server.
-        Else a new ObjectArtifact instance will be created using arguments provided in kwargs.
+        Else a new ObjectArtifact instance will be created using
+        arguments provided in kwargs.
 
         Parameters
         ----------
         identifier : str, optional
             the remote server unique id for the target folder
+        server_url: str | None, optional
+            alternative server URL, default None
+        server_token : str | None, optional
+            token for alternative server, default None
         **kwargs : dict
             any additional arguments to be passed to the object initialiser
-        """
-        _ = kwargs.pop("original_path", None)
-        super().__init__(identifier, _read_only=_read_only, original_path="", **kwargs)
 
+        """
+        kwargs.pop("original_path", None)
+        super().__init__(identifier, original_path="", **kwargs)
+
+    @override
     @classmethod
     @pydantic.validate_call
     @override
@@ -74,7 +78,9 @@ class ObjectArtifact(ArtifactBase):
         upload_timeout: int | None = None,
         allow_pickling: bool = True,
         offline: bool = False,
-        **kwargs: object,
+        server_url: str | None = None,
+        server_token: pydantic.SecretStr | None = None,
+        **kwargs: typing.Any,
     ) -> Self:
         """Create a new artifact either locally or on the server.
 
@@ -97,6 +103,17 @@ class ObjectArtifact(ArtifactBase):
             serialization found. Default is True
         offline : bool, optional
             whether to define this artifact locally, default is False
+        server_url: str | None, optional
+            alternative server URL, default None
+        server_token : str | None, optional
+            token for alternative server, default None
+        **kwargs : Any
+            additional arguments for initialisation
+
+        Returns
+        -------
+        ObjectArtifact
+            an object representing the artifact
 
         """
         # If the object has been saved as a bytes file, obj will be None
@@ -107,33 +124,35 @@ class ObjectArtifact(ArtifactBase):
                 _checksum = kwargs.pop("checksum")
                 _ = kwargs.pop("size")
                 _ = kwargs.pop("original_path")
-            except KeyError as e:
-                raise ValueError("Must provide an object to be saved, not None.") from e
+            except KeyError:
+                raise ValueError(
+                    "Must provide an object to be saved, not None.",
+                ) from None
 
         else:
-            _serialization = serialize_object(obj, allow_pickling)
+            _serialization = serialize_object(obj, allow_pickle=allow_pickling)
 
             if not _serialization or not (_serialized := _serialization[0]):
                 _out_msg: str = f"Could not serialize object of type '{type(obj)}'"
                 raise ValueError(_out_msg)
 
             if not (_data_type := _serialization[1]) and not allow_pickling:
-                _out_msg = (
-                    f"Could not serialize object of type '{type(obj)}' without pickling"
+                raise ValueError(
+                    f"Could not serialize object of type '{type(obj)}' "
+                    "without pickling",
                 )
                 raise ValueError(_out_msg)
 
-            _checksum = calculate_sha256(_serialized, is_file=False)
-
-        _serialized = typing.cast("ReadableBuffer", _serialized)
+            _checksum = calculate_object_sha256(_serialized)
 
         _artifact = cls(
-            identifier=None,
             name=name,
             storage=storage,
             size=sys.getsizeof(_serialized),
             mime_type=_data_type,
             checksum=_checksum,
+            server_url=server_url,
+            server_token=server_token,
             metadata=metadata,
             _offline=offline,
             _read_only=False,
@@ -144,11 +163,9 @@ class ObjectArtifact(ArtifactBase):
             _artifact._init_data = {}
             _artifact._staging["obj"] = None
             _artifact._local_staging_file.parent.mkdir(parents=True, exist_ok=True)
-            _file_path: pathlib.Path = _artifact._local_staging_file.parent.joinpath(
-                f"{_artifact.id}.object"
-            )
-            with _file_path.open("wb") as file:
-                _ = file.write(_serialized)
+            pathlib.Path(
+                _artifact._local_staging_file.parent.joinpath(f"{_artifact.id}.object"),
+            ).write_bytes(_serialized)
 
         else:
             _single_post_data = typing.cast(

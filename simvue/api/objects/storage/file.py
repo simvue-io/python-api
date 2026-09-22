@@ -7,74 +7,60 @@ Class for interacting with a file based storage on the server.
 import typing
 
 try:
-    from typing import Self
+    from typing import Self, override
 except ImportError:
-    from typing_extensions import Self  # noqa: UP035
-
+    from typing_extensions import Self, override
 import pydantic
 
 from simvue.models import NAME_REGEX
 
 from .base import StorageBase
 
-try:
-    from typing import override
-except ImportError:
-    from typing_extensions import override  # noqa: UP035
-
 
 class FileStorage(StorageBase):
-    """
-    Simvue File Storage
-    ===================
+    """Simvue File Storage.
 
     This class is used to connect to/create file storage objects on the Simvue server,
     any modification of instance attributes is mirrored on the remote object.
 
     """
 
+    @override
     def __init__(
         self,
         identifier: str | None = None,
-        _read_only: bool = False,
+        *,
+        server_url: str | None = None,
+        server_token: pydantic.SecretStr | None = None,
         **kwargs,
     ) -> None:
-        """Initialise a File Storage
+        """Initialise a File Storage.
 
         If an identifier is provided a connection will be made to the
         object matching the identifier on the target server.
-        Else a new FileStorage instance will be created using arguments provided in kwargs.
+        Else a new FileStorage instance will be created using arguments
+        provided in kwargs.
 
         Parameters
         ----------
         identifier : str, optional
             the remote server unique id for the target folder
+        server_url: str | None, optional
+            alternative server URL, default None
+        server_token : str | None, optional
+            token for alternative server, default None
         **kwargs : dict
             any additional arguments to be passed to the object initialiser
-        """
-        super().__init__(identifier, **kwargs)
 
-    def __init__(
-        self,
-        identifier: str | None = None,
-        *,
-        _read_only: bool = False,
-        _offline: bool = False,
-        _user_agent: str | None = None,
-        _local: bool = False,
-        **kwargs: object,
-    ) -> None:
-        """Initialise an File storage instance attaching a configuration."""
+        """
         super().__init__(
             identifier,
-            obj_type="file",
-            _read_only=_read_only,
-            _offline=_offline,
-            _user_agent=_user_agent,
-            _local=_local,
+            server_url=server_url,
+            server_token=server_token,
             **kwargs,
         )
 
+    @override
     @classmethod
     @pydantic.validate_call
     @override
@@ -87,7 +73,9 @@ class FileStorage(StorageBase):
         is_enabled: bool,
         is_default: bool,
         offline: bool = False,
-        **_: object,
+        server_url: str | None = None,
+        server_token: pydantic.SecretStr | None = None,
+        **_,
     ) -> Self:
         """Create a new file storage object.
 
@@ -105,11 +93,16 @@ class FileStorage(StorageBase):
             if this storage system should become the new default
         offline : bool, optional
             if this instance should be created in offline mode, default False
+        server_url: str | None, optional
+            alternative server URL, default None
+        server_token : str | None, optional
+            token for alternative server, default None
 
         Returns
         -------
         FileStorage
             instance of storage system with staged changes
+
         """
         return cls(
             name=name,
@@ -118,6 +111,8 @@ class FileStorage(StorageBase):
             is_tenant_useable=is_tenant_useable,
             is_default=is_default,
             is_enabled=is_enabled,
+            server_url=server_url,
+            server_token=server_token,
             _read_only=False,
             _offline=offline,
         )

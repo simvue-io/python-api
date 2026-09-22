@@ -1,6 +1,8 @@
+import json
+
 import pytest
 import typing
-import os
+import semver
 import uuid
 import pathlib
 import pytest_mock
@@ -25,13 +27,18 @@ from simvue.config.user import SimvueConfiguration
     "profile", (None, "other"),
     ids=("default_profile", "alt_profile")
 )
+@pytest.mark.parametrize(
+    "mode", ("offline", "online"),
+)
 def test_config_setup(
     use_env: bool,
     use_file: typing.Literal["basic", "extended", "pyproject.toml"] | None,
     use_args: bool,
     profile: typing.Literal[None, "other"],
+    mode: typing.Literal["offline", "online"],
     monkeypatch: pytest.MonkeyPatch,
-    mocker: pytest_mock.MockerFixture
+    mocker: pytest_mock.MockerFixture,
+    offline_cache_setup: tempfile.TemporaryDirectory
 ) -> None:
     _token: str = f"{uuid.uuid4()}".replace('-', '')
     _other_token: str = f"{uuid.uuid4()}".replace('-', '')
@@ -41,6 +48,15 @@ def test_config_setup(
     _other_url: str = "http://simvue.example.com/"
     _alt_url: str = "https://simvue-dev.example.com/"
     _arg_url: str = "http://simvue.example.io/"
+    _custom_env: dict[str, str | int] = {
+        "DAYS_IN_WEEK": 7,
+        "MONTHS_IN_YEAR": 12,
+        "SEASON_OF_YEAR": "Spring"
+    }
+    _custom_env_str: str = "\n".join([
+        f"{key} = \"{value}\""
+        for key, value in _custom_env.items()
+    ])
     _description: str = "test case for runs"
     _description_ppt: str = "test case for runs using pyproject.toml"
     _folder: str = "/test-case"
@@ -48,14 +64,28 @@ def test_config_setup(
     _tags: list[str] = ["tag-test", "other-tag"]
     _tags_ppt: list[str] = ["tag-test-ppt", "other-tag-ppt"]
 
+    _offline_sv_version = semver.Version.parse("1.4.5")
+    _offline_ns_version = semver.Version.parse("1.0.2")
+
+
+    if mode == "offline":
+        with pathlib.Path(offline_cache_setup.name).joinpath("version.json").open("w") as out_f:
+            json.dump({
+                "server": f"{_offline_sv_version}",
+                "nosim": f"{_offline_ns_version}"
+            }, out_f, indent=2)
+
+
     # Deactivate the server checks for this test
-    monkeypatch.setenv("SIMVUE_NO_SERVER_CHECK", "True")
     monkeypatch.delenv("SIMVUE_TOKEN", False)
     monkeypatch.delenv("SIMVUE_URL", False)
 
     if use_env:
         monkeypatch.setenv("SIMVUE_TOKEN", _other_token)
         monkeypatch.setenv("SIMVUE_URL", _other_url)
+
+    if use_args or use_env or use_file:
+        monkeypatch.setenv("SIMVUE_NO_SERVER_CHECK", "true")
 
     with tempfile.TemporaryDirectory() as temp_d:
         _config_file = None
@@ -76,15 +106,21 @@ def test_config_setup(
                 with open((_ppt_file := pathlib.Path(temp_d).joinpath("pyproject.toml")), "w") as out_f:
                     out_f.write(_lines_ppt)
             with open(_config_file := pathlib.Path(temp_d).joinpath("simvue.toml"), "w") as out_f:
-                _windows_safe = temp_d.replace("\\", "\\\\")
+                _windows_safe = offline_cache_setup.name.replace("\\", "\\\\")
                 _lines: str = f"""
                     [server]
                     url = "{_url}"
                     token = "{_token}"
 
+                    [server.env]
+                    {_custom_env_str}
+
                     [profiles.other]
                     url = "{_alt_url}"
                     token = "{_alt_token}"
+
+                    [profiles.other.env]
+                    {_custom_env_str}
 
                     [offline]
                     cache = "{_windows_safe}"
@@ -118,36 +154,40 @@ def test_config_setup(
             _config: SimvueConfiguration = simvue.config.user.SimvueConfiguration.fetch(
                 server_url=_arg_url,
                 server_token=_arg_token,
-                mode="online"
+                mode=mode
             )
         elif profile == "other":
             if not use_file:
                 with pytest.raises(RuntimeError):
-                    _ = simvue.config.user.SimvueConfiguration.fetch(mode="online", profile="other")
+                    _ = simvue.config.user.SimvueConfiguration.fetch(profile="other", mode=mode)
                 return
             else:
-                _config = simvue.config.user.SimvueConfiguration.fetch(mode="online", profile="other")
+                _config = simvue.config.user.SimvueConfiguration.fetch(mode=mode, profile="other")
 
         else:
-            _config = simvue.config.user.SimvueConfiguration.fetch(mode="online")
+            _config = simvue.config.user.SimvueConfiguration.fetch(mode=mode)
 
         if use_file and use_file != "pyproject.toml":
             assert _config.config_file() == _config_file
 
         if use_env:
             assert _config.server.url == f"{_other_url}api"
+            assert _config.server.token
             assert _config.server.token.get_secret_value() == _other_token
         elif use_args:
             assert _config.server.url == f"{_arg_url}api"
+            assert _config.server.token
             assert _config.server.token.get_secret_value() == _arg_token
         elif use_file and profile == "other":
             assert _config.server.url == f"{_alt_url}api"
+            assert _config.server.token
             assert _config.server.token.get_secret_value() == _alt_token
-            assert f"{_config.offline.cache}" == temp_d
+            assert f"{_config.offline.cache}" == offline_cache_setup.name
         elif use_file and use_file != "pyproject.toml":
             assert _config.server.url == f"{_url}api"
+            assert _config.server.token
             assert _config.server.token.get_secret_value() == _token
-            assert f"{_config.offline.cache}" == temp_d
+            assert f"{_config.offline.cache}" == offline_cache_setup.name
 
         if use_file == "extended":
             assert _config.run.description == _description
@@ -161,6 +201,15 @@ def test_config_setup(
             assert _config.run.folder == "/"
             assert not _config.run.description
             assert not _config.run.tags
+
+        if use_file:
+            assert _config.server.env
+            for key, value in _custom_env.items():
+                assert _config.server.env.get(key) == f"{value}"
+
+        if mode == "offline":
+            assert _config.server_version == _offline_sv_version
+            assert _config.nosim_version == _offline_ns_version
 
         simvue.config.user.SimvueConfiguration.config_file.cache_clear()
 

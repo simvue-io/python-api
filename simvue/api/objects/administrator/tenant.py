@@ -6,17 +6,13 @@ a new tenant given relevant arguments.
 """
 
 try:
-    from typing import Self
+    from typing import Self, override
 except ImportError:
-    from typing_extensions import Self  # noqa: UP035
-
-try:
-    from typing import override
-except ImportError:
-    from typing_extensions import override  # noqa: UP035
+    from typing_extensions import Self, override
 
 import datetime
 import typing
+from collections.abc import Generator
 
 import pydantic
 
@@ -25,17 +21,22 @@ from simvue.models import DATETIME_FORMAT
 
 
 class Tenant(SimvueObject):
-    """
-    Simvue Tenant
-    =============
+    """Simvue Tenant.
 
     This class is used to connect to/create tenant objects on the Simvue server,
     any modification of instance attributes is mirrored on the remote object.
 
     """
 
-    def __init__(self, identifier: str | None = None, **kwargs) -> None:
-        """Initialise a Tenant
+    @override
+    def __init__(
+        self,
+        identifier: str | None = None,
+        server_url: str | None = None,
+        server_token: pydantic.SecretStr | None = None,
+        **kwargs,
+    ) -> None:
+        """Initialise a Tenant.
 
         If an identifier is provided a connection will be made to the
         object matching the identifier on the target server.
@@ -47,11 +48,22 @@ class Tenant(SimvueObject):
         ----------
         identifier : str, optional
             the remote server unique id for the target folder
+        server_url: str | None, optional
+            alternative server URL, default None
+        server_token : str | None, optional
+            token for alternative server, default None
         **kwargs : dict
             any additional arguments to be passed to the object initialiser
-        """
-        super().__init__(identifier, **kwargs)
 
+        """
+        super().__init__(
+            identifier,
+            server_url=server_url,
+            server_token=server_token,
+            **kwargs,
+        )
+
+    @override
     @classmethod
     @pydantic.validate_call
     @override
@@ -64,7 +76,9 @@ class Tenant(SimvueObject):
         max_runs: int = 0,
         max_data_volume: int = 0,
         offline: bool = False,
-        **_: typing.Any,
+        server_url: str | None = None,
+        server_token: pydantic.SecretStr | None = None,
+        **_,
     ) -> Self:
         """Create a new tenant on the Simvue server.
 
@@ -84,6 +98,10 @@ class Tenant(SimvueObject):
             the maximum volume of data allowed within this tenant, default is no limit.
         offline: bool, optional
             create in offline mode, default is False.
+        server_url: str | None, optional
+            alternative server URL, default None
+        server_token : str | None, optional
+            token for alternative server, default None
 
         Returns
         -------
@@ -97,14 +115,62 @@ class Tenant(SimvueObject):
             max_request_rate=max_request_rate,
             max_runs=max_runs,
             max_data_volume=max_data_volume,
+            server_url=server_url,
+            server_token=server_token,
             _read_only=False,
             _offline=offline,
+        )
+
+    @override
+    @classmethod
+    @pydantic.validate_call
+    def get(
+        cls,
+        *,
+        count: pydantic.PositiveInt | None = None,
+        offset: pydantic.NonNegativeInt | None = None,
+        server_url: str | None = None,
+        server_token: pydantic.SecretStr | None = None,
+        **kwargs: typing.Any,
+    ) -> Generator[tuple[str, Self | None]]:
+        """Retrieve tenants from the server.
+
+        Parameters
+        ----------
+        count: int | None, optional
+            limit number of objects
+        offset : int | None, optional
+            set start index for objects list
+        server_url: str | None, optional
+            alternative server URL, default None
+        server_token : str | None, optional
+            token for alternative server, default None
+        **kwargs : Any
+            additional arguments for retrieval
+
+        Yields
+        ------
+        tuple[str, Tenant | None]
+            object corresponding to an entry on the server.
+
+        Returns
+        -------
+        Generator[tuple[str, Tenant | None]]
+
+        """
+        # Currently no tenant filters
+        _ = kwargs.pop("filters", None)
+        return super().get(
+            count=count,
+            offset=offset,
+            server_url=server_url,
+            server_token=server_token,
         )
 
     @property
     def name(self) -> str:
         """Retrieve the name of the tenant."""
-        return typing.cast("str", self._get_attribute("name"))
+        return self._get_attribute("name")
 
     @name.setter
     @write_only
@@ -117,7 +183,7 @@ class Tenant(SimvueObject):
     @staging_check
     def is_enabled(self) -> bool:
         """Retrieve if tenant is enabled."""
-        return typing.cast("bool", self._get_attribute("is_enabled"))
+        return self._get_attribute("is_enabled")
 
     @is_enabled.setter
     @write_only
@@ -130,7 +196,7 @@ class Tenant(SimvueObject):
     @staging_check
     def max_request_rate(self) -> int:
         """Retrieve the tenant's maximum request rate."""
-        return typing.cast("int", self._get_attribute("max_request_rate"))
+        return self._get_attribute("max_request_rate")
 
     @max_request_rate.setter
     @write_only
@@ -143,7 +209,7 @@ class Tenant(SimvueObject):
     @staging_check
     def max_runs(self) -> int:
         """Retrieve the tenant's maximum runs."""
-        return typing.cast("int", self._get_attribute("max_runs"))
+        return self._get_attribute("max_runs")
 
     @max_runs.setter
     @write_only
@@ -156,7 +222,7 @@ class Tenant(SimvueObject):
     @staging_check
     def max_data_volume(self) -> int:
         """Retrieve the tenant's maximum data volume."""
-        return typing.cast("int", self._get_attribute("max_data_volume"))
+        return self._get_attribute("max_data_volume")
 
     @max_data_volume.setter
     @write_only
@@ -167,16 +233,17 @@ class Tenant(SimvueObject):
 
     @property
     def created(self) -> datetime.datetime | None:
-        """Set/retrieve created datetime for the run.
+        """Set/retrieve created datetime in UTC for the run.
 
         Returns
         -------
         datetime.datetime
+
         """
         _created: str | None = typing.cast("str | None", self._get_attribute("created"))
         return (
             datetime.datetime.strptime(_created, DATETIME_FORMAT).astimezone(
-                datetime.UTC
+                datetime.timezone.utc,
             )
             if _created
             else None

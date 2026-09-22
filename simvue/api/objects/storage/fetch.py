@@ -11,6 +11,7 @@ from collections.abc import Generator
 import pydantic
 
 from simvue.api.request import get as sv_get
+from simvue.api.request import get_json_from_response
 
 from .base import StorageBase
 from .file import FileStorage
@@ -18,66 +19,57 @@ from .s3 import S3Storage
 
 
 class Storage:
-    """
-    Simvue Storage
-    ==============
+    """Simvue Storage.
 
     Generic Simvue storage retrieval class.
 
     """
 
-    def __init__(
-        self,
+    def __new__(
+        cls,
         identifier: str | None = None,
         *,
-        _read_only: bool = False,
-        _offline: bool = False,
-        _user_agent: str | None = None,
-        _local: bool = False,
-        **kwargs: object,
-    ) -> None:
-        """Initialise an instance of generic storage retriever.
+        server_url: str | None = None,
+        server_token: pydantic.SecretStr | None = None,
+        **kwargs: typing.Any,
+    ) -> S3Storage | FileStorage:
+        """Retrieve an object representing on the server by id.
 
         Parameters
         ----------
         identifier : str
             identifier of storage object to retrieve
-        """
+        server_url: str | None, optional
+            alternative server URL, default None
+        server_token : str | None, optional
+            token for alternative server, default None
+        **kwargs : Any
+            additional arguments for initialisation
 
-    def __new__(
-        cls,
-        identifier: str | None = None,
-        *,
-        _read_only: bool = False,
-        _offline: bool = False,
-        _user_agent: str | None = None,
-        _local: bool = False,
-        **kwargs: object,
-    ) -> S3Storage | FileStorage:
-        """Retrieve a storage object either locally or on the server by id."""
+        Returns
+        -------
+        S3Storage | FileStorage
+            object representing storage
+
+        """
         _storage_pre = StorageBase(
+            server_token=server_token,
+            server_url=server_url,
             identifier=identifier,
-            _read_only=True,
-            _local=True,
-            _offline=False,
-            _user_agent=None,
+            **kwargs,
         )
         if _storage_pre.backend == "S3":
             return S3Storage(
-                _local=True,
-                _read_only=True,
+                server_token=server_token,
+                server_url=server_url,
                 identifier=identifier,
-                _user_agent=None,
-                _offline=False,
                 **kwargs,
             )
         if _storage_pre.backend == "File":
             return FileStorage(
-                _local=True,
-                _read_only=True,
+                server_token=server_token,
+                server_url=server_url,
                 identifier=identifier,
-                _user_agent=None,
-                _offline=False,
                 **kwargs,
             )
 
@@ -87,7 +79,13 @@ class Storage:
     @classmethod
     @pydantic.validate_call
     def get(
-        cls, count: int | None = None, offset: int | None = None, **kwargs
+        cls,
+        *,
+        count: int | None = None,
+        offset: int | None = None,
+        server_url: str | None = None,
+        server_token: pydantic.SecretStr | None = None,
+        **kwargs: typing.Any,
     ) -> Generator[tuple[str, FileStorage | S3Storage]]:
         """Returns storage systems accessible to the current user.
 
@@ -97,28 +95,35 @@ class Storage:
             limit the number of results, default of None returns all.
         offset : int, optional
             start index for returned results, default of None starts at 0.
+        server_url: str | None, optional
+            alternative server URL, default None
+        server_token : str | None, optional
+            token for alternative server, default None
+        **kwargs : Any
+            additional arguments for retrieval
 
         Yields
         ------
         tuple[str, FileStorage | S3Storage]
             identifier for a storage
             the storage itself as a class instance
+
         """
         # Currently no storage filters
         _ = kwargs.pop("filters", None)
 
-        _class_instance = StorageBase(_local=True, _read_only=True)
-        _config: SimvueConfiguration = SimvueConfiguration.fetch()
+        _class_instance = StorageBase(
+            identifier=None,
+            server_url=server_url,
+            server_token=server_token,
+            _local=True,
+        )
         _url = f"{_class_instance.base_url}"
-        _params: dict[str, int | float | str | None | list[str]] = {
-            "start": offset,
-            "count": count,
-        }
-        _params |= kwargs
         _response = sv_get(
             _url,
-            headers=_config.headers,  # pyright: ignore[reportUnknownArgumentType]
-            params=_params,
+            headers=_class_instance.user_config.headers,
+            params={"start": offset, "count": count} | kwargs,
+            verify=_class_instance._user_config.server_verify,
         )
         _label: str = _class_instance.__class__.__name__.lower()
         _label = _label.replace("base", "")
@@ -129,10 +134,6 @@ class Storage:
             expected_type=list,
         )
 
-        _json_response = typing.cast("list[dict[str, object]]", _json_response)
-
-        _out_dict: dict[str, FileStorage | S3Storage] = {}
-
         for _entry in _json_response:
             _id = typing.cast("str", _entry.pop("id"))
             if _entry["backend"] == "S3":
@@ -140,10 +141,9 @@ class Storage:
                     _id,
                     S3Storage(
                         _local=True,
-                        _read_only=True,
                         identifier=_id,
-                        _user_agent=None,
-                        _offline=False,
+                        server_url=server_url,
+                        server_token=server_token,
                         **_entry,
                     ),
                 )
@@ -152,13 +152,13 @@ class Storage:
                     _id,
                     FileStorage(
                         _local=True,
-                        _read_only=True,
                         identifier=_id,
-                        _user_agent=None,
-                        _offline=False,
+                        server_url=server_url,
+                        server_token=server_token,
                         **_entry,
                     ),
                 )
             else:
-                _out_msg: str = f"Unrecognised storage backend '{_entry['backend']}'"
-                raise RuntimeError(_out_msg)
+                raise RuntimeError(
+                    f"Unrecognised storage backend '{_entry['backend']}'",
+                )

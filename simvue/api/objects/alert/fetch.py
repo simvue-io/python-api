@@ -7,9 +7,18 @@ with an identifier, use a generic alert object.
 import http
 import json
 import typing
-from collections.abc import Generator
 
 import pydantic
+
+from simvue.api.url import URL
+from simvue.config.user import SimvueConfiguration
+
+try:
+    from typing import override
+except ImportError:
+    from typing_extensions import override
+
+from collections.abc import Generator
 
 from simvue.api.objects.alert.user import UserAlert
 from simvue.api.objects.base import Sort
@@ -29,40 +38,51 @@ class AlertSort(Sort):
     @pydantic.field_validator("column")
     @classmethod
     def check_column(cls, column: str) -> str:
-        """Check specified column is permitted."""
-        if column and column not in ("name", "created"):
-            _out_msg = f"Invalid sort column for alerts '{column}'"
-            raise ValueError(_out_msg)
+        if column and column not in {"name", "created"}:
+            raise ValueError(f"Invalid sort column for alerts '{column}'")
         return column
 
 
 class Alert:
-    """
-    Simvue Alert
-    ============
+    """Simvue Alert.
 
     Generic Simvue alert retrieval class.
 
     """
 
+    @override
     @pydantic.validate_call()
     def __new__(
         cls,
-        identifier: str | None,
+        identifier: str | None = None,
         *,
-        _local: bool = False,
-        _read_only: bool = True,
-        _user_agent: str | None = None,
-        _offline: bool = False,
-        **kwargs: object,
+        server_url: str | None = None,
+        server_token: pydantic.SecretStr | None = None,
+        **kwargs: typing.Any,
     ) -> AlertType:
-        """Retrieve an object representing an alert locally or on the server by id."""
+        """Retrieve an object representing an alert on the server by id.
+
+        Parameters
+        ----------
+        identifier : str
+            identifier of alert to retrieve
+        server_url: str | None, optional
+            alternative server URL, default None
+        server_token : str | None, optional
+            token for alternative server, default None
+        **kwargs : Any
+            additional retrieval arguments
+
+        Returns
+        -------
+        MetricsThresholdAlert | MetricRangeAlert | UserAlert | EventsAlert
+            object representing an alert
+
+        """
         _alert_pre = AlertBase(
             identifier=identifier,
-            _local=True,
-            _offline=False,
-            _user_agent=None,
-            _read_only=True,
+            server_url=server_url,
+            server_token=server_token,
             **kwargs,
         )
         if (
@@ -71,47 +91,38 @@ class Alert:
             and not _alert_pre.staging.get("source", None)
         ):
             raise RuntimeError(
-                "Cannot determine Alert type - "
-                "this is likely because you are attempting to reconnect "
-                "to an offline alert which has already been sent to the server."
-                " To fix this, use the "
+                "Cannot determine Alert type - this is likely because you "
+                "are attempting to reconnect to an offline alert which "
+                "has already been sent to the server. To fix this, use the "
                 "exact Alert type instead "
-                "(eg MetricThresholdAlert, MetricRangeAlert etc)."
+                "(eg MetricThresholdAlert, MetricRangeAlert etc).",
             )
         if _alert_pre.source == "events":
             return EventsAlert(
                 identifier=identifier,
-                _local=_local,
-                _read_only=_read_only,
-                _user_agent=_user_agent,
-                _offline=_offline,
+                server_url=server_url,
+                server_token=server_token,
                 **kwargs,
             )
         if _alert_pre.source == "metrics" and _alert_pre.get_alert().get("threshold"):
             return MetricsThresholdAlert(
                 identifier=identifier,
-                _local=_local,
-                _read_only=_read_only,
-                _user_agent=_user_agent,
-                _offline=_offline,
+                server_url=server_url,
+                server_token=server_token,
                 **kwargs,
             )
         if _alert_pre.source == "metrics":
             return MetricsRangeAlert(
                 identifier=identifier,
-                _local=_local,
-                _read_only=_read_only,
-                _user_agent=_user_agent,
-                _offline=_offline,
+                server_url=server_url,
+                server_token=server_token,
                 **kwargs,
             )
         if _alert_pre.source == "user":
             return UserAlert(
                 identifier=identifier,
-                _local=_local,
-                _read_only=_read_only,
-                _user_agent=_user_agent,
-                _offline=_offline,
+                server_url=server_url,
+                server_token=server_token,
                 **kwargs,
             )
 
@@ -123,11 +134,12 @@ class Alert:
     def get(
         cls,
         *,
-        offline: bool = False,
         count: int | None = None,
         offset: int | None = None,
         sorting: list[AlertSort] | None = None,
-        **kwargs: str | float | None | list[str],
+        server_url: str | None = None,
+        server_token: pydantic.SecretStr | None = None,
+        **kwargs: typing.Any,
     ) -> Generator[tuple[str, AlertType]]:
         """Fetch all alerts from the server for the current user.
 
@@ -139,34 +151,43 @@ class Alert:
             start index for returned results, default of None starts at 0.
         sorting : list[dict] | None, optional
             list of sorting definitions in the form {'column': str, 'descending': bool}
+        server_url: str | None, optional
+            alternative server URL, default None
+        server_token : str | None, optional
+            token for alternative server, default None
+        **kwargs : Any
+            additional retrieval arguments
 
         Yields
         ------
         tuple[str, AlertType]
             identifier for an alert
             the alert itself as a class instance
-        """
-        if offline:
-            return
 
+        """
         # Currently no alert filters
         _ = kwargs.pop("filters", None)
 
-        _class_instance = AlertBase(_local=True, _read_only=True)
-        _url = f"{_class_instance.base_url}"
-        _params: dict[str, int | str | None] = {"start": offset, "count": count}
+        _config: SimvueConfiguration = SimvueConfiguration.fetch(
+            mode="online",
+            server_url=server_url,
+            server_token=server_token,
+        )
+
+        _url = URL(f"{_config.server.url}") / AlertBase.endpoint()
+        _params: dict[str, int | str] = {"start": offset, "count": count}
 
         if sorting:
             _params["sorting"] = json.dumps([sort.to_params() for sort in sorting])
 
         _response = sv_get(
-            _url,
-            headers=_class_instance.headers,
+            f"{_url}",
+            headers=_config.headers,
             params=_params | kwargs,
+            verify=_config.server_verify,
         )
 
-        _label: str = _class_instance.__class__.__name__.lower()
-        _label = _label.replace("base", "")
+        _label: str = cls.__name__.lower()
         _json_response = get_json_from_response(
             response=_response,
             expected_status=[http.HTTPStatus.OK],
@@ -180,10 +201,8 @@ class Alert:
             _out_msg: str = f"Expected key 'data' for retrieval of {_label}s"
             raise RuntimeError(_out_msg)
 
-        _out_dict: dict[str, AlertType] = {}
-
-        for _entry in _json_response["data"]:
-            _id = typing.cast("str", _entry.pop("id"))
+        for _entry in _data:
+            _id = _entry.pop("id")
             if _entry["source"] == "events":
                 yield (
                     _id,
@@ -199,12 +218,18 @@ class Alert:
             elif _entry["source"] == "user":
                 yield (
                     _id,
-                    UserAlert(
+                    UserAlert(_read_only=True, identifier=_id, _local=True, **_entry),
+                )
+            elif (
+                _entry["source"] == "metrics"
+                and _entry.get("alert", {}).get("threshold") is not None
+            ):
+                yield (
+                    _id,
+                    MetricsThresholdAlert(
+                        _local=True,
                         _read_only=True,
                         identifier=_id,
-                        _local=True,
-                        _offline=False,
-                        _user_agent=None,
                         **_entry,
                     ),
                 )
@@ -230,12 +255,15 @@ class Alert:
                 yield (
                     _id,
                     MetricsRangeAlert(
-                        _local=True, _read_only=True, identifier=_id, **_entry
+                        _local=True,
+                        _read_only=True,
+                        identifier=_id,
+                        **_entry,
                     ),
                 )
             else:
-                _out_msg = (
-                    f"Unrecognised alert source '{_entry['source']}'"
-                    f" with data '{_entry}'"
+                raise RuntimeError(
+                    f"Unrecognised alert source '{_entry['source']}' "
+                    f"with data '{_entry}'",
                 )
                 raise RuntimeError(_out_msg)

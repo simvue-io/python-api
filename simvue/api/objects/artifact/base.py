@@ -7,20 +7,18 @@ Class for defining and interacting with artifact objects.
 import datetime
 import http
 import io
+import logging
+import pathlib
 import typing
-from collections.abc import Generator
 
 import pydantic
 
 try:
-    from typing import Self
+    from typing import Self, override
 except ImportError:
-    from typing_extensions import Self  # noqa: UP035
+    from typing_extensions import Self, override
 
-try:
-    from typing import override
-except ImportError:
-    from typing_extensions import override  # noqa: UP035
+from collections.abc import Generator
 
 from simvue.api.objects.base import SimvueObject, staging_check, write_only
 from simvue.api.objects.run import Run
@@ -47,27 +45,30 @@ UPLOAD_TIMEOUT_PER_MB: int = 1
 DOWNLOAD_TIMEOUT_PER_MB: int = 1
 DOWNLOAD_CHUNK_SIZE: int = 8192
 
+_logger = logging.getLogger(__name__)
+
 
 class ArtifactBase(SimvueObject):
     """Connect to/create an artifact locally or on the server."""
 
+    _label: str = "artifact"
+
+    @override
     def __init__(
         self,
         identifier: str | None = None,
         *,
-        _read_only: bool = True,
-        **kwargs: object,
+        server_url: str | None = None,
+        server_token: pydantic.SecretStr | None = None,
+        **kwargs,
     ) -> None:
-        """Initialise an artifact connection.
-
-        Parameters
-        ----------
-        identifier : str, optional
-            the identifier of this object on the server.
-        """
-        self._label: str = "artifact"
-        self._endpoint: str = f"{self._label}s"
-        super().__init__(identifier=identifier, _read_only=_read_only, **kwargs)  # pyright: ignore[reportArgumentType]
+        """Retrieve an artifact instance from the Simvue server by identifier."""
+        super().__init__(
+            identifier=identifier,
+            server_url=server_url,
+            server_token=server_token,
+            **kwargs,
+        )
         self._local_only_args += ["storage", "file_path", "runs"]
 
         # If the artifact is an online instance, need a place to store the response
@@ -96,10 +97,6 @@ class ArtifactBase(SimvueObject):
         category : Literal['input', 'output', 'code']
             category of this artifact with respect to the run.
 
-        Returns
-        -------
-        dict[str, object] | None
-            response from server or None if offline
         """
         self._init_data["runs"][run_id] = category
 
@@ -117,6 +114,7 @@ class ArtifactBase(SimvueObject):
             url=f"{_run_artifacts_url}",
             headers=self._headers,
             json={"category": category},
+            verify=self._user_config.server_verify,
         )
 
         _json_response = get_json_from_response(
@@ -129,18 +127,17 @@ class ArtifactBase(SimvueObject):
 
     @override
     def on_reconnect(self, id_mapping: dict[str, str]) -> None:
-        """Perform operation when this artifact is switched from offline to online mode.
+        """Operations performed when artifact mode switched from offline to online.
 
         Parameters
         ----------
         id_mapping : dict[str, str]
             mapping from offline identifier to new online identifier.
+
         """
-        _offline_staging = typing.cast(
-            "dict[str, Category]", self._init_data["runs"].copy()
-        )
+        _offline_staging = self._init_data["runs"].copy()
         for _id, category in _offline_staging.items():
-            _ = self.attach_to_run(run_id=id_mapping[_id], category=category)
+            self.attach_to_run(run_id=id_mapping[_id], category=category)
 
     def _upload(
         self, file: io.BytesIO | io.BufferedReader, timeout: int | None, file_size: int
@@ -156,23 +153,36 @@ class ArtifactBase(SimvueObject):
             timeout = BASE_TIMEOUT + UPLOAD_TIMEOUT_PER_MB * file_size // 1024 // 1024
 
         self._logger.debug(
-            "Will wait for a period of %.0fs for upload of file "
-            "for %dB file to complete.",
-            timeout,
-            file_size,
+            "Will wait for a period of %s for upload of file for %s file to complete.",
+            f"{timeout:.0f}s",
+            f"{file_size}B",
         )
 
         _name = self._staging["name"]
 
-        _response = sv_post(
-            url=_url,
-            headers={},
-            params={},
-            is_json=False,
-            timeout=timeout,
-            files={"file": file},
-            data=self._init_data.get("fields"),
-        )
+        if _fields := self._init_data.get("fields"):
+            _logger.debug("Using POST for artifact upload to '%s': %s", _url, _fields)
+            _response = sv_post(
+                url=_url,
+                headers={},
+                params={},
+                is_json=False,
+                timeout=timeout,
+                verify=self.storage_ca_cert,
+                files={"file": file},
+                data=_fields,
+            )
+
+        else:
+            _logger.debug("Using PUT for artifact upload to '%s'", _url)
+            _response = sv_put(
+                url=_url,
+                headers={},
+                is_json=False,
+                timeout=timeout,
+                verify=self.storage_ca_cert,
+                data=file,
+            )
 
         self._logger.debug(
             "Got status code %d when uploading artifact",
@@ -191,12 +201,15 @@ class ArtifactBase(SimvueObject):
 
         # Update the server status to confirm file uploaded
         self.uploaded = True
-        _ = super().commit()
+        super().commit()
         self.read_only(is_read_only=True)
 
     @override
     def _get(
-        self, url: str | None = None, storage: str | None = None, **kwargs: object
+        self,
+        storage: str | None = None,
+        url: str | None = None,
+        **kwargs,
     ) -> dict[str, typing.Any]:
         return super()._get(
             storage=storage or self._staging.get("server", {}).get("storage_id"),
@@ -205,12 +218,22 @@ class ArtifactBase(SimvueObject):
         )
 
     @property
+    def storage_ca_cert(self) -> str | bool:
+        """Return current storage CA certificate."""
+        _ca_cert: pathlib.Path | bool = (
+            self._user_config.server.certificates.storage_ca_cert
+        )
+
+        return f"{_ca_cert}" if isinstance(_ca_cert, pathlib.Path) else _ca_cert
+
+    @property
     def checksum(self) -> str:
         """Retrieve the checksum for this artifact.
 
         Returns
         -------
         str
+
         """
         return typing.cast("str", self._get_attribute("checksum"))
 
@@ -221,6 +244,7 @@ class ArtifactBase(SimvueObject):
         Returns
         -------
         simvue.api.url.URL | None
+
         """
         _url = typing.cast("str | None", self._init_data.get("url"))
         return URL(_url) if _url else None
@@ -232,6 +256,7 @@ class ArtifactBase(SimvueObject):
         Returns
         -------
         str
+
         """
         return typing.cast("str", self._get_attribute("original_path"))
 
@@ -242,6 +267,7 @@ class ArtifactBase(SimvueObject):
         Returns
         -------
         str | None
+
         """
         return typing.cast("str | None", self._get_attribute("storage_id"))
 
@@ -252,6 +278,7 @@ class ArtifactBase(SimvueObject):
         Returns
         -------
         str
+
         """
         return typing.cast("str", self._get_attribute("mime_type"))
 
@@ -262,6 +289,7 @@ class ArtifactBase(SimvueObject):
         Returns
         -------
         int
+
         """
         return typing.cast("int", self._get_attribute("size"))
 
@@ -272,21 +300,23 @@ class ArtifactBase(SimvueObject):
         Returns
         -------
         str | None
+
         """
         return typing.cast("str | None", self._get_attribute("name"))
 
     @property
     def created(self) -> datetime.datetime | None:
-        """Retrieve created datetime for the artifact.
+        """Retrieve created datetime in UTC for the artifact.
 
         Returns
         -------
         datetime.datetime | None
+
         """
         _created: str | None = typing.cast("str | None", self._get_attribute("created"))
         return (
-            datetime.datetime.strptime(_created, DATETIME_FORMAT).replace(
-                tzinfo=datetime.UTC
+            datetime.datetime.strptime(_created, DATETIME_FORMAT).astimezone(
+                datetime.timezone.utc,
             )
             if _created
             else None
@@ -300,6 +330,7 @@ class ArtifactBase(SimvueObject):
         Returns
         -------
         bool
+
         """
         return typing.cast("bool", self._get_attribute("uploaded"))
 
@@ -317,6 +348,7 @@ class ArtifactBase(SimvueObject):
         Returns
         -------
         simvue.api.url.URL | None
+
         """
         return typing.cast("URL", self._get_attribute("url"))
 
@@ -332,6 +364,7 @@ class ArtifactBase(SimvueObject):
         Returns
         -------
         Generator[str, None, None]
+
         """
         for _id, _ in Run.get(filters=[f"artifact.id == {self.id}"]):
             yield _id
@@ -342,12 +375,15 @@ class ArtifactBase(SimvueObject):
         Returns
         -------
         Literal['input', 'output', 'code']
+
         """
         _run_url = (
             URL(self._user_config.server.url)
             / f"runs/{run_id}/artifacts/{self._identifier}"
         )
-        _response = sv_get(url=f"{_run_url}", headers=self._headers)
+        _response = sv_get(
+            url=_run_url, header=self._headers, verify=self._user_config.server_verify
+        )
         _json_response = get_json_from_response(
             response=_response,
             expected_status=[http.HTTPStatus.OK, http.HTTPStatus.NOT_FOUND],
@@ -359,7 +395,9 @@ class ArtifactBase(SimvueObject):
         _json_response = typing.cast("dict[str, object]", _json_response)
         if _response.status_code == http.HTTPStatus.NOT_FOUND:
             raise ObjectNotFoundError(
-                self._label, self._identifier or "unknown", extra=f"for run '{run_id}'"
+                self.label(),
+                self._identifier,
+                extra=f"for run '{run_id}'",
             )
 
         return typing.cast("Category", _json_response["category"])
@@ -376,34 +414,37 @@ class ArtifactBase(SimvueObject):
         Returns
         -------
         Generator[bytes, None, None]
+
         """
         if not self.download_url:
-            _out_msg: str = f"Could not retrieve URL for artifact '{self._identifier}'"
-            raise ValueError(_out_msg)
+            raise ValueError(
+                f"Could not retrieve URL for artifact '{self._identifier}'",
+            )
 
-        _timeout: int = (
-            BASE_TIMEOUT + DOWNLOAD_TIMEOUT_PER_MB * self.size // 1024 // 1024
+        _timeout: int = int(
+            BASE_TIMEOUT + DOWNLOAD_TIMEOUT_PER_MB * self.size / 1024 // 1024
         )
 
         self._logger.debug(
-            "Will wait %.0fs for download of file %s of size %dB",
-            _timeout,
+            "Will wait %s for download of file %s of size %s",
+            f"{_timeout:.0f}s",
             self.name,
-            self.size,
+            f"{self.size}B",
         )
 
         _response = sv_get(
             f"{self.download_url}",
             timeout=_timeout,
+            verify=self.storage_ca_cert,
             headers=None,
         )
 
-        _ = get_json_from_response(
-            response=_response,
-            allow_parse_failure=True,
-            expected_status=[http.HTTPStatus.OK],
-            scenario=f"Retrieval of file for {self._label} '{self._identifier}'",
-        )
+        if _response.status_code != http.HTTPStatus.OK:
+            raise RuntimeError(
+                f"Retrieval of file date for {self.label()} '{self._identifier}' "
+                + f"failed for url '{self.download_url}' "
+                + f"with status code {_response.status_code}"
+            )
 
         _total_length: str | None = _response.headers.get("content-length")
 

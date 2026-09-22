@@ -4,7 +4,6 @@ from _pytest import monkeypatch
 import numpy
 import pytest
 import pytest_mock
-import typing
 import uuid
 import tempfile
 import os
@@ -91,7 +90,6 @@ def mock_co2_signal(monkeypatch: monkeypatch.MonkeyPatch) -> dict[str, dict | st
         else:
             return _req_get(*args, **kwargs)
     def _mock_location_info(self) -> None:
-        self._logger.info("📍 Determining current user location.")
         self._latitude: float
         self._longitude: float
         self._latitude, self._longitude = (-1, -1)
@@ -191,11 +189,12 @@ def create_pending_run(request, prevent_script_exit) -> Generator[tuple[sv_run.R
 
 
 @pytest.fixture
-def create_plain_run_offline(request,prevent_script_exit,monkeypatch) -> Generator[tuple[sv_run.Run, dict]]:
+def create_plain_run_offline(request,prevent_script_exit,monkeypatch, mocker) -> Generator[tuple[sv_run.Run, dict]]:
     _ = prevent_script_exit
     with tempfile.TemporaryDirectory() as temp_d:
         monkeypatch.setenv("SIMVUE_OFFLINE_DIRECTORY", temp_d)
         with sv_run.Run(mode="offline") as run:
+            run.metric_spy = mocker.spy(run, "_get_internal_metrics")
             _temporary_directory = pathlib.Path(temp_d)
             yield run, setup_test_run(run, temp_dir=_temporary_directory, create_objects=False, request=request)
     clear_out_files()
@@ -224,7 +223,8 @@ def setup_test_run(run: sv_run.Run, *, temp_dir: pathlib.Path, create_objects: b
             "test_identifier": f"{_test_name}_{fix_use_id}"
         },
         "folder": f"/simvue_unit_testing/{fix_use_id}",
-        "tags": ["simvue_client_unit_tests", _test_name, f"{platform.system()}"]
+        "tags": ["simvue_client_unit_tests", _test_name, f"{platform.system()}"],
+        "name": f"{_test_name}_{fix_use_id}"
     }
 
     if os.environ.get("CI"):
@@ -232,7 +232,7 @@ def setup_test_run(run: sv_run.Run, *, temp_dir: pathlib.Path, create_objects: b
 
     run.config(suppress_errors=False)
     run.init(
-        name=TEST_DATA['metadata']['test_identifier'],
+        name=TEST_DATA["name"],
         tags=TEST_DATA["tags"],
         folder=TEST_DATA["folder"],
         visibility="tenant" if os.environ.get("CI") else None,

@@ -4,22 +4,11 @@ Contains general definitions for Simvue Alert objects.
 
 """
 
-import abc
 import datetime
 import http
 import typing
 
 import pydantic
-
-try:
-    from typing import Self
-except ImportError:
-    from typing_extensions import Self  # noqa: UP035
-
-try:
-    from typing import override
-except ImportError:
-    from typing_extensions import override  # noqa: UP035
 
 from simvue.api.objects.base import SimvueObject, staging_check, write_only
 from simvue.api.request import get as sv_get
@@ -30,36 +19,56 @@ if typing.TYPE_CHECKING:
     from simvue.api.url import URL
 
 try:
-    from typing import override
+    from typing import Self, override
 except ImportError:
-    from typing_extensions import override  # noqa: UP035
+    from typing_extensions import Self, override
 
 
-class AlertBase(SimvueObject, abc.ABC):
+class AlertBase(SimvueObject):
     """Class for interfacing with Simvue alerts.
 
     Contains properties common to all alert types.
     """
 
-    @classmethod
+    _label: str = "alert"
+
     @override
-    def new(cls, read_only: bool = False, **kwargs) -> Self:
-        """Create a new alert."""
+    @classmethod
+    def new(
+        cls,
+        *,
+        name: typing.Annotated[str, pydantic.Field(pattern=NAME_REGEX)],
+        description: str | None,
+        notification: typing.Literal["none", "email"],
+        enabled: bool,
+        allow_duplicates: bool,
+        offline: bool,
+        server_url: str | None,
+        server_token: pydantic.SecretStr | None,
+        **_,
+    ) -> Self:
         raise NotImplementedError
 
+    @override
     def __init__(
         self,
         identifier: str | None = None,
         *,
-        _offline: bool = False,
-        _local: bool = False,
-        _user_agent: str | None = None,
-        _read_only: bool = True,
-        **kwargs: object,
+        server_url: str | None = None,
+        server_token: pydantic.SecretStr | None = None,
+        **kwargs,
     ) -> None:
         """Retrieve an alert from the Simvue server by identifier."""
-        self._label = "alert"
-        super().__init__(identifier=identifier, **kwargs)
+        _params: dict[str, str | bool] = kwargs.pop("_params", {}) | {
+            "deduplicate": not kwargs.get("allow_duplicates", True),
+        }
+        super().__init__(
+            identifier=identifier,
+            server_url=server_url,
+            server_token=server_token,
+            _params=_params,
+            **kwargs,
+        )
         self._local_only_args += [
             "frequency",
             "pattern",
@@ -74,7 +83,7 @@ class AlertBase(SimvueObject, abc.ABC):
                 self.description == other.description,
                 self.source == other.source,
                 self.notification == other.notification,
-            ]
+            ],
         )
 
     @override
@@ -84,26 +93,30 @@ class AlertBase(SimvueObject, abc.ABC):
         # operation as we do not want staging to alter
         _self_is_read_only: bool = self._read_only
         _other_is_read_only: bool = other._read_only
-        self.read_only(True)
-        other.read_only(True)
+        self.read_only(is_read_only=True)
+        other.read_only(is_read_only=True)
 
         _comparison = self._compare_objects(other)
 
         # Restore to write allowed unless the input object
         # was read-only to begin with
         if not _self_is_read_only:
-            self.read_only(False, clear_staged=False)
+            self.read_only(is_read_only=False, clear_staged=False)
         if not _other_is_read_only:
-            other.read_only(False, clear_staged=False)
+            other.read_only(is_read_only=False, clear_staged=False)
 
         return _comparison
+
+    @override
+    def __hash__(self) -> int:
+        return hash(f"{self.name}+{self.description}+{self.source}+{self.notification}")
 
     def compare(self, other: "AlertBase") -> bool:
         """Compare this alert to another."""
         return type(self) is type(other) and self.name == other.name
 
     @staging_check
-    def get_alert(self) -> dict[str, object]:
+    def get_alert(self) -> dict[str, typing.Any]:
         """Retrieve alert definition."""
         try:
             return typing.cast("dict[str, object]", self._get_attribute("alert"))
@@ -113,13 +126,14 @@ class AlertBase(SimvueObject, abc.ABC):
     @property
     def name(self) -> str:
         """Retrieve alert name."""
-        return typing.cast("str", self._get_attribute("name"))
+        return self._get_attribute("name")
 
     @name.setter
     @write_only
     @pydantic.validate_call
     def name(
-        self, name: typing.Annotated[str, pydantic.Field(pattern=NAME_REGEX)]
+        self,
+        name: typing.Annotated[str, pydantic.Field(pattern=NAME_REGEX)],
     ) -> None:
         """Set alert name."""
         self._staging["name"] = name
@@ -128,7 +142,7 @@ class AlertBase(SimvueObject, abc.ABC):
     @staging_check
     def description(self) -> str | None:
         """Retrieve alert description."""
-        return typing.cast("str", self._get_attribute("description"))
+        return self._get_attribute("description")
 
     @description.setter
     @write_only
@@ -140,13 +154,13 @@ class AlertBase(SimvueObject, abc.ABC):
     @property
     def run_tags(self) -> list[str]:
         """Retrieve automatically assigned tags from runs."""
-        return typing.cast("list[str]", self._get_attribute("run_tags"))
+        return self._get_attribute("run_tags")
 
     @property
     @staging_check
     def auto(self) -> bool:
         """Retrieve if alert has run tag auto-assign."""
-        return typing.cast("bool", self._get_attribute("auto"))
+        return self._get_attribute("auto")
 
     @auto.setter
     @write_only
@@ -159,9 +173,7 @@ class AlertBase(SimvueObject, abc.ABC):
     @staging_check
     def notification(self) -> typing.Literal["none", "email"]:
         """Retrieve alert notification setting."""
-        return typing.cast(
-            "typing.Literal['none', 'email']", self._get_attribute("notification")
-        )
+        return self._get_attribute("notification")
 
     @notification.setter
     @write_only
@@ -173,20 +185,18 @@ class AlertBase(SimvueObject, abc.ABC):
     @property
     def source(self) -> typing.Literal["events", "metrics", "user"]:
         """Retrieve alert source."""
-        return typing.cast(
-            "typing.Literal['events', 'metrics', 'user']", self._get_attribute("source")
-        )
+        return self._get_attribute("source")
 
     @property
     @staging_check
     def enabled(self) -> bool:
         """Retrieve if alert is enabled."""
-        return typing.cast("bool", self._get_attribute("enabled"))
+        return self._get_attribute("enabled")
 
     @enabled.setter
     @write_only
     @pydantic.validate_call
-    def enabled(self, enabled: bool) -> None:
+    def enabled(self, enabled: str) -> None:
         """Enable/disable alert."""
         self._staging["enabled"] = enabled
 
@@ -194,21 +204,21 @@ class AlertBase(SimvueObject, abc.ABC):
     @staging_check
     def abort(self) -> bool:
         """Retrieve if alert can abort simulations."""
-        return typing.cast("bool", self._get_attribute("abort"))
+        return self._get_attribute("abort")
 
     @property
     @staging_check
     def delay(self) -> int:
         """Retrieve delay value for this alert."""
-        return typing.cast("int", self._get_attribute("delay"))
+        return self._get_attribute("delay")
 
     @property
     def created(self) -> datetime.datetime | None:
-        """Retrieve created datetime for the alert."""
-        _created = typing.cast("str | None", self._get_attribute("created"))
+        """Retrieve created datetime in UTC for the alert."""
+        _created: str | None = self._get_attribute("created")
         return (
-            datetime.datetime.strptime(_created, DATETIME_FORMAT).replace(
-                tzinfo=datetime.UTC
+            datetime.datetime.strptime(_created, DATETIME_FORMAT).astimezone(
+                datetime.timezone.utc,
             )
             if _created
             else None
@@ -222,20 +232,27 @@ class AlertBase(SimvueObject, abc.ABC):
         self._staging["abort"] = abort
 
     @pydantic.validate_call
-    def set_status(self, *args: object, **kwargs: object) -> None:
+    def set_status(self, _: str, __: typing.Literal["ok", "critical"]) -> None:
         """Set the status of this alert for a given run."""
-        _ = args, kwargs
-        _out_msg: str = (
-            f"Cannot update state for alert of type '{self.__class__.__name__}'"
+        raise AttributeError(
+            f"Cannot update state for alert of type '{self.__class__.__name__}'",
         )
         raise AttributeError(_out_msg)
 
     def get_status(self, run_id: str) -> typing.Literal["ok", "critical"]:
         """Retrieve the status of this alert for a given run."""
-        if not self.url:
-            raise RuntimeError("Cannot retrieve status, no object URL found.")
+        _offline_run: bool = run_id.startswith("offline")
+
+        if not self._offline and _offline_run:
+            raise ValueError(
+                f"Cannot retrieve status of online alert '{self.id}' "
+                f"for offline run '{run_id}'",
+            )
+
         _url: URL = self.url / f"status/{run_id}"
-        _response = sv_get(url=f"{_url}", headers=self._headers)
+        _response = sv_get(
+            url=f"{_url}", headers=self._headers, verify=self._user_config.server_verify
+        )
         _json_response = get_json_from_response(
             response=_response,
             expected_status=[http.HTTPStatus.OK],

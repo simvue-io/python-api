@@ -21,13 +21,16 @@ from .base import SimvueObject
 try:
     from typing import Self
 except ImportError:
-    from typing_extensions import Self  # noqa: UP035
+    from typing_extensions import Self
 
 
 try:
     from typing import override
 except ImportError:
-    from typing_extensions import override  # noqa: UP035
+    from typing_extensions import override
+
+if typing.TYPE_CHECKING:
+    from simvue.api.url import URL
 
 if typing.TYPE_CHECKING:
     from simvue.api.url import URL
@@ -36,25 +39,43 @@ __all__ = ["Events"]
 
 
 class Events(SimvueObject):
-    """
-    Simvue Events
-    =============
+    """Simvue Events.
 
     This class is used to connect to/create events objects on the Simvue server,
     any modification of instance attributes is mirrored on the remote object.
 
     """
 
+    _label: str = "event"
+
     def __init__(
         self,
+        identifier: str | None = None,
         *,
-        _read_only: bool = True,
-        _local: bool = False,
-        **kwargs: object,
+        server_url: str | None = None,
+        server_token: pydantic.SecretStr | None = None,
+        **kwargs,
     ) -> None:
-        """Initialise an Events object instance for creation/retrieval."""
-        self._label = "event"
-        super().__init__(_read_only=_read_only, _local=_local, **kwargs)
+        """Initialise an Events object instance for creation/retrieval.
+
+        Parameters
+        ----------
+        identifier : str | None, optional
+            unique identifier for event
+        server_url: str | None, optional
+            alternative server URL, default None
+        server_token : str | None, optional
+            token for alternative server, default None
+        **kwargs : dict
+            any additional arguments to be passed to the object initialiser
+
+        """
+        super().__init__(
+            identifier=identifier,
+            server_url=server_url,
+            server_token=server_token,
+            **kwargs,
+        )
         self._run_id = self._staging.get("run")
         self._is_set = True
 
@@ -67,26 +88,57 @@ class Events(SimvueObject):
         *,
         count: pydantic.PositiveInt | None = None,
         offset: pydantic.PositiveInt | None = None,
-        **kwargs,
+        server_url: str | None = None,
+        server_token: pydantic.SecretStr | None = None,
+        **kwargs: typing.Any,
     ) -> Generator[EventSet]:
+        """Retrieve events from the server.
+
+        Parameters
+        ----------
+        run_id: str
+            unique identifier of target Simvue run
+        count: int | None, optional
+            limit number of objects
+        offset : int | None, optional
+            set start index for objects list
+        server_url: str | None, optional
+            alternative server URL, default None
+        server_token : str | None, optional
+            token for alternative server, default None
+        **kwargs : Any
+            additional arguments for retrieval
+
+        Yields
+        ------
+        EventSet
+            object corresponding to a set of events
+
+        Returns
+        -------
+        Generator[EventSet]
+
+        Raises
+        ------
+        RuntimeError
+            if the expected 'data' key was not found in server response
+
+        """
         _class_instance = cls(_read_only=True, _local=True)
         _count: int = 0
 
         for response in cls._get_all_objects(
-            offset=offset,
-            endpoint=None,
+            offset,
             count=count,
             run=run_id,
-            expected_type=dict,
+            server_url=server_url,
+            server_token=server_token,
             **kwargs,
         ):
-            _data = typing.cast(
-                "list[dict[str, str | float | None]] | None", response.get("data")
-            )
-            if _data is None:
-                _out_msg: str = (
-                    "Expected key 'data' for retrieval "
-                    f"of {_class_instance.__class__.__name__.lower()}s"
+            if (_data := response.get("data")) is None:
+                raise RuntimeError(
+                    "Expected key 'data' for retrieval of "
+                    f"{_class_instance.__class__.__name__.lower()}s",
                 )
                 raise RuntimeError(_out_msg)
 
@@ -103,14 +155,40 @@ class Events(SimvueObject):
         cls,
         *,
         run: str,
-        offline: bool = False,
         events: list[EventSet],
-        **kwargs: object,
+        offline: bool = False,
+        server_url: str | None = None,
+        server_token: pydantic.SecretStr | None = None,
+        **kwargs: typing.Any,
     ) -> Self:
-        """Create a new Events entry on the Simvue server."""
+        """Create a new Events entry on the Simvue server.
+
+        Parameters
+        ----------
+        run : str
+            unique identifier of target run for these events
+        events : list[EventSet]
+            set of events to attach to the target run
+        offline : bool, optional
+            whether to create in offline mode, default False
+        server_url: str | None, optional
+            alternative server URL, default None
+        server_token : str | None, optional
+            token for alternative server, default None
+        **kwargs : Any
+            additional initialisation arguments
+
+        Returns
+        -------
+        Events
+            an object representing this event set
+
+        """
         return cls(
             run=run,
             events=[event.model_dump() for event in events],
+            server_url=server_url,
+            server_token=server_token,
             _read_only=False,
             _offline=offline,
             **kwargs,  # pyright: ignore[reportArgumentType]
@@ -136,28 +214,28 @@ class Events(SimvueObject):
         window: int,
         filters: list[str] | None,
     ) -> list[dict[str, str | int]]:
-        """Return binned data for events.
+        """Retrieve events as a histogram.
 
         Parameters
         ----------
         timestamp_begin : datetime.datetime
-            time window start period
+            start point for event time range
         timestamp_end : datetime.datetime
-            time window end period
+            end point for event time range
         window : int
-            window for aggregation
+            the interval for metric aggregation
         filters : list[str] | None
-            filter results using filter expressions
+            filters to apply to select on runs
 
         Returns
         -------
         list[dict[str, str | int]]
-            histogram data from server
+            histogram response from server
         """
         if timestamp_end - timestamp_begin <= datetime.timedelta(seconds=window):
             raise ValueError(
                 "Invalid arguments for datetime range, "
-                "value difference must be greater than window"
+                "value difference must be greater than window",
             )
         _url: URL = self.base_url / "histogram"
         _time_begin: str = simvue_timestamp(timestamp_begin)
@@ -165,7 +243,8 @@ class Events(SimvueObject):
         _response = sv_get(
             url=f"{_url}",
             headers=self._headers,
-            params={  # pyright: ignore[reportArgumentType]
+            verify=self._user_config.server_verify,
+            params={
                 "run": self._run_id,
                 "window": window,
                 "timestamp_begin": _time_begin,
@@ -197,6 +276,7 @@ class Events(SimvueObject):
         ------
         NotImplementedError
             as event set deletion not supported
+
         """
         raise NotImplementedError("Cannot delete event set")
 

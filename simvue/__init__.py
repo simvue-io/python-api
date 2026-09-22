@@ -1,8 +1,12 @@
-"""Simvue Python API."""
+"""Simvue Python API.
 
-from simvue.client import Client
-from simvue.handler import Handler
-from simvue.models import RunInput
-from simvue.run import Run
+For interacting with Simvue servers, this includes both a user facing API
+for quick and easy scraping of simulation data, and a lower level API for
+a finer grained interface.
 
-__all__ = ["Client", "Handler", "Run", "RunInput"]
+"""
+
+from simvue.client import Client as Client
+from simvue.handler import Handler as Handler
+from simvue.models import RunInput as RunInput
+from simvue.run import Run as Run

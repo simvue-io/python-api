@@ -26,8 +26,8 @@ _logger.setLevel(logging.INFO)
     type=int,
     required=False,
     default=10,
-    help="The number of objects of a given type above which items will be sent "
-    "to the server in parallel, by default 10",
+    help="The number of objects of a given type above which items will be "
+    "sent to the server in parallel, by default 10",
 )
 @click.option(
     "-o",
@@ -52,7 +52,7 @@ _logger.setLevel(logging.INFO)
     default=None,
     required=False,
 )
-def run(
+def sender_cli(
     cache_directory: pathlib.Path | None,
     objects_to_upload: list[UploadItem] | None,
     threading_threshold: int,
@@ -68,6 +68,6 @@ def run(
             throw_exceptions=True,
         )
         _sender.upload(objects_to_upload)
-    except Exception as err:
-        _logger.critical("Exception running sender: %s", str(err))
-        raise click.Abort from err
+    except Exception as err:  # noqa: BLE001
+        _logger.critical("Exception running sender: %s", err)
+        raise click.Abort from None

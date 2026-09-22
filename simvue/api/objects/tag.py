@@ -19,33 +19,39 @@ from simvue.models import DATETIME_FORMAT
 try:
     from typing import Self, override
 except ImportError:
-    from typing import Self, override
+    from typing_extensions import Self, override
 
 __all__ = ["Tag"]
 
 
 class TagSort(Sort):
+    """Class defining the sorting of tag data when retrieved from the server."""
+
     @pydantic.field_validator("column")
     @classmethod
     def check_column(cls, column: str) -> str:
-        if column and column not in ("created", "name"):
-            _out_msg: str = f"Invalid sort column for tags '{column}"
-            raise ValueError(_out_msg)
+        if column and column not in {"created", "name"}:
+            raise ValueError(f"Invalid sort column for tags '{column}")
         return column
 
 
 class Tag(SimvueObject):
-    """
-    Simvue Tag
-    ==========
+    """Simvue Tag.
 
     This class is used to connect to/create tag objects on the Simvue server,
     any modification of instance attributes is mirrored on the remote object.
 
     """
 
-    def __init__(self, identifier: str | None = None, **kwargs) -> None:
-        """Initialise a Tag
+    @override
+    def __init__(
+        self,
+        identifier: str | None = None,
+        server_url: str | None = None,
+        server_token: pydantic.SecretStr | None = None,
+        **kwargs,
+    ) -> None:
+        """Initialise a Tag.
 
         If an identifier is provided a connection will be made to the
         object matching the identifier on the target server.
@@ -55,15 +61,33 @@ class Tag(SimvueObject):
         ----------
         identifier : str, optional
             the remote server unique id for the target folder
+        server_url: str | None, optional
+            alternative server URL, default None
+        server_token : str | None, optional
+            token for alternative server, default None
         **kwargs : dict
             any additional arguments to be passed to the object initialiser
-        """
-        super().__init__(identifier, **kwargs)
 
+        """
+        super().__init__(
+            identifier,
+            server_url=server_url,
+            server_token=server_token,
+            **kwargs,
+        )
+
+    @override
     @classmethod
     @pydantic.validate_call
-    @override
-    def new(cls, *, name: str, offline: bool = False, **kwargs: object) -> Self:
+    def new(
+        cls,
+        *,
+        name: str,
+        offline: bool = False,
+        server_url: str | None = None,
+        server_token: pydantic.SecretStr | None = None,
+        **kwargs: typing.Any,
+    ) -> Self:
         """Create a new Tag on the Simvue server.
 
         Parameters
@@ -72,14 +96,27 @@ class Tag(SimvueObject):
             name for the tag
         offline : bool, optional
             create this tag in offline mode, default False.
+        server_url: str | None, optional
+            alternative server URL, default None
+        server_token : str | None, optional
+            token for alternative server, default None
+        **kwargs : Any
+            additional arguments for initialisation
 
         Returns
         -------
         Tag
             tag object with staged attributes
+
         """
-        _data: dict[str, typing.Any] = {"name": name}
-        return Tag(name=name, _read_only=False, _offline=offline, **kwargs)
+        return cls(
+            name=name,
+            server_url=server_url,
+            server_token=server_token,
+            _offline=offline,
+            _read_only=False,
+            **kwargs,
+        )
 
     @property
     @staging_check
@@ -96,7 +133,7 @@ class Tag(SimvueObject):
 
     @property
     @staging_check
-    def colour(self) -> pyd_color.Color:
+    def colour(self) -> pyd_color.RGBA:
         """Retrieve the tag colour."""
         return pyd_color.parse_str(self._get_attribute("colour"))
 
@@ -126,12 +163,13 @@ class Tag(SimvueObject):
         _created: str | None = self._get_attribute("created")
         return (
             datetime.datetime.strptime(_created, DATETIME_FORMAT).replace(
-                tzinfo=datetime.UTC
+                tzinfo=datetime.timezone.utc,
             )
             if _created
             else None
         )
 
+    @override
     @classmethod
     @pydantic.validate_call
     @override
@@ -141,7 +179,9 @@ class Tag(SimvueObject):
         count: int | None = None,
         offset: int | None = None,
         sorting: list[TagSort] | None = None,
-        **kwargs,
+        server_url: str | None = None,
+        server_token: pydantic.SecretStr | None = None,
+        **kwargs: typing.Any,
     ) -> Generator[tuple[str, "SimvueObject"]]:
         """Get tags from the server.
 
@@ -153,15 +193,22 @@ class Tag(SimvueObject):
             start index for results, default is 0.
         sorting : list[dict] | None, optional
             list of sorting definitions in the form {'column': str, 'descending': bool}
+        server_url: str | None, optional
+            alternative server URL, default None
+        server_token : str | None, optional
+            token for alternative server, default None
+        **kwargs : Any
+            additional arguments for the request
 
         Yields
         ------
         tuple[str, Tag]
             id of tag
             Tag object representing object on server
+
         """
         # There are currently no tag filters
-        kwargs.pop("filters", None)
+        _ = kwargs.pop("filters", None)
 
         _params: dict[str, str] = {}
 
@@ -171,6 +218,8 @@ class Tag(SimvueObject):
         return super().get(
             count=count,
             offset=offset,
+            server_url=server_url,
+            server_token=server_token,
             **_params,
             **kwargs,
         )

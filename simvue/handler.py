@@ -36,7 +36,7 @@ class Handler(logging.Handler):
 
         try:
             self._run_object.log_event(_msg)
-        except Exception:
+        except Exception:  # noqa: BLE001
             logging.Handler.handleError(self, record)
 
     @override

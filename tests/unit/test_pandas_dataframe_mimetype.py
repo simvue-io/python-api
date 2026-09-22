@@ -16,6 +16,6 @@ def test_pandas_dataframe_mimetype() -> None:
     data = {'col1': [1, 2], 'col2': [3, 4]}
     df = pd.DataFrame(data=data)
 
-    _, mime_type = serialize_object(df, False)
+    _, mime_type = serialize_object(df, allow_pickle=False)
 
     assert (mime_type == 'application/vnd.simvue.df.v1')

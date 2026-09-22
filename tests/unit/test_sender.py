@@ -1,8 +1,11 @@
 import json
+import tempfile
 import pytest
 import time
 import datetime
 import uuid
+
+import semver
 from simvue.sender import Sender
 from simvue.api.objects import Run, Metrics, Folder
 from simvue.models import DATETIME_FORMAT
@@ -155,6 +158,20 @@ def test_sender_server_ids(offline_cache_setup, caplog, parallel):
     # Check all files for runs and metrics deleted once they were processed
     assert len(list(pathlib.Path(offline_cache_setup.name).joinpath("runs").iterdir())) == 0
     assert len(list(pathlib.Path(offline_cache_setup.name).joinpath("metrics").iterdir())) == 0
+
+
+@pytest.mark.offline
+def test_sender_version_get(offline_cache_setup: tempfile.TemporaryDirectory) -> None:
+    _sender = Sender()
+    _sender.upload()
+    assert (_version_file := pathlib.Path(offline_cache_setup.name).joinpath("version.json")).exists()
+    with _version_file.open() as in_f:
+        _data = json.load(in_f)
+    assert "server" in _data
+    assert "nosim" in _data
+    _ = semver.Version.parse(_data["server"])
+    _ = semver.Version.parse(_data["nosim"])
+
 
 @pytest.mark.parametrize("parallel", (True, False))
 def test_send_heartbeat(offline_cache_setup, parallel, mocker):

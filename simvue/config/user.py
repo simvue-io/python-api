@@ -4,18 +4,18 @@ Pydantic model for the Simvue TOML configuration file
 
 """
 
+import contextlib
 import functools
 import http
+import json
 import logging
 import os
 import pathlib
 import typing
-from collections.abc import Mapping
 
 import pydantic
 import semver
 import toml
-from requests import Response
 
 try:
     from typing import Self
@@ -40,17 +40,16 @@ from simvue.config.parameters import (
 from simvue.eco.config import EcoConfig
 from simvue.version import __version__
 
-try:
-    from typing import Self
-except ImportError:
-    from typing import Self
-
 logger = logging.getLogger(__name__)
 
 SIMVUE_SERVER_UPPER_CONSTRAINT: semver.Version | None = semver.Version.parse("2.0.0")
 SIMVUE_SERVER_LOWER_CONSTRAINT: semver.Version | None = semver.Version.parse("1.1.0")
 
 __all__ = ["SimvueConfiguration"]
+
+
+if typing.TYPE_CHECKING:
+    from collections.abc import Generator
 
 
 class SimvueConfiguration(pydantic.BaseModel):
@@ -65,22 +64,44 @@ class SimvueConfiguration(pydantic.BaseModel):
     )
     client: ClientGeneralOptions = ClientGeneralOptions()
     server: ServerSpecifications = pydantic.Field(
-        ..., description="Specifications for Simvue server"
+        ...,
+        description="Specifications for Simvue server",
     )
     profiles: dict[str, ServerSpecifications] = pydantic.Field(
-        default_factory=dict[str, ServerSpecifications]
+        default_factory=dict[str, ServerSpecifications],
     )
     run: DefaultRunSpecifications = DefaultRunSpecifications()
     offline: OfflineSpecifications = OfflineSpecifications()
     metrics: MetricsSpecifications = MetricsSpecifications()
     eco: EcoConfig = EcoConfig()
     current_profile: str | None = None
+    _server_version: semver.Version | None = None
+    _nosim_version: semver.Version | None = None
+
+    @property
+    def server_verify(self) -> str | bool:
+        """Return current server CA certificate."""
+        _ca_cert: pathlib.Path | bool = self.server.certificates.server_ca_cert
+        return f"{_ca_cert}" if isinstance(_ca_cert, pathlib.Path) else _ca_cert
+
+    @property
+    def server_version(self) -> semver.Version:
+        """Retrieve current Server version."""
+        if not self._server_version:
+            raise RuntimeError("Expected server version to be defined")
+        return self._server_version
+
+    @property
+    def nosim_version(self) -> semver.Version | None:
+        """Retrieve current noSim version if available."""
+        return self._nosim_version
 
     @classmethod
-    def _load_pyproject_configs(cls) -> Mapping[str, object] | None:
+    def _load_pyproject_configs(cls) -> dict | None:
         """Recover any Simvue non-authentication configurations from pyproject.toml."""
         _pyproject_toml = sv_util.find_first_instance_of_file(
-            file_names=["pyproject.toml"], check_user_space=False
+            file_names=["pyproject.toml"],
+            check_user_space=False,
         )
 
         if not _pyproject_toml:
@@ -100,33 +121,68 @@ class SimvueConfiguration(pydantic.BaseModel):
                 _server_credentials.get("token"),
                 _server_credentials.get("url"),
                 _offline_credentials.get("cache"),
-            ]
+            ],
         ):
             raise RuntimeError(
-                "Provision of Simvue URL, Token or offline directory "
-                "in pyproject.toml is not allowed."
+                "Provision of Simvue URL, Token or offline directory in "
+                "pyproject.toml is not allowed.",
             )
 
         return _simvue_setup
 
-    @classmethod
+    @staticmethod
     @functools.lru_cache
     def _check_server(
-        cls, token: str, url: str, mode: typing.Literal["offline", "online", "disabled"]
-    ) -> None:
-        if mode in ("offline", "disabled"):
-            return
+        *,
+        token: str,
+        offline_cache: pathlib.Path | None,
+        url: str,
+        mode: typing.Literal["offline", "online", "disabled"],
+        verify: str | bool,
+    ) -> tuple[semver.Version | None, semver.Version | None]:
+        _offline_version_data: tuple[semver.Version | None, semver.Version | None] = (
+            None,
+            None,
+        )
+
+        _version_file: pathlib.Path | None = (
+            offline_cache.joinpath("version.json") if offline_cache else None
+        )
+
+        # Safety in case a broken empty version cache was written
+        if (
+            _version_file
+            and _version_file.exists()
+            and _version_file.stat().st_size == 0
+        ):
+            _version_file.unlink()
+
+        if _version_file and _version_file.exists():
+            with _version_file.open() as in_f:
+                _local_version_data = json.load(in_f)
+            try:
+                _offline_version_data = (
+                    semver.Version.parse(_local_version_data.get("server")),
+                    semver.Version.parse(_local_version_data.get("nosim")),
+                )
+            except ValueError as e:
+                raise AssertionError(
+                    "Failed to parse local server version information, "
+                    + f"is '{_version_file}' a valid JSON file?"
+                ) from e
+
+        if mode in {"offline", "disabled"} or os.environ.get("SIMVUE_NO_SERVER_CHECK"):
+            return _offline_version_data
 
         headers: dict[str, str] = {
             "Authorization": f"Bearer {token}",
             "User-Agent": f"Simvue Python client {__version__}",
         }
 
-        def _retrieve_version_str(response: Response) -> str:
-            if response.status_code != http.HTTPStatus.OK or not (
-                _version_str := response.json().get("version")
-            ):
-                raise AssertionError
+        # Retrieve Server version
+        try:
+            _url = URL(url) / "version"
+            _response = sv_get(f"{_url}", headers=headers, verify=verify)
 
             if response.status_code == http.HTTPStatus.UNAUTHORIZED:
                 raise AssertionError("Unauthorised token")
@@ -137,9 +193,31 @@ class SimvueConfiguration(pydantic.BaseModel):
             _response = sv_get(f"{_url}", headers)
             _version_str = _retrieve_version_str(_response)
 
+            if _response.status_code != http.HTTPStatus.OK or not (
+                _version_str := _response.json().get("version")
+            ):
+                raise AssertionError("Failed to retrieve version from server response.")
+
         except Exception as err:
-            _out_msg = f"Exception retrieving server version:\n {err!s}"
-            raise AssertionError(_out_msg) from err
+            raise AssertionError(
+                f"Exception retrieving server version:\n {err!s}",
+            ) from err
+
+        _nosim_version_str: str = ""
+        _nosim_version: semver.Version | None = None
+
+        # Retrieve noSim version if applicable
+        with contextlib.suppress(Exception):
+            _url = URL(url) / "nosim" / "version"
+            _response = sv_get(f"{_url}", headers=headers, verify=verify)
+
+            if _response.status_code == http.HTTPStatus.UNAUTHORIZED:
+                raise AssertionError("Unauthorised token")
+
+            if _response.status_code == http.HTTPStatus.OK and (
+                _nosim_version_str := _response.json().get("version")
+            ):
+                _nosim_version = semver.Version.parse(_nosim_version_str)
 
         _version = semver.Version.parse(_version_str)
 
@@ -147,20 +225,22 @@ class SimvueConfiguration(pydantic.BaseModel):
             SIMVUE_SERVER_UPPER_CONSTRAINT
             and _version >= SIMVUE_SERVER_UPPER_CONSTRAINT
         ):
-            _out_msg = (
-                f"Python API v{_version_str} is not compatible "
-                "with Simvue server versions "
-                f">= {SIMVUE_SERVER_UPPER_CONSTRAINT}"
+            raise AssertionError(
+                f"Python API v{__version__} is not compatible "
+                "with the current Simvue server version: "
+                f"{_version_str} >= {SIMVUE_SERVER_UPPER_CONSTRAINT}",
             )
             raise AssertionError(_out_msg)
 
         if SIMVUE_SERVER_LOWER_CONSTRAINT and _version < SIMVUE_SERVER_LOWER_CONSTRAINT:
-            _out_msg = (
-                f"Python API v{_version_str} is not compatible "
-                "with Simvue server versions "
-                f"< {SIMVUE_SERVER_LOWER_CONSTRAINT}"
+            raise AssertionError(
+                f"Python API v{__version__} is not compatible "
+                "with the current Simvue server version: "
+                f"{_version_str} < {SIMVUE_SERVER_LOWER_CONSTRAINT}",
             )
             raise AssertionError(_out_msg)
+
+        return _version, _nosim_version
 
     @pydantic.validate_call
     def write(self, out_directory: pydantic.DirectoryPath) -> None:
@@ -176,11 +256,16 @@ class SimvueConfiguration(pydantic.BaseModel):
 
     @pydantic.model_validator(mode="after")
     def check_valid_server(self) -> Self:
-        """Check if the server is a valid URL."""
-        if os.environ.get("SIMVUE_NO_SERVER_CHECK"):
-            return self
+        if not self.server.token:
+            raise ValueError("No token provided.")
 
-        self._check_server(self.server.token, self.server.url, self.run.mode)
+        self._server_version, self._nosim_version = self._check_server(
+            token=self.server.token.get_secret_value(),
+            url=self.server.url,
+            verify=self.server_verify,
+            mode=self.run.mode,
+            offline_cache=self.offline.cache,
+        )
 
         return self
 
@@ -236,7 +321,7 @@ class SimvueConfiguration(pydantic.BaseModel):
         elif not _config_dict.get("profiles", {}).get(profile):
             _exc_msg: str = (
                 f"Cannot load server configuration for '{profile}', "
-                "profile not found in configurations."
+                "profile not found in configurations.",
             )
             raise RuntimeError(_exc_msg)
         else:
@@ -249,7 +334,8 @@ class SimvueConfiguration(pydantic.BaseModel):
         # Allow override of specification of offline directory via environment variable
         if not (_default_dir := os.environ.get("SIMVUE_OFFLINE_DIRECTORY")):
             _default_dir = _config_dict["offline"].get(
-                "cache", DEFAULT_OFFLINE_DIRECTORY
+                "cache",
+                DEFAULT_OFFLINE_DIRECTORY,
             )
         pathlib.Path(_default_dir).mkdir(parents=True, exist_ok=True)
 
@@ -259,14 +345,16 @@ class SimvueConfiguration(pydantic.BaseModel):
         # Environment Variables > Run Definition > Configuration File
 
         _server_url = os.environ.get(
-            "SIMVUE_URL", server_url or _config_dict["server"].get("url")
+            "SIMVUE_URL",
+            server_url or _config_dict["server"].get("url"),
         )
 
         if isinstance(_server_url, URL):
             _server_url = str(_server_url)
 
         _server_token = os.environ.get(
-            "SIMVUE_TOKEN", server_token or _config_dict["server"].get("token")
+            "SIMVUE_TOKEN",
+            server_token or _config_dict["server"].get("token"),
         )
 
         _run_mode = mode or _config_dict["run"].get("mode") or "online"
@@ -281,23 +369,36 @@ class SimvueConfiguration(pydantic.BaseModel):
         _config_dict["server"]["url"] = _server_url
         _config_dict["run"]["mode"] = _run_mode
 
-        return SimvueConfiguration(current_profile=profile, **_config_dict)
+        _user_config = SimvueConfiguration(current_profile=profile, **_config_dict)
+
+        # Load any additional environment variables for this server
+        for key, value in (_env_vars := _user_config.server.env or {}).items():
+            os.environ[key] = value
+
+        if _env_vars:
+            _env_strs: Generator[str] = (f"{k}={v}" for k, v in _env_vars.items())
+            logger.debug("Loaded environment variables:\n%s", "\n\t".join(_env_strs))
+
+        return _user_config
 
     @classmethod
     @functools.lru_cache
     def config_file(cls) -> pathlib.Path:
-        """Return the path of top level configuration file used for the session."""
+        """Returns the path of top level configuration file used for the session."""
         _config_file: pathlib.Path | None = sv_util.find_first_instance_of_file(
-            CONFIG_FILE_NAMES, check_user_space=True
+            CONFIG_FILE_NAMES,
+            check_user_space=True,
         )
 
         # NOTE: Legacy INI support has been removed
         if not _config_file and sv_util.find_first_instance_of_file(
-            CONFIG_INI_FILE_NAMES, check_user_space=True
+            CONFIG_INI_FILE_NAMES,
+            check_user_space=True,
         ):
             raise RuntimeError(
-                "Simvue INI configuration file format has been deprecated "
-                "in simvue>=1.2, please use TOML file"
+                "Simvue INI configuration file format has been "
+                "deprecated in simvue>=1.2, "
+                "please use TOML file",
             )
 
         if not _config_file:

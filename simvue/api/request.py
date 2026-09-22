@@ -14,6 +14,7 @@ from collections.abc import Generator
 
 import requests
 from tenacity import (
+    RetryCallState,
     retry,
     retry_if_exception_type,
     stop_after_attempt,
@@ -21,8 +22,6 @@ from tenacity import (
 )
 
 from simvue.utilities import parse_validation_response
-
-logger = logging.getLogger(__name__)
 
 DEFAULT_API_TIMEOUT = 10
 RETRY_MULTIPLIER = 1
@@ -32,9 +31,13 @@ RETRY_STOP = 5
 MAX_ENTRIES_PER_PAGE: int = 100
 RETRY_STATUSES = {502, 503, 504}
 
+logger = logging.getLogger(__name__)
+
 
 def set_json_header(headers: dict[str, str]) -> dict[str, str]:
-    """Return a copy of the headers with Content-Type set to application/json."""
+    """Return a copy of the headers with Content-Type set to
+    application/json.
+    """
     headers = copy.deepcopy(headers)
     headers["Content-Type"] = "application/json"
     return headers
@@ -42,6 +45,17 @@ def set_json_header(headers: dict[str, str]) -> dict[str, str]:
 
 class RetryableHTTPError(Exception):
     pass
+
+
+def _rewind_request_streams(retry_state: RetryCallState) -> None:
+    """Rewind file-like request bodies before retrying."""
+    files = retry_state.kwargs.get("files") or {}
+    streams = (*files.values(), retry_state.kwargs.get("data"))
+
+    for value in streams:
+        stream = value[1] if isinstance(value, tuple) else value
+        if callable(seek := getattr(stream, "seek", None)):
+            seek(0)
 
 
 @retry(
@@ -52,18 +66,21 @@ class RetryableHTTPError(Exception):
             RetryableHTTPError,
             requests.exceptions.Timeout,
             requests.exceptions.ConnectionError,
-        )
+        ),
     ),
+    before_sleep=_rewind_request_streams,
     reraise=True,
 )
 def post(
     url: str,
+    *,
     headers: dict[str, str],
     params: dict[str, str],
     data: object,
     *,
     is_json: bool = True,
     timeout: int | None = None,
+    verify: str | bool = True,
     files: dict[str, typing.Any] | None = None,
 ) -> requests.Response:
     """HTTP POST with retries.
@@ -80,6 +97,13 @@ def post(
         data to post
     is_json : bool, optional
         send as JSON string, by default True
+    timeout : int | None = None
+        timeout for the request
+    files : dict[str, Any] | None = None
+        file data for this request
+    verify : str | bool, optional
+        whether to verify the request, if a string, the certificate
+        to use for verification
 
     Returns
     -------
@@ -100,19 +124,20 @@ def post(
         data=data_sent,
         timeout=timeout,
         files=files,
+        verify=verify,
     )
 
     if response.status_code == http.HTTPStatus.UNPROCESSABLE_ENTITY:
         _parsed_response = parse_validation_response(response.json())
-        _out_msg: str = (
-            f"Validation error for '{url}' [{response.status_code}]:"
-            f"\n{_parsed_response}"
+        raise ValueError(
+            f"Validation error for '{url}' "
+            f"[{response.status_code}]:\n{_parsed_response}",
         )
         raise ValueError(_out_msg)
 
     if response.status_code in RETRY_STATUSES:
         raise RetryableHTTPError(
-            f"Received status code {response.status_code} from server"
+            f"Received status code {response.status_code} from server",
         )
 
     return response
@@ -125,18 +150,21 @@ def post(
             RetryableHTTPError,
             requests.exceptions.Timeout,
             requests.exceptions.ConnectionError,
-        )
+        ),
     ),
     stop=stop_after_attempt(RETRY_STOP),
+    before_sleep=_rewind_request_streams,
     reraise=True,
 )
 def put(
     url: str,
+    *,
     headers: dict[str, str],
     data: dict[str, typing.Any] | None = None,
     json: dict[str, typing.Any] | None = None,
     *,
     is_json: bool = True,
+    verify: bool | str = True,
     timeout: int = DEFAULT_API_TIMEOUT,
 ) -> requests.Response:
     """HTTP PUT with retries.
@@ -155,11 +183,15 @@ def put(
         send as JSON string, by default True
     timeout : int, optional
         timeout of request, by default DEFAULT_API_TIMEOUT
+    verify : str | bool, optional
+        whether to verify the request, if a string, the certificate
+        to use for verification
 
     Returns
     -------
     requests.Response
         response from executing PUT
+
     """
     if is_json and data:
         data_sent: str | dict[str, typing.Any] | object = json_module.dumps(data)
@@ -170,12 +202,17 @@ def put(
     logger.debug("PUT: %s\n\tdata=%s\n\tjson=%s", url, data_sent, json)
 
     response = requests.put(
-        url, headers=headers, data=data_sent, timeout=timeout, json=json
+        url,
+        headers=headers,
+        data=data_sent,
+        timeout=timeout,
+        json=json,
+        verify=verify,
     )
 
     if response.status_code in RETRY_STATUSES:
         raise RetryableHTTPError(
-            f"Received status code {response.status_code} from server"
+            f"Received status code {response.status_code} from server",
         )
 
     return response
@@ -188,17 +225,19 @@ def put(
             RetryableHTTPError,
             requests.exceptions.Timeout,
             requests.exceptions.ConnectionError,
-        )
+        ),
     ),
     stop=stop_after_attempt(RETRY_STOP),
     reraise=True,
 )
 def get(
     url: str,
+    *,
     headers: dict[str, str] | None = None,
     params: dict[str, str | int | float | None | list[str]] | None = None,
     timeout: int = DEFAULT_API_TIMEOUT,
     json: dict[str, typing.Any] | None = None,
+    verify: str | bool = True,
 ) -> requests.Response:
     """HTTP GET.
 
@@ -207,25 +246,31 @@ def get(
     url : str
         URL to put to
     headers : dict[str, str]
-        headers for the post request
+        headers for the get request
+    params : dict[str, Any]
+        additional parameters for request
     timeout : int, optional
         timeout of request, by default DEFAULT_API_TIMEOUT
     json : dict[str, Any] | None, optional
         any json to send in request
+    verify : str | bool, optional
+        whether to verify the request, if a string, the certificate
+        to use for verification
 
     Returns
     -------
     requests.Response
         response from executing GET
+
     """
-    logging.debug(f"GET: {url}\n\tparams={params}")
+    logger.debug("GET: %s\n\tparams=%s", url, params)
     response = requests.get(
-        url, headers=headers, timeout=timeout, params=params, json=json
+        url, headers=headers, timeout=timeout, params=params, json=json, verify=verify
     )
 
     if response.status_code in RETRY_STATUSES:
         raise RetryableHTTPError(
-            f"Received status code {response.status_code} from server"
+            f"Received status code {response.status_code} from server",
         )
 
     return response
@@ -238,16 +283,18 @@ def get(
             RetryableHTTPError,
             requests.exceptions.Timeout,
             requests.exceptions.ConnectionError,
-        )
+        ),
     ),
     stop=stop_after_attempt(RETRY_STOP),
     reraise=True,
 )
 def delete(
     url: str,
+    *,
     headers: dict[str, str],
     timeout: int = DEFAULT_API_TIMEOUT,
     params: dict[str, typing.Any] | None = None,
+    verify: str | bool = True,
 ) -> requests.Response:
     """HTTP DELETE.
 
@@ -261,59 +308,45 @@ def delete(
         timeout of request, by default DEFAULT_API_TIMEOUT
     params : dict, optional
         parameters for deletion
+    verify : str | bool, optional
+        whether to verify the request, if a string, the certificate
+        to use for verification
 
     Returns
     -------
     requests.Response
         response from executing DELETE
+
     """
-    logging.debug(f"DELETE: {url}\n\tparams={params}")
-    response = requests.delete(url, headers=headers, timeout=timeout, params=params)
+    logger.debug("DELETE: %s\n\tparams=%s", url, params)
+    response = requests.delete(
+        url, headers=headers, timeout=timeout, params=params, verify=verify
+    )
 
     if response.status_code in RETRY_STATUSES:
         raise RetryableHTTPError(
-            f"Received status code {response.status_code} from server"
+            f"Received status code {response.status_code} from server",
         )
 
     return response
 
 
 def get_json_from_response(
-    expected_status: list[http.HTTPStatus],
+    *,
+    expected_status: list[int],
     scenario: str,
     response: requests.Response,
     *,
     allow_parse_failure: bool = False,
-    expected_type: type[dict[str, object] | list[object]] = dict,
-) -> dict[str, object] | list[object]:
-    """Retrieve the JSON data from a server response.
-
-    Parameters
-    ----------
-    expected_status : list[http.HTTPStatus]
-        list of valid response status codes.
-    scenario : str
-        description of the scenario.
-    response : requests.Response
-        the response object to process
-    allow_parse_failure : bool, optional
-        whether the attempt to parse failure response
-        is allowed to itself fail, default False.
-    expected_type : type[dict | list], optional
-        the expected response type, default dict.
-
-    Returns
-    -------
-    list | dict
-        the response information.
-    """
+    expected_type: type[dict | list] = dict,
+) -> dict | list:
     try:
         json_response: list[dict[str, object]] | dict[str, object] | None = (
             response.json()
         )
         json_response = json_response or ({} if expected_type is dict else [])
         decode_error = ""
-    except json_module.JSONDecodeError as e:
+    except requests.exceptions.JSONDecodeError as e:
         json_response = {} if allow_parse_failure else None
         decode_error = f"{e}"
 
@@ -321,7 +354,14 @@ def get_json_from_response(
     details: str | None = None
 
     if (_status_code := response.status_code) in expected_status:
-        if json_response is None:
+        if not isinstance(json_response, expected_type):
+            details = (
+                f"expected type '{expected_type.__name__}' "
+                f"but got '{type(json_response).__name__}'"
+            )
+        elif json_response is not None:
+            return json_response
+        else:
             details = f"could not request JSON response: {decode_error}"
         elif not isinstance(json_response, expected_type):
             details = (
@@ -349,11 +389,12 @@ def get_json_from_response(
 
 def get_paginated(
     url: str,
+    *,
     headers: dict[str, str] | None = None,
     timeout: int = DEFAULT_API_TIMEOUT,
     json: dict[str, typing.Any] | None = None,
-    offset: int | None = None,
     count: int | None = None,
+    offset: int | None = None,
     **params,
 ) -> Generator[requests.Response]:
     """Paginate results of a server query.
@@ -368,11 +409,18 @@ def get_paginated(
         timeout of request, by default DEFAULT_API_TIMEOUT
     json : dict[str, Any] | None, optional
         any json to send in request
+    count: int | None, optional
+        limit number of objects
+    offset : int | None, optional
+        set start index for objects list
+    **params: Any
+        additional parameters for request
 
     Yield
     -----
     requests.Response
         server response
+
     """
     _offset: int = offset or 0
 
@@ -398,9 +446,8 @@ def get_paginated(
                 _response.json().get("count", 0) < _offset
             ):
                 break
-    except json_module.JSONDecodeError as e:
-        _out_msg: str = (
-            f"[{_response.status_code}] Failed to retrieve content "
-            f"from server: {_response.text}"
-        )
-        raise RuntimeError(_out_msg) from e
+    except requests.exceptions.JSONDecodeError:
+        raise RuntimeError(
+            f"[{_response.status_code}] Failed to retrieve content from server: "
+            + _response.text,
+        ) from None

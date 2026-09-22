@@ -1,3 +1,5 @@
+"""Dispatcher base class definitions."""
+
 import abc
 import threading
 import typing
@@ -34,6 +36,7 @@ class DispatcherBaseClass(abc.ABC):
             any additional thresholds to consider when handling items.
             This assumes metadata defining the values to compare to
             such thresholds is included when appending.
+
         """
         super().__init__()
         self._thresholds: dict[str, int | float] = thresholds or {}
@@ -60,6 +63,7 @@ class DispatcherBaseClass(abc.ABC):
         metadata : dict[str, int | float] | None, optional
             additional metadata relating to the item to be
             used for threshold comparisons
+
         """
         _ = item
         _ = object_type
@@ -68,7 +72,9 @@ class DispatcherBaseClass(abc.ABC):
         for key, threshold in self._thresholds.items():
             if key in metadata and metadata[key] > threshold:
                 raise ObjectDispatchError(
-                    label=key, threshold=threshold, value=metadata[key]
+                    label=key,
+                    threshold=threshold,
+                    value=metadata[key],
                 )
 
     @abc.abstractmethod

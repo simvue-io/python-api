@@ -62,7 +62,7 @@ def test_create_user_offline(offline_cache_setup) -> None:
     assert _local_data.get("fullname") == "Joe Bloggs"
     assert _local_data.get("email") == "jbloggs@simvue.io"
 
-    _sender = Sender(_user._local_staging_file.parents[1], 1, 10, throw_exceptions=True)
+    _sender = Sender(cache_directory=_user._local_staging_file.parents[1], max_workers=1, threading_threshold=10, throw_exceptions=True)
     _sender.upload(["users"])
     time.sleep(1)
     _online_user = User(_sender.id_mapping.get(_user.id))

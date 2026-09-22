@@ -16,12 +16,6 @@ from simvue.api.url import URL
 
 from .base import SimvueObject
 
-try:
-    from typing import override
-except ImportError:
-    from typing import override
-
-
 __all__ = ["Stats"]
 
 
@@ -38,9 +32,7 @@ class UserStatistics(BaseModel):
 
 
 class Stats(SimvueObject):
-    """
-    Simvue Stats
-    ============
+    """Simvue Stats.
 
     Class for retrieving statistics stored on the server.
 
@@ -48,36 +40,54 @@ class Stats(SimvueObject):
 
     _single: bool = True
     _tenant: str | None = None
+    _label: str = "stat"
 
-    def __init__(self) -> None:
-        """Initialise a statistics query object."""
+    def __init__(
+        self,
+        *,
+        server_url: str | None = None,
+        server_token: pydantic.SecretStr | None = None,
+    ) -> None:
+        """Initialise a statistics query object.
+
+        Parameters
+        ----------
+        server_url: str | None, optional
+            alternative server URL, default None
+        server_token : str | None, optional
+            token for alternative server, default None
+
+        """
         self.runs = RunStatistics(self)
-        self._label = "stat"
-        super().__init__()
+        super().__init__(
+            identifier=None,
+            server_url=server_url,
+            server_token=server_token,
+        )
 
         # Stats is a singular object (i.e. identifier is not applicable)
         # set it to empty string so not None
         self._identifier = ""
 
     @classmethod
-    @override
-    def new(cls, **_: object) -> None:
+    def new(cls, **_) -> None:
         """Creation of multiple stats objects is not logical here.
 
         Raises
         ------
         AttributeError
+
         """
         raise AttributeError("Creation of statistics objects is not supported")
 
     @classmethod
-    @override
-    def delete(cls, **_: object) -> None:
-        """Delete action of stats object is not logical here.
+    def delete(cls, **_) -> None:
+        """Deletion of stats object is not logical here.
 
         Raises
         ------
         AttributeError
+
         """
         raise AttributeError("Deletion of statistics is not supported")
 
@@ -88,6 +98,7 @@ class Stats(SimvueObject):
         Raises
         ------
         NotImplementedError
+
         """
         raise NotImplementedError("Statistics are not modifiable.")
 
@@ -98,6 +109,7 @@ class Stats(SimvueObject):
         Returns
         -------
         None
+
         """
         return
 
@@ -106,26 +118,26 @@ class Stats(SimvueObject):
         """No offline to online reconnect functionality for statistics."""
 
     @classmethod
-    @override
-    def get(cls, **_: object) -> None:
-        """Retrieve action for multiple stats object is not logical here.
+    def get(cls, **_) -> None:
+        """Retrieval of multiple stats object is not logical here.
 
         Raises
         ------
         AttributeError
+
         """
         raise AttributeError(
-            "Retrieval of multiple of statistics objects is not supported"
+            "Retrieval of multiple of statistics objects is not supported",
         )
 
     @classmethod
-    @override
-    def ids(cls, **_: object) -> None:
-        """Retrieve action for identifiers is not logical here.
+    def ids(cls, **_) -> None:
+        """Retrieval of identifiers is not logical here.
 
         Raises
         ------
         AttributeError
+
         """
         raise AttributeError("Retrieval of ids for statistics objects is not supported")
 
@@ -136,16 +148,19 @@ class Stats(SimvueObject):
         -------
         dict[str, str]
             server response for 'whomai' query.
+
         """
         _url: URL = URL(self._user_config.server.url) / "whoami"
-        _response = sv_get(url=f"{_url}", headers=self._headers)
+        _response = sv_get(
+            url=f"{_url}", headers=self._headers, verify=self._user_config.server_verify
+        )
         return get_json_from_response(
             response=_response,
             expected_status=[http.HTTPStatus.OK],
             scenario="Retrieving current user",
         )
 
-    def _get_run_stats(self) -> dict[str, int]:
+    def get_run_stats(self) -> dict[str, int]:
         """Retrieve the run statistics."""
         return self._get_attribute("runs")
 
@@ -167,8 +182,9 @@ class Stats(SimvueObject):
         -------
         dict[str, Any]
             statistics data as dictionary
+
         """
-        return {"runs": self._get_run_stats()}
+        return {"runs": self.get_run_stats()}
 
     def admin_stats(self, *, tenant: str | None = None) -> dict[str, dict[str, int]]:
         """Return adminstrator level stats.
@@ -186,13 +202,14 @@ class Stats(SimvueObject):
         return {
             name: UserStatistics(**entry)
             for name, entry in self._get(
-                single=False, **({"tenant": tenant} if tenant else {})
+                single=False,
+                **({"tenant": tenant} if tenant else {}),
             ).items()
         }
 
     @override
     def commit(self) -> None:
-        """Do nothing, no data sendable to server."""
+        """Does nothing, no data sendable to server."""
 
 
 class RunStatistics:
@@ -204,27 +221,27 @@ class RunStatistics:
     @property
     def created(self) -> int:
         """Number of created runs."""
-        if (_created := self._sv_obj._get_run_stats().get("created")) is None:  # noqa: SLF001
+        if (_created := self._sv_obj.get_run_stats().get("created")) is None:
             raise RuntimeError("Expected key 'created' in run statistics retrieval")
         return _created
 
     @property
     def running(self) -> int:
         """Number of running runs."""
-        if (_running := self._sv_obj._get_run_stats().get("running")) is None:  # noqa: SLF001
+        if (_running := self._sv_obj.get_run_stats().get("running")) is None:
             raise RuntimeError("Expected key 'running' in run statistics retrieval")
         return _running
 
     @property
     def completed(self) -> int:
         """Number of completed runs."""
-        if (_completed := self._sv_obj._get_run_stats().get("running")) is None:  # noqa: SLF001
+        if (_completed := self._sv_obj.get_run_stats().get("running")) is None:
             raise RuntimeError("Expected key 'completed' in run statistics retrieval")
         return _completed
 
     @property
     def data(self) -> int:
         """Data count."""
-        if (_data := self._sv_obj._get_run_stats().get("running")) is None:  # noqa: SLF001
+        if (_data := self._sv_obj.get_run_stats().get("running")) is None:
             raise RuntimeError("Expected key 'data' in run statistics retrieval")
         return _data

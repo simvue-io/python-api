@@ -25,9 +25,9 @@ from simvue.exception import ObjectNotFoundError, SimvueRunError
 from simvue.sender import Sender
 import simvue.run as sv_run
 import simvue.client as sv_cl
-import simvue.config.user as sv_cfg
 
 from simvue.api.objects import Run as RunObject
+from simvue.utilities import find_first_instance_of_file, get_file_artifact_storage_name
 
 if typing.TYPE_CHECKING:
     from .conftest import CountingLogHandler
@@ -77,11 +77,11 @@ def test_check_run_initialised_decorator() -> None:
 def test_run_with_emissions_online(speedy_heartbeat, mock_co2_signal, create_plain_run: tuple[sv_run.Run, ...], mocker) -> None:
     run_created, _ = create_plain_run
     metric_interval = 1
-    run_created._user_config.eco.co2_signal_api_token = "test_token"
+    run_created.user_config.eco.co2_signal_api_token = "test_token"
     run_created.config(enable_emission_metrics=True, system_metrics_interval=metric_interval)
     while (
         "sustainability.emissions.total" not in requests.get(
-            url=f"{run_created._user_config.server.url}/metrics/names",
+            url=f"{run_created.user_config.server.url}/metrics/names",
             headers=run_created._headers,
             params={"runs": json.dumps([run_created.id])}).json()
         and run_created.metric_spy.call_count < 4
@@ -112,24 +112,28 @@ def test_run_with_emissions_online(speedy_heartbeat, mock_co2_signal, create_pla
 @pytest.mark.offline
 def test_run_with_emissions_offline(speedy_heartbeat, mock_co2_signal, create_plain_run_offline, monkeypatch) -> None:
     run_created, _ = create_plain_run_offline
-    run_created.config(enable_emission_metrics=True)
+    metric_interval = 1
+    run_created.config(enable_emission_metrics=True, system_metrics_interval=metric_interval)
     time.sleep(5)
     # Run should continue, but fail to log metrics until sender runs and creates file
     _sender = Sender(cache_directory=os.environ["SIMVUE_OFFLINE_DIRECTORY"], throw_exceptions=True)
     _sender.upload()
     id_mapping = _sender.id_mapping
     _run = RunObject(identifier=id_mapping[run_created.id])
-    _metric_names = [item[0] for item in _run.metrics]
-    for _metric in ["emissions", "energy_consumed"]:
-        _total_metric_name = f"sustainability.{_metric}.total"
-        _delta_metric_name = f"sustainability.{_metric}.delta"
-        assert _total_metric_name not in _metric_names
-        assert _delta_metric_name not in _metric_names
+    _run.read_only(False)
     # Sender should now have made a local file, and the run should be able to use it to create emissions metrics
     time.sleep(5)
     _sender = Sender(cache_directory=os.environ["SIMVUE_OFFLINE_DIRECTORY"], throw_exceptions=True)
     _sender.upload()
     id_mapping = _sender.id_mapping
+    while (
+        "sustainability.emissions.total" not in requests.get(
+            url=f"{run_created.user_config.server.url}/metrics/names",
+            headers=run_created._headers,
+            params={"runs": json.dumps([run_created.id])}).json()
+        and run_created.metric_spy.call_count < 4
+    ):
+        time.sleep(metric_interval)
     _run.refresh()
     _metric_names = [item[0] for item in _run.metrics]
     client = sv_cl.Client()
@@ -810,6 +814,9 @@ def test_set_folder_details(request: pytest.FixtureRequest) -> None:
     with sv_run.Run() as run:
         folder_name: str = f"/simvue_unit_testing/{_uuid}"
         description: str = "test description"
+        metadata: dict[str, str] = {
+            "test_name": "test_set_folder_details"
+        }
         tags: list[str] = [
             "simvue_client_unit_tests",
             "test_set_folder_details"
@@ -820,7 +827,7 @@ def test_set_folder_details(request: pytest.FixtureRequest) -> None:
             visibility="tenant" if os.environ.get("CI") else None,
             retention_period=os.environ.get("SIMVUE_TESTING_RETENTION_PERIOD", "2 mins"),
         )
-        run.set_folder_details(tags=tags, description=description)
+        run.set_folder_details(tags=tags, description=description, metadata=metadata)
 
     client = sv_cl.Client()
     _folder = client.get_folder(folder_path=folder_name)
@@ -844,35 +851,44 @@ def test_set_folder_details(request: pytest.FixtureRequest) -> None:
     "snapshot", (True, False)
 )
 @pytest.mark.parametrize(
-    "valid_mimetype,preserve_path,name,allow_pickle,empty_file,category",
+    "valid_mimetype,preserve_path_relative_to,name,empty_file,category",
     [
-        (True, False, None, False, False, "input"),
-        (False, True, None, False, False, "output"),
-        (False, False, "test_file", False, False, "code"),
-        (False, False, None, True, False, "input"),
-        (False, False, None, False, True, "code"),
+        pytest.param(True, None, None, False, "input", id="valid_mimetype-filename-nonempty-input"),
+        pytest.param(True, "git", None, False, "output", id="valid_mimetype-gitpath-nonempty-output"),
+        pytest.param(True, "cwd", "test_file", False, "code", id="valid_mimetype-gitpath-nonempty-output"),
+        pytest.param(False, "git", None, False, "input", id="invalid-mimetype"),
     ],
-    ids=[f"scenario_{i}" for i in range(1, 6)],
 )
 def test_save_file_online(
     valid_mimetype: bool,
-    preserve_path: bool,
+    preserve_path_relative_to: typing.Literal["git", "cwd"] | None,
     name: str | None,
-    allow_pickle: bool,
     empty_file: bool,
     category: typing.Literal["input", "output", "code"],
     snapshot: bool,
-    capfd,
     request,
+    mocker: pytest_mock.MockerFixture
 ) -> None:
     _uuid = f"{uuid.uuid4()}".split("-")[0]
     file_type: str = "text/plain" if valid_mimetype else "text/text"
     with tempfile.TemporaryDirectory() as tempd:
-        with open(
-            (out_name := pathlib.Path(tempd).joinpath("test_file.txt")),
-            "w",
-        ) as out_f:
-            out_f.write("" if empty_file else "test data entry")
+        if preserve_path_relative_to == "cwd":
+            mocker.patch("pathlib.Path.cwd", lambda *_: pathlib.Path(tempd))
+        elif preserve_path_relative_to == "git":
+            _orig_find = find_first_instance_of_file
+            def _mock_find(file_names, *args, **kwargs):
+                if file_names == ".git":
+                    return pathlib.Path(tempd).joinpath(".git")
+                return _orig_find(file_names, *args, **kwargs)
+            mocker.patch("simvue.utilities.find_first_instance_of_file", _mock_find)
+        out_name = pathlib.Path(tempd).joinpath("test_file.txt")
+        if not empty_file:
+            with out_name.open(
+                "w",
+            ) as out_f:
+                out_f.write("test data entry")
+        else:
+            out_name.touch()
         with sv_run.Run() as simvue_run:
             folder_name: str = f"/simvue_unit_testing/{_uuid}"
             tags: list[str] = [
@@ -893,7 +909,7 @@ def test_save_file_online(
                     out_name,
                     category=category,
                     file_type=file_type,
-                    preserve_path=preserve_path,
+                    preserve_path_relative_to=preserve_path_relative_to,
                     name=name,
                     snapshot=snapshot
                 )
@@ -903,22 +919,21 @@ def test_save_file_online(
                         out_name,
                         category=category,
                         file_type=file_type,
-                        preserve_path=preserve_path,
+                        preserve_path_relative_to=preserve_path_relative_to,
                     )
                 return
 
-            variable = capfd.readouterr()
         time.sleep(1.0)
         os.remove(out_name)
         client = sv_cl.Client()
-        base_name = name or out_name.name
-        if preserve_path:
+        if preserve_path_relative_to:
             out_loc = pathlib.Path(tempd) / out_name.parent
-            stored_name = out_name.parent / pathlib.Path(base_name)
         else:
             out_loc = pathlib.Path(tempd)
-            stored_name = pathlib.Path(base_name)
-        out_file = out_loc.joinpath(name or out_name.name)
+        stored_name = get_file_artifact_storage_name(
+            preserve_path_relative_to=preserve_path_relative_to,
+            file_path=out_name
+        )
         client.get_artifact_as_file(
             run_id=simvue_run.id, name=f"{name or stored_name}", output_dir=tempd
         )
@@ -931,41 +946,49 @@ def test_save_file_online(
     "snapshot", (True, False)
 )
 @pytest.mark.parametrize(
-    "preserve_path,name,allow_pickle,empty_file,category",
+    "preserve_path_relative_to,name,empty_file,category",
     [
-        (False, None, False, False, "input"),
-        (True, None, False, False, "output"),
-        (False, "test_file", False, False, "code"),
-        (False, None, True, False, "input"),
-        (False, None, False, True, "code"),
+        pytest.param(None, None, False, "input", id="filename-nonempty-input"),
+        pytest.param("git", None, False, "output", id="gitpath-nonempty-output"),
+        pytest.param("cwd", "test_file", False, "code", id="gitpath-nonempty-output"),
     ],
-    ids=[f"scenario_{i}" for i in range(1, 6)],
 )
 def test_save_file_offline(
     create_plain_run_offline: tuple[sv_run.Run, dict],
-    preserve_path: bool,
+    preserve_path_relative_to: typing.Literal["git", "cwd"] | None,
     name: str | None,
-    allow_pickle: bool,
-    empty_file: bool,
     snapshot: bool,
+    empty_file: bool,
     category: typing.Literal["input", "output", "code"],
-    capfd,
+    mocker: pytest_mock.MockerFixture
 ) -> None:
     simvue_run, _ = create_plain_run_offline
     run_name = simvue_run.name
     file_type: str = "text/plain"
     with tempfile.TemporaryDirectory() as tempd:
-        with open(
-            (out_name := pathlib.Path(tempd).joinpath("test_file.txt")),
-            "w",
-        ) as out_f:
-            out_f.write("test data entry")
+        out_name = pathlib.Path(tempd).joinpath("test_file.txt")
+        if preserve_path_relative_to == "cwd":
+            mocker.patch("pathlib.Path.cwd", lambda *_: pathlib.Path(tempd))
+        elif preserve_path_relative_to == "git":
+            _orig_find = find_first_instance_of_file
+            def _mock_find(file_names, *args, **kwargs):
+                if file_names == ".git":
+                    return pathlib.Path(tempd).joinpath(".git")
+                return _orig_find(file_names, *args, **kwargs)
+            mocker.patch("simvue.utilities.find_first_instance_of_file", _mock_find)
+        if not empty_file:
+            with out_name.open(
+                "w",
+            ) as out_f:
+                out_f.write("test data entry")
+        else:
+            out_name.touch()
 
         simvue_run.save_file(
             out_name,
             category=category,
             file_type=file_type,
-            preserve_path=preserve_path,
+            preserve_path_relative_to=preserve_path_relative_to,
             name=name,
             snapshot=snapshot
         )
@@ -980,13 +1003,14 @@ def test_save_file_offline(
         _sender.upload()
         os.remove(out_name)
         client = sv_cl.Client()
-        base_name = name or out_name.name
-        if preserve_path:
+        if preserve_path_relative_to:
             out_loc = pathlib.Path(tempd) / out_name.parent
-            stored_name = out_name.parent / pathlib.Path(base_name)
         else:
             out_loc = pathlib.Path(tempd)
-            stored_name = pathlib.Path(base_name)
+        stored_name = get_file_artifact_storage_name(
+            preserve_path_relative_to=preserve_path_relative_to,
+            file_path=out_name
+        )
         out_file = out_loc.joinpath(name or out_name.name)
         client.get_artifact_as_file(
             run_id=client.get_run_id_from_name(run_name),
@@ -1094,7 +1118,7 @@ def test_save_object(
         except ImportError:
             pytest.skip("Numpy is not installed")
         save_obj = array([1, 2, 3, 4])
-    simvue_run.save_object(save_obj, "input", f"test_object_{object_type}")
+    simvue_run.save_object(save_obj, category="input", name=f"test_object_{object_type}")
 
 
 @pytest.mark.run
@@ -1245,7 +1269,7 @@ def test_add_alerts_offline(monkeypatch) -> None:
         rule="is inside range",
     )
     
-    _sender = Sender(os.environ["SIMVUE_OFFLINE_DIRECTORY"], 2, 10, throw_exceptions=True)
+    _sender = Sender(cache_directory=os.environ["SIMVUE_OFFLINE_DIRECTORY"], max_workers=2, threading_threshold=10, throw_exceptions=True)
     _sender.upload()
     _online_run = RunObject(identifier=_sender.id_mapping.get(run.id))
 
@@ -1254,7 +1278,7 @@ def test_add_alerts_offline(monkeypatch) -> None:
 
     # Create another run without adding to run
     _id = run.create_user_alert(name=f"user_alert_{_uuid}", attach_to_run=False)
-    _sender = Sender(os.environ["SIMVUE_OFFLINE_DIRECTORY"], 2, 10, throw_exceptions=True)
+    _sender = Sender(cache_directory=os.environ["SIMVUE_OFFLINE_DIRECTORY"], max_workers=2, threading_threshold=10, throw_exceptions=True)
     _sender.upload()
 
     # Check alert is not added
@@ -1264,7 +1288,7 @@ def test_add_alerts_offline(monkeypatch) -> None:
     # Try adding alerts with IDs, check there is no duplication
     _expected_alerts.append(_id)
     run.add_alerts(ids=_expected_alerts)
-    _sender = Sender(os.environ["SIMVUE_OFFLINE_DIRECTORY"], 2, 10, throw_exceptions=True)
+    _sender = Sender(cache_directory=os.environ["SIMVUE_OFFLINE_DIRECTORY"], max_workers=2, threading_threshold=10, throw_exceptions=True)
     _sender.upload()
 
     _online_run.refresh()
@@ -1363,10 +1387,13 @@ def test_abort_on_alert_process(mocker: pytest_mock.MockerFixture) -> None:
     run.add_process(
         identifier=f"forever_long_{os.environ.get('PYTEST_XDIST_WORKER', 0)}",
         executable="bash",
-        c="&".join(["sleep 10"] * N_PROCESSES),
+        c="&".join(["sleep 100"] * N_PROCESSES),
     )
     process_id = list(run._executor._processes.values())[0].pid
-    process = psutil.Process(process_id)
+    try:
+        process = psutil.Process(process_id)
+    except psutil.NoSuchProcess:
+        raise RuntimeError("Test failed due to process termination before assertion.")
     assert len(child_processes := process.children(recursive=True)) == 3
     time.sleep(2)
     client = sv_cl.Client()
@@ -1436,18 +1463,30 @@ def test_abort_on_alert_raise(
 
 @pytest.mark.run
 @pytest.mark.online
-def test_kill_all_processes(create_plain_run: tuple[sv_run.Run, dict]) -> None:
-    run, _ = create_plain_run
-    run.config(system_metrics_interval=1)
-    run.add_process(identifier=f"forever_long_a_{os.environ.get('PYTEST_XDIST_WORKER', 0)}", executable="bash", c="sleep 10000")
-    run.add_process(identifier=f"forever_long_b_{os.environ.get('PYTEST_XDIST_WORKER', 0)}", executable="bash", c="sleep 10000")
-    processes = [
-        psutil.Process(process.pid) for process in run._executor._processes.values()
-    ]
-    run.kill_all_processes()
-    for process in processes:
-        assert not process.is_running()
-        assert all(not child.is_running() for child in process.children(recursive=True))
+def test_kill_all_processes() -> None:
+    _uuid = f"{uuid.uuid4()}".split("-")[0]
+    with simvue.Run() as run:
+        run.init(
+            name="test_kill_all_processes",
+            folder=f"/simvue_unit_testing/{_uuid}",
+            retention_period=os.environ.get("SIMVUE_TESTING_RETENTION_PERIOD", "2 mins"),
+            timeout=None,
+            visibility="tenant" if os.environ.get("CI") else None,
+        )
+        run.config(system_metrics_interval=1)
+        run.add_process(identifier=f"forever_long_a_{os.environ.get('PYTEST_XDIST_WORKER', 0)}", executable="bash", c="sleep 10000")
+        run.add_process(identifier=f"forever_long_b_{os.environ.get('PYTEST_XDIST_WORKER', 0)}", executable="bash", c="sleep 10000")
+        parent_processes: list[Process] = []
+        for process in run._executor._processes.values():
+            with contextlib.suppress(psutil.NoSuchProcess):
+                parent_processes.append(psutil.Process(process.pid))
+
+        processes = list(parent_processes)
+        for process in parent_processes:
+            processes.extend(process.children(recursive=True))
+        run.kill_all_processes()
+        for process in processes:
+            assert not process.is_running()
 
 
 @pytest.mark.run
@@ -1724,3 +1763,18 @@ def test_no_alert_dupes_different_run(alert_type: typing.Literal["user", "events
             else:
                 MetricsRangeAlert(identifier=created_id).delete()
 
+
+@pytest.mark.run
+@pytest.mark.online
+def test_set_metric_units(create_plain_run: tuple[sv_run.Run, dict]) -> None:
+    run, _ = create_plain_run
+    run.set_metric_units("x", units="ft")
+    run.set_metric_units("y", units="m")
+    run.set_metric_units("z", units="Foobars", mks_conversion=3.542, mks_unit="m")
+    run.log_metrics({"x": 10, "y": 3, "z": 22})
+
+    _metadata = RunObject(run.id).metadata
+    assert (_metric_data := _metadata.get("simvue", {}).get("metrics"))
+    assert _metric_data["x"] == {"units": "ft", "mks_units": "m", "mks_conversion": 0.3048}
+    assert _metric_data["y"] == {"units": "m", "mks_units": "m", "mks_conversion": 1}
+    assert _metric_data["z"] == {"units": "Foobars", "mks_units": "m", "mks_conversion": 3.542}

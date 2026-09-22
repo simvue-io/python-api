@@ -9,57 +9,70 @@ from __future__ import annotations
 import typing
 
 try:
-    from typing import Self
+    from typing import Self, override
 except ImportError:
-    from typing import Self
-
-try:
-    from typing import override
-except ImportError:
-    from typing_extensions import override  # noqa: UP035
-
+    from typing_extensions import Self, override
 import pydantic
 
-from simvue.api.objects.base import SimvueObjectAttribute, staging_check, write_only
+from simvue.api.objects.base import staging_check, write_only
 from simvue.models import NAME_REGEX
 
 from .base import StorageBase
 
 
 class S3Storage(StorageBase):
-    """
-    Simvue S3 Storage
-    ===================
+    """Simvue S3 Storage.
 
     This class is used to connect to/create S3 storage objects on the Simvue server,
     any modification of instance attributes is mirrored on the remote object.
 
     """
 
-    def __init__(self, identifier: str | None = None, **kwargs) -> None:
-        """Initialise a S3 Storage
+    @override
+    def __init__(
+        self,
+        identifier: str | None = None,
+        *,
+        server_url: str | None = None,
+        server_token: pydantic.SecretStr | None = None,
+        **kwargs,
+    ) -> None:
+        """Initialise a S3 Storage.
 
         If an identifier is provided a connection will be made to the
         object matching the identifier on the target server.
-        Else a new S3Storage instance will be created using arguments provided in kwargs.
+        Else a new S3Storage instance will be created using arguments
+        provided in kwargs.
 
         Parameters
         ----------
         identifier : str, optional
             the remote server unique id for the target folder
+        server_url: str | None, optional
+            alternative server URL, default None
+        server_token : str | None, optional
+            token for alternative server, default None
         **kwargs : dict
             any additional arguments to be passed to the object initialiser
+
         """
         self.config = Config(self)
-        super().__init__(identifier, **kwargs)
+        super().__init__(
+            identifier,
+            server_url=server_url,
+            server_token=server_token,
+            **kwargs,
+        )
         self._local_only_args += [
             "endpoint_url",
             "region_name",
             "access_key_id",
             "secret_access_key",
             "bucket",
+            "ca_cert",
         ]
 
+    @override
     @classmethod
     @override
     @pydantic.validate_call
@@ -67,17 +80,20 @@ class S3Storage(StorageBase):
         cls,
         *,
         name: typing.Annotated[str, pydantic.Field(pattern=NAME_REGEX)],
-        disable_check: bool,
-        endpoint_url: pydantic.HttpUrl,
-        region_name: str,
-        access_key_id: str,
-        secret_access_key: pydantic.SecretStr,
         bucket: str,
-        is_tenant_useable: bool,
-        is_default: bool,
-        is_enabled: bool,
+        endpoint_url: pydantic.HttpUrl | None = None,
+        access_key_id: str | None = None,
+        secret_access_key: pydantic.SecretStr | None = None,
+        region_name: str | None = None,
+        ca_cert: pydantic.SecretStr | None = None,
+        disable_check: bool = False,
+        is_tenant_useable: bool = True,
+        is_default: bool = False,
+        is_enabled: bool = True,
         offline: bool = False,
-        **__: object,
+        server_url: str | None = None,
+        server_token: pydantic.SecretStr | None = None,
+        **__,
     ) -> Self:
         """Create a new S3 storage object.
 
@@ -85,18 +101,20 @@ class S3Storage(StorageBase):
         ----------
         name : str
             name to allocated to this storage system
-        disable_check : bool
-            whether to disable checks for this system
-        endpoint_url : str
-            endpoint defining the S3 upload URL
-        region_name : str
-            the region name associated with this storage system
-        access_key_id : str
-            the access key identifier for the storage
-        secret_access_key : str
-            the secret access key, stored as a secret string
         bucket : str
             the bucket associated with this storage system
+        endpoint_url : str | None, optional
+            endpoint defining the S3 upload URL
+        access_key_id : str | None, optional
+            the access key identifier for the storage
+        secret_access_key : str | None, optional
+            the secret access key, stored as a secret string
+        region_name : str | None, optional
+            the region name associated with this storage system if applicable
+        ca_cert : str | None, optional
+            provide a CA certificate for this storage
+        disable_check : bool, optional
+            whether to disable checks for this system, default False
         is_tenant_useable : bool
             whether this system is usable by the current tenant
         is_enabled : bool
@@ -105,6 +123,10 @@ class S3Storage(StorageBase):
             if this storage system should become the new is_default
         offline : bool, optional
             if this instance should be created in offline mode, is_default False
+        server_url: str | None, optional
+            alternative server URL, default None
+        server_token : str | None, optional
+            token for alternative server, default None
 
         Returns
         -------
@@ -113,12 +135,24 @@ class S3Storage(StorageBase):
 
         """
         _config: dict[str, str] = {
-            "endpoint_url": endpoint_url.__str__(),
-            "region_name": region_name,
-            "access_key_id": access_key_id,
-            "secret_access_key": secret_access_key.get_secret_value(),
             "bucket": bucket,
         }
+
+        if access_key_id:
+            _config["access_key_id"] = access_key_id
+
+        if secret_access_key:
+            _config["secret_access_key"] = secret_access_key.get_secret_value()
+
+        if endpoint_url:
+            _config["endpoint_url"] = f"{endpoint_url}"
+
+        if region_name:
+            _config["region_name"] = region_name
+
+        if ca_cert:
+            _config["ca_cert"] = ca_cert.get_secret_value()
+
         _storage = cls(
             name=name,
             backend="S3",
@@ -127,17 +161,19 @@ class S3Storage(StorageBase):
             is_tenant_useable=is_tenant_useable,
             is_default=is_default,
             is_enabled=is_enabled,
-            _read_only=False,
+            server_url=server_url,
+            server_token=server_token,
             _offline=offline,
+            _read_only=False,
         )
-        _storage._staging |= _config
+        _storage.append_to_staging(_config)
         return _storage
 
     @staging_check
-    def get_config(self) -> dict[str, float | None | str]:
+    def get_config(self) -> dict[str, typing.Any]:
         """Retrieve configuration."""
         try:
-            _config: dict[str, float | None | str] = typing.cast(
+            _config: dict[str, float | str | None] = typing.cast(
                 "dict[str, float | None | str]", self._get_attribute("config")
             )
         except AttributeError:
@@ -145,18 +181,23 @@ class S3Storage(StorageBase):
         return _config
 
 
-class Config(SimvueObjectAttribute[S3Storage]):
+class Config:
     """S3 Configuration interface."""
+
+    def __init__(self, storage: S3Storage) -> None:
+        """Initialise a new configuration using an S3Storage object."""
+        self._sv_obj = storage
 
     @property
     @staging_check
-    def endpoint_url(self) -> str:
+    def endpoint_url(self) -> str | None:
         """Set/retrieve the endpoint URL for this storage.
 
         Returns
         -------
-        str
-            the endpoint for this storage object
+        str | None
+            the endpoint for this storage object if applicable
+
         """
         if not self._sv_obj:
             raise RuntimeError("Expected S3Storage instance but none found.")
@@ -167,30 +208,24 @@ class Config(SimvueObjectAttribute[S3Storage]):
             )
         except KeyError as e:
             raise RuntimeError(
-                "Expected key 'endpoint_url' in alert definition retrieval"
+                "Expected key 'endpoint_url' in alert definition retrieval",
             ) from e
         return _http_url
 
     @endpoint_url.setter
     @write_only
     @pydantic.validate_call
-    def endpoint_url(
-        self,
-        endpoint_url: typing.Annotated[str, pydantic.BeforeValidator(pydantic.HttpUrl)],
-    ) -> None:
-        _config = self._sv_obj.get_config() | {"endpoint_url": endpoint_url.__str__()}
-        self._sv_obj._staging["config"] = _config  # noqa: SLF001
+    def endpoint_url(self, endpoint_url: pydantic.HttpUrl | None) -> None:
+        _config = self._sv_obj.get_config() | {
+            "endpoint_url": str(endpoint_url) if endpoint_url else None
+        }
+        self._sv_obj.append_to_staging({"config": _config})
 
     @property
     @staging_check
-    def region_name(self) -> str:
+    def region_name(self) -> str | None:
         """Retrieve the region name for this storage."""
-        try:
-            return typing.cast("str", self._sv_obj.get_config()["region_name"])
-        except KeyError as e:
-            raise RuntimeError(
-                "Expected key 'region_name' in alert definition retrieval"
-            ) from e
+        return self._sv_obj.get_config().get("region_name")
 
     @region_name.setter
     @write_only
@@ -198,7 +233,7 @@ class Config(SimvueObjectAttribute[S3Storage]):
     def region_name(self, region_name: str) -> None:
         """Modify the region name for this storage."""
         _config = self._sv_obj.get_config() | {"region_name": region_name}
-        self._sv_obj._staging["config"] = _config  # noqa: SLF001
+        self._sv_obj.append_to_staging({"config": _config})
 
     @property
     @staging_check
@@ -208,7 +243,7 @@ class Config(SimvueObjectAttribute[S3Storage]):
             return typing.cast("str", self._sv_obj.get_config()["bucket"])
         except KeyError as e:
             raise RuntimeError(
-                "Expected key 'bucket' in alert definition retrieval"
+                "Expected key 'bucket' in alert definition retrieval",
             ) from e
 
     @bucket.setter
@@ -216,11 +251,11 @@ class Config(SimvueObjectAttribute[S3Storage]):
     @pydantic.validate_call
     def bucket(self, bucket: str) -> None:
         """Modify the bucket label for this storage."""
-        if self._sv_obj.type != "s3":
-            _out_msg = (
-                f"Cannot set attribute 'bucket' for storage type '{self._sv_obj.type}'"
+        if self._sv_obj.type == "file":
+            raise ValueError(
+                f"Cannot set attribute 'bucket' for storage type '{self._sv_obj.type}'",
             )
             raise ValueError(_out_msg)
 
         _config = self._sv_obj.get_config() | {"bucket": bucket}
-        self._sv_obj._staging["config"] = _config  # noqa: SLF001
+        self._sv_obj.append_to_staging({"config": _config})

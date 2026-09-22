@@ -19,10 +19,10 @@ from .artifact import (
     FileArtifact,
     ObjectArtifact,
 )
-from .events import Events
+from .events import Events as Events
 from .folder import Folder, get_folder_from_path
 from .grids import Grid, GridMetrics
-from .metrics import Metrics
+from .metrics import Metrics as Metrics
 from .run import Run
 from .stats import Stats
 from .storage import (

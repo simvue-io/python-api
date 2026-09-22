@@ -24,6 +24,6 @@ def test_plotly_figure_mime_type() -> None:
     figure = plt.gcf()
     plotly_figure = plotly.tools.mpl_to_plotly(figure)
 
-    _, mime_type = serialize_object(plotly_figure, False)
+    _, mime_type = serialize_object(plotly_figure, allow_pickle=False)
 
     assert (mime_type == 'application/vnd.plotly.v1+json')

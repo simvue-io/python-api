@@ -61,7 +61,7 @@ def test_metric_range_alert_creation_offline(offline_cache_setup) -> None:
     assert _local_data.get("name") == f"metrics_range_alert_{_uuid}"
     assert _local_data.get("notification") == "none"
     assert _local_data.get("alert").get("range_low") == 10
-    _sender = Sender(_alert._local_staging_file.parents[1], 1, 10, throw_exceptions=True)
+    _sender = Sender(cache_directory=_alert._local_staging_file.parents[1], max_workers=1, threading_threshold=10, throw_exceptions=True)
     _sender.upload(["alerts"])
     time.sleep(1)
     
@@ -123,7 +123,7 @@ def test_metric_range_alert_modification_offline(offline_cache_setup) -> None:
         offline=True
     )
     _alert.commit()
-    _sender = Sender(_alert._local_staging_file.parents[1], 1, 10, throw_exceptions=True)
+    _sender = Sender(cache_directory=_alert._local_staging_file.parents[1], max_workers=1, threading_threshold=10, throw_exceptions=True)
     _sender.upload(["alerts"])
     time.sleep(1)
     
@@ -148,7 +148,7 @@ def test_metric_range_alert_modification_offline(offline_cache_setup) -> None:
         _local_data = json.load(in_f)
     assert _local_data.get("description") == "updated!"
     
-    _sender = Sender(_alert._local_staging_file.parents[1], 1, 10, throw_exceptions=True)
+    _sender = Sender(cache_directory=_alert._local_staging_file.parents[1], max_workers=1, threading_threshold=10, throw_exceptions=True)
     _sender.upload(["alerts"])
     time.sleep(1)
     

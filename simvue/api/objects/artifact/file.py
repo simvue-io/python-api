@@ -1,4 +1,9 @@
-"""File type artifact handling."""
+"""Simvue File Artifacts.
+
+Classes for interacting with file based artifacts defined
+locally or on a Simvue server
+
+"""
 
 import datetime
 import os
@@ -10,31 +15,29 @@ import pydantic
 
 from simvue.config.user import SimvueConfiguration
 from simvue.models import NAME_REGEX
-from simvue.utilities import calculate_sha256, get_mimetype_for_file, get_mimetypes
+from simvue.utilities import calculate_file_sha256, get_mimetype_for_file, get_mimetypes
 
 from .base import ArtifactBase
 
 try:
     from typing import Self
 except ImportError:
-    from typing_extensions import Self  # noqa: UP035
+    from typing_extensions import Self
 
 try:
     from typing import override
 except ImportError:
-    from typing_extensions import override  # noqa: UP035
+    from typing_extensions import override
 
 
 try:
     tz_utc = datetime.UTC
 except AttributeError:
-    tz_utc = datetime.timezone.utc  # noqa: UP017
+    tz_utc = datetime.timezone.utc
 
 
 class FileArtifact(ArtifactBase):
-    """
-    Simvue File Artifact
-    ====================
+    """Simvue File Artifact.
 
     This class is used to connect to/create file artifact objects on the Simvue server,
     any modification of instance attributes is mirrored on the remote object.
@@ -44,24 +47,35 @@ class FileArtifact(ArtifactBase):
     def __init__(
         self,
         identifier: str | None = None,
-        *,
-        _read_only: bool = True,
-        **kwargs: object,
+        server_url: str | None = None,
+        server_token: pydantic.SecretStr | None = None,
+        **kwargs,
     ) -> None:
-        """Initialise a File Artifact
+        """Initialise a File Artifact.
 
         If an identifier is provided a connection will be made to the
         object matching the identifier on the target server.
-        Else a new FileArtifact instance will be created using arguments provided in kwargs.
+        Else a new FileArtifact instance will be created using
+        arguments provided in kwargs.
 
         Parameters
         ----------
         identifier : str, optional
             the remote server unique id for the target folder
+        server_url: str | None, optional
+            alternative server URL, default None
+        server_token : str | None, optional
+            token for alternative server, default None
         **kwargs : dict
             any additional arguments to be passed to the object initialiser
+
         """
-        super().__init__(identifier=identifier, _read_only=_read_only, **kwargs)
+        super().__init__(
+            identifier=identifier,
+            server_url=server_url,
+            server_token=server_token,
+            **kwargs,
+        )
 
     @classmethod
     @override
@@ -76,7 +90,9 @@ class FileArtifact(ArtifactBase):
         upload_timeout: int | None = None,
         offline: bool = False,
         snapshot: bool = False,
-        **kwargs: object,
+        server_url: str | None = None,
+        server_token: pydantic.SecretStr | None = None,
+        **kwargs: typing.Any,
     ) -> Self:
         """Create a new artifact either locally or on the server.
 
@@ -101,6 +117,17 @@ class FileArtifact(ArtifactBase):
         snapshot : bool, optional
             whether to create a snapshot of this file before uploading it,
             default is False
+        server_url: str | None, optional
+            alternative server URL, default None
+        server_token : str | None, optional
+            token for alternative server, default None
+        **kwargs : Any
+            additional arguments for initialisation
+
+        Returns
+        -------
+        FileArtifact
+            an object representing the artifact
 
         """
         _mime_type = mime_type or get_mimetype_for_file(file_path)
@@ -117,15 +144,18 @@ class FileArtifact(ArtifactBase):
             file_path = pathlib.Path(file_path)
             if snapshot:
                 _user_config = SimvueConfiguration.fetch(
-                    mode="offline" if offline else "online"
+                    mode="offline" if offline else "online",
+                    server_url=server_url,
+                    server_token=server_token,
                 )
 
                 _local_staging_dir: pathlib.Path = _user_config.offline.cache.joinpath(
-                    "artifacts"
+                    "artifacts",
                 )
-                _local_staging_dir.mkdir(parents=True, exist_ok=True)  # pyright: ignore[reportUnusedCallResult]
-                _time_stamp: str = datetime.datetime.now(tz=datetime.UTC).strftime(
-                    "%Y-%m-%d_%H-%M-%S_%f"
+                _local_staging_dir.mkdir(parents=True, exist_ok=True)
+                _local_staging_file = _local_staging_dir.joinpath(
+                    f"{file_path.stem}_"
+                    f"{datetime.datetime.now(tz=datetime.timezone.utc).strftime('%Y-%m-%d_%H-%M-%S_%f')[:-3]}.file",
                 )
                 _local_staging_file = _local_staging_dir.joinpath(
                     f"{file_path.stem}_{_time_stamp[:-3]}.file"
@@ -136,13 +166,15 @@ class FileArtifact(ArtifactBase):
 
             _file_size = file_path.stat().st_size
             _file_orig_path = file_path.expanduser().absolute()
-            _file_checksum = calculate_sha256(f"{file_path}", is_file=True)
+            _file_checksum = calculate_file_sha256(file_path)
 
         _artifact = cls(
             name=name,
             storage=storage,
             original_path=os.path.expandvars(_file_orig_path),
             size=_file_size,
+            server_url=server_url,
+            server_token=server_token,
             mime_type=_mime_type,
             checksum=_file_checksum,
             _offline=offline,

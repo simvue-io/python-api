@@ -88,7 +88,7 @@ def test_metrics_creation_offline(offline_cache_setup) -> None:
     assert _local_data.get("metrics")[0].get("step") == _step
     assert _local_data.get("metrics")[0].get("time") == _time
 
-    _sender = Sender(_metrics._local_staging_file.parents[1], 1, 10, throw_exceptions=True)
+    _sender = Sender(cache_directory=_metrics._local_staging_file.parents[1], max_workers=1, threading_threshold=10, throw_exceptions=True)
     _sender.upload( ["folders", "runs", "metrics"])
     time.sleep(1)
 

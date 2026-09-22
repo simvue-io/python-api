@@ -15,7 +15,7 @@ def test_pytorch_tensor_serialization() -> None:
     torch.manual_seed(1724)
     array = torch.rand(2, 3)
 
-    serialized, mime_type = serialize_object(array, False)
-    array_out = deserialize_data(serialized, mime_type, False)
+    serialized, mime_type = serialize_object(array, allow_pickle=False)
+    array_out = deserialize_data(serialized, mime_type, allow_pickle=False)
 
     assert (array == array_out).all()

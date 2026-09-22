@@ -1,3 +1,3 @@
-from .sender import run as run_sender
+from .sender import sender_cli as run_sender
 
 __all__ = ["run_sender"]

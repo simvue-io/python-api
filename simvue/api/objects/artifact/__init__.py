@@ -1,7 +1,7 @@
-"""Simvue Artifact Object types."""
+"""Simvue Artifact Retrieval."""
 
-from .fetch import Artifact
-from .file import FileArtifact
-from .object import ObjectArtifact
+from .fetch import Artifact as Artifact
+from .file import FileArtifact as FileArtifact
+from .object import ObjectArtifact as ObjectArtifact
 
 __all__ = ["Artifact", "FileArtifact", "ObjectArtifact"]

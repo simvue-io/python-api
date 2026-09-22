@@ -12,7 +12,7 @@ class ObjectNotFoundError(Exception):
         _msg: str = (
             f"Failed to retrieve '{name}' of type '{obj_type}' "
             f"{f'{extra}, ' if extra else ''}"
-            "no such object"
+            "no such object",
         )
         super().__init__(_msg)
 
