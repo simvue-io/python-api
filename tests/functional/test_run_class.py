@@ -1630,7 +1630,7 @@ def test_run_environment_metadata(environment: str, mocker: pytest_mock.MockerFi
             running=False,
             visibility="tenant" if os.environ.get("CI") else None,
         )
-        run.update_metadata(env_func(_target_dir))
+        run.update_metadata(env_func(repository=_target_dir))
 
 
 @pytest.mark.online
