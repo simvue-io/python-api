@@ -25,6 +25,8 @@ class FileStorage(StorageBase):
 
     """
 
+    _type: str = "file"
+
     @override
     def __init__(
         self,

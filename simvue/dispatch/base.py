@@ -50,7 +50,7 @@ class DispatcherBaseClass(abc.ABC):
         *,
         object_type: str,
         metadata: dict[str, int | float] | None = None,
-        **__,
+        **_,
     ) -> None:
         """Add an item to the dispatcher.
 

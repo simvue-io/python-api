@@ -99,7 +99,7 @@ def check_run_initialised(
     """
 
     @functools.wraps(function)
-    def _wrapper(self: Self, *args: typing.Any, **kwargs: typing.Any) -> typing.Any:
+    def _wrapper(self: "Run", *args: typing.Any, **kwargs: typing.Any) -> typing.Any:
         # Tidy pydantic errors
         _function = prettify_pydantic(function)
 
@@ -329,7 +329,7 @@ class Run:
             return process_list
 
         process_list += [self._parent_process]
-        process_list += self._child_processes
+        process_list += self._child_processes or []
 
         return list(set(process_list))
 
@@ -504,7 +504,13 @@ class Run:
 
     def _create_dispatch_callback(
         self,
-    ) -> typing.Callable:
+    ) -> typing.Callable[
+        [
+            list[typing.Any],
+            typing.Literal["events", "metrics_tensor", "metrics_regular"],
+        ],
+        None,
+    ]:
         """Generates the relevant callback for posting of metrics and events.
 
         The generated callback is assigned to the dispatcher instance and is
@@ -777,7 +783,7 @@ class Run:
         # Parse the time to live/retention time if specified
         try:
             if retention_period:
-                self._retention: int | None = int(
+                self._retention = int(
                     humanfriendly.parse_timespan(retention_period),
                 )
             else:
@@ -839,7 +845,7 @@ class Run:
             )
             click.secho(
                 "[simvue] Monitor in the UI at "
-                f"{self._user_config.server.url.rsplit('/api', 1)[0]}"
+                f"{str(self._user_config.server.url).rsplit('/api', 1)[0]}"
                 f"/dashboard/runs/run/{self.id}",
                 bold=self._term_color,
                 fg="green" if self._term_color else None,
@@ -1308,10 +1314,6 @@ class Run:
             self._error("Cannot update metadata, run not initialised")
             return False
 
-        if not isinstance(metadata, dict):
-            self._error("metadata must be a dict")
-            return False
-
         if self._sv_obj:
             self._sv_obj.metadata = metadata
             self._sv_obj.commit()
@@ -1391,7 +1393,7 @@ class Run:
 
         try:
             self.set_tags(list(set(current_tags + tags)))
-        except Exception as err:  # noqa: BLE001
+        except Exception as err:  # ruff: ignore[blind-except]
             self._error(f"Failed to update tags: {err}")
             return False
 
@@ -1461,7 +1463,7 @@ class Run:
             return False
 
         # FIXME: Temporary, this will eventually be removed
-        import semver  # noqa: PLC0415
+        import semver  # ruff: ignore[import-outside-top-level]
 
         _log_level_server_version = semver.Version.parse("1.2.16")
         if (
@@ -2745,7 +2747,7 @@ class Run:
         self._meta_cache.setdefault("metrics", {})
 
         try:
-            _unit_obj = unyt_quantity.from_string(units)
+            _unit_obj: unyt_quantity = unyt_quantity.from_string(units)
             self._meta_cache["metrics"][metric_name] = {
                 "units": units,
                 "mks_conversion": mks_conversion or float(_unit_obj.in_mks().value),

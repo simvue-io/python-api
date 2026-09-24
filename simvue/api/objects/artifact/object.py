@@ -137,9 +137,9 @@ class ObjectArtifact(ArtifactBase):
                 raise ValueError(_out_msg)
 
             if not (_data_type := _serialization[1]) and not allow_pickling:
-                raise ValueError(
+                _out_msg = (
                     f"Could not serialize object of type '{type(obj)}' "
-                    "without pickling",
+                    + "without pickling",
                 )
                 raise ValueError(_out_msg)
 

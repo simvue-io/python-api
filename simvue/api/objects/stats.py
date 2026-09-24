@@ -16,6 +16,11 @@ from simvue.api.url import URL
 
 from .base import SimvueObject
 
+try:
+    from typing import override
+except ImportError:
+    from typing_extensions import override
+
 __all__ = ["Stats"]
 
 
@@ -69,6 +74,7 @@ class Stats(SimvueObject):
         # set it to empty string so not None
         self._identifier = ""
 
+    @override
     @classmethod
     def new(cls, **_) -> None:
         """Creation of multiple stats objects is not logical here.
@@ -80,6 +86,7 @@ class Stats(SimvueObject):
         """
         raise AttributeError("Creation of statistics objects is not supported")
 
+    @override
     @classmethod
     def delete(cls, **_) -> None:
         """Deletion of stats object is not logical here.
@@ -117,6 +124,7 @@ class Stats(SimvueObject):
     def on_reconnect(self, **_: object) -> None:
         """No offline to online reconnect functionality for statistics."""
 
+    @override
     @classmethod
     def get(cls, **_) -> None:
         """Retrieval of multiple stats object is not logical here.
@@ -130,6 +138,7 @@ class Stats(SimvueObject):
             "Retrieval of multiple of statistics objects is not supported",
         )
 
+    @override
     @classmethod
     def ids(cls, **_) -> None:
         """Retrieval of identifiers is not logical here.
@@ -169,7 +178,6 @@ class Stats(SimvueObject):
         """No staging for stats so returns empty dict."""
         return {}
 
-    @override
     def _get_visibility(self) -> dict[str, bool | list[str]]:
         """Visibility does not apply here."""
         return {}

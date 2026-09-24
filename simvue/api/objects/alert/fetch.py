@@ -222,7 +222,10 @@ class Alert:
                 )
             elif (
                 _entry["source"] == "metrics"
-                and _entry.get("alert", {}).get("threshold") is not None
+                and typing.cast("dict[str, float]", _entry.get("alert", {})).get(
+                    "threshold"
+                )
+                is not None
             ):
                 yield (
                     _id,
@@ -262,8 +265,8 @@ class Alert:
                     ),
                 )
             else:
-                raise RuntimeError(
+                _out_msg = (
                     f"Unrecognised alert source '{_entry['source']}' "
-                    f"with data '{_entry}'",
+                    + f"with data '{_entry}'",
                 )
                 raise RuntimeError(_out_msg)

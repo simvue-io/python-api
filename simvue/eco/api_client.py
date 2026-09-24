@@ -11,10 +11,9 @@ import datetime
 import functools
 import http
 import logging
-import typing
 
 import geocoder
-import geocoder.location
+import geocoder.ipinfo
 import pydantic
 import requests
 
@@ -43,7 +42,7 @@ class CO2SignalResponse(pydantic.BaseModel):
     carbon_intensity_units: str
 
     @classmethod
-    def from_json_response(cls, json_response: dict) -> "CO2SignalResponse":
+    def from_json_response(cls, json_response: dict[str, str]) -> "CO2SignalResponse":
         _co2_signal_data = CO2SignalData(
             datetime=datetime.datetime.fromisoformat(
                 json_response["datetime"].replace("Z", "+00:00"),
@@ -58,7 +57,7 @@ class CO2SignalResponse(pydantic.BaseModel):
 
 
 @functools.lru_cache
-def _call_geocoder_query() -> typing.Any:
+def _call_geocoder_query() -> geocoder.ipinfo.IpinfoQuery:
     """Call GeoCoder API for IP location.
 
     Cached so this API is only called once per session as required.
@@ -99,9 +98,11 @@ class APIClient(pydantic.BaseModel):
     def _get_user_location_info(self) -> None:
         """Retrieve location information for the current user."""
         logger.info("📍 Determining current user location.")
-        _current_user_loc_data: geocoder.location.BBox = _call_geocoder_query()
+        _current_user_loc_data = _call_geocoder_query()
         self._latitude: float
         self._longitude: float
+        if not _current_user_loc_data.latlng or not _current_user_loc_data.country:
+            raise RuntimeError("Failed to get user location.")
         self._latitude, self._longitude = _current_user_loc_data.latlng
         self._two_letter_country_code: str = _current_user_loc_data.country
 

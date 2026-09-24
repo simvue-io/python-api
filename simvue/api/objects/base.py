@@ -13,7 +13,9 @@ import logging
 import types
 import typing
 import uuid
-from collections.abc import Callable, Generator
+
+if typing.TYPE_CHECKING:
+    from collections.abc import Callable, Generator
 
 import msgpack
 import pydantic
@@ -54,7 +56,9 @@ C = typing.TypeVar("C")
 U = typing.TypeVar("U")
 
 
-def staging_check(member_func: Callable) -> Callable:
+def staging_check(
+    member_func: Callable[[typing.Any], typing.Any],
+) -> Callable[[typing.Any], typing.Any]:
     """Decorator for checking if requested attribute has uncommitted changes."""
 
     def _wrapper(self) -> typing.Any:
@@ -84,13 +88,15 @@ def staging_check(member_func: Callable) -> Callable:
     return _wrapper
 
 
-def write_only(attribute_func: Callable) -> Callable:
-    def _wrapper(self: "SimvueObject", *args, **kwargs) -> typing.Any:
+def write_only(
+    attribute_func: Callable[[typing.Any], typing.Any],
+) -> Callable[[typing.Any], typing.Any]:
+    def _wrapper(self: SimvueObject, *args, **kwargs) -> typing.Any:
         _sv_obj = getattr(self, "_sv_obj", self)
         if _sv_obj.is_read_only:
-            raise AssertionError(
+            _out_msg: str = (
                 f"Cannot set property '{attribute_func.__name__}' "
-                f"on read-only object of type '{self.label()}'",
+                + f"on read-only object of type '{self.label()}'",
             )
             raise AssertionError(_out_msg)
         return attribute_func(self, *args, **kwargs)
@@ -107,7 +113,7 @@ def write_only(attribute_func: Callable) -> Callable:
 class Visibility:
     """Interface for object visibility definition."""
 
-    def __init__(self, sv_obj: "SimvueObject") -> None:
+    def __init__(self, sv_obj: SimvueObject) -> None:
         """Initialise visibility with target object."""
         self._sv_obj = sv_obj
 
@@ -354,8 +360,9 @@ class SimvueObject(abc.ABC):
                     return _attribute
                 _out_msg: str = (
                     f"Could not retrieve attribute '{attribute}' "
-                    f"for {self.label()} '{self._identifier}' from cached data",
-                ) from e
+                    + f"for {self.label()} '{self._identifier}' from cached data",
+                )
+                raise AttributeError(_out_msg) from e
 
         try:
             self._logger.debug(
@@ -369,12 +376,14 @@ class SimvueObject(abc.ABC):
             if self._offline:
                 _out_msg = (
                     f"A value for attribute '{attribute}' has "
-                    f"not yet been committed for offline {self.label()}"
-                    f" '{self._identifier}'",
-                ) from e
-            raise RuntimeError(
+                    + f"not yet been committed for offline {self.label()}"
+                    + f" '{self._identifier}'",
+                )
+                raise AttributeError(_out_msg) from e
+            _out_msg = (
                 f"Expected key '{attribute}' for {self.label()} '{self._identifier}'",
-            ) from e
+            )
+            raise RuntimeError(_out_msg) from e
 
     def _clear_staging(self) -> None:
         self._staging = {}
@@ -401,7 +410,7 @@ class SimvueObject(abc.ABC):
 
     @classmethod
     @abc.abstractmethod
-    def new(cls, **_: typing.Any) -> Self:  # noqa: ANN401
+    def new(cls, **_: typing.Any) -> Self:
         """Define new instance of this object."""
 
     @classmethod
@@ -454,13 +463,12 @@ class SimvueObject(abc.ABC):
             **kwargs,
         ):
             if (_data := response.get("data")) is None:
-                raise RuntimeError(
+                _out_msg: str = (
                     f"Expected key 'data' for retrieval of {cls.__name__.lower()}s",
                 )
                 raise RuntimeError(_out_msg)
-            for entry in _data:
-                _id = typing.cast("str", entry["id"])
-                yield _id
+            for entry in typing.cast("dict[str, object]", _data):
+                yield typing.cast("str", entry["id"])
                 _count += 1
                 if count and _count > count:
                     return
@@ -513,7 +521,7 @@ class SimvueObject(abc.ABC):
             if count and _count > count:
                 return
             if (_data := _response.get("data")) is None:
-                raise RuntimeError(
+                _out_msg: str = (
                     f"Expected key 'data' for retrieval of {cls.__name__.lower()}s",
                 )
                 raise RuntimeError(_out_msg)
@@ -522,7 +530,7 @@ class SimvueObject(abc.ABC):
             if not _data:
                 return
 
-            for entry in _data:
+            for entry in typing.cast("list[dict[str, object]]", _data):
                 _id = entry["id"]
                 yield (
                     _id,
@@ -571,11 +579,11 @@ class SimvueObject(abc.ABC):
             **kwargs,
         ):
             if not (_count := _data.get("count")):
-                raise RuntimeError(
+                _out_msg: str = (
                     f"Expected key 'count' for retrieval of {cls.__name__.lower()}s",
                 )
                 raise RuntimeError(_out_msg)
-            _count_total += _count
+            _count_total += typing.cast("int", _count)
         return _count_total
 
     @classmethod
@@ -588,7 +596,7 @@ class SimvueObject(abc.ABC):
         endpoint: str | None = None,
         expected_type: type = dict,
         **kwargs,
-    ) -> Generator[dict, None, None]:
+    ) -> Generator[dict[str, dict[str, object] | object], None, None]:
         _config: SimvueConfiguration = SimvueConfiguration.fetch(
             mode="online",
             server_url=server_url,
@@ -626,7 +634,12 @@ class SimvueObject(abc.ABC):
         """Returns if this instance is in read-only mode."""
         return self._read_only
 
-    def read_only(self, is_read_only: bool, *, clear_staged: bool = True) -> None:  # noqa: FBT001
+    def read_only(
+        self,
+        is_read_only: bool,  # # ruff: ignore[boolean-type-hint-positional-argument]
+        *,
+        clear_staged: bool = True,
+    ) -> None:
         """Set whether this object is in read only state.
 
         Parameters
@@ -747,9 +760,9 @@ class SimvueObject(abc.ABC):
         )
 
         if _response.status_code == http.HTTPStatus.FORBIDDEN:
-            raise RuntimeError(
+            _out_msg: str = (
                 "Forbidden: You do not have permission to "
-                f"create object of type '{self.label()}'",
+                + f"create object of type '{self.label()}'",
             )
             raise RuntimeError(_out_msg)
 
@@ -760,11 +773,10 @@ class SimvueObject(abc.ABC):
             expected_type=list,
         )
 
-        if not len(batch_data) == (_n_created := len(_json_response)):
-            raise RuntimeError(
-                "Expected %s to be created, but only %s found.",
-                len(batch_data),
-                _n_created,
+        if len(batch_data) != (_n_created := len(_json_response)):
+            _out_msg = (
+                f"Expected {len(batch_data)} to be created, but only "
+                + f"{_n_created} found.",
             )
             raise RuntimeError(_out_msg)
 
@@ -776,7 +788,7 @@ class SimvueObject(abc.ABC):
         self,
         *,
         is_json: bool = True,
-        data: list | dict | None = None,
+        data: list[dict[str, object]] | dict[str, object] | None = None,
         **kwargs,
     ) -> dict[str, typing.Any] | list[dict[str, typing.Any]]:
         _data = kwargs if is_json else msgpack.packb(data or kwargs, use_bin_type=True)
@@ -795,9 +807,9 @@ class SimvueObject(abc.ABC):
         )
 
         if _response.status_code == http.HTTPStatus.FORBIDDEN:
-            raise RuntimeError(
+            _out_msg: str = (
                 "Forbidden: You do not have permission to create "
-                f"object of type '{self.label()}'",
+                + f"object of type '{self.label()}'",
             )
             raise RuntimeError(_out_msg)
 
@@ -843,9 +855,9 @@ class SimvueObject(abc.ABC):
         )
 
         if _response.status_code == http.HTTPStatus.FORBIDDEN:
-            raise RuntimeError(
+            _out_msg: str = (
                 "Forbidden: You do not have permission to "
-                f"create object of type '{self.label()}'",
+                + f"create object of type '{self.label()}'",
             )
             raise RuntimeError(_out_msg)
 
@@ -925,10 +937,10 @@ class SimvueObject(abc.ABC):
         self._logger.debug("'%s' retrieved successfully", self._identifier)
 
         if not isinstance(_json_response, dict):
-            raise TypeError(
+            _out_msg: str = (
                 "Expected dictionary from JSON response "
-                f"during {self.label()} retrieval "
-                f"but got '{type(_json_response)}'",
+                + f"during {self.label()} retrieval "
+                + f"but got '{type(_json_response)}'",
             )
             raise TypeError(_out_msg)
         return _json_response

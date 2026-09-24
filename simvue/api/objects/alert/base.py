@@ -232,10 +232,14 @@ class AlertBase(SimvueObject):
         self._staging["abort"] = abort
 
     @pydantic.validate_call
-    def set_status(self, _: str, __: typing.Literal["ok", "critical"]) -> None:
+    def set_status(
+        self, message: str, err_type: typing.Literal["ok", "critical"]
+    ) -> None:
         """Set the status of this alert for a given run."""
-        raise AttributeError(
-            f"Cannot update state for alert of type '{self.__class__.__name__}'",
+        _ = message
+        _ = err_type
+        _out_msg: str = (
+            f"Cannot update state for alert of type '{self.__class__.__name__}'"
         )
         raise AttributeError(_out_msg)
 

@@ -14,6 +14,7 @@ import pydantic
 
 import simvue.models as sv_models
 from simvue.api.url import URL
+from simvue.config.files import DEFAULT_OFFLINE_DIRECTORY
 from simvue.utilities import get_expiry
 
 logger = logging.getLogger(__name__)

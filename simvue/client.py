@@ -6,6 +6,7 @@ server including deletion and retrieval.
 
 import contextlib
 import http
+import itertools
 import json
 import logging
 import pathlib
@@ -18,7 +19,11 @@ import requests
 from pandas import DataFrame
 
 from simvue.api.objects.alert.base import AlertBase
+from simvue.api.objects.alert.fetch import AlertSort
 from simvue.exception import ObjectNotFoundError
+
+if typing.TYPE_CHECKING:
+    from simvue.api.objects.artifact.base import ArtifactBase
 
 from .api.objects import (
     Alert,
@@ -311,7 +316,7 @@ class Client:
 
     @prettify_pydantic
     @pydantic.validate_call
-    def delete_run(self, run_id: str) -> dict | None:
+    def delete_run(self, run_id: str) -> dict[str, object] | None:
         """Delete run by identifier.
 
         Parameters
@@ -387,8 +392,8 @@ class Client:
             return None
 
         if next(_ids, None):
-            raise RuntimeError(
-                f"Expected single folder match for '{path}', but found duplicate.",
+            _out_msg: str = (
+                f"Expected single folder match for '{path}', but found duplicate."
             )
             raise RuntimeError(_out_msg)
 
@@ -399,7 +404,7 @@ class Client:
     def delete_runs(
         self,
         folder_path: typing.Annotated[str, pydantic.Field(pattern=FOLDER_REGEX)],
-    ) -> list | None:
+    ) -> list[dict[str, object]] | None:
         """Delete runs in a named folder.
 
         Parameters
@@ -434,7 +439,7 @@ class Client:
         recursive: bool = False,
         remove_runs: bool = False,
         allow_missing: bool = False,
-    ) -> list | None:
+    ) -> list[dict[str, object]] | None:
         """Delete a folder by name.
 
         Parameters
@@ -557,7 +562,9 @@ class Client:
 
     @prettify_pydantic
     @pydantic.validate_call
-    def abort_run(self, run_id: str, reason: str) -> dict | list:
+    def abort_run(
+        self, run_id: str, reason: str
+    ) -> dict[str, object] | list[dict[str, object]]:
         """Abort a currently active run on the server.
 
         Parameters
@@ -701,7 +708,7 @@ class Client:
             if there was a failure retrieving artifacts from the server
 
         """
-        _artifacts: Generator[tuple[str, Artifact]] = Artifact.from_run(
+        _artifacts: Generator[tuple[str, ArtifactBase]] = Artifact.from_run(
             server_url=self._user_config.server.url,
             server_token=self._user_config.server.token,
             run_id=run_id,
@@ -849,7 +856,6 @@ class Client:
         metric_names: list[str],
         run_ids: list[str],
         xaxis: str,
-        *,
         aggregate: bool,
         max_points: int | None = None,
     ) -> dict[str, object]:
@@ -889,7 +895,7 @@ class Client:
         use_run_names: bool = False,
         aggregate: bool = False,
         max_points: pydantic.PositiveInt | None = None,
-    ) -> dict | DataFrame | None:
+    ) -> "dict[str, dict[tuple[float, str], float]] | DataFrame | None":
         """Retrieve the values for a given metric across multiple runs.
 
         Uses filters to specify which runs should be retrieved.
@@ -1018,7 +1024,7 @@ class Client:
             if invalid arguments are provided
 
         """
-        data: DataFrame = self.get_metric_values(
+        _data: DataFrame = self.get_metric_values(
             run_ids=run_ids,
             metric_names=metric_names,
             xaxis=xaxis,
@@ -1027,17 +1033,17 @@ class Client:
             aggregate=False,
         )
 
-        if data is None:
-            raise RuntimeError(
+        if _data is None:
+            _out_msg: str = (
                 f"Cannot plot metrics {metric_names}, "
-                f"no data found for runs {run_ids}.",
+                + f"no data found for runs {run_ids}.",
             )
             raise RuntimeError(_out_msg)
 
         # Undo multi-indexing
         flattened_df = _data.reset_index()
 
-        import matplotlib.pyplot as plt  # noqa: PLC0415
+        import matplotlib.pyplot as plt  # ruff: ignore[import-outside-top-level]
 
         for run, name in itertools.product(run_ids, metric_names):
             label = None
@@ -1098,7 +1104,7 @@ class Client:
             if there was a failure retrieving information from the server
 
         """
-        msg_filter: str = (
+        _msg_filter: str = (
             json.dumps([f"event.message contains {message_contains}"])
             if message_contains
             else ""
@@ -1114,7 +1120,7 @@ class Client:
         _response = requests.get(
             f"{self._user_config.server.url}/events",
             headers=self._headers,
-            params=params,
+            params=_params,
             timeout=DEFAULT_API_TIMEOUT,
         )
 
@@ -1174,9 +1180,9 @@ class Client:
         """
         if not run_id:
             if critical_only:
-                raise RuntimeError(
+                _out_msg: str = (
                     "critical_only is ambiguous when returning alerts "
-                    "with no run ID specified.",
+                    + "with no run ID specified.",
                 )
                 raise RuntimeError(_out_msg)
             _sorting = (

@@ -169,7 +169,7 @@ class Folder(SimvueObject):
         return _filter_instance
 
     @override
-    def commit(self) -> dict | list[dict] | None:
+    def commit(self) -> dict[str, object] | list[dict[str, object]] | None:
         if "starred" in self._staging:
             _star_run: bool = self._staging.pop("starred")
             self._set_favourite(starred=_star_run)
@@ -186,7 +186,7 @@ class Folder(SimvueObject):
 
         """
         _level: int = len(self.path.split("/"))
-        _folders = self.__class__.get(
+        _folders: Generator[tuple[str, Folder]] = self.__class__.get(
             filters=json.dumps([f"path contains {self.path}"]),
         )
         _paths = [folder.path.split("/") for _, folder in _folders]
@@ -248,14 +248,18 @@ class Folder(SimvueObject):
 
     @property
     @staging_check
-    def metadata(self) -> dict[str, int | str | float | dict | None] | None:
+    def metadata(
+        self,
+    ) -> dict[str, int | str | float | dict[str, object] | None] | None:
         """Return the folder metadata."""
         return self._get().get("metadata")
 
     @metadata.setter
     @write_only
     @pydantic.validate_call
-    def metadata(self, metadata: dict[str, int | float | str | dict | None]) -> None:
+    def metadata(
+        self, metadata: dict[str, int | float | str | dict[str, object] | None]
+    ) -> None:
         """Update the folder metadata."""
         self._staging["metadata"] = metadata
 
@@ -327,7 +331,7 @@ class Folder(SimvueObject):
             else None
         )
 
-    def _set_favourite(self, *, starred: bool) -> dict:
+    def _set_favourite(self, *, starred: bool) -> dict[str, object]:
         """Set starred status."""
         _url = self.url / "starred"
         _response = sv_put(

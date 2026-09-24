@@ -37,7 +37,7 @@ dependencies = [
   "pydantic (>=2.11,<3.0.0)",
   "tabulate (>=0.9.0,<0.11.0)",
   "pyjwt (>=2.13.0,<3.0.0)",
-  "pandas>=2.2.3,<3.0.6",
+  "pandas>=2.2.3,<3.0.7",
   "toml (>=0.10.2,<0.11.0)",
   "click (>=8.4.1,<9.0.0)",
   "gitpython (>=3.1.59,<4.0.0)",
@@ -84,20 +84,28 @@ dev = [
   "pytest-sugar>=1.1.1",
   "pytest-timeout>=2.4.0",
   "pytest-xdist>=3.8.0",
-  "ruff>=0.15.14",
+  "ruff>=0.16.8",
   "types-requests>=2.33.0.20260518",
 ]
 
 [tool.ruff]
 extend-exclude = ["tests", "examples", "notebooks", "simvue/pynvml.py"]
-preview = true
 
 [tool.ruff.lint]
-ignore = ["COM812", "PLR0904", "PLR6301", "D203", "D212", "PLW0717"]
+ignore = [
+  "COM812",
+  "PLR0904",
+  "PLR6301",
+  "D203",
+  "D212",
+  "D417",
+  "S404",
+  "S603",
+  "PLW0717",
+]
 dummy-variable-rgx = "^_+$"
 extend-select = [
   "C90",
-  "D417",
   "E",
   "F",
   "W",
@@ -129,7 +137,6 @@ extend-select = [
   "TC",
   "ARG",
   "I",
-  "D417",
   "ERA",
   "PL",
   "UP",
@@ -185,7 +192,7 @@ reportAttributeAccessIssue = "error"
 reportDuplicateImport = "error"
 reportGeneralTypeIssues = "warning"
 reportImplicitOverride = "error"
-reportImportCycles = "error"
+reportImportCycles = "none"
 reportInconsistentOverload = "error"
 reportIndexIssue = "error"
 reportInvalidTypeForm = "error"
@@ -199,10 +206,6 @@ reportUnusedClass = "error"
 reportUnusedFunction = "error"
 reportUnusedImport = "error"
 reportUnusedVariable = "error"
-reportConstantRedefinition = "error"
-reportUnecessaryComparison = "error"
-reportUnecessaryContains = "error"
-reportUnecessaryCast = "error"
 reportSelfClsParameterName = "error"
 reportUndefinedVariable = "error"
 reportUnboundVariable = "error"

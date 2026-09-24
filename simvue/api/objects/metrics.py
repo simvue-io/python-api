@@ -171,7 +171,7 @@ class Metrics(SimvueObject):
     @pydantic.validate_call
     def span(self, run_ids: list[str]) -> dict[str, int | float]:
         """Returns the metrics span for the given runs"""
-        _url = self._base_url / "span"
+        _url = self.base_url / "span"
         _response = sv_get(
             url=f"{_url}",
             headers=self._headers,
@@ -205,6 +205,7 @@ class Metrics(SimvueObject):
     def _post_single(self, **kwargs: object) -> dict[str, typing.Any]:
         return super()._post_single(is_json=False, **kwargs)
 
+    @override
     def delete(self, **kwargs) -> dict[str, typing.Any]:
         """Metrics cannot be deleted."""
         raise NotImplementedError("Cannot delete metric set")

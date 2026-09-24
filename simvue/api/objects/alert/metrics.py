@@ -339,6 +339,7 @@ class MetricsAlertDefinition:
         """Initialise definition with target alert."""
         self._sv_obj = alert
 
+    @override
     def __eq__(self, other: "MetricsAlertDefinition") -> bool:
         """Compare a MetricsAlertDefinition with another."""
         return all(
@@ -350,6 +351,7 @@ class MetricsAlertDefinition:
             ],
         )
 
+    @override
     def __hash__(self) -> int:
         """Return definition hash."""
         return hash(f"{self.aggregation}-{self.frequency}-{self.rule}-{self.window}")
@@ -400,6 +402,7 @@ class MetricsAlertDefinition:
 class MetricThresholdAlertDefinition(MetricsAlertDefinition):
     """Alert definition for metric threshold alerts."""
 
+    @override
     def __eq__(self, other: "MetricThresholdAlertDefinition") -> bool:
         """Compare this MetricThresholdAlertDefinition with another."""
         if not super().__eq__(other):
@@ -407,6 +410,7 @@ class MetricThresholdAlertDefinition(MetricsAlertDefinition):
 
         return self.threshold == other.threshold
 
+    @override
     def __hash__(self) -> int:
         return hash(f"{super().__hash__()}+{self.threshold}")
 
@@ -421,6 +425,7 @@ class MetricThresholdAlertDefinition(MetricsAlertDefinition):
 class MetricRangeAlertDefinition(MetricsAlertDefinition):
     """Alert definition for metric range alerts."""
 
+    @override
     def __eq__(self, other: "MetricRangeAlertDefinition") -> bool:
         """Compare a MetricRangeAlertDefinition with another."""
         if not super().__eq__(other):
@@ -433,6 +438,7 @@ class MetricRangeAlertDefinition(MetricsAlertDefinition):
             ],
         )
 
+    @override
     def __hash__(self) -> int:
         return hash(f"{super().__hash__()}+{self.range_high}+{self.range_low}")
 

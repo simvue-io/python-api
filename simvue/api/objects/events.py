@@ -136,13 +136,13 @@ class Events(SimvueObject):
             **kwargs,
         ):
             if (_data := response.get("data")) is None:
-                raise RuntimeError(
+                _out_msg: str = (
                     "Expected key 'data' for retrieval of "
-                    f"{_class_instance.__class__.__name__.lower()}s",
+                    + f"{_class_instance.__class__.__name__.lower()}s",
                 )
                 raise RuntimeError(_out_msg)
 
-            for _entry in _data:
+            for _entry in typing.cast("list[dict[str, object]]", _data):
                 yield EventSet(**_entry)  # pyright: ignore[reportArgumentType]
                 _count += 1
                 if count and _count > count:

@@ -81,8 +81,7 @@ def simvue_timestamp(
     elif isinstance(date_time, str):
         _local_time = datetime.datetime.now(datetime.timezone.utc).astimezone().tzinfo
         date_time = (
-            datetime.datetime
-            .strptime(date_time, DATETIME_FORMAT)
+            datetime.datetime.strptime(date_time, DATETIME_FORMAT)
             .replace(tzinfo=_local_time)
             .astimezone(datetime.UTC)
         )

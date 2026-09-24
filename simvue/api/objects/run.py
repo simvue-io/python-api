@@ -141,7 +141,7 @@ class Run(SimvueObject):
         return _run_filter
 
     @override
-    def commit(self) -> dict | list[dict] | None:
+    def commit(self) -> dict[str, object] | list[dict[str, object]] | None:
         if "starred" in self._staging:
             _star_run: bool = self._staging.pop("starred")
             self._set_favourite(starred=_star_run)
@@ -639,7 +639,7 @@ class Run(SimvueObject):
         """Star this folder as a favourite."""
         self._staging["starred"] = is_true
 
-    def _set_favourite(self, *, starred: bool) -> dict:
+    def _set_favourite(self, *, starred: bool) -> dict[str, object]:
         """Set starred status."""
         _url = self.url / "starred"
         _response = sv_put(
@@ -791,7 +791,7 @@ class Run(SimvueObject):
             headers=self._headers,
             verify=self._user_config.server_verify,
         )
-        _json_response = get_json_from_response(
+        _json_response: dict[str, bool] = get_json_from_response(
             response=_response,
             expected_status=[http.HTTPStatus.OK],
             scenario=f"Retrieving abort status for run '{self.id}'",
@@ -851,7 +851,7 @@ class Run(SimvueObject):
         )
 
     @pydantic.validate_call
-    def abort(self, reason: str) -> dict[str, typing.Any]:
+    def abort(self, reason: str) -> dict[str, object]:
         """Trigger an abort for this run by notifying the server.
 
         Parameters
@@ -861,7 +861,7 @@ class Run(SimvueObject):
 
         Returns
         -------
-        dict[str, Any]
+        dict[str, object]
             server response after updating abort status.
 
         Raises

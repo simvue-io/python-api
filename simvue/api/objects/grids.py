@@ -130,8 +130,10 @@ class Grid(SimvueObject):
         return get_json_from_response(
             expected_status=[http.HTTPStatus.OK],
             scenario=(
-                f"Adding '{metric_name}' to grid "
-                f"'{self._identifier}' to run '{run_id}'",
+                (
+                    f"Adding '{metric_name}' to grid "
+                    f"'{self._identifier}' to run '{run_id}'"
+                ),
             ),
             response=_response,
         )
@@ -224,8 +226,10 @@ class Grid(SimvueObject):
         """
         if len(labels) != len(grid):
             _out_msg = (
-                "Length of argument 'labels' must match first "
-                f"grid dimension {len(grid)}.",
+                (
+                    "Length of argument 'labels' must match first "
+                    f"grid dimension {len(grid)}."
+                ),
             )
             raise AssertionError(_out_msg)
 
@@ -264,7 +268,7 @@ class Grid(SimvueObject):
         run_id: str,
         metric_name: str,
         step: int,
-    ) -> dict:
+    ) -> dict[str, float | bool]:
         """Retrieve values for grid given run at a given step.
 
         Parameters
@@ -294,8 +298,10 @@ class Grid(SimvueObject):
             expected_status=[http.HTTPStatus.OK],
             expected_type=dict,
             scenario=(
-                f"Retrieving '{metric_name}' grid values "
-                f"for run '{run_id}' at step {step}",
+                (
+                    f"Retrieving '{metric_name}' grid values "
+                    f"for run '{run_id}' at step {step}"
+                ),
             ),
         )
 

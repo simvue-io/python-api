@@ -3,9 +3,6 @@
 Provides an interface for estimating CO2 usage for processes on the CPU.
 """
 
-__author__ = "Kristian Zarebski"
-__date__ = "2025-02-27"
-
 import dataclasses
 import datetime
 import json
@@ -180,6 +177,8 @@ class CO2Monitor(pydantic.BaseModel):
     @property
     def outdated(self) -> bool:
         """Checks if the current data is out of date."""
+        if not self._local_data:
+            raise RuntimeError("Expected local data to be initialised for CO2 monitor")
         if not self.intensity_refresh_interval:
             return False
 
@@ -188,7 +187,9 @@ class CO2Monitor(pydantic.BaseModel):
             self._local_data["last_updated"],
             TIME_FORMAT,
         ).replace(tzinfo=datetime.timezone.utc)
-        return (_now - _latest_time).seconds > self.intensity_refresh_interval
+        return (_now - _latest_time).seconds > typing.cast(
+            "int", self.intensity_refresh_interval
+        )
 
     def _load_local_data(self) -> dict[str, str | dict[str, str | float]] | None:
         """Loads locally stored CO2 intensity data."""
@@ -240,6 +241,10 @@ class CO2Monitor(pydantic.BaseModel):
         ):
             logger.info("🌍 CO2 emission outdated, calling API.")
             _data: CO2SignalResponse = self._client.get()
+            if self._local_data is None:
+                raise RuntimeError(
+                    "Expected local data to be initialised for CO2 monitor"
+                )
             self._local_data[self._client.country_code] = _data.model_dump(mode="json")
             self._local_data["last_updated"] = self.now()
             with self._data_file_path.open("w") as out_f:
@@ -267,6 +272,11 @@ class CO2Monitor(pydantic.BaseModel):
 
         if not self._data_file_path:
             raise RuntimeError("Expected local data file to be defined.")
+
+        if self.thermal_design_power_per_cpu is None or self.n_cores_per_cpu is None:
+            raise ValueError(
+                "Expected values for thermal design power and number of cores for CPU"
+            )
 
         if not (_process := self._processes.get(process_id)):
             self._processes[process_id] = (_process := ProcessData())

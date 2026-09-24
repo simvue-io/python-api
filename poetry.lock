@@ -3032,4 +3032,4 @@ plot = ["matplotlib", "plotly"]
 [metadata]
 lock-version = "2.1"
 python-versions = ">=3.10,<3.15"
-content-hash = "6e313946685e97cb853ea060baa2bd52e61e7b45d67269d8b8ed80369c4fcf44"
+content-hash = "49cb62d64368313661e6fceec273dfd2ccb3d9aee2e0fdd4f43ddbeae32774c5"

@@ -7,7 +7,7 @@ Module contains classes for easier handling of URLs.
 try:
     from typing import Self, override
 except ImportError:
-    from typing_extensions import Self
+    from typing_extensions import Self, override
 import copy
 import urllib.parse
 
@@ -20,7 +20,7 @@ class URL:
     @pydantic.validate_call
     def __init__(self, url: str) -> None:
         """Initialise a url from string form."""
-        url = url.removesuffix("/")
+        _url = url.removesuffix("/")
 
         _parsed_url = urllib.parse.urlparse(_url)
         self._scheme: str = _parsed_url.scheme

@@ -1,6 +1,7 @@
 """Utility and global helper functions."""
 
 import contextlib
+import datetime
 import functools
 import hashlib
 import importlib.util
@@ -12,9 +13,12 @@ import pathlib
 import platform
 import typing
 
+import deepmerge
 import jwt
 import pydantic
 import tabulate
+
+from .models import DATETIME_FORMAT
 
 CHECKSUM_BLOCK_SIZE = 4096
 EXTRAS: tuple[str, ...] = ("plot", "torch")
@@ -157,7 +161,7 @@ def parse_validation_response(
     return str(_table)
 
 
-def check_extra(extra_name: str) -> typing.Callable:
+def check_extra(extra_name: str) -> typing.Callable[[typing.Any], typing.Any]:
     """Check for the presence of a given module extra.
 
     Some features are unlocked by specifying an 'extra' when installing.
@@ -273,7 +277,7 @@ def skip_if_failed(
     failure_attr: str,
     ignore_exc_attr: str,
     on_failure_return: typing.Any | None = None,
-) -> typing.Callable:
+) -> typing.Callable[[typing.Any], typing.Any]:
     """Decorator for ensuring if Simvue throws an exception any other code continues.
 
     If Simvue throws an exception and the user has specified that such failure
@@ -298,7 +302,9 @@ def skip_if_failed(
 
     """
 
-    def decorator(class_func: typing.Callable) -> typing.Callable:
+    def decorator(
+        class_func: typing.Callable[[typing.Any], typing.Any],
+    ) -> typing.Callable[[typing.Any], typing.Any]:
         @functools.wraps(class_func)
         def wrapper(self: "Run", *args, **kwargs) -> typing.Any:
             if getattr(self, failure_attr, None) and getattr(
@@ -329,7 +335,9 @@ def skip_if_failed(
     return decorator
 
 
-def prettify_pydantic(func: typing.Callable) -> typing.Callable:
+def prettify_pydantic(
+    func: typing.Callable[[typing.Any], typing.Any],
+) -> typing.Callable[[typing.Any], typing.Any]:
     """Converts pydantic validation errors to a table.
 
     Parameters
@@ -394,7 +402,9 @@ def validate_timestamp(timestamp):
     Validate a user-provided timestamp
     """
     try:
-        datetime.datetime.strptime(timestamp, DATETIME_FORMAT)
+        _ = datetime.datetime.strptime(timestamp, DATETIME_FORMAT).astimezone(
+            datetime.timezone.utc
+        )
     except ValueError:
         return False
 
@@ -415,7 +425,7 @@ def simvue_timestamp(date_time: datetime.datetime | None = None) -> str:
         Datetime string valid for the Simvue server
     """
     if not date_time:
-        date_time = datetime.datetime.now(datetime.UTC)
+        date_time = datetime.datetime.now(datetime.timezone.utc)
     return date_time.strftime(DATETIME_FORMAT)
 
 

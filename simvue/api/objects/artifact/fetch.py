@@ -237,9 +237,9 @@ class Artifact:
             )
 
         if (_n_res := len(_json_response)) > 1 and not force_overwrite:
-            raise RuntimeError(
+            _out_msg: str = (
                 f"Expected single result for artifact '{name}' for run '{run_id}'"
-                f" but got {_n_res}",
+                + f" but got {_n_res}",
             )
             raise RuntimeError(_out_msg)
 

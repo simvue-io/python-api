@@ -5,7 +5,6 @@ Contains serializers for storage of objects on the Simvue server
 
 import contextlib
 import json
-import pickle  # noqa: S403
 import typing
 from io import BytesIO
 
@@ -85,7 +84,7 @@ def serialize_object(data: typing.Any, *, allow_pickle: bool) -> tuple[str, str]
         return _serialize_torch_tensor(data)
     if module_name == "builtins" and class_name == "module" and not allow_pickle:
         with contextlib.suppress(ImportError):
-            import matplotlib.pyplot as plt  # noqa: PLC0415
+            import matplotlib.pyplot as plt  # ruff: ignore[import-outside-top-level]
 
             if data == plt:
                 return _serialize_matplotlib(data)
@@ -98,7 +97,7 @@ def serialize_object(data: typing.Any, *, allow_pickle: bool) -> tuple[str, str]
 @check_extra("plot")
 def _serialize_plotly_figure(data: typing.Any) -> tuple[str, str]:
     try:
-        import plotly  # noqa: PLC0415
+        import plotly  # ruff: ignore[import-outside-top-level]
     except ImportError:
         return None
     mimetype = "application/vnd.plotly.v1+json"
@@ -113,7 +112,7 @@ def _serialize_plotly_figure(data: typing.Any) -> tuple[str, str]:
 @check_extra("plot")
 def _serialize_matplotlib(data: typing.Any) -> tuple[str, str] | None:
     try:
-        import plotly  # noqa: PLC0415
+        import plotly  # ruff: ignore[import-outside-top-level]
     except ImportError:
         return None
     mimetype = "application/vnd.plotly.v1+json"
@@ -128,7 +127,7 @@ def _serialize_matplotlib(data: typing.Any) -> tuple[str, str] | None:
 @check_extra("plot")
 def _serialize_matplotlib_figure(data: typing.Any) -> tuple[str, str] | None:
     try:
-        import plotly  # noqa: PLC0415
+        import plotly  # ruff: ignore[import-outside-top-level]
     except ImportError:
         return None
     mimetype = "application/vnd.plotly.v1+json"
@@ -161,7 +160,7 @@ def _serialize_dataframe(data: typing.Any) -> tuple[str, str] | None:
 @check_extra("torch")
 def _serialize_torch_tensor(data: typing.Any) -> tuple[str, str] | None:
     try:
-        import torch  # noqa: PLC0415
+        import torch  # ruff: ignore[import-outside-top-level]
     except ImportError:
         torch = None
         return None
@@ -187,6 +186,8 @@ def _serialize_json(data: typing.Any) -> tuple[str, str] | None:
 
 
 def _serialize_pickle(data: typing.Any) -> tuple[str, str] | None:
+    import pickle  # ruff: ignore[import-outside-top-level,suspicious-pickle-import]
+
     mimetype = "application/octet-stream"
     data = pickle.dumps(data)
     return data, mimetype
@@ -217,16 +218,7 @@ def deserialize_data(
 @check_extra("plot")
 def _deserialize_plotly_figure(data: "Buffer") -> "Figure | None":
     try:
-        import plotly  # noqa: PLC0415
-    except ImportError:
-        return None
-    return plotly.io.from_json(data)
-
-
-@check_extra("plot")
-def _deserialize_matplotlib_figure(data: "Buffer") -> "Figure | None":
-    try:
-        import plotly  # noqa: PLC0415
+        import plotly  # ruff: ignore[import-outside-top-level]
     except ImportError:
         return None
     return plotly.io.from_json(data)
@@ -247,7 +239,7 @@ def _deserialize_dataframe(data: "Buffer") -> "DataFrame | None":
 @check_extra("torch")
 def _deserialize_torch_tensor(data: "Buffer") -> "Tensor | None":
     try:
-        import torch  # noqa: PLC0415
+        import torch  # ruff: ignore[import-outside-top-level]
     except ImportError:
         torch = None
         return None
@@ -258,7 +250,9 @@ def _deserialize_torch_tensor(data: "Buffer") -> "Tensor | None":
 
 
 def _deserialize_pickle(data) -> typing.Any | None:
-    return pickle.loads(data)  # noqa: S301
+    import pickle  # ruff: ignore[import-outside-top-level,suspicious-pickle-import]
+
+    return pickle.loads(data)  # ruff: ignore[suspicious-pickle-usage]
 
 
 def _deserialize_json(data) -> typing.Any | None:

@@ -28,6 +28,8 @@ class S3Storage(StorageBase):
 
     """
 
+    _type: str = "s3"
+
     @override
     def __init__(
         self,
@@ -174,7 +176,7 @@ class S3Storage(StorageBase):
         """Retrieve configuration."""
         try:
             _config: dict[str, float | str | None] = typing.cast(
-                "dict[str, float | None | str]", self._get_attribute("config")
+                "dict[str, float | str | None]", self._get_attribute("config")
             )
         except AttributeError:
             return {}
@@ -251,8 +253,8 @@ class Config:
     @pydantic.validate_call
     def bucket(self, bucket: str) -> None:
         """Modify the bucket label for this storage."""
-        if self._sv_obj.type == "file":
-            raise ValueError(
+        if self._sv_obj.type != "s3":
+            _out_msg: str = (
                 f"Cannot set attribute 'bucket' for storage type '{self._sv_obj.type}'",
             )
             raise ValueError(_out_msg)

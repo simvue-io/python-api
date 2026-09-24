@@ -153,10 +153,9 @@ class FileArtifact(ArtifactBase):
                     "artifacts",
                 )
                 _local_staging_dir.mkdir(parents=True, exist_ok=True)
-                _local_staging_file = _local_staging_dir.joinpath(
-                    f"{file_path.stem}_"
-                    f"{datetime.datetime.now(tz=datetime.timezone.utc).strftime('%Y-%m-%d_%H-%M-%S_%f')[:-3]}.file",
-                )
+                _time_stamp: str = datetime.datetime.now(
+                    tz=datetime.timezone.utc
+                ).strftime("%Y-%m-%d_%H-%M-%S_%f")
                 _local_staging_file = _local_staging_dir.joinpath(
                     f"{file_path.stem}_{_time_stamp[:-3]}.file"
                 )

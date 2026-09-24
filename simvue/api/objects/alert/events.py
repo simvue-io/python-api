@@ -169,14 +169,16 @@ class EventAlertDefinition:
             ],
         )
 
+    @override
     def __hash__(self) -> int:
         return hash(f"{self.frequency}+{self.pattern}")
 
     @property
     def pattern(self) -> str:
         """Retrieve the event log pattern monitored by this alert."""
+        _alert: dict[str, str | float] = self._sv_obj.get_alert()
         try:
-            return _alert["pattern"]
+            return typing.cast("str", _alert["pattern"])
         except KeyError as e:
             raise RuntimeError(
                 "Expected key 'pattern' in alert definition retrieval",
@@ -186,8 +188,9 @@ class EventAlertDefinition:
     @staging_check
     def frequency(self) -> int:
         """Retrieve the update frequency for this alert."""
+        _alert: dict[str, str | float] = self._sv_obj.get_alert()
         try:
-            return _alert["frequency"]
+            return typing.cast("float", _alert["frequency"])
         except KeyError as e:
             raise RuntimeError(
                 "Expected key 'frequency' in alert definition retrieval",

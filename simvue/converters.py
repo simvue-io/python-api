@@ -10,6 +10,8 @@ import flatdict
 import pandas as pd
 
 if typing.TYPE_CHECKING:
+    from collections.abc import Iterable, Mapping
+
     from pd import DataFrame
 
 
@@ -43,7 +45,9 @@ def aggregated_metrics_to_dataframe(
     _all_steps: list[float] = sorted(
         {
             d[xaxis]
-            for sublist in request_response_data.values()
+            for sublist in typing.cast(
+                "Iterable[list[str]]", request_response_data.values()
+            )
             for d in sublist
             if xaxis in d
         },
@@ -58,6 +62,8 @@ def aggregated_metrics_to_dataframe(
     result_dict: dict[str, dict[tuple[float, str], float | None]] = {
         metric_name: {} for metric_name in request_response_data
     }
+
+    metrics: list[dict[str, float]]
 
     for metric_name, metrics in request_response_data.items():
         metrics_iterator = iter(metrics)
@@ -77,9 +83,8 @@ def aggregated_metrics_to_dataframe(
         _data_frame = pd.DataFrame(result_dict)
         _data_frame.index.name = xaxis
         return _data_frame
-    if parse_to == "dict":
-        return result_dict
-    raise ValueError(f"Unrecognised parse format '{parse_to}'")
+
+    return result_dict
 
 
 def parse_run_set_metrics(
@@ -120,10 +125,14 @@ def parse_run_set_metrics(
     if not request_response_data:
         return pd.DataFrame({}) if parse_to == "dataframe" else {}
 
+    _request_values: Iterable[dict[str, list[dict[str, float]]]] = (
+        request_response_data.values()
+    )
+
     _all_steps: list[float] = sorted(
         {
             d[xaxis]
-            for run_data in request_response_data.values()
+            for run_data in _request_values
             for sublist in run_data.values()
             for d in sublist
             if xaxis in d
@@ -131,11 +140,11 @@ def parse_run_set_metrics(
     )
 
     _all_metrics: list[str] = sorted(
-        {key for run_data in request_response_data.values() for key in run_data},
+        {key for run_data in _request_values for key in run_data},
     )
 
     # Get the keys from the aggregate which are not the xaxis label
-    _first_run = next(iter(request_response_data.values()))
+    _first_run = next(iter(_request_values))
     _first_metric_set = next(iter(_first_run.values()))
     _value_types = next(iter(_first_metric_set)).keys()
     _value_types = list(_value_types)
@@ -147,7 +156,7 @@ def parse_run_set_metrics(
 
     for run_label, run_data in zip(
         run_labels,
-        request_response_data.values(),
+        _request_values,
         strict=True,
     ):
         for metric_name in _all_metrics:
@@ -167,22 +176,20 @@ def parse_run_set_metrics(
 
     if parse_to == "dataframe":
         return pd.DataFrame(
-            result_dict,
+            _result_dict,
             index=pd.MultiIndex.from_product(
                 [_all_steps, run_labels],
                 names=(xaxis, "run"),
             ),
         )
-    if parse_to == "dict":
-        return result_dict
-    raise ValueError(f"Unrecognised parse format '{parse_to}'")
+    return _result_dict
 
 
 def to_dataframe(data) -> pd.DataFrame:
     """Convert runs to dataframe."""
-    metadata = []
-    system_columns = []
-    columns = {
+    _metadata: list[dict[str, object]] = []
+    _system_columns: list[str] = []
+    _columns = {
         "name": [],
         "status": [],
         "folder": [],
@@ -204,7 +211,7 @@ def to_dataframe(data) -> pd.DataFrame:
                 _system_columns += [
                     col_name
                     for sub_item in value
-                    if (col_name := f"system.{item}.{sub_item}") not in system_columns
+                    if (col_name := f"system.{item}.{sub_item}") not in _system_columns
                 ]
             elif f"system.{item}" not in _system_columns:
                 _system_columns.append(f"system.{item}")
@@ -221,7 +228,7 @@ def to_dataframe(data) -> pd.DataFrame:
             except TypeError:
                 value_.append(None)
 
-    return pd.DataFrame(data=columns)
+    return pd.DataFrame(data=_columns)
 
 
 def metric_time_series_to_dataframe(
