@@ -13,9 +13,11 @@ import logging
 import types
 import typing
 import uuid
+from collections.abc import Generator
 
 if typing.TYPE_CHECKING:
-    from collections.abc import Callable, Generator
+    import pathlib
+    from collections.abc import Callable
 
 import msgpack
 import pydantic
@@ -40,9 +42,6 @@ from simvue.api.url import URL
 from simvue.config.user import SimvueConfiguration
 from simvue.exception import ObjectNotFoundError
 from simvue.utilities import staging_merger
-
-if typing.TYPE_CHECKING:
-    import pathlib
 
 try:
     from typing import Self, override

@@ -102,6 +102,7 @@ ignore = [
   "S404",
   "S603",
   "PLW0717",
+  "TC003",
 ]
 dummy-variable-rgx = "^_+$"
 extend-select = [
