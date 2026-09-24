@@ -271,7 +271,7 @@ def _node_js_env(repository: pathlib.Path) -> dict[str, typing.Any]:
     return js_meta
 
 
-def _environment_variables(glob_exprs: list[str]) -> dict[str, str]:
+def _environment_variables(glob_exprs: set[str]) -> dict[str, str]:
     """Retrieve values for environment variables."""
     _env_vars: list[str] = list(os.environ.keys())
     _metadata: dict[str, str] = {}
@@ -284,20 +284,23 @@ def _environment_variables(glob_exprs: list[str]) -> dict[str, str]:
 
 
 def environment(
+    *,
     repository: pathlib.Path | None = None,
+    record_repo_environment: bool = True,
     env_var_glob_exprs: set[str] | None = None,
 ) -> dict[str, typing.Any]:
     """Retrieve environment metadata."""
     _environment_meta = {}
-    _repository: pathlib.Path = repository or pathlib.Path.cwd()
-    if _python_meta := _python_env(_repository):
-        _environment_meta["python"] = _python_meta
-    if _rust_meta := _rust_env(_repository):
-        _environment_meta["rust"] = _rust_meta
-    if _julia_meta := _julia_env(_repository):
-        _environment_meta["julia"] = _julia_meta
-    if _js_meta := _node_js_env(_repository):
-        _environment_meta["javascript"] = _js_meta
+    if record_repo_environment:
+        _repository: pathlib.Path = repository or pathlib.Path.cwd()
+        if _python_meta := _python_env(_repository):
+            _environment_meta["python"] = _python_meta
+        if _rust_meta := _rust_env(_repository):
+            _environment_meta["rust"] = _rust_meta
+        if _julia_meta := _julia_env(_repository):
+            _environment_meta["julia"] = _julia_meta
+        if _js_meta := _node_js_env(_repository):
+            _environment_meta["javascript"] = _js_meta
     if env_var_glob_exprs:
         _environment_meta["shell"] = _environment_variables(env_var_glob_exprs)
     return _environment_meta

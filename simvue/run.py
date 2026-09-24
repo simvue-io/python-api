@@ -747,7 +747,7 @@ class Run:
         tags = (tags or []) + (self._user_config.run.tags or [])
         folder = folder or self._user_config.run.folder
         name = name or self._user_config.run.name
-        metadata = (metadata or {}) | (self._user_config.run.metadata or {})
+        metadata = (metadata or {}) | (self._user_config.run.metadata.custom or {})
         record_shell_vars = record_shell_vars or self._user_config.run.record_shell_vars
 
         self._term_color = not no_color
@@ -815,17 +815,24 @@ class Run:
         self._sv_obj.ttl = self._retention
         self._sv_obj.status = self._status
         self._sv_obj.tags = tags
-        self._sv_obj.metadata = (
-            (metadata or {})
-            | git_info(pathlib.Path.cwd())
-            | environment(env_var_glob_exprs=record_shell_vars)
+
+        _session_metadata = metadata or {}
+
+        _session_metadata |= environment(
+            env_var_glob_exprs=record_shell_vars,
+            record_repo_environment=self._user_config.run.metadata.environment,
         )
+
+        if self._user_config.run.metadata.git:
+            _session_metadata |= git_info(pathlib.Path.cwd())
+
         self._sv_obj.heartbeat_timeout = timeout
         self._sv_obj.alerts = []
         self._sv_obj.created = time.time()
         self._sv_obj.notifications = notification
+        self._sv_obj.metadata = _session_metadata
 
-        if self._status == "running":
+        if self._status == "running" and self._user_config.run.metadata.system:
             self._sv_obj.system = get_system()
 
         self._data = self._sv_obj.staging
