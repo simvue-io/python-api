@@ -19,9 +19,13 @@ from simvue.models import EventSet, simvue_timestamp
 from .base import SimvueObject
 
 try:
-    from typing import Self
+    from typing import Self, override
 except ImportError:
-    from typing_extensions import Self
+    from typing_extensions import Self, override
+
+
+if typing.TYPE_CHECKING:
+    from simvue.api.url import URL
 
 if typing.TYPE_CHECKING:
     from simvue.api.url import URL
@@ -72,6 +76,7 @@ class Events(SimvueObject):
 
     @classmethod
     @pydantic.validate_call
+    @override
     def get(
         cls,
         run_id: str,
@@ -126,19 +131,21 @@ class Events(SimvueObject):
             **kwargs,
         ):
             if (_data := response.get("data")) is None:
-                raise RuntimeError(
+                _out_msg: str = (
                     "Expected key 'data' for retrieval of "
-                    f"{_class_instance.__class__.__name__.lower()}s",
+                    + f"{_class_instance.__class__.__name__.lower()}s",
                 )
+                raise RuntimeError(_out_msg)
 
-            for _entry in _data:
-                yield EventSet(**_entry)
+            for _entry in typing.cast("list[dict[str, object]]", _data):
+                yield EventSet(**_entry)  # pyright: ignore[reportArgumentType]
                 _count += 1
-                if _count > count:
+                if count and _count > count:
                     return
 
     @classmethod
     @pydantic.validate_call
+    @override
     def new(
         cls,
         *,
@@ -179,13 +186,19 @@ class Events(SimvueObject):
             server_token=server_token,
             _read_only=False,
             _offline=offline,
-            **kwargs,
+            **kwargs,  # pyright: ignore[reportArgumentType]
         )
 
-    def _post_single(self, **kwargs) -> dict[str, typing.Any]:
-        return super()._post_single(is_json=False, **kwargs)
+    @override
+    def _post_single(
+        self,
+        data: list[dict[str, object]] | dict[str, object] | None = None,
+        **kwargs: object,
+    ) -> dict[str, typing.Any] | list[dict[str, typing.Any]]:
+        return super()._post_single(is_json=False, data=data, **kwargs)
 
-    def _put(self, **kwargs) -> dict[str, typing.Any]:
+    @override
+    def _put(self, **_: object) -> dict[str, typing.Any]:
         raise NotImplementedError("Method 'put' is not available for type Events")
 
     @pydantic.validate_call
@@ -223,7 +236,7 @@ class Events(SimvueObject):
         _time_begin: str = simvue_timestamp(timestamp_begin)
         _time_end: str = simvue_timestamp(timestamp_end)
         _response = sv_get(
-            url=_url,
+            url=f"{_url}",
             headers=self._headers,
             verify=self._user_config.server_verify,
             params={
@@ -239,9 +252,19 @@ class Events(SimvueObject):
             scenario="Retrieval of events histogram",
             response=_response,
         )
-        return _json_response.get("data")
+        _json_response = typing.cast("dict[str, object]", _json_response)
 
-    def delete(self, **kwargs) -> dict[str, typing.Any]:
+        _data = typing.cast(
+            "list[dict[str, str | int]] | None", _json_response.get("data")
+        )
+
+        if not _data:
+            raise RuntimeError("Expected key 'data' in response for histogram request.")
+
+        return _data
+
+    @override
+    def delete(self, **kwargs: object) -> dict[str, typing.Any]:
         """Event set deletion not implemented.
 
         Raises
@@ -252,6 +275,7 @@ class Events(SimvueObject):
         """
         raise NotImplementedError("Cannot delete event set")
 
-    def on_reconnect(self, id_mapping: dict[str, str]):
+    @override
+    def on_reconnect(self, id_mapping: dict[str, str]) -> None:
         if online_run_id := id_mapping.get(self._staging["run"]):
             self._staging["run"] = online_run_id

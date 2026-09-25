@@ -1,3 +1,5 @@
+# pyright: reportSelfClsParameterName=false,reportImplicitOverride=false
+# pyright: reportAttributeAccessIssue=false,reportUnreachable=false
 #####
 # Based on nvidia-ml-py version 11.515.75 from https://pypi.org/project/nvidia-ml-py/
 # including changes to fix nvmlDeviceGet*RunningProcesses from

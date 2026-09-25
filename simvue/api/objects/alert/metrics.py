@@ -10,9 +10,9 @@ import typing
 import pydantic
 
 try:
-    from typing import Self
+    from typing import Self, override
 except ImportError:
-    from typing_extensions import Self
+    from typing_extensions import Self, override
 
 from simvue.api.objects.base import write_only
 from simvue.models import NAME_REGEX
@@ -80,6 +80,7 @@ class MetricsThresholdAlert(AlertBase):
 
     @override
     @classmethod
+    @override
     def get(
         cls,
         *,
@@ -94,6 +95,7 @@ class MetricsThresholdAlert(AlertBase):
 
     @override
     @classmethod
+    @override
     @pydantic.validate_call
     def new(
         cls,
@@ -244,6 +246,7 @@ class MetricsRangeAlert(AlertBase):
 
     @classmethod
     @pydantic.validate_call
+    @override
     def new(
         cls,
         *,
@@ -300,7 +303,8 @@ class MetricsRangeAlert(AlertBase):
 
         """
         if range_low >= range_high:
-            raise ValueError(f"Invalid arguments for range [{range_low}, {range_high}]")
+            _out_msg: str = f"Invalid arguments for range [{range_low}, {range_high}]"
+            raise ValueError(_out_msg)
 
         _alert_definition = {
             "rule": rule,
@@ -335,6 +339,7 @@ class MetricsAlertDefinition:
         """Initialise definition with target alert."""
         self._sv_obj = alert
 
+    @override
     def __eq__(self, other: "MetricsAlertDefinition") -> bool:
         """Compare a MetricsAlertDefinition with another."""
         return all(
@@ -346,6 +351,7 @@ class MetricsAlertDefinition:
             ],
         )
 
+    @override
     def __hash__(self) -> int:
         """Return definition hash."""
         return hash(f"{self.aggregation}-{self.frequency}-{self.rule}-{self.window}")
@@ -396,6 +402,7 @@ class MetricsAlertDefinition:
 class MetricThresholdAlertDefinition(MetricsAlertDefinition):
     """Alert definition for metric threshold alerts."""
 
+    @override
     def __eq__(self, other: "MetricThresholdAlertDefinition") -> bool:
         """Compare this MetricThresholdAlertDefinition with another."""
         if not super().__eq__(other):
@@ -403,6 +410,7 @@ class MetricThresholdAlertDefinition(MetricsAlertDefinition):
 
         return self.threshold == other.threshold
 
+    @override
     def __hash__(self) -> int:
         return hash(f"{super().__hash__()}+{self.threshold}")
 
@@ -417,6 +425,7 @@ class MetricThresholdAlertDefinition(MetricsAlertDefinition):
 class MetricRangeAlertDefinition(MetricsAlertDefinition):
     """Alert definition for metric range alerts."""
 
+    @override
     def __eq__(self, other: "MetricRangeAlertDefinition") -> bool:
         """Compare a MetricRangeAlertDefinition with another."""
         if not super().__eq__(other):
@@ -429,6 +438,7 @@ class MetricRangeAlertDefinition(MetricsAlertDefinition):
             ],
         )
 
+    @override
     def __hash__(self) -> int:
         return hash(f"{super().__hash__()}+{self.range_high}+{self.range_low}")
 

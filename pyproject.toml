@@ -1,6 +1,6 @@
 [project]
 name = "simvue"
-version = "2.5.10"
+version = "2.6.0"
 description = "Simulation tracking and monitoring"
 authors = [{ name = "Simvue Development Team", email = "info@simvue.io" }]
 license = "Apache-2.0"
@@ -33,31 +33,32 @@ keywords = [
   "metrics-gathering",
 ]
 dependencies = [
-  "requests (>=2.32.3,<3.0.0)",
-  "pydantic (>=2.11,<3.0.0)",
-  "tabulate (>=0.9.0,<0.11.0)",
-  "pyjwt (>=2.13.0,<3.0.0)",
-  "pandas>=2.2.3,<3.0.6",
-  "toml (>=0.10.2,<0.11.0)",
-  "click (>=8.4.1,<9.0.0)",
-  "gitpython (>=3.1.57,<4.0.0)",
-  "humanfriendly (>=10.0,<11.0)",
-  "randomname (>=0.2.1,<0.3.0)",
-  "numpy (>=2.0.0,<3.0.0)",
-  "semver (>=3.0.4,<4.0.0)",
-  "email-validator (>=2.2.0,<3.0.0)",
-  "psutil (>=6.1.1,<8.0.0)",
-  "tenacity (>=9.0.0,<10.0.0)",
-  "typing-extensions (>=4.12.2,<5.0.0) ; python_version < \"3.11\"",
-  "deepmerge (>=2.0,<4.0)",
-  "geocoder (>=1.38.1,<2.0.0)",
-  "pydantic-extra-types (>=2.10.5,<3.0.0)",
-  "pyyaml (>=6.0.2,<7.0.0)",
-  "flatdict (==4.1.0)",
-  "pytest (>=9.0.3,<10.0.0)",
-  "unyt (>=3.1.0,<4.0.0)",
-  "pip>=26.1.2",
-  "msgpack>=1.2.1",
+  "requests>=2.34.2",
+  "pydantic>=2.13.5",
+  "tabulate>=0.10.0",
+  "pyjwt>=2.15.0",
+  "pandas>=2.3.3",
+  "toml>=0.10.2",
+  "click>=8.5.0",
+  "gitpython>=3.1.62",
+  "humanfriendly>=10.0",
+  "randomname>=0.2.1",
+  "numpy>=2.2.6",
+  "semver>=3.1.0",
+  "email-validator>=2.3.0",
+  "psutil>=7.2.2",
+  "tenacity>=9.1.4",
+  "typing-extensions>=4.16.0",
+  "python-version>=0.0.2",
+  "deepmerge>=3.0.1",
+  "geocoder>=1.38.1",
+  "pydantic-extra-types>=2.11.1",
+  "pyyaml>=6.0.3",
+  "flatdict>=4.1.0",
+  "pytest>=9.1.1",
+  "unyt>=3.1.0",
+  "pip>=26.2.1",
+  "msgpack>=1.2.2",
 ]
 
 [project.urls]
@@ -66,7 +67,7 @@ repository = "https://github.com/simvue-io/python-api"
 documentation = "https://docs.simvue.io"
 
 [project.optional-dependencies]
-plot = ["plotly (>=6.0.0,<7.0.0)", "matplotlib (>=3.10.0,<4.0.0)"]
+plot = ["plotly (>=6.0.0,<8.0.0)", "matplotlib (>=3.10.0,<4.0.0)"]
 
 [project.scripts]
 simvue-sender = "simvue.bin.sender:sender_cli"
@@ -77,6 +78,7 @@ build-backend = "hatchling.build"
 
 [dependency-groups]
 dev = [
+  "basedpyright>=1.40.1",
   "interrogate>=1.7.0",
   "jinja2>=3.1.6",
   "pytest-cov>=7.1.0",
@@ -84,20 +86,31 @@ dev = [
   "pytest-sugar>=1.1.1",
   "pytest-timeout>=2.4.0",
   "pytest-xdist>=3.8.0",
-  "ruff>=0.15.14",
-  "types-requests>=2.33.0.20260518",
+  "ruff>=0.16.9",
+  "types-requests>=2.33.0.20260906",
 ]
 
 [tool.ruff]
 extend-exclude = ["tests", "examples", "notebooks", "simvue/pynvml.py"]
-preview = true
 
 [tool.ruff.lint]
-ignore = ["COM812", "PLR0904", "PLR6301", "D203", "D212", "PLW0717"]
+preview = true
+ignore = [
+  "missing-trailing-comma",
+  "too-many-public-methods",
+  "no-self-use",
+  "incorrect-blank-line-before-class",
+  "multi-line-summary-first-line",
+  "undocumented-param",
+  "suspicious-subprocess-import",
+  "subprocess-without-shell-equals-true",
+  "too-many-statements-in-try-clause",
+  "suspicious-pickle-import",
+  "typing-only-standard-library-import",
+]
 dummy-variable-rgx = "^_+$"
 extend-select = [
   "C90",
-  "D417",
   "E",
   "F",
   "W",
@@ -129,7 +142,6 @@ extend-select = [
   "TC",
   "ARG",
   "I",
-  "D417",
   "ERA",
   "PL",
   "UP",
@@ -175,6 +187,38 @@ ignore-init-method = true
 fail-under = 95
 verbose = 1
 exclude = ["docs", "tests"]
+
+[tool.basedpyright]
+include = ["src", "examples"]
+pythonVersion = "3.14"
+typeCheckingMode = "off"
+deprecateTypingAliases = true
+reportAttributeAccessIssue = "error"
+reportDuplicateImport = "error"
+reportGeneralTypeIssues = "warning"
+reportImplicitOverride = "error"
+reportImportCycles = "none"
+reportInconsistentOverload = "error"
+reportIndexIssue = "error"
+reportInvalidTypeForm = "error"
+reportMissingTypeArgument = "error"
+reportOperatorIssue = "error"
+reportOptionalIterable = "error"
+reportOptionalSubscript = "error"
+reportPropertyTypeMismatch = "error"
+reportRedeclaration = "warning"
+reportUnusedClass = "error"
+reportUnusedFunction = "error"
+reportUnusedImport = "error"
+reportUnusedVariable = "error"
+reportSelfClsParameterName = "error"
+reportUndefinedVariable = "error"
+reportUnboundVariable = "error"
+reportUnhashable = "error"
+reportUnusedExcept = "error"
+reportUnusedExpression = "error"
+reportUnreachable = "error"
+reportUnusedParameter = "error"
 
 [tool.mypy]
 ignore_missing_imports = true

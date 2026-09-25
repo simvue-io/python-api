@@ -25,6 +25,8 @@ class FileStorage(StorageBase):
 
     """
 
+    _type: str = "file"
+
     @override
     def __init__(
         self,
@@ -63,6 +65,7 @@ class FileStorage(StorageBase):
     @override
     @classmethod
     @pydantic.validate_call
+    @override
     def new(
         cls,
         *,

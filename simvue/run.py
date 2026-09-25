@@ -21,6 +21,7 @@ import traceback as tb
 import types
 import typing
 import uuid
+import warnings
 
 import click
 import humanfriendly
@@ -35,7 +36,11 @@ from simvue.api.objects.alert.fetch import Alert
 from simvue.api.objects.folder import Folder
 from simvue.api.objects.grids import GridMetrics
 from simvue.exception import ObjectDispatchError, ObjectNotFoundError, SimvueRunError
-from simvue.utilities import prettify_pydantic
+from simvue.utilities import (
+    get_file_artifact_storage_name,
+    prettify_pydantic,
+    skip_if_failed,
+)
 
 from .api.objects import (
     Events,
@@ -67,9 +72,6 @@ from .models import (
     validate_timestamp,
 )
 from .system import get_system
-from .utilities import (
-    skip_if_failed,
-)
 
 try:
     from typing import Self
@@ -97,7 +99,7 @@ def check_run_initialised(
     """
 
     @functools.wraps(function)
-    def _wrapper(self: Self, *args: typing.Any, **kwargs: typing.Any) -> typing.Any:
+    def _wrapper(self: "Run", *args: typing.Any, **kwargs: typing.Any) -> typing.Any:
         # Tidy pydantic errors
         _function = prettify_pydantic(function)
 
@@ -278,7 +280,8 @@ class Run:
         )
         if exc_type:
             click.secho(
-                f"[simvue] Operation failed with {exc_type.__name__}: {value}.\n{_event_msg}",
+                f"[simvue] Operation failed with {exc_type.__name__}: "
+                + f"{value}.\n{_event_msg}",
                 fg="red" if self._term_color else None,
                 bold=self._term_color,
             )
@@ -326,7 +329,7 @@ class Run:
             return process_list
 
         process_list += [self._parent_process]
-        process_list += self._child_processes
+        process_list += self._child_processes or []
 
         return list(set(process_list))
 
@@ -501,7 +504,13 @@ class Run:
 
     def _create_dispatch_callback(
         self,
-    ) -> typing.Callable:
+    ) -> typing.Callable[
+        [
+            list[typing.Any],
+            typing.Literal["events", "metrics_tensor", "metrics_regular"],
+        ],
+        None,
+    ]:
         """Generates the relevant callback for posting of metrics and events.
 
         The generated callback is assigned to the dispatcher instance and is
@@ -738,7 +747,7 @@ class Run:
         tags = (tags or []) + (self._user_config.run.tags or [])
         folder = folder or self._user_config.run.folder
         name = name or self._user_config.run.name
-        metadata = (metadata or {}) | (self._user_config.run.metadata or {})
+        metadata = (metadata or {}) | (self._user_config.run.metadata.custom or {})
         record_shell_vars = record_shell_vars or self._user_config.run.record_shell_vars
 
         self._term_color = not no_color
@@ -774,7 +783,7 @@ class Run:
         # Parse the time to live/retention time if specified
         try:
             if retention_period:
-                self._retention: int | None = int(
+                self._retention = int(
                     humanfriendly.parse_timespan(retention_period),
                 )
             else:
@@ -806,17 +815,24 @@ class Run:
         self._sv_obj.ttl = self._retention
         self._sv_obj.status = self._status
         self._sv_obj.tags = tags
-        self._sv_obj.metadata = (
-            (metadata or {})
-            | git_info(pathlib.Path.cwd())
-            | environment(env_var_glob_exprs=record_shell_vars)
+
+        _session_metadata = metadata or {}
+
+        _session_metadata |= environment(
+            env_var_glob_exprs=record_shell_vars,
+            record_repo_environment=self._user_config.run.metadata.environment,
         )
+
+        if self._user_config.run.metadata.git:
+            _session_metadata |= git_info(pathlib.Path.cwd())
+
         self._sv_obj.heartbeat_timeout = timeout
         self._sv_obj.alerts = []
         self._sv_obj.created = time.time()
         self._sv_obj.notifications = notification
+        self._sv_obj.metadata = _session_metadata
 
-        if self._status == "running":
+        if self._status == "running" and self._user_config.run.metadata.system:
             self._sv_obj.system = get_system()
 
         self._data = self._sv_obj.staging
@@ -836,7 +852,7 @@ class Run:
             )
             click.secho(
                 "[simvue] Monitor in the UI at "
-                f"{self._user_config.server.url.rsplit('/api', 1)[0]}"
+                f"{str(self._user_config.server.url).rsplit('/api', 1)[0]}"
                 f"/dashboard/runs/run/{self.id}",
                 bold=self._term_color,
                 fg="green" if self._term_color else None,
@@ -1305,10 +1321,6 @@ class Run:
             self._error("Cannot update metadata, run not initialised")
             return False
 
-        if not isinstance(metadata, dict):
-            self._error("metadata must be a dict")
-            return False
-
         if self._sv_obj:
             self._sv_obj.metadata = metadata
             self._sv_obj.commit()
@@ -1388,7 +1400,7 @@ class Run:
 
         try:
             self.set_tags(list(set(current_tags + tags)))
-        except Exception as err:  # noqa: BLE001
+        except Exception as err:  # ruff: ignore[blind-except]
             self._error(f"Failed to update tags: {err}")
             return False
 
@@ -1458,7 +1470,7 @@ class Run:
             return False
 
         # FIXME: Temporary, this will eventually be removed
-        import semver  # noqa: PLC0415
+        import semver  # ruff: ignore[import-outside-top-level]
 
         _log_level_server_version = semver.Version.parse("1.2.16")
         if (
@@ -1499,22 +1511,24 @@ class Run:
             return True
 
         if not self._sv_obj or not self._dispatcher:
-            self._error("Cannot log metrics, run not initialised", join_on_fail)
+            self._error(
+                "Cannot log metrics, run not initialised", join_threads=join_on_fail
+            )
             return False
 
         if not self._active:
-            self._error("Run is not active", join_on_fail)
+            self._error("Run is not active", join_threads=join_on_fail)
             return False
 
         if self._status != "running":
             self._error(
                 "Cannot log metrics when not in the running state",
-                join_on_fail,
+                join_threads=join_on_fail,
             )
             return False
 
         if isinstance(timestamp, str) and not validate_timestamp(timestamp):
-            self._error("Invalid timestamp format", join_on_fail)
+            self._error("Invalid timestamp format", join_threads=join_on_fail)
             return False
 
         _data: dict[str, typing.Any] = {
@@ -1554,22 +1568,24 @@ class Run:
             return True
 
         if not self._sv_obj or not self._dispatcher:
-            self._error("Cannot log tensors, run not initialised", join_on_fail)
+            self._error(
+                "Cannot log tensors, run not initialised", join_threads=join_on_fail
+            )
             return False
 
         if not self._active:
-            self._error("Run is not active", join_on_fail)
+            self._error("Run is not active", join_threads=join_on_fail)
             return False
 
         if self._status != "running":
             self._error(
                 "Cannot log tensors when not in the running state",
-                join_on_fail,
+                join_threads=join_on_fail,
             )
             return False
 
         if isinstance(timestamp, str) and not validate_timestamp(timestamp):
-            self._error("Invalid timestamp format", join_on_fail)
+            self._error("Invalid timestamp format", join_threads=join_on_fail)
             return False
 
         for tensor, array in tensors.items():
@@ -1649,7 +1665,9 @@ class Run:
 
         """
         _axes_ticks = (
-            axes_ticks.tolist() if isinstance(axes_ticks, np.ndarray) else axes_ticks
+            axes_ticks.tolist()
+            if axes_ticks is not None and not isinstance(axes_ticks, list)
+            else axes_ticks
         )
 
         grid_name = grid_name or metric_name
@@ -1774,7 +1792,7 @@ class Run:
 
         # Classify metrics into regular and tensor based
         for label, metric in metrics.items():
-            if isinstance(metric, np.ndarray):
+            if not isinstance(metric, (int, float)):
                 if metric.size > MAXIMUM_GRID_METRIC_SIZE:
                     logger.warning(
                         "Cannot log grid metric %s, size %d exceeds limit of %d",
@@ -1927,6 +1945,7 @@ class Run:
         category: typing.Literal["input", "output", "code"],
         file_type: str | None = None,
         preserve_path: bool = False,
+        preserve_path_relative_to: typing.Literal["cwd", "git"] | None = None,
         snapshot: bool = False,
         name: typing.Annotated[str, pydantic.Field(pattern=NAME_REGEX)] | None = None,
         metadata: dict[str, typing.Any] | None = None,
@@ -1945,7 +1964,11 @@ class Run:
         file_type : str, optional
             the MIME file type else this is deduced, by default None
         preserve_path : bool, optional
-            whether to preserve the path during storage, by default False
+            (DEPRECATED) whether to preserve the path during storage, by default False
+        preserve_path_relative_to : Literal['cwd', 'git'] | None, optional
+            preserve the file name path relative to either the current
+            working directory 'cwd', or the closest identified Git project
+            root 'git'. Default is None, do not preserve path.
         snapshot : bool, optional
             whether to take a snapshot of the file before uploading, by default False
         name : str, optional
@@ -1959,6 +1982,19 @@ class Run:
             whether the upload was successful
 
         """
+        if preserve_path:
+            warnings.warn(
+                "Argument 'preserve_path' will be deprecated in Simvue Python API "
+                + "v2.6, use 'preserve_path_relative_to' instead. Naively assumining "
+                + "option 'cwd' for argument 'preserve_path_relative_to'.",
+                FutureWarning,
+                stacklevel=2,
+            )
+            preserve_path_relative_to = "cwd"
+
+        _stored_file_name = get_file_artifact_storage_name(
+            preserve_path_relative_to=preserve_path_relative_to, file_path=file_path
+        )
         if not self._sv_obj or not self.id:
             self._error("Cannot save files, run not initialised")
             return False
@@ -1967,17 +2003,10 @@ class Run:
             self._error("Cannot upload output files for runs in the created state")
             return False
 
-        stored_file_name: str = f"{file_path}"
-
-        if preserve_path and stored_file_name.startswith("./"):
-            stored_file_name = stored_file_name[2:]
-        elif not preserve_path:
-            stored_file_name = file_path.name
-
         try:
             # Register file
             _artifact = FileArtifact.new(
-                name=name or stored_file_name,
+                name=name or _stored_file_name,
                 storage=self._storage_id,
                 file_path=file_path,
                 offline=self.mode == "offline",
@@ -2727,7 +2756,7 @@ class Run:
         self._meta_cache.setdefault("metrics", {})
 
         try:
-            _unit_obj = unyt_quantity.from_string(units)
+            _unit_obj: unyt_quantity = unyt_quantity.from_string(units)
             self._meta_cache["metrics"][metric_name] = {
                 "units": units,
                 "mks_conversion": mks_conversion or float(_unit_obj.in_mks().value),

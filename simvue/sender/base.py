@@ -85,7 +85,9 @@ class Sender:
         self._max_workers = max_workers
         self._lock_path = self._cache_directory.joinpath("sender.lock")
         self._thread_lock = threading.Lock()
-        self._run_notification: typing.Literal["none", "email"] = run_notification
+        self._run_notification: typing.Literal["none", "all", "email"] = (
+            run_notification
+        )
         self._run_retention_period: str | None = run_retention_period
         self._upload_status: dict[str, str | float] = {}
         self._monitor_uploads: bool = monitor_uploads
@@ -146,7 +148,7 @@ class Sender:
             trigger_abort=False,
         )
 
-        _run.upload_count = 0
+        _run.upload_count = 0  # pyright: ignore[reportAttributeAccessIssue]
 
         return _run
 

@@ -66,6 +66,7 @@ class Tenant(SimvueObject):
     @override
     @classmethod
     @pydantic.validate_call
+    @override
     def new(
         cls,
         *,
@@ -239,7 +240,7 @@ class Tenant(SimvueObject):
         datetime.datetime
 
         """
-        _created: str | None = self._get_attribute("created")
+        _created: str | None = typing.cast("str | None", self._get_attribute("created"))
         return (
             datetime.datetime.strptime(_created, DATETIME_FORMAT).astimezone(
                 datetime.timezone.utc,

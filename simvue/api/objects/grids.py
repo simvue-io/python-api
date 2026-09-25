@@ -58,7 +58,7 @@ def check_ordered_array(
     ValueError
         if the values are unordered
     """
-    if isinstance(array, np.ndarray):
+    if not isinstance(array, list):
         array = array.tolist()
     for i, element in enumerate(array):
         _array = np.array(element)
@@ -130,12 +130,15 @@ class Grid(SimvueObject):
         return get_json_from_response(
             expected_status=[http.HTTPStatus.OK],
             scenario=(
-                f"Adding '{metric_name}' to grid "
-                f"'{self._identifier}' to run '{run_id}'",
+                (
+                    f"Adding '{metric_name}' to grid "
+                    f"'{self._identifier}' to run '{run_id}'"
+                ),
             ),
             response=_response,
         )
 
+    @override
     def on_reconnect(self, id_mapping: dict[str, str]) -> None:
         """Operations performed when this grid is switched from offline to online mode.
 
@@ -165,14 +168,17 @@ class Grid(SimvueObject):
 
     @property
     def grid(self) -> list[list[float]]:
+        """Return the grid as list."""
         return self._get_attribute("grid")
 
     @property
     def name(self) -> str:
+        """Retrieve the name."""
         return self._get_attribute("name")
 
     @classmethod
     @pydantic.validate_call(config={"arbitrary_types_allowed": True})
+    @override
     def new(
         cls,
         *,
@@ -219,10 +225,13 @@ class Grid(SimvueObject):
 
         """
         if len(labels) != len(grid):
-            raise AssertionError(
-                "Length of argument 'labels' must match first "
-                f"grid dimension {len(grid)}.",
+            _out_msg = (
+                (
+                    "Length of argument 'labels' must match first "
+                    f"grid dimension {len(grid)}."
+                ),
             )
+            raise AssertionError(_out_msg)
 
         return cls(
             grid=grid,
@@ -241,13 +250,13 @@ class Grid(SimvueObject):
         return len(self.grid)
 
     def run_data_url(self, run_id: str) -> URL:
-        """Returns the URL for grid data for a specific run."""
+        """Return the URL for grid data for a specific run."""
         return URL(
             f"{self._user_config.server.url}/runs/{run_id}/grids/{self._identifier}",
         )
 
     def run_metric_url(self, run_id: str, metric_name: str) -> URL:
-        """Returns the URL for the values for a given run metric."""
+        """Return the URL for the values for a given run metric."""
         return URL(
             f"{self._user_config.server.url}/runs/{run_id}/metrics/{metric_name}/",
         )
@@ -259,7 +268,7 @@ class Grid(SimvueObject):
         run_id: str,
         metric_name: str,
         step: int,
-    ) -> dict:
+    ) -> dict[str, float | bool]:
         """Retrieve values for grid given run at a given step.
 
         Parameters
@@ -289,13 +298,17 @@ class Grid(SimvueObject):
             expected_status=[http.HTTPStatus.OK],
             expected_type=dict,
             scenario=(
-                f"Retrieving '{metric_name}' grid values "
-                f"for run '{run_id}' at step {step}",
+                (
+                    f"Retrieving '{metric_name}' grid values "
+                    f"for run '{run_id}' at step {step}"
+                ),
             ),
         )
 
     @pydantic.validate_call
-    def get_run_metric_span(self, *, run_id: str, metric_name: str) -> dict:
+    def get_run_metric_span(
+        self, *, run_id: str, metric_name: str
+    ) -> dict[str, int | float | str]:
         """Retrieve span for this grid from the server for a given run.
 
         Parameters
@@ -333,6 +346,7 @@ class Grid(SimvueObject):
         return _response[0]
 
     @classmethod
+    @override
     def get(
         cls,
         *_,
@@ -381,10 +395,11 @@ class GridMetrics(SimvueObject):
 
     @staticmethod
     def run_grids_endpoint(run: str | None = None) -> URL:
-        """Returns the URL for grids for a specific run."""
+        """Return the URL for grids for a specific run."""
         return URL(f"runs/{run}/metrics/")
 
-    def _get_attribute(self, attribute: str, *default) -> typing.Any:
+    @override
+    def _get_attribute(self, attribute: str, *default: object) -> typing.Any:
         return super()._get_attribute(
             attribute,
             *default,
@@ -394,6 +409,7 @@ class GridMetrics(SimvueObject):
     @override
     @classmethod
     @pydantic.validate_call
+    @override
     def new(
         cls,
         *,
@@ -439,6 +455,7 @@ class GridMetrics(SimvueObject):
     @override
     @classmethod
     @pydantic.validate_call
+    @override
     def get(
         cls,
         *,
@@ -492,11 +509,13 @@ class GridMetrics(SimvueObject):
                     server_token=server_token,
                 )
 
-    def commit(self) -> dict | None:
+    @override
+    def commit(self) -> dict[str, object] | None:
         if not (_run_staging := self._staging.pop("data", None)):
             return None
         return self._log_values(_run_staging)
 
+    @override
     def on_reconnect(self, id_mapping: dict[str, str]) -> None:
         """Operations performed when grid metrics object switched mode switched.
 

@@ -6,16 +6,13 @@ the command setting the status to failure if non-zero.
 Stdout and Stderr are sent to Simvue as artifacts.
 """
 
-__author__ = "Kristian Zarebski"
-__date__ = "2023-11-15"
-
 import contextlib
 import logging
 import multiprocessing.synchronize
 import os
 import pathlib
 import shutil
-import subprocess  # noqa: S404
+import subprocess
 import threading
 import time
 import typing
@@ -31,7 +28,10 @@ logger = logging.getLogger(__name__)
 
 
 class CompletionCallback(typing.Protocol):
-    def __call__(self, *, status_code: int, std_out: str, std_err: str) -> None: ...
+    """Structure of callback executed on process completion."""
+
+    def __call__(self, *, status_code: int, std_out: str, std_err: str) -> None:
+        """Script executed on completion of a given process."""
 
 
 def get_current_shell() -> str | None:
@@ -51,16 +51,16 @@ def _execute_process(
     completion_trigger: threading.Event | None = None,
     environment: dict[str, str] | None = None,
     cwd: pathlib.Path | None = None,
-) -> tuple[subprocess.Popen, threading.Thread | None]:
+) -> tuple[subprocess.Popen[bytes], threading.Thread | None]:
     thread_out = None
 
-    logger.debug(f"Launching process '{' '.join(command)}'.")
+    logger.debug("Launching process '%s'.", " ".join(command))
 
     with (
         pathlib.Path(f"{runner_name}_{proc_id}.err").open("w", encoding="utf-8") as err,
         pathlib.Path(f"{runner_name}_{proc_id}.out").open("w", encoding="utf-8") as out,
     ):
-        _result = subprocess.Popen(  # noqa: S603
+        _result = subprocess.Popen(
             command,
             stdout=out,
             stderr=err,
@@ -74,7 +74,7 @@ def _execute_process(
         def trigger_check(
             completion_callback: CompletionCallback | None,
             trigger_to_set: multiprocessing.synchronize.Event | None,
-            process: subprocess.Popen,
+            process: subprocess.Popen[bytes],
         ) -> None:
             while process.poll() is None:
                 time.sleep(1)
@@ -129,15 +129,15 @@ class Executor:
         """
         self._runner = simvue_runner
         self._keep_logs = keep_logs
-        self._completion_callbacks: dict[str, CompletionCallback] | None = {}
+        self._completion_callbacks: dict[str, CompletionCallback] = {}
         self._completion_triggers: dict[
             str,
             multiprocessing.synchronize.Event | None,
         ] = {}
-        self._completion_processes: dict[str, threading.Thread] | None = {}
+        self._completion_processes: dict[str, threading.Thread] = {}
         self._alert_ids: dict[str, str] = {}
         self.command_str: dict[str, str] = {}
-        self._processes: dict[str, subprocess.Popen] = {}
+        self._processes: dict[str, subprocess.Popen[bytes]] = {}
         self._all_processes: list[psutil.Process] = []
 
     def std_out(self, process_id: str) -> str | None:
@@ -532,7 +532,7 @@ class Executor:
             if (process := self._processes.get(process_id)) is None:
                 logger.error(
                     "Failed to terminate process '%s' no such identifier.",
-                    process.id,
+                    process_id,
                 )
                 return
             try:

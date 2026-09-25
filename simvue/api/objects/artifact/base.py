@@ -73,17 +73,21 @@ class ArtifactBase(SimvueObject):
 
         # If the artifact is an online instance, need a place to store the response
         # from the initial creation
-        self._init_data: dict[str, dict] = {}
+        self._init_data: dict[str, dict[str, object]] = {}
 
     @classmethod
-    def new(cls, *_, **__) -> Self:
+    @override
+    def new(cls, **kwargs: typing.Any) -> Self:
         raise NotImplementedError
 
+    @override
     def commit(self) -> None:
         """Not applicable, cannot commit single write artifact."""
         self._logger.info("Cannot call method 'commit' on write-once type 'Artifact'")
 
-    def attach_to_run(self, run_id: str, category: Category) -> None:
+    def attach_to_run(
+        self, run_id: str, category: Category
+    ) -> dict[str, object] | None:
         """Attach this artifact to a given run.
 
         Parameters
@@ -98,8 +102,8 @@ class ArtifactBase(SimvueObject):
 
         if self._offline:
             self._staging["runs"] = self._init_data["runs"]
-            super().commit()
-            return
+            _ = super().commit()
+            return None
 
         _run_artifacts_url = (
             URL(self._user_config.server.url)
@@ -113,12 +117,15 @@ class ArtifactBase(SimvueObject):
             verify=self._user_config.server_verify,
         )
 
-        get_json_from_response(
+        _json_response = get_json_from_response(
             expected_status=[http.HTTPStatus.OK],
             scenario=f"adding artifact '{self.name}' to run '{run_id}'",
             response=_response,
         )
 
+        return typing.cast("dict[str, object]", _json_response)
+
+    @override
     def on_reconnect(self, id_mapping: dict[str, str]) -> None:
         """Operations performed when artifact mode switched from offline to online.
 
@@ -132,16 +139,18 @@ class ArtifactBase(SimvueObject):
         for _id, category in _offline_staging.items():
             self.attach_to_run(run_id=id_mapping[_id], category=category)
 
-    def _upload(self, file: io.BytesIO, timeout: int, file_size: int) -> None:
+    def _upload(
+        self, file: io.BytesIO | io.BufferedReader, timeout: int | None, file_size: int
+    ) -> None:
         if self._offline:
-            super().commit()
+            _ = super().commit()
             return
 
         if not (_url := self._staging.get("url")):
             return
 
         if not timeout:
-            timeout = BASE_TIMEOUT + UPLOAD_TIMEOUT_PER_MB * file_size / 1024 / 1024
+            timeout = BASE_TIMEOUT + UPLOAD_TIMEOUT_PER_MB * file_size // 1024 // 1024
 
         self._logger.debug(
             "Will wait for a period of %s for upload of file for %s file to complete.",
@@ -180,7 +189,7 @@ class ArtifactBase(SimvueObject):
             _response.status_code,
         )
 
-        get_json_from_response(
+        _ = get_json_from_response(
             expected_status=[http.HTTPStatus.OK, http.HTTPStatus.NO_CONTENT],
             allow_parse_failure=True,  # JSON response from S3 not parsible
             scenario=f"uploading artifact '{_name}' to object storage",
@@ -195,6 +204,7 @@ class ArtifactBase(SimvueObject):
         super().commit()
         self.read_only(is_read_only=True)
 
+    @override
     def _get(
         self,
         storage: str | None = None,
@@ -204,7 +214,7 @@ class ArtifactBase(SimvueObject):
         return super()._get(
             storage=storage or self._staging.get("server", {}).get("storage_id"),
             url=url,
-            **kwargs,
+            **kwargs,  # pyright: ignore[reportArgumentType]
         )
 
     @property
@@ -225,7 +235,7 @@ class ArtifactBase(SimvueObject):
         str
 
         """
-        return self._get_attribute("checksum")
+        return typing.cast("str", self._get_attribute("checksum"))
 
     @property
     def storage_url(self) -> URL | None:
@@ -236,7 +246,8 @@ class ArtifactBase(SimvueObject):
         simvue.api.url.URL | None
 
         """
-        return URL(_url) if (_url := self._init_data.get("url")) else None
+        _url = typing.cast("str | None", self._init_data.get("url"))
+        return URL(_url) if _url else None
 
     @property
     def original_path(self) -> str:
@@ -247,7 +258,7 @@ class ArtifactBase(SimvueObject):
         str
 
         """
-        return self._get_attribute("original_path")
+        return typing.cast("str", self._get_attribute("original_path"))
 
     @property
     def storage_id(self) -> str | None:
@@ -258,7 +269,7 @@ class ArtifactBase(SimvueObject):
         str | None
 
         """
-        return self._get_attribute("storage_id")
+        return typing.cast("str | None", self._get_attribute("storage_id"))
 
     @property
     def mime_type(self) -> str:
@@ -269,7 +280,7 @@ class ArtifactBase(SimvueObject):
         str
 
         """
-        return self._get_attribute("mime_type")
+        return typing.cast("str", self._get_attribute("mime_type"))
 
     @property
     def size(self) -> int:
@@ -280,7 +291,7 @@ class ArtifactBase(SimvueObject):
         int
 
         """
-        return self._get_attribute("size")
+        return typing.cast("int", self._get_attribute("size"))
 
     @property
     def name(self) -> str | None:
@@ -291,7 +302,7 @@ class ArtifactBase(SimvueObject):
         str | None
 
         """
-        return self._get_attribute("name")
+        return typing.cast("str | None", self._get_attribute("name"))
 
     @property
     def created(self) -> datetime.datetime | None:
@@ -302,7 +313,7 @@ class ArtifactBase(SimvueObject):
         datetime.datetime | None
 
         """
-        _created: str | None = self._get_attribute("created")
+        _created: str | None = typing.cast("str | None", self._get_attribute("created"))
         return (
             datetime.datetime.strptime(_created, DATETIME_FORMAT).astimezone(
                 datetime.timezone.utc,
@@ -321,7 +332,7 @@ class ArtifactBase(SimvueObject):
         bool
 
         """
-        return self._get_attribute("uploaded")
+        return typing.cast("bool", self._get_attribute("uploaded"))
 
     @uploaded.setter
     @write_only
@@ -339,7 +350,7 @@ class ArtifactBase(SimvueObject):
         simvue.api.url.URL | None
 
         """
-        return self._get_attribute("url")
+        return typing.cast("URL", self._get_attribute("url"))
 
     @property
     def runs(self) -> Generator[str]:
@@ -381,6 +392,7 @@ class ArtifactBase(SimvueObject):
                 f"with respect to run '{run_id}'"
             ),
         )
+        _json_response = typing.cast("dict[str, object]", _json_response)
         if _response.status_code == http.HTTPStatus.NOT_FOUND:
             raise ObjectNotFoundError(
                 self.label(),
@@ -388,7 +400,7 @@ class ArtifactBase(SimvueObject):
                 extra=f"for run '{run_id}'",
             )
 
-        return _json_response["category"]
+        return typing.cast("Category", _json_response["category"])
 
     @pydantic.validate_call
     def download_content(self) -> Generator[bytes]:

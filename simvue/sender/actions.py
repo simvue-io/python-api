@@ -285,7 +285,7 @@ class UploadAction:
         if upload_status is not None:
             with thread_lock:
                 upload_status.setdefault(cls.object_type, 0)
-                upload_status[cls.object_type] += 1
+                upload_status[cls.object_type] += 1  # pyright: ignore[reportOperatorIssue]
                 if simvue_monitor_run:
                     simvue_monitor_run.log_metrics(
                         {f"uploads.{cls.object_type}": upload_status[cls.object_type]},
@@ -1201,6 +1201,7 @@ class ServerVersionAction(UploadAction):
                 indent=2,
             )
 
+    @override
     @classmethod
     def json_file(cls, cache_directory: pathlib.Path, *_: object) -> pathlib.Path:
         """Returns the local cache JSON file for an upload.

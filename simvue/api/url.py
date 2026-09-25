@@ -5,9 +5,9 @@ Module contains classes for easier handling of URLs.
 """
 
 try:
-    from typing import Self
+    from typing import Self, override
 except ImportError:
-    from typing_extensions import Self
+    from typing_extensions import Self, override
 import copy
 import urllib.parse
 
@@ -20,14 +20,14 @@ class URL:
     @pydantic.validate_call
     def __init__(self, url: str) -> None:
         """Initialise a url from string form."""
-        url = url.removesuffix("/")
+        _url = url.removesuffix("/")
 
-        _url = urllib.parse.urlparse(url)
-        self._scheme: str = _url.scheme
-        self._path: str = _url.path
-        self._host: str | None = _url.hostname
-        self._port: int | None = _url.port
-        self._fragment: str = _url.fragment
+        _parsed_url = urllib.parse.urlparse(_url)
+        self._scheme: str = _parsed_url.scheme
+        self._path: str = _parsed_url.path
+        self._host: str | None = _parsed_url.hostname
+        self._port: int | None = _parsed_url.port
+        self._fragment: str = _parsed_url.fragment
 
     def __truediv__(self, other: str) -> Self:
         """Define URL extension through use of '/'."""
@@ -35,6 +35,7 @@ class URL:
         _new /= other
         return _new
 
+    @override
     def __repr__(self) -> str:
         """Representation of URL."""
         _out_str = f"{self.__class__.__module__}.{self.__class__.__qualname__}"
@@ -51,24 +52,30 @@ class URL:
 
     @property
     def scheme(self) -> str:
+        """Return URL scheme."""
         return self._scheme
 
     @property
     def path(self) -> str:
+        """Return URL path."""
         return self._path
 
     @property
     def hostname(self) -> str | None:
+        """Return URL hostname."""
         return self._host
 
     @property
     def fragment(self) -> str:
+        """Return URL fragment."""
         return self._fragment
 
     @property
     def port(self) -> int | None:
+        """Return URL port."""
         return self._port
 
+    @override
     def __str__(self) -> str:
         """Construct string form of the URL."""
         _out_str: str = ""

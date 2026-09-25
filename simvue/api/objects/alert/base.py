@@ -119,7 +119,7 @@ class AlertBase(SimvueObject):
     def get_alert(self) -> dict[str, typing.Any]:
         """Retrieve alert definition."""
         try:
-            return self._get_attribute("alert")
+            return typing.cast("dict[str, object]", self._get_attribute("alert"))
         except AttributeError:
             return {}
 
@@ -232,11 +232,16 @@ class AlertBase(SimvueObject):
         self._staging["abort"] = abort
 
     @pydantic.validate_call
-    def set_status(self, _: str, __: typing.Literal["ok", "critical"]) -> None:
+    def set_status(
+        self, message: str, err_type: typing.Literal["ok", "critical"]
+    ) -> None:
         """Set the status of this alert for a given run."""
-        raise AttributeError(
-            f"Cannot update state for alert of type '{self.__class__.__name__}'",
+        _ = message
+        _ = err_type
+        _out_msg: str = (
+            f"Cannot update state for alert of type '{self.__class__.__name__}'"
         )
+        raise AttributeError(_out_msg)
 
     def get_status(self, run_id: str) -> typing.Literal["ok", "critical"]:
         """Retrieve the status of this alert for a given run."""
@@ -258,4 +263,8 @@ class AlertBase(SimvueObject):
             scenario=f"Retrieving status for alert '{self.id}' in run '{run_id}'",
         )
 
-        return _json_response.get("status")
+        _json_response = typing.cast("dict[str, object]", _json_response)
+
+        return typing.cast(
+            "typing.Literal['ok', 'critical']", _json_response.get("status")
+        )

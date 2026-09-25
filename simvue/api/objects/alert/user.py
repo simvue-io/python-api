@@ -67,6 +67,7 @@ class UserAlert(AlertBase):
     @override
     @classmethod
     @pydantic.validate_call
+    @override
     def new(
         cls,
         *,
@@ -122,6 +123,7 @@ class UserAlert(AlertBase):
         return super()._compare_objects(other)
 
     @classmethod
+    @override
     def get(
         cls,
         count: int | None = None,
@@ -130,6 +132,7 @@ class UserAlert(AlertBase):
         """Return only UserAlerts."""
         raise NotImplementedError("Retrieve of only user alerts is not yet supported")
 
+    @override
     def get_status(self, run_id: str) -> typing.Literal["ok", "critical"] | None:
         """Retrieve current alert status for the given run."""
         if self._offline:
@@ -137,12 +140,14 @@ class UserAlert(AlertBase):
 
         return super().get_status(run_id)
 
+    @override
     def on_reconnect(self, id_mapping: dict[str, str]) -> None:
         """Set status update on reconnect."""
         for offline_id, status in self._staging.get("status", {}).items():
             self.set_status(id_mapping.get(offline_id), status)
 
     @pydantic.validate_call
+    @override
     def set_status(self, run_id: str, status: typing.Literal["ok", "critical"]) -> None:
         """Set the status of this alert for a given run."""
         if self._offline:

@@ -1,6 +1,7 @@
 """Utility and global helper functions."""
 
 import contextlib
+import datetime
 import functools
 import hashlib
 import importlib.util
@@ -9,12 +10,15 @@ import logging
 import mimetypes
 import os
 import pathlib
+import platform
 import typing
 
+import deepmerge
 import jwt
 import pydantic
 import tabulate
-from deepmerge import Merger
+
+from .models import DATETIME_FORMAT
 
 CHECKSUM_BLOCK_SIZE = 4096
 EXTRAS: tuple[str, ...] = ("plot", "torch")
@@ -157,7 +161,7 @@ def parse_validation_response(
     return str(_table)
 
 
-def check_extra(extra_name: str) -> typing.Callable:
+def check_extra(extra_name: str) -> typing.Callable[[typing.Any], typing.Any]:
     """Check for the presence of a given module extra.
 
     Some features are unlocked by specifying an 'extra' when installing.
@@ -177,8 +181,8 @@ def check_extra(extra_name: str) -> typing.Callable:
     """
 
     def decorator(
-        class_func: typing.Callable | None = None,
-    ) -> typing.Callable | None:
+        class_func: typing.Callable[[object], object | None] | None = None,
+    ) -> typing.Callable[[object], object | None] | None:
         @functools.wraps(class_func)
         def wrapper(self, *args, **kwargs) -> typing.Any:
             if extra_name == "plot" and not all(
@@ -273,7 +277,7 @@ def skip_if_failed(
     failure_attr: str,
     ignore_exc_attr: str,
     on_failure_return: typing.Any | None = None,
-) -> typing.Callable:
+) -> typing.Callable[[typing.Any], typing.Any]:
     """Decorator for ensuring if Simvue throws an exception any other code continues.
 
     If Simvue throws an exception and the user has specified that such failure
@@ -298,7 +302,9 @@ def skip_if_failed(
 
     """
 
-    def decorator(class_func: typing.Callable) -> typing.Callable:
+    def decorator(
+        class_func: typing.Callable[[typing.Any], typing.Any],
+    ) -> typing.Callable[[typing.Any], typing.Any]:
         @functools.wraps(class_func)
         def wrapper(self: "Run", *args, **kwargs) -> typing.Any:
             if getattr(self, failure_attr, None) and getattr(
@@ -329,7 +335,9 @@ def skip_if_failed(
     return decorator
 
 
-def prettify_pydantic(func: typing.Callable) -> typing.Callable:
+def prettify_pydantic(
+    func: typing.Callable[[typing.Any], typing.Any],
+) -> typing.Callable[[typing.Any], typing.Any]:
     """Converts pydantic validation errors to a table.
 
     Parameters
@@ -389,6 +397,38 @@ def calculate_file_sha256(file: pathlib.Path) -> str | None:
     return None
 
 
+def validate_timestamp(timestamp):
+    """
+    Validate a user-provided timestamp
+    """
+    try:
+        _ = datetime.datetime.strptime(timestamp, DATETIME_FORMAT).astimezone(
+            datetime.timezone.utc
+        )
+    except ValueError:
+        return False
+
+    return True
+
+
+def simvue_timestamp(date_time: datetime.datetime | None = None) -> str:
+    """Return the Simvue valid timestamp
+
+    Parameters
+    ----------
+    date_time: datetime.datetime, optional
+        if provided, the datetime object to convert, else use current date and time
+
+    Returns
+    -------
+    str
+        Datetime string valid for the Simvue server
+    """
+    if not date_time:
+        date_time = datetime.datetime.now(datetime.timezone.utc)
+    return date_time.strftime(DATETIME_FORMAT)
+
+
 @functools.lru_cache
 def get_mimetypes() -> list[str]:
     """Returns a list of allowed MIME types."""
@@ -405,7 +445,7 @@ def get_mimetype_for_file(file_path: pathlib.Path) -> str:
 
 
 # Create a new Merge strategy for merging local file and staging attributes
-staging_merger = Merger(
+staging_merger = deepmerge.Merger(
     # pass in a list of tuple, with the
     # strategies you are looking to apply
     # to each type.
@@ -417,3 +457,66 @@ staging_merger = Merger(
     # the case where the types conflict:
     ["override"],
 )
+
+
+def get_file_artifact_storage_name(
+    preserve_path_relative_to: typing.Literal["git", "cwd"] | None,
+    file_path: pathlib.Path,
+) -> str:
+    """Get the default name for a file artifact from the file path.
+
+    For security the full path on the file system is not stored, instead
+    a relative path is used with respect to either the current working directory
+    or the Git project root directory.
+
+    Parameters
+    ----------
+    preserve_path_relative_to : Literal['git', 'cwd'] | None
+        get relative path as name either relative to the Git project root, or the
+        current working directory. If None, just use the file name.
+    file_path : pathlib.Path
+        the path of the target file to save.
+
+    Returns
+    -------
+    str
+        the name for the artifact.
+
+    Raises
+    ------
+        RuntimeError
+            If 'git' is selected as the root, and the file is not part of a Git project.
+    """
+    _relative_path: pathlib.Path | None = None
+    _stored_file_name: str | None = None
+    _name_search_path: pathlib.Path = file_path
+
+    # Windows Paths are not compatible so need to convert them
+    if platform.system() == "Windows":
+        _windows_path = pathlib.PureWindowsPath(file_path)
+        _stored_file_name = _windows_path.as_posix()
+        _name_search_path = pathlib.Path(_stored_file_name)
+
+    if preserve_path_relative_to == "git":
+        _git_directory: pathlib.Path | None = find_first_instance_of_file(".git")
+        if not _git_directory:
+            raise RuntimeError(
+                f"Cannot save file '{file_path}' with path "
+                + "preservation set to mode 'git', no Git project found."
+            )
+        _relative_path = _name_search_path.resolve().relative_to(
+            _git_directory.parent.resolve()
+        )
+        _stored_file_name = f"{_relative_path}"
+    elif preserve_path_relative_to == "cwd":
+        _relative_path = _name_search_path.resolve().relative_to(
+            pathlib.Path.cwd().resolve()
+        )
+        _stored_file_name = f"{_relative_path}"
+    else:
+        _stored_file_name = file_path.name
+
+    if _stored_file_name and _stored_file_name.startswith("./"):
+        _stored_file_name = _stored_file_name[2:]
+
+    return _stored_file_name

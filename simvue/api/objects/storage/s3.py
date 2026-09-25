@@ -4,6 +4,8 @@ Class for interacting with an S3 based storage on the server.
 
 """
 
+from __future__ import annotations
+
 import typing
 
 try:
@@ -25,6 +27,8 @@ class S3Storage(StorageBase):
     any modification of instance attributes is mirrored on the remote object.
 
     """
+
+    _type: str = "s3"
 
     @override
     def __init__(
@@ -72,6 +76,7 @@ class S3Storage(StorageBase):
 
     @override
     @classmethod
+    @override
     @pydantic.validate_call
     def new(
         cls,
@@ -170,9 +175,12 @@ class S3Storage(StorageBase):
     def get_config(self) -> dict[str, typing.Any]:
         """Retrieve configuration."""
         try:
-            return self._get_attribute("config")
+            _config: dict[str, float | str | None] = typing.cast(
+                "dict[str, float | str | None]", self._get_attribute("config")
+            )
         except AttributeError:
             return {}
+        return _config
 
 
 class Config:
@@ -193,12 +201,18 @@ class Config:
             the endpoint for this storage object if applicable
 
         """
+        if not self._sv_obj:
+            raise RuntimeError("Expected S3Storage instance but none found.")
+
         try:
-            return self._sv_obj.get_config()["endpoint_url"]
+            _http_url: str = typing.cast(
+                "str", self._sv_obj.get_config()["endpoint_url"]
+            )
         except KeyError as e:
             raise RuntimeError(
                 "Expected key 'endpoint_url' in alert definition retrieval",
             ) from e
+        return _http_url
 
     @endpoint_url.setter
     @write_only
@@ -228,7 +242,7 @@ class Config:
     def bucket(self) -> str:
         """Retrieve the bucket label for this storage."""
         try:
-            return self._sv_obj.get_config()["bucket"]
+            return typing.cast("str", self._sv_obj.get_config()["bucket"])
         except KeyError as e:
             raise RuntimeError(
                 "Expected key 'bucket' in alert definition retrieval",
@@ -239,10 +253,11 @@ class Config:
     @pydantic.validate_call
     def bucket(self, bucket: str) -> None:
         """Modify the bucket label for this storage."""
-        if self._sv_obj.type == "file":
-            raise ValueError(
+        if self._sv_obj.type != "s3":
+            _out_msg: str = (
                 f"Cannot set attribute 'bucket' for storage type '{self._sv_obj.type}'",
             )
+            raise ValueError(_out_msg)
 
         _config = self._sv_obj.get_config() | {"bucket": bucket}
         self._sv_obj.append_to_staging({"config": _config})

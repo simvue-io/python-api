@@ -6,6 +6,7 @@ server including deletion and retrieval.
 
 import contextlib
 import http
+import itertools
 import json
 import logging
 import pathlib
@@ -18,7 +19,11 @@ import requests
 from pandas import DataFrame
 
 from simvue.api.objects.alert.base import AlertBase
+from simvue.api.objects.alert.fetch import AlertSort
 from simvue.exception import ObjectNotFoundError
+
+if typing.TYPE_CHECKING:
+    from simvue.api.objects.artifact.base import ArtifactBase
 
 from .api.objects import (
     Alert,
@@ -55,13 +60,14 @@ def _download_artifact_to_file(
     output_dir: pathlib.Path | None,
 ) -> None:
     if not artifact.name:
-        raise RuntimeError(f"Expected artifact '{artifact.id}' to have a name")
+        _out_msg: str = f"Expected artifact '{artifact.id}' to have a name"
+        raise RuntimeError(_out_msg)
     _output_file = (output_dir or pathlib.Path.cwd()).joinpath(artifact.name)
     # If this is a hierarchical structure being downloaded, need to create directories
     _output_file.parent.mkdir(parents=True, exist_ok=True)
     with _output_file.open("wb") as out_f:
         for content in artifact.download_content():
-            out_f.write(content)
+            _ = out_f.write(content)
 
 
 class Client:
@@ -279,7 +285,7 @@ class Client:
         _runs = Run.get(
             count=count_limit,
             offset=start_index,
-            attributes=json.dumps(attributes),
+            attributes=json.dumps(attributes) if attributes is not None else None,
             filters=json.dumps(filters),
             return_basic=True,
             return_system=system_info,
@@ -300,7 +306,7 @@ class Client:
         if output_format == "objects":
             return _runs
 
-        run_objs: list[Run] = [run for _, run in _runs]
+        run_objs: list[Run] = [run for _, run in _runs or []]
         response_data = [run.to_dict() for run in run_objs]
 
         if output_format == "dict":
@@ -310,7 +316,7 @@ class Client:
 
     @prettify_pydantic
     @pydantic.validate_call
-    def delete_run(self, run_id: str) -> dict | None:
+    def delete_run(self, run_id: str) -> dict[str, object] | None:
         """Delete run by identifier.
 
         Parameters
@@ -386,9 +392,10 @@ class Client:
             return None
 
         if next(_ids, None):
-            raise RuntimeError(
-                f"Expected single folder match for '{path}', but found duplicate.",
+            _out_msg: str = (
+                f"Expected single folder match for '{path}', but found duplicate."
             )
+            raise RuntimeError(_out_msg)
 
         return _id
 
@@ -397,7 +404,7 @@ class Client:
     def delete_runs(
         self,
         folder_path: typing.Annotated[str, pydantic.Field(pattern=FOLDER_REGEX)],
-    ) -> list | None:
+    ) -> list[dict[str, object]] | None:
         """Delete runs in a named folder.
 
         Parameters
@@ -418,9 +425,10 @@ class Client:
 
         """
         if not (_folder := self._get_folder_from_path(folder_path)):
-            raise ValueError(f"Could not find a folder matching '{folder_path}'")
+            _out_msg: str = f"Could not find a folder matching '{folder_path}'"
+            raise ValueError(_out_msg)
         _delete = _folder.delete(runs_only=True, delete_runs=True, recursive=False)
-        return _delete.get("runs", [])
+        return typing.cast("list[dict[str, object]]", _delete.get("runs", []))
 
     @prettify_pydantic
     @pydantic.validate_call
@@ -431,7 +439,7 @@ class Client:
         recursive: bool = False,
         remove_runs: bool = False,
         allow_missing: bool = False,
-    ) -> list | None:
+    ) -> list[dict[str, object]] | None:
         """Delete a folder by name.
 
         Parameters
@@ -480,7 +488,7 @@ class Client:
         if folder_id not in _response.get("folders", []):
             raise RuntimeError("Deletion of folder failed, server returned mismatch.")
 
-        return _response.get("runs", [])
+        return typing.cast("list[dict[str, object]]", _response.get("runs", []))
 
     @prettify_pydantic
     @pydantic.validate_call
@@ -519,7 +527,7 @@ class Client:
 
         Yields
         ------
-        str, Artifact
+        str, FileArtifact | ObjectArtifact
             ID and artifact entry for relevant artifacts
 
         Raises
@@ -554,7 +562,9 @@ class Client:
 
     @prettify_pydantic
     @pydantic.validate_call
-    def abort_run(self, run_id: str, reason: str) -> dict | list:
+    def abort_run(
+        self, run_id: str, reason: str
+    ) -> dict[str, object] | list[dict[str, object]]:
         """Abort a currently active run on the server.
 
         Parameters
@@ -566,7 +576,7 @@ class Client:
 
         Returns
         -------
-        dict | list
+        dict
             response from server
 
         """
@@ -698,7 +708,7 @@ class Client:
             if there was a failure retrieving artifacts from the server
 
         """
-        _artifacts: Generator[tuple[str, Artifact]] = Artifact.from_run(
+        _artifacts: Generator[tuple[str, ArtifactBase]] = Artifact.from_run(
             server_url=self._user_config.server.url,
             server_token=self._user_config.server.token,
             run_id=run_id,
@@ -848,7 +858,7 @@ class Client:
         xaxis: str,
         aggregate: bool,
         max_points: int | None = None,
-    ) -> dict[str, typing.Any]:
+    ) -> dict[str, object]:
         params: dict[str, str | int | None] = {
             "runs": json.dumps(run_ids),
             "aggregate": aggregate,
@@ -864,11 +874,13 @@ class Client:
             timeout=DEFAULT_API_TIMEOUT,
         )
 
-        return get_json_from_response(
+        _json_response = get_json_from_response(
             expected_status=[http.HTTPStatus.OK],
             scenario=f"Retrieval of metrics '{metric_names}' in runs '{run_ids}'",
             response=metrics_response,
         )
+
+        return typing.cast("dict[str, object]", _json_response)
 
     @prettify_pydantic
     @pydantic.validate_call
@@ -883,7 +895,7 @@ class Client:
         use_run_names: bool = False,
         aggregate: bool = False,
         max_points: pydantic.PositiveInt | None = None,
-    ) -> dict | DataFrame | None:
+    ) -> "dict[str, dict[tuple[float, str], float]] | DataFrame | None":
         """Retrieve the values for a given metric across multiple runs.
 
         Uses filters to specify which runs should be retrieved.
@@ -939,20 +951,24 @@ class Client:
                 "'xaxis=timestamp'",
             )
 
-        _args = {"filters": json.dumps(run_filters)} if run_filters else {}
+        _args: dict[str, str | list[object]] = (
+            {"filters": json.dumps(run_filters)} if run_filters else {}
+        )
+
+        _run_data: dict[str, object] = {}
 
         if not run_ids:
-            _run_data = dict(Run.get(**_args))
+            _run_data = dict(Run.get(**_args))  # pyright: ignore[reportArgumentType]
 
-        if not (
-            _run_metrics := self._get_run_metrics_from_server(
-                metric_names=metric_names,
-                run_ids=run_ids or list(_run_data.keys()),
-                xaxis=xaxis,
-                aggregate=aggregate,
-                max_points=max_points,
-            )
-        ):
+        _run_metrics: dict[str, object] = self._get_run_metrics_from_server(
+            metric_names=metric_names,
+            run_ids=run_ids or list(_run_data.keys()),
+            xaxis=xaxis,
+            aggregate=aggregate,
+            max_points=max_points,
+        )
+
+        if not _run_metrics:
             return None
         if aggregate:
             return aggregated_metrics_to_dataframe(
@@ -977,8 +993,10 @@ class Client:
     def plot_metrics(
         self,
         run_ids: list[str],
-        metric_names: list[str],
-        xaxis: typing.Literal["step", "time"],
+        metric_names: list[
+            typing.Annotated[str, pydantic.StringConstraints(pattern=NAME_REGEX)]
+        ],
+        xaxis: typing.Literal["step", "time", "timestamp"],
         *,
         max_points: int | None = None,
     ) -> typing.Any:
@@ -1006,7 +1024,7 @@ class Client:
             if invalid arguments are provided
 
         """
-        data: DataFrame = self.get_metric_values(
+        _data: DataFrame = self.get_metric_values(
             run_ids=run_ids,
             metric_names=metric_names,
             xaxis=xaxis,
@@ -1015,40 +1033,40 @@ class Client:
             aggregate=False,
         )
 
-        if data is None:
-            raise RuntimeError(
+        if _data is None:
+            _out_msg: str = (
                 f"Cannot plot metrics {metric_names}, "
-                f"no data found for runs {run_ids}.",
+                + f"no data found for runs {run_ids}.",
             )
+            raise RuntimeError(_out_msg)
 
         # Undo multi-indexing
-        flattened_df = data.reset_index()
+        flattened_df = _data.reset_index()
 
-        import matplotlib.pyplot as plt  # noqa: PLC0415
+        import matplotlib.pyplot as plt  # ruff: ignore[import-outside-top-level]
 
-        for run in run_ids:
-            for name in metric_names:
-                label = None
-                if len(run_ids) > 1 and len(metric_names) > 1:
-                    label = f"{run}: {name}"
-                elif len(run_ids) > 1 and len(metric_names) == 1:
-                    label = run
-                elif len(run_ids) == 1 and len(metric_names) > 1:
-                    label = name
+        for run, name in itertools.product(run_ids, metric_names):
+            label = None
+            if len(run_ids) > 1 and len(metric_names) > 1:
+                label = f"{run}: {name}"
+            elif len(run_ids) > 1 and len(metric_names) == 1:
+                label = run
+            elif len(run_ids) == 1 and len(metric_names) > 1:
+                label = name
 
-                flattened_df.plot(y=name, x=xaxis, label=label)
+            _ = flattened_df.plot(y=name, x=xaxis, label=label)
 
         if xaxis == "step":
-            plt.xlabel("Steps")
+            _ = plt.xlabel("Steps")
         elif xaxis == "time":
-            plt.xlabel("Relative Time")
+            _ = plt.xlabel("Relative Time")
         if xaxis == "step":
-            plt.xlabel("steps")
+            _ = plt.xlabel("steps")
         elif xaxis == "timestamp":
-            plt.xlabel("Time")
+            _ = plt.xlabel("Time")
 
         if len(metric_names) == 1:
-            plt.ylabel(metric_names[0])
+            _ = plt.ylabel(metric_names[0])
 
         return plt.figure()
 
@@ -1086,33 +1104,35 @@ class Client:
             if there was a failure retrieving information from the server
 
         """
-        msg_filter: str = (
+        _msg_filter: str = (
             json.dumps([f"event.message contains {message_contains}"])
             if message_contains
             else ""
         )
 
-        params: dict[str, str | int] = {
+        _params: dict[str, str | int] = {
             "run": run_id,
-            "filters": msg_filter,
+            "filters": _msg_filter,
             "start": start_index or 0,
             "count": count_limit or 0,
         }
 
-        response = requests.get(
+        _response = requests.get(
             f"{self._user_config.server.url}/events",
             headers=self._headers,
-            params=params,
+            params=_params,
             timeout=DEFAULT_API_TIMEOUT,
         )
 
-        json_response = get_json_from_response(
+        _json_response = get_json_from_response(
             expected_status=[http.HTTPStatus.OK],
             scenario=f"Retrieval of events for run '{run_id}'",
-            response=response,
+            response=_response,
         )
 
-        return json_response.get("data", [])
+        _json_response = typing.cast("dict[str, object]", _json_response)
+
+        return typing.cast("list[dict[str, str]]", _json_response.get("data", []))
 
     @prettify_pydantic
     @pydantic.validate_call
@@ -1160,12 +1180,28 @@ class Client:
         """
         if not run_id:
             if critical_only:
-                raise RuntimeError(
+                _out_msg: str = (
                     "critical_only is ambiguous when returning alerts "
-                    "with no run ID specified.",
+                    + "with no run ID specified.",
                 )
+                raise RuntimeError(_out_msg)
+            _sorting = (
+                [
+                    AlertSort(column=column, descending=descending)
+                    for column, descending in sort_by_columns
+                ]
+                if sort_by_columns
+                else None
+            )
+            if names_only:
+                return [
+                    alert.name
+                    for _, alert in Alert.get(
+                        sorting=_sorting, count=count_limit, offset=start_index
+                    )
+                ]
             return [
-                alert.name if names_only else alert
+                alert
                 for _, alert in Alert.get(
                     sorting=[
                         dict(zip(("column", "descending"), a, strict=True))
@@ -1194,8 +1230,14 @@ class Client:
             for alert in Run(identifier=run_id).get_alert_details()
         ]
 
+        if names_only:
+            return [
+                alert.name
+                for alert in _alerts
+                if not critical_only or alert.get_status(run_id) == "critical"
+            ]
         return [
-            alert.name if names_only else alert
+            alert
             for alert in _alerts
             if not critical_only or alert.get_status(run_id) == "critical"
         ]

@@ -172,6 +172,7 @@ class Tag(SimvueObject):
     @override
     @classmethod
     @pydantic.validate_call
+    @override
     def get(
         cls,
         *,

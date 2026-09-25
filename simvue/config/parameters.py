@@ -18,12 +18,25 @@ from simvue.utilities import get_expiry
 
 logger = logging.getLogger(__name__)
 
+BASE_MODEL_CONFIG = pydantic.ConfigDict(extra="forbid")
+
+
+class MetadataSpecifications(pydantic.BaseModel):
+    environment: bool = os.environ.get("SIMVUE_DISABLE_ENVIRONMENT_METRICS") is None
+    git: bool = os.environ.get("SIMVUE_DISABLE_GIT_METRICS") is None
+    system: bool = os.environ.get("SIMVUE_DISABLE_SYSTEM_METRICS") is None
+    record_shell_vars: list[str] | None = None
+    custom: dict[str, str | int | float | bool] | None = None
+
+    model_config: typing.ClassVar[pydantic.ConfigDict] = BASE_MODEL_CONFIG
+
 
 class CertificateSpecifications(pydantic.BaseModel):
     storage_ca_cert: pydantic.FilePath | bool = True
     server_ca_cert: pydantic.FilePath | bool = True
     client_cert: pydantic.FilePath | None = None
     client_key: pydantic.SecretStr | None = None
+    model_config: typing.ClassVar[pydantic.ConfigDict] = BASE_MODEL_CONFIG
 
     @pydantic.model_validator(mode="before")
     @classmethod
@@ -43,10 +56,11 @@ class CertificateSpecifications(pydantic.BaseModel):
 
 
 class ServerSpecifications(pydantic.BaseModel):
-    model_config: typing.ClassVar[pydantic.ConfigDict] = pydantic.ConfigDict(
-        extra="forbid",
-        strict=True,
-    )
+    """Specify server configurations."""
+
+    model_config: typing.ClassVar[pydantic.ConfigDict] = BASE_MODEL_CONFIG | {
+        "extra": "forbid"
+    }
     url: pydantic.AnyHttpUrl | None
     token: pydantic.SecretStr | None
     env: dict[str, str] | None = None
@@ -77,34 +91,50 @@ class ServerSpecifications(pydantic.BaseModel):
 
 
 class OfflineSpecifications(pydantic.BaseModel):
+    """Specify offline mode configurations."""
+
     cache: pathlib.Path | None = None
+    model_config: typing.ClassVar[pydantic.ConfigDict] = BASE_MODEL_CONFIG
 
     @pydantic.field_validator("cache")
     @classmethod
     def check_valid_cache_path(cls, cache: pathlib.Path) -> pathlib.Path:
+        """Check cache path is valid."""
         if not cache.parent.exists():
-            raise FileNotFoundError(f"No such directory '{cache.parent}'.")
+            _out_msg: str = f"No such directory '{cache.parent}'."
+            raise FileNotFoundError(_out_msg)
         if not cache.parent.is_dir():
-            raise FileNotFoundError(f"'{cache.parent}' is not a directory.")
+            _out_msg = f"'{cache.parent}' is not a directory."
+            raise FileNotFoundError(_out_msg)
         if not os.access(cache.parent, os.W_OK):
-            raise AssertionError(f"'{cache.parent}' is not a writable location.")
+            _out_msg = f"'{cache.parent}' is not a writable location."
+            raise AssertionError(_out_msg)
         return cache
 
 
 class MetricsSpecifications(pydantic.BaseModel):
+    """Specify metric configurations."""
+
     system_metrics_interval: pydantic.PositiveInt | None = -1
     enable_emission_metrics: bool = False
+    model_config: typing.ClassVar[pydantic.ConfigDict] = BASE_MODEL_CONFIG
 
 
 class DefaultRunSpecifications(pydantic.BaseModel):
+    """Specify run default configurations."""
+
     name: str | None = None
     description: str | None = None
     tags: list[str] | None = None
     folder: str = pydantic.Field(default="/", pattern=sv_models.FOLDER_REGEX)
-    metadata: dict[str, str | int | float | bool] | None = None
+    metadata: MetadataSpecifications = MetadataSpecifications()
     mode: typing.Literal["offline", "disabled", "online"] = "online"
     record_shell_vars: list[str] | None = None
+    model_config: typing.ClassVar[pydantic.ConfigDict] = BASE_MODEL_CONFIG
 
 
 class ClientGeneralOptions(pydantic.BaseModel):
+    """Specify client options."""
+
     debug: bool = False
+    model_config: typing.ClassVar[pydantic.ConfigDict] = BASE_MODEL_CONFIG
