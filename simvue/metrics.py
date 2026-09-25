@@ -6,6 +6,7 @@ Get information relating to the usage of the CPU and GPU (where applicable)
 
 import contextlib
 import logging
+import typing
 
 import psutil
 
@@ -128,7 +129,8 @@ def get_gpu_metrics(processes: list[psutil.Process]) -> list[tuple[float, float]
             if is_gpu_used(handle, processes):
                 utilisation_percent = nvmlDeviceGetUtilizationRates(handle).gpu
                 memory = nvmlDeviceGetMemoryInfo(handle)
-                memory_percent = 100 * memory.free / memory.total
+                memory_percent = 100 * typing.cast("float", memory.free)
+                memory_percent /= typing.cast("float", memory.total)
                 gpu_metrics.append((utilisation_percent, memory_percent))
 
         nvmlShutdown()
@@ -156,7 +158,7 @@ class SystemResourceMeasurement:
         """
         self.cpu_percent: float | None = get_process_cpu(processes, interval=interval)
         self.cpu_memory: float | None = get_process_memory(processes)
-        self.gpus: list[dict[str, float]] = get_gpu_metrics(processes)
+        self.gpus: list[tuple[float, float]] = get_gpu_metrics(processes)
 
     def to_dict(self) -> dict[str, float]:
         """Create metrics dictionary for sending to a Simvue server."""

@@ -73,7 +73,8 @@ class Storage:
                 **kwargs,
             )
 
-        raise RuntimeError(f"Unknown backend '{_storage_pre.backend}'")
+        _out_msg: str = f"Unknown backend '{_storage_pre.backend}'"
+        raise RuntimeError(_out_msg)
 
     @classmethod
     @pydantic.validate_call
@@ -126,7 +127,7 @@ class Storage:
         )
         _label: str = _class_instance.__class__.__name__.lower()
         _label = _label.replace("base", "")
-        _json_response = get_json_from_response(
+        _json_response: list[dict[str, object]] = get_json_from_response(
             response=_response,
             expected_status=[http.HTTPStatus.OK],
             scenario=f"Retrieval of {_label}s",
@@ -134,7 +135,7 @@ class Storage:
         )
 
         for _entry in _json_response:
-            _id = _entry.pop("id")
+            _id = typing.cast("str", _entry.pop("id"))
             if _entry["backend"] == "S3":
                 yield (
                     _id,

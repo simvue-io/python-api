@@ -16,6 +16,11 @@ from simvue.api.url import URL
 
 from .base import SimvueObject
 
+try:
+    from typing import override
+except ImportError:
+    from typing_extensions import override
+
 __all__ = ["Stats"]
 
 
@@ -69,6 +74,7 @@ class Stats(SimvueObject):
         # set it to empty string so not None
         self._identifier = ""
 
+    @override
     @classmethod
     def new(cls, **_) -> None:
         """Creation of multiple stats objects is not logical here.
@@ -80,6 +86,7 @@ class Stats(SimvueObject):
         """
         raise AttributeError("Creation of statistics objects is not supported")
 
+    @override
     @classmethod
     def delete(cls, **_) -> None:
         """Deletion of stats object is not logical here.
@@ -91,6 +98,7 @@ class Stats(SimvueObject):
         """
         raise AttributeError("Deletion of statistics is not supported")
 
+    @override
     def read_only(self) -> None:
         """Statistics can only be read-only.
 
@@ -101,6 +109,7 @@ class Stats(SimvueObject):
         """
         raise NotImplementedError("Statistics are not modifiable.")
 
+    @override
     def id(self) -> None:
         """No unique indentifier for statistics retrieval.
 
@@ -111,9 +120,12 @@ class Stats(SimvueObject):
         """
         return
 
-    def on_reconnect(self, **_) -> None:
+    @override
+    def on_reconnect(self, id_mapping: dict[str, str]) -> None:
         """No offline to online reconnect functionality for statistics."""
+        _ = id_mapping
 
+    @override
     @classmethod
     def get(cls, **_) -> None:
         """Retrieval of multiple stats object is not logical here.
@@ -127,6 +139,7 @@ class Stats(SimvueObject):
             "Retrieval of multiple of statistics objects is not supported",
         )
 
+    @override
     @classmethod
     def ids(cls, **_) -> None:
         """Retrieval of identifiers is not logical here.
@@ -161,6 +174,7 @@ class Stats(SimvueObject):
         """Retrieve the run statistics."""
         return self._get_attribute("runs")
 
+    @override
     def _get_local_staged(self) -> dict[str, typing.Any]:
         """No staging for stats so returns empty dict."""
         return {}
@@ -169,8 +183,9 @@ class Stats(SimvueObject):
         """Visibility does not apply here."""
         return {}
 
+    @override
     def to_dict(self) -> dict[str, typing.Any]:
-        """Dictionary form of current user statistics.
+        """Return dictionary form of current user statistics.
 
         Returns
         -------
@@ -181,6 +196,18 @@ class Stats(SimvueObject):
         return {"runs": self.get_run_stats()}
 
     def admin_stats(self, *, tenant: str | None = None) -> dict[str, dict[str, int]]:
+        """Return adminstrator level stats.
+
+        Parameters
+        ----------
+        tenant : str, optional
+            specify tenant for stats retrieval.
+
+        Returns
+        -------
+        dict[str, dict[str, int]]
+            statistics of server objects for each user.
+        """
         return {
             name: UserStatistics(**entry)
             for name, entry in self._get(
@@ -189,6 +216,7 @@ class Stats(SimvueObject):
             ).items()
         }
 
+    @override
     def commit(self) -> None:
         """Does nothing, no data sendable to server."""
 

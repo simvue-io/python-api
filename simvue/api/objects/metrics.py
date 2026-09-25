@@ -68,6 +68,7 @@ class Metrics(SimvueObject):
     @override
     @classmethod
     @pydantic.validate_call
+    @override
     def new(
         cls,
         *,
@@ -113,6 +114,7 @@ class Metrics(SimvueObject):
     @override
     @classmethod
     @pydantic.validate_call
+    @override
     def get(
         cls,
         metrics: list[str],
@@ -169,7 +171,7 @@ class Metrics(SimvueObject):
     @pydantic.validate_call
     def span(self, run_ids: list[str]) -> dict[str, int | float]:
         """Returns the metrics span for the given runs"""
-        _url = self._base_url / "span"
+        _url = self.base_url / "span"
         _response = sv_get(
             url=f"{_url}",
             headers=self._headers,
@@ -199,15 +201,18 @@ class Metrics(SimvueObject):
             expected_type=list,
         )
 
-    def _post_single(self, **kwargs) -> dict[str, typing.Any]:
+    @override
+    def _post_single(self, **kwargs: object) -> dict[str, typing.Any]:
         return super()._post_single(is_json=False, **kwargs)
 
+    @override
     def delete(self, **kwargs) -> dict[str, typing.Any]:
         """Metrics cannot be deleted."""
         raise NotImplementedError("Cannot delete metric set")
 
-    def on_reconnect(self, id_mapping: dict[str, str]):
-        """Action performed when mode switched from offline to online.
+    @override
+    def on_reconnect(self, id_mapping: dict[str, str]) -> None:
+        """Execute when mode switched from offline to online.
 
         Parameters
         ----------
@@ -218,6 +223,7 @@ class Metrics(SimvueObject):
         if online_run_id := id_mapping.get(self._staging["run"]):
             self._staging["run"] = online_run_id
 
+    @override
     def to_dict(self) -> dict[str, typing.Any]:
         """Convert metrics object to dictionary.
 

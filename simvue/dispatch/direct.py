@@ -5,6 +5,11 @@ import typing
 
 from .base import DispatcherBaseClass
 
+try:
+    from typing import override
+except ImportError:
+    from typing_extensions import override
+
 
 class DirectDispatcher(DispatcherBaseClass):
     """The DirectDispatcher executes the provided callback immediately."""
@@ -40,6 +45,7 @@ class DirectDispatcher(DispatcherBaseClass):
             thresholds=thresholds,
         )
 
+    @override
     def add_item(
         self,
         item: typing.Any,
@@ -52,22 +58,28 @@ class DirectDispatcher(DispatcherBaseClass):
         super().add_item(item, object_type=object_type, metadata=metadata)
         self._callback([item], object_type)
 
+    @override
     def run(self) -> None:
         """Run does not execute anything in this context."""
 
+    @override
     def start(self) -> None:
         """Start does not execute anything in this context."""
 
+    @override
     def join(self) -> None:
         """Join does not execute anything in this context."""
 
+    @override
     def purge(self) -> None:
         """Purge does not execute anything in this context."""
 
+    @override
     def is_alive(self) -> bool:
         """As unthreaded, state as not alive always."""
         return False
 
+    @override
     @property
     def empty(self) -> bool:
         """No queue so always empty."""

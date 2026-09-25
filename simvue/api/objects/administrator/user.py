@@ -66,6 +66,7 @@ class User(SimvueObject):
     @override
     @classmethod
     @pydantic.validate_call
+    @override
     def new(
         cls,
         *,
@@ -144,6 +145,7 @@ class User(SimvueObject):
 
     @override
     @classmethod
+    @override
     def get(
         cls,
         *,
@@ -189,8 +191,9 @@ class User(SimvueObject):
     def username(self) -> str:
         """Retrieve the username for the user."""
         if self.id and self.id.startswith("offline_"):
-            return self._get_attribute("user")["username"]
-        return self._get_attribute("username")
+            _user_dict = typing.cast("dict[str, str]", self._get_attribute("user"))
+            return _user_dict["username"]
+        return typing.cast("str", self._get_attribute("username"))
 
     @username.setter
     @write_only
@@ -204,8 +207,9 @@ class User(SimvueObject):
     def fullname(self) -> str:
         """Retrieve the full name for the user."""
         if self.id and self.id.startswith("offline_"):
-            return self._get_attribute("user")["fullname"]
-        return self._get_attribute("fullname")
+            _user_dict = typing.cast("dict[str, str]", self._get_attribute("user"))
+            return _user_dict["fullname"]
+        return typing.cast("str", self._get_attribute("fullname"))
 
     @fullname.setter
     @write_only
@@ -219,8 +223,9 @@ class User(SimvueObject):
     def is_manager(self) -> bool:
         """Retrieve if the user has manager privileges."""
         if self.id and self.id.startswith("offline_"):
-            return self._get_attribute("user")["is_manager"]
-        return self._get_attribute("is_manager")
+            _user_dict = typing.cast("dict[str, bool]", self._get_attribute("user"))
+            return _user_dict["is_manager"]
+        return typing.cast("bool", self._get_attribute("is_manager"))
 
     @is_manager.setter
     @write_only
@@ -234,8 +239,9 @@ class User(SimvueObject):
     def is_admin(self) -> bool:
         """Retrieve if the user has admin privileges."""
         if self.id and self.id.startswith("offline_"):
-            return self._get_attribute("user")["is_admin"]
-        return self._get_attribute("is_admin")
+            _user_dict = typing.cast("dict[str, bool]", self._get_attribute("user"))
+            return _user_dict["is_admin"]
+        return typing.cast("bool", self._get_attribute("is_admin"))
 
     @is_admin.setter
     @write_only
@@ -248,16 +254,18 @@ class User(SimvueObject):
     def deleted(self) -> bool:
         """Retrieve if the user is pending deletion."""
         if self.id and self.id.startswith("offline_"):
-            return self._get_attribute("user")["is_deleted"]
-        return self._get_attribute("is_deleted")
+            _user_dict = typing.cast("dict[str, bool]", self._get_attribute("user"))
+            return _user_dict["is_deleted"]
+        return typing.cast("bool", self._get_attribute("is_deleted"))
 
     @property
     @staging_check
     def is_readonly(self) -> bool:
         """Retrieve if the user has read-only access."""
         if self.id and self.id.startswith("offline_"):
-            return self._get_attribute("user")["is_readonly"]
-        return self._get_attribute("is_readonly")
+            _user_dict = typing.cast("dict[str, bool]", self._get_attribute("user"))
+            return _user_dict["is_readonly"]
+        return typing.cast("bool", self._get_attribute("is_readonly"))
 
     @is_readonly.setter
     @write_only
@@ -271,8 +279,9 @@ class User(SimvueObject):
     def enabled(self) -> bool:
         """Retrieve if the user is enabled."""
         if self.id and self.id.startswith("offline_"):
-            return self._get_attribute("user")["is_enabled"]
-        return self._get_attribute("is_enabled")
+            _user_dict = typing.cast("dict[str, bool]", self._get_attribute("user"))
+            return _user_dict["is_enabled"]
+        return typing.cast("bool", self._get_attribute("is_enabled"))
 
     @enabled.setter
     @write_only
@@ -286,8 +295,9 @@ class User(SimvueObject):
     def email(self) -> str:
         """Retrieve the user email."""
         if self.id and self.id.startswith("offline_"):
-            return self._get_attribute("user")["email"]
-        return self._get_attribute("email")
+            _user_dict = typing.cast("dict[str, str]", self._get_attribute("user"))
+            return _user_dict["email"]
+        return typing.cast("str", self._get_attribute("email"))
 
     @email.setter
     @write_only
@@ -305,7 +315,7 @@ class User(SimvueObject):
         datetime.datetime
 
         """
-        _created: str | None = self._get_attribute("created")
+        _created: str | None = typing.cast("str | None", self._get_attribute("created"))
         return (
             datetime.datetime.strptime(_created, DATETIME_FORMAT).astimezone(
                 datetime.timezone.utc,

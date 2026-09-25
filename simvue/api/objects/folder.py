@@ -44,7 +44,8 @@ class FolderSort(Sort):
             and column not in {"created", "modified", "path"}
             and not column.startswith("metadata.")
         ):
-            raise ValueError(f"Invalid sort column for folders '{column}")
+            _out_msg: str = f"Invalid sort column for folders '{column}"
+            raise ValueError(_out_msg)
         return column
 
 
@@ -91,6 +92,7 @@ class Folder(SimvueObject):
 
     @classmethod
     @pydantic.validate_call
+    @override
     def new(
         cls,
         *,
@@ -112,6 +114,7 @@ class Folder(SimvueObject):
 
     @classmethod
     @pydantic.validate_call
+    @override
     def get(
         cls,
         *,
@@ -166,7 +169,7 @@ class Folder(SimvueObject):
         return _filter_instance
 
     @override
-    def commit(self) -> dict | list[dict] | None:
+    def commit(self) -> dict[str, object] | list[dict[str, object]] | None:
         if "starred" in self._staging:
             _star_run: bool = self._staging.pop("starred")
             self._set_favourite(starred=_star_run)
@@ -183,13 +186,13 @@ class Folder(SimvueObject):
 
         """
         _level: int = len(self.path.split("/"))
-        _folders = self.__class__.get(
+        _folders: Generator[tuple[str, Folder]] = self.__class__.get(
             filters=json.dumps([f"path contains {self.path}"]),
         )
         _paths = [folder.path.split("/") for _, folder in _folders]
         _paths = sorted(_paths, key=len)
         _out_dict: dict[str, object] = {}
-        _modifier = None
+        _modifier: dict[str, object] = {}
         for path in _paths:
             if len(path) <= _level:
                 continue
@@ -245,14 +248,18 @@ class Folder(SimvueObject):
 
     @property
     @staging_check
-    def metadata(self) -> dict[str, int | str | float | dict | None] | None:
+    def metadata(
+        self,
+    ) -> dict[str, int | str | float | dict[str, object] | None] | None:
         """Return the folder metadata."""
         return self._get().get("metadata")
 
     @metadata.setter
     @write_only
     @pydantic.validate_call
-    def metadata(self, metadata: dict[str, int | float | str | dict | None]) -> None:
+    def metadata(
+        self, metadata: dict[str, int | float | str | dict[str, object] | None]
+    ) -> None:
         """Update the folder metadata."""
         self._staging["metadata"] = metadata
 
@@ -282,13 +289,30 @@ class Folder(SimvueObject):
         """Update the retention period for this folder."""
         self._staging["ttl"] = time_seconds
 
-    def delete(  # should params to this be optional and default to False?
+    @override
+    def delete(
         self,
         *,
         recursive: bool | None = False,
         delete_runs: bool | None = False,
         runs_only: bool | None = False,
     ) -> dict[str, typing.Any]:
+        """Delete a folder and its contents.
+
+        Parameters
+        ----------
+        recursive : bool, optional
+            whether to delete any sub-folders, default is False.
+        delete_runs : bool, optional
+            whether to delete any runs in this folder, default is False.
+        runs_only : bool, optional
+            whether to delete only runs, default is False.
+
+        Returns
+        -------
+        dict[str, Any]
+            information on the deleted content.
+        """
         return super().delete(
             recursive=recursive,
             runs=delete_runs,
@@ -307,7 +331,7 @@ class Folder(SimvueObject):
             else None
         )
 
-    def _set_favourite(self, *, starred: bool) -> dict:
+    def _set_favourite(self, *, starred: bool) -> dict[str, object]:
         """Set starred status."""
         _url = self.url / "starred"
         _response = sv_put(

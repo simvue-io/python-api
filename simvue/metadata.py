@@ -14,7 +14,7 @@ import typing
 
 import toml
 import yaml
-from pip._internal.operations.freeze import freeze  # noqa: PLC2701
+from pip._internal.operations.freeze import freeze  # ruff: ignore[import-private-name]
 
 from simvue.models import simvue_timestamp
 
@@ -40,7 +40,7 @@ def git_info(repository: pathlib.Path) -> dict[str, typing.Any]:
 
     """
     try:
-        import git  # noqa: PLC0415
+        import git  # ruff: ignore[import-outside-top-level]
     except ImportError:
         return {}
 
@@ -65,19 +65,20 @@ def git_info(repository: pathlib.Path) -> dict[str, typing.Any]:
             (tag.name for tag in git_repo.tags if tag.commit == current_commit),
             current_commit.hexsha,
         )
-        return {
-            "git": {
-                "authors": list(author_list),
-                "ref": ref,
-                "msg": current_commit.message.strip(),
-                "time_stamp": simvue_timestamp(current_commit.committed_datetime),
-                "blame": blame,
-                "url": git_repo.remote().url,
-                "dirty": dirty,
-            },
-        }
     except (git.InvalidGitRepositoryError, ValueError):
         return {}
+
+    return {
+        "git": {
+            "authors": list(author_list),
+            "ref": ref,
+            "msg": current_commit.message.strip(),
+            "time_stamp": simvue_timestamp(current_commit.committed_datetime),
+            "blame": blame,
+            "url": git_repo.remote().url,
+            "dirty": dirty,
+        },
+    }
 
 
 def _conda_dependency_parse(dependency: str) -> tuple[str, str] | None:
@@ -155,7 +156,7 @@ def _conda_env(environment_file: pathlib.Path) -> dict[str, str]:
 
 def _python_env(repository: pathlib.Path) -> dict[str, typing.Any]:
     """Retrieve a dictionary of Python dependencies if lock file is available."""
-    python_meta: dict[str, dict] = {}
+    python_meta: dict[str, dict[str, str]] = {}
 
     if (pyproject_file := pathlib.Path(repository).joinpath("pyproject.toml")).exists():
         content = toml.load(pyproject_file)
@@ -208,7 +209,7 @@ def _python_env(repository: pathlib.Path) -> dict[str, typing.Any]:
 
 def _rust_env(repository: pathlib.Path) -> dict[str, typing.Any]:
     """Retrieve a dictionary of Rust dependencies if lock file available."""
-    rust_meta: dict[str, dict] = {}
+    rust_meta: dict[str, dict[str, str]] = {}
 
     if (cargo_file := pathlib.Path(repository).joinpath("Cargo.toml")).exists():
         content = toml.load(cargo_file).get("package", {})
@@ -232,7 +233,7 @@ def _rust_env(repository: pathlib.Path) -> dict[str, typing.Any]:
 
 def _julia_env(repository: pathlib.Path) -> dict[str, typing.Any]:
     """Retrieve a dictionary of Julia dependencies if a project file is available."""
-    julia_meta: dict[str, dict] = {}
+    julia_meta: dict[str, dict[str, str]] = {}
     if (project_file := pathlib.Path(repository).joinpath("Project.toml")).exists():
         content = toml.load(project_file)
         julia_meta["project"] = {
@@ -243,7 +244,7 @@ def _julia_env(repository: pathlib.Path) -> dict[str, typing.Any]:
 
 
 def _node_js_env(repository: pathlib.Path) -> dict[str, typing.Any]:
-    js_meta: dict[str, dict] = {}
+    js_meta: dict[str, dict[str, str]] = {}
     if (
         project_file := pathlib.Path(repository).joinpath("package-lock.json")
     ).exists():

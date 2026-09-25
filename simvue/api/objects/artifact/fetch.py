@@ -32,7 +32,8 @@ class ArtifactSort(Sort):
         if column and (
             column not in {"name", "created"} and not column.startswith("metadata.")
         ):
-            raise ValueError(f"Invalid sort column for artifacts '{column}'")
+            _out_msg: str = f"Invalid sort column for artifacts '{column}'"
+            raise ValueError(_out_msg)
         return column
 
 
@@ -104,7 +105,7 @@ class Artifact:
         Parameters
         ----------
         run_id : str
-            The ID of the run to retriece artifacts from
+            The ID of the run to retrieve artifacts from
         category : Literal['input', 'output', 'code'] | None
             category of artifacts to return, if None, do not filter
                 * input - this file is an input file.
@@ -151,6 +152,8 @@ class Artifact:
             scenario=f"Retrieval of artifacts for run '{run_id}'",
         )
 
+        _json_response = typing.cast("list[dict[str, object]]", _json_response)
+
         if _response.status_code == http.HTTPStatus.NOT_FOUND or not _json_response:
             raise ObjectNotFoundError(
                 ArtifactBase.label,
@@ -159,7 +162,7 @@ class Artifact:
             )
 
         for _entry in _json_response:
-            _id = _entry.pop("id")
+            _id = typing.cast("str | None", _entry.pop("id"))
             yield (
                 _id,
                 Artifact(_local=True, _read_only=True, identifier=_id, **_entry),
@@ -224,6 +227,7 @@ class Artifact:
             expected_status=[http.HTTPStatus.OK],
             scenario=f"Retrieval of artifact '{name}' for run '{run_id}'",
         )
+        _json_response = typing.cast("list[dict[str, object]]", _json_response)
 
         if _response.status_code == http.HTTPStatus.NOT_FOUND or not _json_response:
             raise ObjectNotFoundError(
@@ -233,10 +237,11 @@ class Artifact:
             )
 
         if (_n_res := len(_json_response)) > 1 and not force_overwrite:
-            raise RuntimeError(
+            _out_msg: str = (
                 f"Expected single result for artifact '{name}' for run '{run_id}'"
-                f" but got {_n_res}",
+                + f" but got {_n_res}",
             )
+            raise RuntimeError(_out_msg)
 
         _first_result: dict[str, typing.Any] = _json_response[0]
         _artifact_id: str = _first_result.pop("id")
@@ -310,12 +315,17 @@ class Artifact:
             expected_status=[http.HTTPStatus.OK],
             scenario=f"Retrieval of {_label}s",
         )
+        _json_response = typing.cast("dict[str, object]", _json_response)
+        _data = typing.cast(
+            "list[dict[str, object]] | None", _json_response.get("data")
+        )
 
-        if (_data := _json_response.get("data")) is None:
-            raise RuntimeError(f"Expected key 'data' for retrieval of {_label}s")
+        if _data is None:
+            _out_msg: str = f"Expected key 'data' for retrieval of {_label}s"
+            raise RuntimeError(_out_msg)
 
         for _entry in _data:
-            _id = _entry.pop("id")
+            _id = typing.cast("str", _entry.pop("id"))
             yield (
                 _id,
                 Artifact(_local=True, _read_only=True, identifier=_id, **_entry),

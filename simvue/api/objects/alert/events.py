@@ -67,6 +67,7 @@ class EventsAlert(AlertBase):
 
     @override
     @classmethod
+    @override
     def get(
         cls,
         *,
@@ -80,6 +81,7 @@ class EventsAlert(AlertBase):
 
     @classmethod
     @pydantic.validate_call
+    @override
     def new(
         cls,
         *,
@@ -139,7 +141,7 @@ class EventsAlert(AlertBase):
             _offline=offline,
         )
         _alert._staging |= _alert_definition
-        _alert._params = {"deduplicate": True}
+        _alert._params = {"deduplicate": True}  # pyright: ignore[reportAttributeAccessIssue]
         return _alert
 
     @override
@@ -157,6 +159,7 @@ class EventAlertDefinition:
         """Initialise an alert definition with its parent alert."""
         self._sv_obj = alert
 
+    @override
     def __eq__(self, other: "EventAlertDefinition") -> bool:
         """Compare this definition with that of another EventAlert."""
         return all(
@@ -166,14 +169,16 @@ class EventAlertDefinition:
             ],
         )
 
+    @override
     def __hash__(self) -> int:
         return hash(f"{self.frequency}+{self.pattern}")
 
     @property
     def pattern(self) -> str:
         """Retrieve the event log pattern monitored by this alert."""
+        _alert: dict[str, str | float] = self._sv_obj.get_alert()
         try:
-            return self._sv_obj.get_alert()["pattern"]
+            return typing.cast("str", _alert["pattern"])
         except KeyError as e:
             raise RuntimeError(
                 "Expected key 'pattern' in alert definition retrieval",
@@ -183,8 +188,9 @@ class EventAlertDefinition:
     @staging_check
     def frequency(self) -> int:
         """Retrieve the update frequency for this alert."""
+        _alert: dict[str, str | float] = self._sv_obj.get_alert()
         try:
-            return self._sv_obj.get_alert()["frequency"]
+            return typing.cast("float", _alert["frequency"])
         except KeyError as e:
             raise RuntimeError(
                 "Expected key 'frequency' in alert definition retrieval",

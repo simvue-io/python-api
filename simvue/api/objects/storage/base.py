@@ -1,5 +1,4 @@
 """Simvue Storage Base.
-===================
 
 Contains general definitions for Simvue Storage objects.
 """
@@ -29,6 +28,7 @@ class StorageBase(SimvueObject):
 
     _label: str = "storage"
     _endpoint: str = "storage"
+    _type: str
 
     @override
     def __init__(
@@ -47,6 +47,7 @@ class StorageBase(SimvueObject):
             **kwargs,
         )
 
+    @override
     @classmethod
     def new(
         cls,
@@ -56,6 +57,11 @@ class StorageBase(SimvueObject):
         **_,
     ) -> Self:
         """Create a new instance of a storage type."""
+
+    @property
+    def type(self) -> str:
+        """Return storage type."""
+        return self._type
 
     @property
     @staging_check

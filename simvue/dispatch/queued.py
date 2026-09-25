@@ -14,6 +14,11 @@ import typing
 
 from .base import DispatcherBaseClass
 
+try:
+    from typing import override
+except ImportError:
+    from typing_extensions import override
+
 MAX_REQUESTS_PER_SECOND: float = 1.0
 MAX_BUFFER_SIZE: int = 16000
 QUEUE_SIZE = 10000
@@ -79,8 +84,9 @@ class QueuedDispatcher(threading.Thread, DispatcherBaseClass):
         }
         self._max_read_rate: float = max_read_rate
         self._max_buffer_size: int = max_buffer_size
-        self._send_timer: int = 0
+        self._send_timer: float = 0
 
+    @override
     def add_item(
         self,
         item: typing.Any,
@@ -100,11 +106,13 @@ class QueuedDispatcher(threading.Thread, DispatcherBaseClass):
             raise KeyError(f"No queue '{object_type}' found")
         self._queues[object_type].put((item, metadata or {}), block=blocking)
 
+    @override
     @property
     def empty(self) -> bool:
         """Returns if all queues are empty."""
         return all(queue.empty() for queue in self._queues.values())
 
+    @override
     def purge(self) -> None:
         """Purge all queues."""
         for q in self._queues.values():
@@ -145,6 +153,7 @@ class QueuedDispatcher(threading.Thread, DispatcherBaseClass):
 
         return _buffer
 
+    @override
     def run(self) -> None:
         """Execute the dispatcher action.
 

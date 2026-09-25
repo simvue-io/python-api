@@ -5,7 +5,7 @@ import pathlib
 import platform
 import shutil
 import socket
-import subprocess  # noqa: S404
+import subprocess
 import sys
 import typing
 
@@ -24,7 +24,7 @@ def get_cpu_info() -> tuple[str, str]:
 
     if _lscpu := shutil.which("lscpu"):
         with contextlib.suppress(subprocess.CalledProcessError):
-            _info = subprocess.check_output(_lscpu).decode().strip()  # noqa: S603
+            _info = subprocess.check_output(_lscpu).decode().strip()
             for line in _info.split("\n"):
                 if "Model name" in line:
                     _model_name = line.split(":")[1].strip()
@@ -36,8 +36,7 @@ def get_cpu_info() -> tuple[str, str]:
     if not _model_name and (_sysctl := shutil.which("sysctl")):
         with contextlib.suppress(subprocess.CalledProcessError):
             info = (
-                subprocess  # noqa: S603
-                .check_output([_sysctl, "machdep.cpu.brand_string"])
+                subprocess.check_output([_sysctl, "machdep.cpu.brand_string"])
                 .decode()
                 .strip()
             )
@@ -63,7 +62,7 @@ def get_gpu_info() -> dict[str, str]:
         return _gpu_info
 
     with contextlib.suppress(subprocess.CalledProcessError, IndexError):
-        output = subprocess.check_output(  # noqa: S603
+        output = subprocess.check_output(
             [_nvidia_smi, "--query-gpu=name,driver_version", "--format=csv"],
         )
         lines = output.split(b"\n")

@@ -58,6 +58,7 @@ def sender_cli(
     threading_threshold: int,
     max_workers: int,
 ) -> None:
+    """Execute sender for upload of local items to server."""
     try:
         _logger.info("Starting Simvue Sender")
         _sender = Sender(
@@ -67,6 +68,6 @@ def sender_cli(
             throw_exceptions=True,
         )
         _sender.upload(objects_to_upload)
-    except Exception as err:  # noqa: BLE001
+    except Exception as err:  # ruff: ignore[blind-except]
         _logger.critical("Exception running sender: %s", err)
         raise click.Abort from None

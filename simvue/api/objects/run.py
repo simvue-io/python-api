@@ -69,7 +69,8 @@ class RunSort(Sort):
             and not column.startswith("metadata.")
             and column not in {"created", "started", "endtime", "modified"}
         ):
-            raise ValueError(f"Invalid sort column for runs '{column}'")
+            _out_msg: str = f"Invalid sort column for runs '{column}'"
+            raise ValueError(_out_msg)
 
         return column
 
@@ -140,7 +141,7 @@ class Run(SimvueObject):
         return _run_filter
 
     @override
-    def commit(self) -> dict | list[dict] | None:
+    def commit(self) -> dict[str, object] | list[dict[str, object]] | None:
         if "starred" in self._staging:
             _star_run: bool = self._staging.pop("starred")
             self._set_favourite(starred=_star_run)
@@ -148,6 +149,7 @@ class Run(SimvueObject):
 
     @classmethod
     @pydantic.validate_call
+    @override
     def new(
         cls,
         *,
@@ -216,6 +218,7 @@ class Run(SimvueObject):
 
     @classmethod
     @pydantic.validate_call
+    @override
     def batch_create(
         cls,
         entries: Iterable[RunBatchArgs],
@@ -337,7 +340,7 @@ class Run(SimvueObject):
 
     @property
     @staging_check
-    def ttl(self) -> int:
+    def ttl(self) -> int | None:
         """Set/retrieve the retention period for this run.
 
         Returns
@@ -399,7 +402,7 @@ class Run(SimvueObject):
 
     @property
     @staging_check
-    def description(self) -> str:
+    def description(self) -> str | None:
         """Set/retrieve the description for this run.
 
         Returns
@@ -460,7 +463,9 @@ class Run(SimvueObject):
         "none" | "all" | "error" | "lost"
 
         """
-        return self._get_attribute("notifications")["state"]
+        return typing.cast("dict[str, object]", self._get_attribute("notifications"))[
+            "state"
+        ]
 
     @notifications.setter
     @write_only
@@ -489,6 +494,7 @@ class Run(SimvueObject):
     @override
     @classmethod
     @pydantic.validate_call
+    @override
     def get(
         cls,
         *,
@@ -560,7 +566,7 @@ class Run(SimvueObject):
                 "Cannot get alert details from an offline run - "
                 "use .alerts to access a list of IDs instead",
             )
-        for alert in self._get_attribute("alerts"):
+        for alert in typing.cast("dict[str, object]", self._get_attribute("alerts")):
             yield alert["alert"]
 
     @property
@@ -633,7 +639,7 @@ class Run(SimvueObject):
         """Star this folder as a favourite."""
         self._staging["starred"] = is_true
 
-    def _set_favourite(self, *, starred: bool) -> dict:
+    def _set_favourite(self, *, starred: bool) -> dict[str, object]:
         """Set starred status."""
         _url = self.url / "starred"
         _response = sv_put(
@@ -689,7 +695,9 @@ class Run(SimvueObject):
         Generator[tuple[str, dict[str, int | float | bool]]
 
         """
-        yield from self._get_attribute("metrics").items()
+        yield from typing.cast(
+            "dict[str, dict[str, object]]", self._get_attribute("metrics")
+        ).items()
 
     @property
     def events(
@@ -707,7 +715,9 @@ class Run(SimvueObject):
         Generator[tuple[str, dict[str, Any]]
 
         """
-        yield from self._get_attribute("events").items()
+        yield from typing.cast(
+            "dict[str, dict[str, object]]", self._get_attribute("events")
+        ).items()
 
     @write_only
     def send_heartbeat(self) -> dict[str, typing.Any] | None:
@@ -781,7 +791,7 @@ class Run(SimvueObject):
             headers=self._headers,
             verify=self._user_config.server_verify,
         )
-        _json_response = get_json_from_response(
+        _json_response: dict[str, bool] = get_json_from_response(
             response=_response,
             expected_status=[http.HTTPStatus.OK],
             scenario=f"Retrieving abort status for run '{self.id}'",
@@ -841,7 +851,7 @@ class Run(SimvueObject):
         )
 
     @pydantic.validate_call
-    def abort(self, reason: str) -> dict[str, typing.Any]:
+    def abort(self, reason: str) -> dict[str, object]:
         """Trigger an abort for this run by notifying the server.
 
         Parameters
@@ -851,7 +861,7 @@ class Run(SimvueObject):
 
         Returns
         -------
-        dict[str, Any]
+        dict[str, object]
             server response after updating abort status.
 
         Raises
@@ -876,8 +886,9 @@ class Run(SimvueObject):
             response=_response,
         )
 
+    @override
     def on_reconnect(self, id_mapping: dict[str, str]) -> None:
-        """Executed when a run switches from offline to online mode.
+        """Execute when a run switches from offline to online mode.
 
         Parameters
         ----------
@@ -892,6 +903,6 @@ class Run(SimvueObject):
                 if _id.startswith("offline")
             },
         )
-        if not all(online_alert_ids):
+        if not all(set(online_alert_ids)):
             raise KeyError("Could not find alert ID in offline to online ID mapping.")
         self._staging["alerts"] = online_alert_ids

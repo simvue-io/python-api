@@ -67,13 +67,14 @@ class ObjectArtifact(ArtifactBase):
     @override
     @classmethod
     @pydantic.validate_call
+    @override
     def new(
         cls,
         *,
         name: typing.Annotated[str, pydantic.Field(pattern=NAME_REGEX)],
         storage: str | None,
-        obj: typing.Any,
-        metadata: dict[str, typing.Any] | None,
+        obj: object,
+        metadata: dict[str, object] | None,
         upload_timeout: int | None = None,
         allow_pickling: bool = True,
         offline: bool = False,
@@ -132,13 +133,15 @@ class ObjectArtifact(ArtifactBase):
             _serialization = serialize_object(obj, allow_pickle=allow_pickling)
 
             if not _serialization or not (_serialized := _serialization[0]):
-                raise ValueError(f"Could not serialize object of type '{type(obj)}'")
+                _out_msg: str = f"Could not serialize object of type '{type(obj)}'"
+                raise ValueError(_out_msg)
 
             if not (_data_type := _serialization[1]) and not allow_pickling:
-                raise ValueError(
+                _out_msg = (
                     f"Could not serialize object of type '{type(obj)}' "
-                    "without pickling",
+                    + "without pickling",
                 )
+                raise ValueError(_out_msg)
 
             _checksum = calculate_object_sha256(_serialized)
 
@@ -165,10 +168,16 @@ class ObjectArtifact(ArtifactBase):
             ).write_bytes(_serialized)
 
         else:
-            _artifact._init_data = _artifact._post_single(**_artifact._staging)
+            _single_post_data = typing.cast(
+                "dict[str, dict[str, object]]",
+                _artifact._post_single(**_artifact._staging),
+            )
+            _artifact._init_data = _single_post_data
             _artifact._staging["url"] = _artifact._init_data["url"]
 
-        _artifact._init_data["runs"] = kwargs.get("runs") or {}
+        _artifact._init_data["runs"] = typing.cast(
+            "dict[str, object]", kwargs.get("runs") or {}
+        )
 
         if offline:
             return _artifact

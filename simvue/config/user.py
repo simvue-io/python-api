@@ -45,12 +45,16 @@ logger = logging.getLogger(__name__)
 SIMVUE_SERVER_UPPER_CONSTRAINT: semver.Version | None = semver.Version.parse("2.0.0")
 SIMVUE_SERVER_LOWER_CONSTRAINT: semver.Version | None = semver.Version.parse("1.1.0")
 
+__all__ = ["SimvueConfiguration"]
+
 
 if typing.TYPE_CHECKING:
     from collections.abc import Generator
 
 
 class SimvueConfiguration(pydantic.BaseModel):
+    """Configure session."""
+
     # Hide values as they contain token and URL
     model_config = pydantic.ConfigDict(
         hide_input_in_errors=True,
@@ -93,7 +97,7 @@ class SimvueConfiguration(pydantic.BaseModel):
         return self._nosim_version
 
     @classmethod
-    def _load_pyproject_configs(cls) -> dict | None:
+    def _load_pyproject_configs(cls) -> dict[str, object] | None:
         """Recover any Simvue non-authentication configurations from pyproject.toml."""
         _pyproject_toml = sv_util.find_first_instance_of_file(
             file_names=["pyproject.toml"],
@@ -180,18 +184,18 @@ class SimvueConfiguration(pydantic.BaseModel):
             _url = URL(url) / "version"
             _response = sv_get(f"{_url}", headers=headers, verify=verify)
 
-            if _response.status_code == http.HTTPStatus.UNAUTHORIZED:
-                raise AssertionError("Unauthorised token")
-
-            if _response.status_code != http.HTTPStatus.OK or not (
-                _version_str := _response.json().get("version")
-            ):
-                raise AssertionError("Failed to retrieve version from server response.")
-
         except Exception as err:
             raise AssertionError(
                 f"Exception retrieving server version:\n {err!s}",
             ) from err
+
+        if _response.status_code == http.HTTPStatus.UNAUTHORIZED:
+            raise AssertionError("Unauthorised token")
+
+        if _response.status_code != http.HTTPStatus.OK or not (
+            _version_str := _response.json().get("version")
+        ):
+            raise AssertionError("Failed to retrieve version from server response.")
 
         _nosim_version_str: str = ""
         _nosim_version: semver.Version | None = None
@@ -215,22 +219,32 @@ class SimvueConfiguration(pydantic.BaseModel):
             SIMVUE_SERVER_UPPER_CONSTRAINT
             and _version >= SIMVUE_SERVER_UPPER_CONSTRAINT
         ):
-            raise AssertionError(
+            _out_msg: str = (
                 f"Python API v{__version__} is not compatible "
-                "with the current Simvue server version: "
-                f"{_version_str} >= {SIMVUE_SERVER_UPPER_CONSTRAINT}",
+                + "with the current Simvue server version: "
+                + f"{_version_str} >= {SIMVUE_SERVER_UPPER_CONSTRAINT}",
             )
+            raise AssertionError(_out_msg)
+
         if SIMVUE_SERVER_LOWER_CONSTRAINT and _version < SIMVUE_SERVER_LOWER_CONSTRAINT:
-            raise AssertionError(
+            _out_msg = (
                 f"Python API v{__version__} is not compatible "
-                "with the current Simvue server version: "
-                f"{_version_str} < {SIMVUE_SERVER_LOWER_CONSTRAINT}",
+                + "with the current Simvue server version: "
+                + f"{_version_str} < {SIMVUE_SERVER_LOWER_CONSTRAINT}",
             )
+            raise AssertionError(_out_msg)
 
         return _version, _nosim_version
 
     @pydantic.validate_call
     def write(self, out_directory: pydantic.DirectoryPath) -> None:
+        """Write configuration to file.
+
+        Parameters
+        ----------
+        output_directory : pathlib.path
+            location to write configuration file.
+        """
         with out_directory.joinpath(CONFIG_FILE_NAMES[0]).open("w") as out_f:
             toml.dump(self.model_dump(), out_f)
 
@@ -283,7 +297,9 @@ class SimvueConfiguration(pydantic.BaseModel):
             object containing configurations
 
         """
-        _config_dict: dict[str, dict[str, str]] = cls._load_pyproject_configs() or {}
+        _config_dict: dict[str, dict[str, str | dict[str, str]]] = (
+            cls._load_pyproject_configs() or {}
+        )
 
         profile = os.environ.get("SIMVUE_SERVER_PROFILE", profile)
 
@@ -299,10 +315,11 @@ class SimvueConfiguration(pydantic.BaseModel):
         if not profile:
             _config_dict["server"] = _config_dict.get("server", {})
         elif not _config_dict.get("profiles", {}).get(profile):
-            raise RuntimeError(
+            _out_msg: str = (
                 f"Cannot load server configuration for '{profile}', "
-                "profile not found in configurations.",
+                + "profile not found in configurations.",
             )
+            raise RuntimeError(_out_msg)
         else:
             _config_dict["server"] = _config_dict["profiles"][profile]
 
@@ -323,9 +340,10 @@ class SimvueConfiguration(pydantic.BaseModel):
         # Ranking of configurations for token and URl is:
         # Environment Variables > Run Definition > Configuration File
 
+        _server_opts: dict[str, str] = _config_dict["server"]
         _server_url = os.environ.get(
             "SIMVUE_URL",
-            server_url or _config_dict["server"].get("url"),
+            server_url or _server_opts.get("url"),
         )
 
         if isinstance(_server_url, URL):
@@ -333,7 +351,7 @@ class SimvueConfiguration(pydantic.BaseModel):
 
         _server_token = os.environ.get(
             "SIMVUE_TOKEN",
-            server_token or _config_dict["server"].get("token"),
+            server_token or _server_opts.get("token"),
         )
 
         _run_mode = mode or _config_dict["run"].get("mode") or "online"
@@ -344,8 +362,8 @@ class SimvueConfiguration(pydantic.BaseModel):
         if not _server_token and _run_mode != "offline":
             raise RuntimeError("No server token was specified")
 
-        _config_dict["server"]["token"] = _server_token
-        _config_dict["server"]["url"] = _server_url
+        _config_dict["server"]["token"] = _server_token  # pyright: ignore[reportIndexIssue]
+        _config_dict["server"]["url"] = _server_url  # pyright: ignore[reportIndexIssue]
         _config_dict["run"]["mode"] = _run_mode
 
         _user_config = SimvueConfiguration(current_profile=profile, **_config_dict)
@@ -387,6 +405,7 @@ class SimvueConfiguration(pydantic.BaseModel):
 
     @property
     def headers(self) -> dict[str, str]:
+        """Return online API call headers."""
         if not self.server.token:
             raise ValueError("Cannot generate headers, no token provided.")
         return {

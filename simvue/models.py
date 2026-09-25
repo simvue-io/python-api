@@ -77,14 +77,13 @@ def simvue_timestamp(
 
     """
     if not date_time:
-        date_time = datetime.datetime.now(datetime.timezone.utc)
+        date_time = datetime.datetime.now(datetime.UTC)
     elif isinstance(date_time, str):
         _local_time = datetime.datetime.now(datetime.timezone.utc).astimezone().tzinfo
         date_time = (
-            datetime.datetime
-            .strptime(date_time, DATETIME_FORMAT)
+            datetime.datetime.strptime(date_time, DATETIME_FORMAT)
             .replace(tzinfo=_local_time)
-            .astimezone(datetime.timezone.utc)
+            .astimezone(datetime.UTC)
         )
     return date_time.strftime(DATETIME_FORMAT)
 

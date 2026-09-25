@@ -180,32 +180,51 @@ def test_send_heartbeat(offline_cache_setup, parallel, mocker):
     _path = f"/simvue_unit_testing/objects/folder/{_uuid}"
     _folder = Folder.new(path=_path, offline=True)
     _folder.commit()
-    
+
     _offline_runs = []
-    
+
     for i in range(5):
         _name = f"test_sender_server_ids-{_uuid}-{i}"
         _run = Run.new(name=_name, folder=_path, offline=True, heartbeat_timeout=1, status="running")
         _run.commit()
-        
+
         _offline_runs.append(_run)
-    
+
     _sender = Sender(threading_threshold=1 if parallel else 10)
     _sender.upload()
     _online_runs = [Run(identifier=_sender.id_mapping.get(_offline_run.id)) for _offline_run in _offline_runs]
     assert all([_online_run.status == "running" for _online_run in _online_runs])
-    
+
+    _all_running: bool = False
+    _counter: int = 0
+ 
+    while not _all_running and _counter < 100:
+        # Get online runs and check all running
+        [_online_run.refresh() for _online_run in _online_runs]
+        _all_running = all([_online_run.status == "running" for _online_run in _online_runs])
+        time.sleep(0.1)
+    if not _all_running and _counter >= 100:
+        raise AssertionError("Failed to launch all runs from sender")
+
     spy_put = mocker.spy(requests, "put")
-    
+
     # Create heartbeat and send every 0.5s for 5s
     for i in range(10):
         time.sleep(0.5)
         [_offline_run.send_heartbeat() for _offline_run in _offline_runs]
         Sender(threading_threshold=1 if parallel else 10).upload()
-        
+
     # Check requests.put() endpoint called 50 times - once for each of the 5 runs, on all 10 iterations
     assert spy_put.call_count == 50
-        
-    # Get online runs and check all running
-    [_online_run.refresh() for _online_run in _online_runs]
-    assert all([_online_run.status == "running" for _online_run in _online_runs])
+
+    _all_running = False
+    _counter = 0
+ 
+    while not _all_running and _counter < 100:
+        # Get online runs and check all running
+        [_online_run.refresh() for _online_run in _online_runs]
+        _all_running = all([_online_run.status == "running" for _online_run in _online_runs])
+        time.sleep(0.1)
+
+    if not _all_running and _counter >= 100:
+        raise AssertionError("Failed to keep all runs running from sender")

@@ -1,6 +1,7 @@
 """Utility and global helper functions."""
 
 import contextlib
+import datetime
 import functools
 import hashlib
 import importlib.util
@@ -12,10 +13,12 @@ import pathlib
 import platform
 import typing
 
+import deepmerge
 import jwt
 import pydantic
 import tabulate
-from deepmerge import Merger
+
+from .models import DATETIME_FORMAT
 
 CHECKSUM_BLOCK_SIZE = 4096
 EXTRAS: tuple[str, ...] = ("plot", "torch")
@@ -158,7 +161,7 @@ def parse_validation_response(
     return str(_table)
 
 
-def check_extra(extra_name: str) -> typing.Callable:
+def check_extra(extra_name: str) -> typing.Callable[[typing.Any], typing.Any]:
     """Check for the presence of a given module extra.
 
     Some features are unlocked by specifying an 'extra' when installing.
@@ -178,8 +181,8 @@ def check_extra(extra_name: str) -> typing.Callable:
     """
 
     def decorator(
-        class_func: typing.Callable | None = None,
-    ) -> typing.Callable | None:
+        class_func: typing.Callable[[object], object | None] | None = None,
+    ) -> typing.Callable[[object], object | None] | None:
         @functools.wraps(class_func)
         def wrapper(self, *args, **kwargs) -> typing.Any:
             if extra_name == "plot" and not all(
@@ -274,7 +277,7 @@ def skip_if_failed(
     failure_attr: str,
     ignore_exc_attr: str,
     on_failure_return: typing.Any | None = None,
-) -> typing.Callable:
+) -> typing.Callable[[typing.Any], typing.Any]:
     """Decorator for ensuring if Simvue throws an exception any other code continues.
 
     If Simvue throws an exception and the user has specified that such failure
@@ -299,7 +302,9 @@ def skip_if_failed(
 
     """
 
-    def decorator(class_func: typing.Callable) -> typing.Callable:
+    def decorator(
+        class_func: typing.Callable[[typing.Any], typing.Any],
+    ) -> typing.Callable[[typing.Any], typing.Any]:
         @functools.wraps(class_func)
         def wrapper(self: "Run", *args, **kwargs) -> typing.Any:
             if getattr(self, failure_attr, None) and getattr(
@@ -330,7 +335,9 @@ def skip_if_failed(
     return decorator
 
 
-def prettify_pydantic(func: typing.Callable) -> typing.Callable:
+def prettify_pydantic(
+    func: typing.Callable[[typing.Any], typing.Any],
+) -> typing.Callable[[typing.Any], typing.Any]:
     """Converts pydantic validation errors to a table.
 
     Parameters
@@ -390,6 +397,38 @@ def calculate_file_sha256(file: pathlib.Path) -> str | None:
     return None
 
 
+def validate_timestamp(timestamp):
+    """
+    Validate a user-provided timestamp
+    """
+    try:
+        _ = datetime.datetime.strptime(timestamp, DATETIME_FORMAT).astimezone(
+            datetime.timezone.utc
+        )
+    except ValueError:
+        return False
+
+    return True
+
+
+def simvue_timestamp(date_time: datetime.datetime | None = None) -> str:
+    """Return the Simvue valid timestamp
+
+    Parameters
+    ----------
+    date_time: datetime.datetime, optional
+        if provided, the datetime object to convert, else use current date and time
+
+    Returns
+    -------
+    str
+        Datetime string valid for the Simvue server
+    """
+    if not date_time:
+        date_time = datetime.datetime.now(datetime.timezone.utc)
+    return date_time.strftime(DATETIME_FORMAT)
+
+
 @functools.lru_cache
 def get_mimetypes() -> list[str]:
     """Returns a list of allowed MIME types."""
@@ -406,7 +445,7 @@ def get_mimetype_for_file(file_path: pathlib.Path) -> str:
 
 
 # Create a new Merge strategy for merging local file and staging attributes
-staging_merger = Merger(
+staging_merger = deepmerge.Merger(
     # pass in a list of tuple, with the
     # strategies you are looking to apply
     # to each type.

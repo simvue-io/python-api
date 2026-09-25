@@ -23,6 +23,14 @@ from tenacity import (
 
 from simvue.utilities import parse_validation_response
 
+
+class Seekable(typing.Protocol):
+    def seek(self, offset: int, whence: int = 0) -> int: ...
+
+
+FileValue = Seekable | tuple[str, Seekable]
+
+
 DEFAULT_API_TIMEOUT = 10
 RETRY_MULTIPLIER = 1
 RETRY_MIN = 4
@@ -49,8 +57,12 @@ class RetryableHTTPError(Exception):
 
 def _rewind_request_streams(retry_state: RetryCallState) -> None:
     """Rewind file-like request bodies before retrying."""
-    files = retry_state.kwargs.get("files") or {}
-    streams = (*files.values(), retry_state.kwargs.get("data"))
+    _kwargs = typing.cast("dict[str, typing.Any]", retry_state.kwargs)
+    _files = typing.cast("dict[str, FileValue]", _kwargs.get("files") or {})
+    streams: tuple[FileValue | None, ...] = (
+        *_files.values(),
+        retry_state.kwargs.get("data"),
+    )
 
     for value in streams:
         stream = value[1] if isinstance(value, tuple) else value
@@ -76,7 +88,7 @@ def post(
     *,
     headers: dict[str, str],
     params: dict[str, str],
-    data: typing.Any,
+    data: object,
     is_json: bool = True,
     timeout: int | None = None,
     verify: str | bool = True,
@@ -111,27 +123,30 @@ def post(
 
     """
     if is_json:
-        data_sent: str | dict[str, typing.Any] = json_module.dumps(data)
+        _data_sent: str | dict[str, typing.Any] | object = json_module.dumps(data)
         headers = set_json_header(headers)
     else:
-        data_sent = data
+        _data_sent = data
 
     response = requests.post(
         url,
         headers=headers,
         params=params,
-        data=data_sent,
+        data=_data_sent,  # pyright: ignore[reportArgumentType]
         timeout=timeout,
         files=files,
         verify=verify,
     )
 
     if response.status_code == http.HTTPStatus.UNPROCESSABLE_ENTITY:
-        _parsed_response = parse_validation_response(response.json())
-        raise ValueError(
-            f"Validation error for '{url}' "
-            f"[{response.status_code}]:\n{_parsed_response}",
+        _parsed_response = parse_validation_response(
+            typing.cast("dict[str, typing.Any]", response.json())
         )
+        _out_msg = (
+            f"Validation error for '{url}' "
+            + f"[{response.status_code}]:\n{_parsed_response}"
+        )
+        raise ValueError(_out_msg)
 
     if response.status_code in RETRY_STATUSES:
         raise RetryableHTTPError(
@@ -191,7 +206,7 @@ def put(
 
     """
     if is_json and data:
-        data_sent: str | dict[str, typing.Any] = json_module.dumps(data)
+        data_sent: str | dict[str, typing.Any] | object = json_module.dumps(data)
         headers = set_json_header(headers)
     else:
         data_sent = data
@@ -231,7 +246,7 @@ def get(
     url: str,
     *,
     headers: dict[str, str] | None = None,
-    params: dict[str, str | int | float | None] | None = None,
+    params: dict[str, str | int | float | list[str] | None] | None = None,
     timeout: int = DEFAULT_API_TIMEOUT,
     json: dict[str, typing.Any] | None = None,
     verify: str | bool = True,
@@ -334,21 +349,23 @@ def get_json_from_response(
     scenario: str,
     response: requests.Response,
     allow_parse_failure: bool = False,
-    expected_type: type[dict | list] = dict,
-) -> dict | list:
+    expected_type: type[dict[str, object] | list[object]] = dict,
+) -> dict[str, object] | list[dict[str, object]]:
     try:
-        json_response = response.json()
+        json_response: (
+            list[dict[str, object]] | dict[str, str | object] | typing.Any | None
+        ) = response.json()
         json_response = json_response or ({} if expected_type is dict else [])
         decode_error = ""
     except requests.exceptions.JSONDecodeError as e:
         json_response = {} if allow_parse_failure else None
-        decode_error = f"{e}"
+        decode_error = f": {e}"
 
     error_str = f"{scenario} failed for url '{response.url}'"
     details: str | None = None
 
     if (_status_code := response.status_code) in expected_status:
-        if not isinstance(json_response, expected_type):
+        if json_response and not isinstance(json_response, expected_type):
             details = (
                 f"expected type '{expected_type.__name__}' "
                 f"but got '{type(json_response).__name__}'"
@@ -356,10 +373,10 @@ def get_json_from_response(
         elif json_response is not None:
             return json_response
         else:
-            details = f"could not request JSON response: {decode_error}"
+            details = f"could not request JSON response{decode_error}"
     elif isinstance(json_response, dict):
         error_str += f" with status {_status_code}"
-        details = (json_response or {}).get("detail")
+        details = typing.cast("str", (json_response or {}).get("detail"))
 
     try:
         txt_response = response.text
@@ -382,7 +399,7 @@ def get_paginated(
     json: dict[str, typing.Any] | None = None,
     count: int | None = None,
     offset: int | None = None,
-    **params,
+    **params: str | float | list[str] | None,
 ) -> Generator[requests.Response]:
     """Paginate results of a server query.
 
@@ -415,6 +432,7 @@ def get_paginated(
     # if the count requested is below page limit use this value
     # else if undefined or greater than the page limit use the limit
     _request_count: int = min(count or MAX_ENTRIES_PER_PAGE, MAX_ENTRIES_PER_PAGE)
+    _response: requests.Response | None = None
 
     try:
         while (
@@ -430,11 +448,13 @@ def get_paginated(
             _offset += MAX_ENTRIES_PER_PAGE
 
             if (count and _offset > count) or (
-                _response.json().get("count", 0) < _offset
+                typing.cast("dict[str, int]", _response.json()).get("count", 0)
+                < _offset
             ):
                 break
     except requests.exceptions.JSONDecodeError:
+        _code: str = f"[{_response.status_code}] " if _response else ""
         raise RuntimeError(
-            f"[{_response.status_code}] Failed to retrieve content from server: "
-            + _response.text,
+            f"{_code}Failed to retrieve content from server"
+            + (f": {_response.text}" if _response else ""),
         ) from None

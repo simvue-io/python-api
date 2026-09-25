@@ -56,6 +56,8 @@ class CertificateSpecifications(pydantic.BaseModel):
 
 
 class ServerSpecifications(pydantic.BaseModel):
+    """Specify server configurations."""
+
     model_config: typing.ClassVar[pydantic.ConfigDict] = BASE_MODEL_CONFIG | {
         "extra": "forbid"
     }
@@ -89,28 +91,38 @@ class ServerSpecifications(pydantic.BaseModel):
 
 
 class OfflineSpecifications(pydantic.BaseModel):
+    """Specify offline mode configurations."""
+
     cache: pathlib.Path | None = None
     model_config: typing.ClassVar[pydantic.ConfigDict] = BASE_MODEL_CONFIG
 
     @pydantic.field_validator("cache")
     @classmethod
     def check_valid_cache_path(cls, cache: pathlib.Path) -> pathlib.Path:
+        """Check cache path is valid."""
         if not cache.parent.exists():
-            raise FileNotFoundError(f"No such directory '{cache.parent}'.")
+            _out_msg: str = f"No such directory '{cache.parent}'."
+            raise FileNotFoundError(_out_msg)
         if not cache.parent.is_dir():
-            raise FileNotFoundError(f"'{cache.parent}' is not a directory.")
+            _out_msg = f"'{cache.parent}' is not a directory."
+            raise FileNotFoundError(_out_msg)
         if not os.access(cache.parent, os.W_OK):
-            raise AssertionError(f"'{cache.parent}' is not a writable location.")
+            _out_msg = f"'{cache.parent}' is not a writable location."
+            raise AssertionError(_out_msg)
         return cache
 
 
 class MetricsSpecifications(pydantic.BaseModel):
+    """Specify metric configurations."""
+
     system_metrics_interval: pydantic.PositiveInt | None = -1
     enable_emission_metrics: bool = False
     model_config: typing.ClassVar[pydantic.ConfigDict] = BASE_MODEL_CONFIG
 
 
 class DefaultRunSpecifications(pydantic.BaseModel):
+    """Specify run default configurations."""
+
     name: str | None = None
     description: str | None = None
     tags: list[str] | None = None
@@ -122,5 +134,7 @@ class DefaultRunSpecifications(pydantic.BaseModel):
 
 
 class ClientGeneralOptions(pydantic.BaseModel):
+    """Specify client options."""
+
     debug: bool = False
     model_config: typing.ClassVar[pydantic.ConfigDict] = BASE_MODEL_CONFIG

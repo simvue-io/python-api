@@ -33,6 +33,8 @@ AlertType = EventsAlert | UserAlert | MetricsThresholdAlert | MetricsRangeAlert
 
 
 class AlertSort(Sort):
+    """Sorting object for Alert retrieval."""
+
     @pydantic.field_validator("column")
     @classmethod
     def check_column(cls, column: str) -> str:
@@ -124,7 +126,8 @@ class Alert:
                 **kwargs,
             )
 
-        raise RuntimeError(f"Unknown source type '{_alert_pre.source}'")
+        _out_msg: str = f"Unknown source type '{_alert_pre.source}'"
+        raise RuntimeError(_out_msg)
 
     @classmethod
     @pydantic.validate_call
@@ -190,16 +193,27 @@ class Alert:
             expected_status=[http.HTTPStatus.OK],
             scenario=f"Retrieval of {_label}s",
         )
+        _json_response = typing.cast(
+            "dict[str, list[dict[str, object]]]", _json_response
+        )
 
         if (_data := _json_response.get("data")) is None:
-            raise RuntimeError(f"Expected key 'data' for retrieval of {_label}s")
+            _out_msg: str = f"Expected key 'data' for retrieval of {_label}s"
+            raise RuntimeError(_out_msg)
 
         for _entry in _data:
             _id = _entry.pop("id")
             if _entry["source"] == "events":
                 yield (
                     _id,
-                    EventsAlert(_read_only=True, identifier=_id, _local=True, **_entry),
+                    EventsAlert(
+                        _read_only=True,
+                        identifier=_id,
+                        _local=True,
+                        _offline=False,
+                        _user_agent=None,
+                        **_entry,
+                    ),
                 )
             elif _entry["source"] == "user":
                 yield (
@@ -208,7 +222,10 @@ class Alert:
                 )
             elif (
                 _entry["source"] == "metrics"
-                and _entry.get("alert", {}).get("threshold") is not None
+                and typing.cast("dict[str, float]", _entry.get("alert", {})).get(
+                    "threshold"
+                )
+                is not None
             ):
                 yield (
                     _id,
@@ -221,7 +238,22 @@ class Alert:
                 )
             elif (
                 _entry["source"] == "metrics"
-                and _entry.get("alert", {}).get("range_low") is not None
+                and _entry.get("alert", {}).get("threshold") is not None  # pyright: ignore[reportAttributeAccessIssue]
+            ):
+                yield (
+                    _id,
+                    MetricsThresholdAlert(
+                        _local=True,
+                        _read_only=True,
+                        identifier=_id,
+                        _offline=False,
+                        _user_agent=None,
+                        **_entry,
+                    ),
+                )
+            elif (
+                _entry["source"] == "metrics"
+                and _entry.get("alert", {}).get("range_low") is not None  # pyright: ignore[reportAttributeAccessIssue]
             ):
                 yield (
                     _id,
@@ -233,7 +265,8 @@ class Alert:
                     ),
                 )
             else:
-                raise RuntimeError(
+                _out_msg = (
                     f"Unrecognised alert source '{_entry['source']}' "
-                    f"with data '{_entry}'",
+                    + f"with data '{_entry}'",
                 )
+                raise RuntimeError(_out_msg)

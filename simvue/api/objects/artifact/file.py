@@ -24,6 +24,17 @@ try:
 except ImportError:
     from typing_extensions import Self
 
+try:
+    from typing import override
+except ImportError:
+    from typing_extensions import override
+
+
+try:
+    tz_utc = datetime.UTC
+except AttributeError:
+    tz_utc = datetime.timezone.utc
+
 
 class FileArtifact(ArtifactBase):
     """Simvue File Artifact.
@@ -67,6 +78,7 @@ class FileArtifact(ArtifactBase):
         )
 
     @classmethod
+    @override
     def new(
         cls,
         *,
@@ -121,11 +133,13 @@ class FileArtifact(ArtifactBase):
         _mime_type = mime_type or get_mimetype_for_file(file_path)
 
         if _mime_type not in get_mimetypes():
-            raise ValueError(f"Invalid MIME type '{mime_type}' specified")
+            _out_msg: str = f"Invalid MIME type '{mime_type}' specified"
+            raise ValueError(_out_msg)
 
-        if _file_orig_path := kwargs.pop("original_path", None):
-            _file_size = kwargs.pop("size")
-            _file_checksum = kwargs.pop("checksum")
+        _file_orig_path = typing.cast("str | None", kwargs.pop("original_path", None))
+        if _file_orig_path:
+            _file_size = typing.cast("int", kwargs.pop("size"))
+            _file_checksum = typing.cast("str", kwargs.pop("checksum"))
         else:
             file_path = pathlib.Path(file_path)
             if snapshot:
@@ -139,11 +153,14 @@ class FileArtifact(ArtifactBase):
                     "artifacts",
                 )
                 _local_staging_dir.mkdir(parents=True, exist_ok=True)
+                _time_stamp: str = datetime.datetime.now(
+                    tz=datetime.timezone.utc
+                ).strftime("%Y-%m-%d_%H-%M-%S_%f")
                 _local_staging_file = _local_staging_dir.joinpath(
-                    f"{file_path.stem}_"
-                    f"{datetime.datetime.now(tz=datetime.timezone.utc).strftime('%Y-%m-%d_%H-%M-%S_%f')[:-3]}.file",
+                    f"{file_path.stem}_{_time_stamp[:-3]}.file"
                 )
-                shutil.copy(file_path, _local_staging_file)
+                _local_staging_file = typing.cast("pathlib.Path", _local_staging_file)
+                _ = shutil.copy(file_path, _local_staging_file)
                 file_path = _local_staging_file
 
             _file_size = file_path.stat().st_size
@@ -162,17 +179,22 @@ class FileArtifact(ArtifactBase):
             _offline=offline,
             _read_only=False,
             metadata=metadata,
-            **kwargs,
+            **kwargs,  # pyright: ignore[reportArgumentType]
         )
         _artifact._staging["file_path"] = str(file_path)
         if offline:
             _artifact._init_data = {}
 
         else:
-            _artifact._init_data = _artifact._post_single(**_artifact._staging)
+            _artifact._init_data = typing.cast(
+                "dict[str, dict[str, object]]",
+                _artifact._post_single(**_artifact._staging),
+            )
             _artifact._staging["url"] = _artifact._init_data["url"]
 
-        _artifact._init_data["runs"] = kwargs.get("runs") or {}
+        _artifact._init_data["runs"] = typing.cast(
+            "dict[str, object]", kwargs.get("runs", {})
+        )
 
         if offline:
             return _artifact
