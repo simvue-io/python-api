@@ -1,10 +1,13 @@
 # Change Log
 
-# Unreleased
+## [v2.6.0](https://github.com/simvue-io/python-api/releases/tag/v2.6.0) - 2026-09-25
 
 - Allow `%` in metric names.
 - Fix use of paths as artifact names for Windows systems.
 - Remove option for storage of full system path for security.
+- Tightened code quality and linting.
+- Minor bug fixes.
+- Move from `preserve_path` to `preserve_path_relative_to` in `Run.save_file`.
 
 ## [v2.5.10](https://github.com/simvue-io/python-api/releases/tag/v2.5.10) - 2026-08-10
 
