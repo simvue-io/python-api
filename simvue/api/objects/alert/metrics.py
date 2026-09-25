@@ -12,7 +12,7 @@ import pydantic
 try:
     from typing import Self, override
 except ImportError:
-    from typing import Self, override
+    from typing_extensions import Self, override
 
 from simvue.api.objects.base import write_only
 from simvue.models import NAME_REGEX

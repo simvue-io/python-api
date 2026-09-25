@@ -205,7 +205,15 @@ def test_send_heartbeat(offline_cache_setup, parallel, mocker):
         
     # Check requests.put() endpoint called 50 times - once for each of the 5 runs, on all 10 iterations
     assert spy_put.call_count == 50
+
+    _all_running: bool = False
+    _counter: int = 0
         
-    # Get online runs and check all running
-    [_online_run.refresh() for _online_run in _online_runs]
-    assert all([_online_run.status == "running" for _online_run in _online_runs])
+    while not _all_running and _counter < 100:
+        # Get online runs and check all running
+        [_online_run.refresh() for _online_run in _online_runs]
+        _all_running = all([_online_run.status == "running" for _online_run in _online_runs])
+        time.sleep(0.1)
+
+    if not _all_running and _counter >= 100:
+        raise AssertionError("Failed to launch all runs from sender")

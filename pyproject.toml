@@ -92,17 +92,19 @@ dev = [
 extend-exclude = ["tests", "examples", "notebooks", "simvue/pynvml.py"]
 
 [tool.ruff.lint]
+preview = true
 ignore = [
-  "COM812",
-  "PLR0904",
-  "PLR6301",
-  "D203",
-  "D212",
-  "D417",
-  "S404",
-  "S603",
-  "PLW0717",
-  "TC003",
+  "missing-trailing-comma",
+  "too-many-public-methods",
+  "no-self-use",
+  "incorrect-blank-line-before-class",
+  "multi-line-summary-first-line",
+  "undocumented-param",
+  "suspicious-subprocess-import",
+  "subprocess-without-shell-equals-true",
+  "too-many-statements-in-try-clause",
+  "suspicious-pickle-import",
+  "typing-only-standard-library-import",
 ]
 dummy-variable-rgx = "^_+$"
 extend-select = [

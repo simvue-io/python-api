@@ -186,7 +186,7 @@ def _serialize_json(data: typing.Any) -> tuple[str, str] | None:
 
 
 def _serialize_pickle(data: typing.Any) -> tuple[str, str] | None:
-    import pickle  # ruff: ignore[import-outside-top-level,suspicious-pickle-import]
+    import pickle  # ruff: ignore[import-outside-top-level]
 
     mimetype = "application/octet-stream"
     data = pickle.dumps(data)
@@ -250,7 +250,7 @@ def _deserialize_torch_tensor(data: "Buffer") -> "Tensor | None":
 
 
 def _deserialize_pickle(data) -> typing.Any | None:
-    import pickle  # ruff: ignore[import-outside-top-level,suspicious-pickle-import]
+    import pickle  # ruff: ignore[import-outside-top-level]
 
     return pickle.loads(data)  # ruff: ignore[suspicious-pickle-usage]
 

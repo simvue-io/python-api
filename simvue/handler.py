@@ -9,7 +9,7 @@ if typing.TYPE_CHECKING:
 try:
     from typing import override
 except ImportError:
-    from typing import override
+    from typing_extensions import override
 
 
 class Handler(logging.Handler):

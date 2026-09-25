@@ -11,9 +11,9 @@ import datetime
 import functools
 import http
 import logging
+import typing
 
 import geocoder
-import geocoder.ipinfo
 import pydantic
 import requests
 
@@ -23,6 +23,9 @@ try:
     from typing import Self
 except ImportError:
     from typing_extensions import Self
+
+if typing.TYPE_CHECKING:
+    from geocoder.ipinfo import IpinfoQuery
 
 CO2_SIGNAL_API_ENDPOINT: str = (
     "https://api.electricitymap.org/v3/carbon-intensity/latest"
@@ -57,7 +60,7 @@ class CO2SignalResponse(pydantic.BaseModel):
 
 
 @functools.lru_cache
-def _call_geocoder_query() -> geocoder.ipinfo.IpinfoQuery:
+def _call_geocoder_query() -> "IpinfoQuery":
     """Call GeoCoder API for IP location.
 
     Cached so this API is only called once per session as required.

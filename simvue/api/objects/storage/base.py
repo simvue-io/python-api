@@ -59,10 +59,9 @@ class StorageBase(SimvueObject):
         """Create a new instance of a storage type."""
 
     @property
-    @classmethod
-    def type(cls) -> str:
+    def type(self) -> str:
         """Return storage type."""
-        return cls._type
+        return self._type
 
     @property
     @staging_check
