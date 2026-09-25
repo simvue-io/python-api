@@ -121,8 +121,9 @@ class Stats(SimvueObject):
         return
 
     @override
-    def on_reconnect(self, **_: object) -> None:
+    def on_reconnect(self, id_mapping: dict[str, str]) -> None:
         """No offline to online reconnect functionality for statistics."""
+        _ = id_mapping
 
     @override
     @classmethod

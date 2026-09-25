@@ -77,6 +77,7 @@ build-backend = "hatchling.build"
 
 [dependency-groups]
 dev = [
+  "basedpyright>=1.40.1",
   "interrogate>=1.7.0",
   "jinja2>=3.1.6",
   "pytest-cov>=7.1.0",
@@ -188,7 +189,7 @@ exclude = ["docs", "tests"]
 
 [tool.basedpyright]
 include = ["src", "examples"]
-pythonVersion = "3.13"
+pythonVersion = "3.14"
 typeCheckingMode = "off"
 deprecateTypingAliases = true
 reportAttributeAccessIssue = "error"
