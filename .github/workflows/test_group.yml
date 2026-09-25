@@ -1,0 +1,61 @@
+# This workflow will install Python dependencies, run tests and lint with a single version of Python
+# For more information see: https://help.github.com/actions/language-and-framework-guides/using-python-with-github-actions
+on:
+  workflow_call:
+    inputs:
+      python-version:
+        required: false
+        default: "3.14"
+        type: string
+      platform:
+        required: false
+        default: ubuntu-latest
+        type: string
+      test-group:
+        required: true
+        type: string
+      group-label:
+        required: true
+        type: string
+      parallel-tasks:
+        required: false
+        type: number
+        default: 8
+      shell:
+        required: false
+        type: string
+        default: bash
+    secrets:
+      SIMVUE_URL:
+        required: true
+      SIMVUE_TOKEN:
+        required: true
+
+permissions:
+  contents: read
+
+jobs:
+  object_retrieval:
+    runs-on: ${{ inputs.platform }}
+    name: ${{ inputs.group-label }}
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v7
+      - name: Set up Python
+        uses: actions/setup-python@v7
+        with:
+          python-version: ${{ inputs.python-version }}
+      - name: Install uv
+        uses: astral-sh/setup-uv@v5
+      - name: Install dependencies
+        run: |
+          uv sync --all-extras --all-groups
+          uv pip install torch --index-url https://download.pytorch.org/whl/cpu || true
+        shell: ${{ inputs.shell }}
+      - name: Test with pytest
+        env:
+          SIMVUE_URL: ${{ secrets.SIMVUE_URL }}
+          SIMVUE_TOKEN: ${{ secrets.SIMVUE_TOKEN }}
+        shell: ${{ inputs.shell }}
+        run: |
+          .venv/bin/pytest -x -m "${{ inputs.test-group }}" -c /dev/null -p no:warnings -n ${{ inputs.parallel-tasks }} -v -o cache_dir=${GITHUB_WORKSPACE}/.pytest-cache

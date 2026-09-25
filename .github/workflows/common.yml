@@ -1,0 +1,134 @@
+on:
+  workflow_call:
+    inputs:
+      python-version:
+        required: false
+        default: "3.14"
+        type: string
+      platform:
+        required: false
+        default: ubuntu-latest
+        type: string
+      unix_system:
+        required: false
+        default: true
+        type: boolean
+      shell:
+        required: false
+        type: string
+        default: bash
+    secrets:
+      SIMVUE_URL:
+        required: true
+      SIMVUE_TOKEN:
+        required: true
+
+jobs:
+  object_retrieval:
+    uses: ./.github/workflows/test_group.yml
+    with:
+      python-version: ${{ inputs.python-version }}
+      platform: ${{ inputs.platform }}
+      test-group: object_retrieval ${{ startsWith(inputs.platform, 'windows') && 'and not unix' || '' }}
+      group-label: Object Retrieval
+      shell: ${{ inputs.shell }}
+    secrets:
+      SIMVUE_URL: ${{ secrets.SIMVUE_URL }}
+      SIMVUE_TOKEN: ${{ secrets.SIMVUE_TOKEN }}
+  object_removal:
+    uses: ./.github/workflows/test_group.yml
+    with:
+      python-version: ${{ inputs.python-version }}
+      platform: ${{ inputs.platform }}
+      shell: ${{ inputs.shell }}
+      test-group: object_removal ${{ startsWith(inputs.platform, 'windows') && 'and not unix' || '' }}
+      group-label: Object Removal
+    secrets:
+      SIMVUE_URL: ${{ secrets.SIMVUE_URL }}
+      SIMVUE_TOKEN: ${{ secrets.SIMVUE_TOKEN }}
+  dispatch_tests:
+    uses: ./.github/workflows/test_group.yml
+    with:
+      python-version: ${{ inputs.python-version }}
+      shell: ${{ inputs.shell }}
+      platform: ${{ inputs.platform }}
+      test-group: dispatch ${{ startsWith(inputs.platform, 'windows') && 'and not unix' || '' }}
+      group-label: Dispatch
+    secrets:
+      SIMVUE_URL: ${{ secrets.SIMVUE_URL }}
+      SIMVUE_TOKEN: ${{ secrets.SIMVUE_TOKEN }}
+  run_tests_online:
+    uses: ./.github/workflows/test_group.yml
+    with:
+      python-version: ${{ inputs.python-version }}
+      shell: ${{ inputs.shell }}
+      platform: ${{ inputs.platform }}
+      test-group: online and not api ${{ startsWith(inputs.platform, 'windows') && 'and not unix' || '' }}
+      group-label: Run Tests (Online)
+    secrets:
+      SIMVUE_URL: ${{ secrets.SIMVUE_URL }}
+      SIMVUE_TOKEN: ${{ secrets.SIMVUE_TOKEN }}
+  run_tests_offline:
+    uses: ./.github/workflows/test_group.yml
+    with:
+      python-version: ${{ inputs.python-version }}
+      shell: ${{ inputs.shell }}
+      platform: ${{ inputs.platform }}
+      test-group: (offline and not api ${{ startsWith(inputs.platform, 'windows') && 'and not unix' || '' }} or cli
+      group-label: Run Tests (Offline)
+    secrets:
+      SIMVUE_URL: ${{ secrets.SIMVUE_URL }}
+      SIMVUE_TOKEN: ${{ secrets.SIMVUE_TOKEN }}
+  config_tests:
+    uses: ./.github/workflows/test_group.yml
+    with:
+      python-version: ${{ inputs.python-version }}
+      shell: ${{ inputs.shell }}
+      platform: ${{ inputs.platform }}
+      test-group: config ${{ startsWith(inputs.platform, 'windows') && 'and not unix' || '' }}
+      group-label: Configuration
+    secrets:
+      SIMVUE_URL: ${{ secrets.SIMVUE_URL }}
+      SIMVUE_TOKEN: ${{ secrets.SIMVUE_TOKEN }}
+  scenario_tests:
+    uses: ./.github/workflows/test_group.yml
+    with:
+      python-version: ${{ inputs.python-version }}
+      shell: ${{ inputs.shell }}
+      platform: ${{ inputs.platform }}
+      test-group: scenario and not run
+      group-label: Scenarios ${{ startsWith(inputs.platform, 'windows') && 'and not unix' || '' }}
+    secrets:
+      SIMVUE_URL: ${{ secrets.SIMVUE_URL }}
+      SIMVUE_TOKEN: ${{ secrets.SIMVUE_TOKEN }}
+  executor_tests:
+    uses: ./.github/workflows/test_group.yml
+    with:
+      python-version: ${{ inputs.python-version }}
+      shell: ${{ inputs.shell }}
+      platform: ${{ inputs.platform }}
+      test-group: executor ${{ startsWith(inputs.platform, 'windows') && 'and not unix' || '' }}
+      group-label: Executor
+    secrets:
+      SIMVUE_URL: ${{ secrets.SIMVUE_URL }}
+      SIMVUE_TOKEN: ${{ secrets.SIMVUE_TOKEN }}
+  api_tests:
+    uses: ./.github/workflows/test_group.yml
+    with:
+      python-version: ${{ inputs.python-version }}
+      shell: ${{ inputs.shell }}
+      platform: ${{ inputs.platform }}
+      test-group: api ${{ startsWith(inputs.platform, 'windows') && 'and not unix' || '' }}
+      group-label: Low Level API
+    secrets:
+      SIMVUE_URL: ${{ secrets.SIMVUE_URL }}
+      SIMVUE_TOKEN: ${{ secrets.SIMVUE_TOKEN }}
+  local_tests:
+    uses: ./.github/workflows/test_group.yml
+    with:
+      python-version: ${{ inputs.python-version }}
+      shell: ${{ inputs.shell }}
+      platform: ${{ inputs.platform }}
+      test-group: local ${{ startsWith(inputs.platform, 'windows') && 'and not unix' || '' }}
+      group-label: Local
+    secrets: inherit
