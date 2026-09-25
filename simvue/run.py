@@ -1665,7 +1665,9 @@ class Run:
 
         """
         _axes_ticks = (
-            axes_ticks.tolist() if isinstance(axes_ticks, np.ndarray) else axes_ticks
+            axes_ticks.tolist()
+            if axes_ticks and not isinstance(axes_ticks, list)
+            else axes_ticks
         )
 
         grid_name = grid_name or metric_name
@@ -1790,7 +1792,7 @@ class Run:
 
         # Classify metrics into regular and tensor based
         for label, metric in metrics.items():
-            if isinstance(metric, np.ndarray):
+            if not isinstance(metric, (int, float)):
                 if metric.size > MAXIMUM_GRID_METRIC_SIZE:
                     logger.warning(
                         "Cannot log grid metric %s, size %d exceeds limit of %d",

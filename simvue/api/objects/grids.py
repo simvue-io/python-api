@@ -58,7 +58,7 @@ def check_ordered_array(
     ValueError
         if the values are unordered
     """
-    if isinstance(array, np.ndarray):
+    if not isinstance(array, list):
         array = array.tolist()
     for i, element in enumerate(array):
         _array = np.array(element)
