@@ -2065,6 +2065,15 @@ wheels = [
 ]
 
 [[package]]
+name = "python-version"
+version = "0.0.2"
+source = { registry = "https://pypi.org/simple" }
+sdist = { url = "https://files.pythonhosted.org/packages/fe/74/8ed1d7f895b33a89565be4b1c8651d503fcb2cdda951fef4ec6f6906432c/python_version-0.0.2.tar.gz", hash = "sha256:5c16de57c7f2d614621cf468e8f5a20bb6b3cec665c9c7f5e9f9f000bf04fe67", size = 1888, upload-time = "2017-12-01T17:28:30.993Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/a8/e3/06841b7e2b5dab99f6e5ece60db926ce35b9cf351da87ecaf2d75e5d9009/python_version-0.0.2-py2.py3-none-any.whl", hash = "sha256:2c7429f3375cee19873892e5db4d10d2b42172d8851a8bb5111729e028470580", size = 3411, upload-time = "2017-12-01T17:28:32.686Z" },
+]
+
+[[package]]
 name = "pytz"
 version = "2026.4"
 source = { registry = "https://pypi.org/simple" }
@@ -2231,6 +2240,7 @@ dependencies = [
     { name = "pydantic-extra-types" },
     { name = "pyjwt" },
     { name = "pytest" },
+    { name = "python-version" },
     { name = "pyyaml" },
     { name = "randomname" },
     { name = "requests" },
@@ -2238,7 +2248,7 @@ dependencies = [
     { name = "tabulate" },
     { name = "tenacity" },
     { name = "toml" },
-    { name = "typing-extensions", marker = "python_full_version < '3.11'" },
+    { name = "typing-extensions" },
     { name = "unyt" },
 ]
 
@@ -2265,33 +2275,34 @@ dev = [
 
 [package.metadata]
 requires-dist = [
-    { name = "click", specifier = ">=8.4.1,<9.0.0" },
-    { name = "deepmerge", specifier = ">=2.0,<4.0" },
-    { name = "email-validator", specifier = ">=2.2.0,<3.0.0" },
-    { name = "flatdict", specifier = "==4.1.0" },
-    { name = "geocoder", specifier = ">=1.38.1,<2.0.0" },
-    { name = "gitpython", specifier = ">=3.1.59,<4.0.0" },
-    { name = "humanfriendly", specifier = ">=10.0,<11.0" },
+    { name = "click", specifier = ">=8.5.0" },
+    { name = "deepmerge", specifier = ">=3.0.1" },
+    { name = "email-validator", specifier = ">=2.3.0" },
+    { name = "flatdict", specifier = ">=4.1.0" },
+    { name = "geocoder", specifier = ">=1.38.1" },
+    { name = "gitpython", specifier = ">=3.1.62" },
+    { name = "humanfriendly", specifier = ">=10.0" },
     { name = "matplotlib", marker = "extra == 'plot'", specifier = ">=3.10.0,<4.0.0" },
-    { name = "msgpack", specifier = ">=1.2.1" },
-    { name = "numpy", specifier = ">=2.0.0,<3.0.0" },
-    { name = "pandas", specifier = ">=2.2.3,<3.0.7" },
-    { name = "pip", specifier = ">=26.1.2" },
+    { name = "msgpack", specifier = ">=1.2.2" },
+    { name = "numpy", specifier = ">=2.2.6" },
+    { name = "pandas", specifier = ">=2.3.3" },
+    { name = "pip", specifier = ">=26.2.1" },
     { name = "plotly", marker = "extra == 'plot'", specifier = ">=6.0.0,<8.0.0" },
-    { name = "psutil", specifier = ">=6.1.1,<8.0.0" },
-    { name = "pydantic", specifier = ">=2.11,<3.0.0" },
-    { name = "pydantic-extra-types", specifier = ">=2.10.5,<3.0.0" },
-    { name = "pyjwt", specifier = ">=2.13.0,<3.0.0" },
-    { name = "pytest", specifier = ">=9.0.3,<10.0.0" },
-    { name = "pyyaml", specifier = ">=6.0.2,<7.0.0" },
-    { name = "randomname", specifier = ">=0.2.1,<0.3.0" },
-    { name = "requests", specifier = ">=2.32.3,<3.0.0" },
-    { name = "semver", specifier = ">=3.0.4,<4.0.0" },
-    { name = "tabulate", specifier = ">=0.9.0,<0.11.0" },
-    { name = "tenacity", specifier = ">=9.0.0,<10.0.0" },
-    { name = "toml", specifier = ">=0.10.2,<0.11.0" },
-    { name = "typing-extensions", marker = "python_full_version < '3.11'", specifier = ">=4.12.2,<5.0.0" },
-    { name = "unyt", specifier = ">=3.1.0,<4.0.0" },
+    { name = "psutil", specifier = ">=7.2.2" },
+    { name = "pydantic", specifier = ">=2.13.5" },
+    { name = "pydantic-extra-types", specifier = ">=2.11.1" },
+    { name = "pyjwt", specifier = ">=2.15.0" },
+    { name = "pytest", specifier = ">=9.1.1" },
+    { name = "python-version", specifier = ">=0.0.2" },
+    { name = "pyyaml", specifier = ">=6.0.3" },
+    { name = "randomname", specifier = ">=0.2.1" },
+    { name = "requests", specifier = ">=2.34.2" },
+    { name = "semver", specifier = ">=3.1.0" },
+    { name = "tabulate", specifier = ">=0.10.0" },
+    { name = "tenacity", specifier = ">=9.1.4" },
+    { name = "toml", specifier = ">=0.10.2" },
+    { name = "typing-extensions", specifier = ">=4.16.0" },
+    { name = "unyt", specifier = ">=3.1.0" },
 ]
 provides-extras = ["plot"]
 
@@ -2305,8 +2316,8 @@ dev = [
     { name = "pytest-sugar", specifier = ">=1.1.1" },
     { name = "pytest-timeout", specifier = ">=2.4.0" },
     { name = "pytest-xdist", specifier = ">=3.8.0" },
-    { name = "ruff", specifier = ">=0.16.8" },
-    { name = "types-requests", specifier = ">=2.33.0.20260518" },
+    { name = "ruff", specifier = ">=0.16.9" },
+    { name = "types-requests", specifier = ">=2.33.0.20260906" },
 ]
 
 [[package]]
