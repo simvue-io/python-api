@@ -10,7 +10,7 @@ import http
 import json as json_module
 import logging
 import typing
-from collections.abc import Callable, Generator
+from collections.abc import Generator
 
 import requests
 from tenacity import (
@@ -59,21 +59,15 @@ def _rewind_request_streams(retry_state: RetryCallState) -> None:
     """Rewind file-like request bodies before retrying."""
     _kwargs = typing.cast("dict[str, typing.Any]", retry_state.kwargs)
     _files = typing.cast("dict[str, FileValue]", _kwargs.get("files") or {})
-    _file_values: list[FileValue] = list(_files.values())
+    streams: tuple[FileValue | None, ...] = (
+        *_files.values(),
+        retry_state.kwargs.get("data"),
+    )
 
-    if _data := typing.cast("FileValue", _kwargs.get("data")):
-        _file_values.append(_data)
-
-    for value in _file_values:
-        if isinstance(value, tuple):
-            _stream, *_ = value
-        else:
-            _stream = value
-        _seek = typing.cast(
-            "Callable[[int], object] | None", getattr(_stream, "seek", None)
-        )
-        if _seek:
-            _ = _seek(0)
+    for value in streams:
+        stream = value[1] if isinstance(value, tuple) else value
+        if callable(seek := getattr(stream, "seek", None)):
+            seek(0)
 
 
 @retry(
@@ -358,31 +352,28 @@ def get_json_from_response(
     expected_type: type[dict[str, object] | list[object]] = dict,
 ) -> dict[str, object] | list[dict[str, object]]:
     try:
-        json_response: list[dict[str, object]] | dict[str, str | object] | None = (
-            typing.cast(
-                "list[dict[str, object]] | dict[str, str | object] | None",
-                response.json(),
-            )
-        )
+        json_response: (
+            list[dict[str, object]] | dict[str, str | object] | typing.Any | None
+        ) = response.json()
         json_response = json_response or ({} if expected_type is dict else [])
         decode_error = ""
     except requests.exceptions.JSONDecodeError as e:
         json_response = {} if allow_parse_failure else None
-        decode_error = f"{e}"
+        decode_error = f": {e}"
 
     error_str = f"{scenario} failed for url '{response.url}'"
     details: str | None = None
 
     if (_status_code := response.status_code) in expected_status:
-        if not isinstance(json_response, expected_type):
+        if json_response and not isinstance(json_response, expected_type):
             details = (
                 f"expected type '{expected_type.__name__}' "
                 f"but got '{type(json_response).__name__}'"
             )
-        elif not json_response:
-            details = f"could not request JSON response: {decode_error}"
-        else:
+        elif json_response is not None:
             return json_response
+        else:
+            details = f"could not request JSON response{decode_error}"
     elif isinstance(json_response, dict):
         error_str += f" with status {_status_code}"
         details = typing.cast("str", (json_response or {}).get("detail"))

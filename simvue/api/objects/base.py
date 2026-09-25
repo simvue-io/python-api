@@ -696,6 +696,7 @@ class SimvueObject(abc.ABC):
                     self.id,
                     self._staging,
                 )
+                _response = self._post_single(**self._staging)
         elif self._staging:
             self._logger.debug(
                 "Pushing updates from staged data for %s '%s': %s",
@@ -790,11 +791,13 @@ class SimvueObject(abc.ABC):
         data: list[dict[str, object]] | dict[str, object] | None = None,
         **kwargs,
     ) -> dict[str, typing.Any] | list[dict[str, typing.Any]]:
-        _data = kwargs if is_json else msgpack.packb(data or kwargs, use_bin_type=True)
 
         # Remove any extra keys
         for key in self._local_only_args:
-            _ = _data.pop(key, None)
+            _ = (data or kwargs).pop(key, None)
+
+        if not is_json:
+            kwargs = msgpack.packb(data or kwargs, use_bin_type=True)
 
         _response = sv_post(
             url=f"{self.base_url}",

@@ -20,7 +20,7 @@ def test_post_retry_rewinds_file_stream(mocker, tuple_form: bool) -> None:
     stream = io.BytesIO(_PAYLOAD)
     file_value = ("artifact.bin", stream) if tuple_form else stream
 
-    def fake_post(*args, **kwargs):
+    def fake_post(*_, **kwargs):
         file = kwargs["files"]["file"]
         file = file[1] if isinstance(file, tuple) else file
         payloads.append(file.read())
@@ -47,7 +47,7 @@ def test_put_retry_rewinds_data_stream(mocker) -> None:
     payloads = []
     stream = io.BytesIO(_PAYLOAD)
 
-    def fake_put(*args, **kwargs):
+    def fake_put(*_, **kwargs):
         payloads.append(kwargs["data"].read())
         return _Response(503 if len(payloads) == 1 else 200)
 
