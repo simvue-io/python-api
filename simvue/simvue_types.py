@@ -5,7 +5,7 @@ import typing
 try:
     from typing import TypeAlias
 except ImportError:
-    from typing import TypeAlias
+    from typing_extensions import TypeAlias  # ruff: ignore[deprecated-import]
 
 
 if typing.TYPE_CHECKING:

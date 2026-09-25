@@ -20,7 +20,7 @@ import toml
 try:
     from typing import Self
 except ImportError:
-    from typing import Self
+    from typing_extensions import Self
 
 import simvue.utilities as sv_util
 from simvue.api.request import get as sv_get
