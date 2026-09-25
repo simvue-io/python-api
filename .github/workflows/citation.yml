@@ -2,9 +2,9 @@ name: Citation File Validation
 
 on:
   push:
-    branches: [ "main", "dev", "hotfix/update-ci" ]
+    branches: ["main", "dev", "hotfix/update-ci"]
   pull_request:
-    branches: [ "main", "dev", "hotfix/update-ci" ]
+    branches: ["main", "dev", "hotfix/update-ci"]
 
 permissions:
   contents: read
@@ -18,10 +18,10 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 30
     steps:
-    - uses: actions/checkout@v5
-    - name: Set up Python
-      uses: actions/setup-python@v6
-    - name: Install Checker
-      run: python3 -m pip install cffconvert
-    - name: Check Citation File
-      run: cffconvert --validate
+      - uses: actions/checkout@v7
+      - name: Set up Python
+        uses: actions/setup-python@v7
+      - name: Install Checker
+        run: python3 -m pip install cffconvert
+      - name: Check Citation File
+        run: cffconvert --validate
