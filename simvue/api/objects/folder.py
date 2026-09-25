@@ -92,7 +92,7 @@ class Folder(SimvueObject):
 
     @classmethod
     @pydantic.validate_call
-    @typing.override
+    @override
     def new(
         cls,
         *,
@@ -114,7 +114,7 @@ class Folder(SimvueObject):
 
     @classmethod
     @pydantic.validate_call
-    @typing.override
+    @override
     def get(
         cls,
         *,
@@ -289,7 +289,7 @@ class Folder(SimvueObject):
         """Update the retention period for this folder."""
         self._staging["ttl"] = time_seconds
 
-    @typing.override
+    @override
     def delete(
         self,
         *,

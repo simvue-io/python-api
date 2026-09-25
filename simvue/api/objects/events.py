@@ -19,15 +19,10 @@ from simvue.models import EventSet, simvue_timestamp
 from .base import SimvueObject
 
 try:
-    from typing import Self
+    from typing import Self, override
 except ImportError:
-    from typing_extensions import Self
+    from typing_extensions import Self, override
 
-
-try:
-    from typing import override
-except ImportError:
-    from typing_extensions import override
 
 if typing.TYPE_CHECKING:
     from simvue.api.url import URL
@@ -81,7 +76,7 @@ class Events(SimvueObject):
 
     @classmethod
     @pydantic.validate_call
-    @typing.override
+    @override
     def get(
         cls,
         run_id: str,
@@ -150,7 +145,7 @@ class Events(SimvueObject):
 
     @classmethod
     @pydantic.validate_call
-    @typing.override
+    @override
     def new(
         cls,
         *,
@@ -268,7 +263,7 @@ class Events(SimvueObject):
 
         return _data
 
-    @typing.override
+    @override
     def delete(self, **kwargs: object) -> dict[str, typing.Any]:
         """Event set deletion not implemented.
 
@@ -280,7 +275,7 @@ class Events(SimvueObject):
         """
         raise NotImplementedError("Cannot delete event set")
 
-    @typing.override
+    @override
     def on_reconnect(self, id_mapping: dict[str, str]) -> None:
         if online_run_id := id_mapping.get(self._staging["run"]):
             self._staging["run"] = online_run_id
