@@ -28,5 +28,7 @@ jobs:
           python-version: "3.14"
       - name: Install Prek
         run: python -m pip install prek
+      - name: Get BasedPyright Version
+        run: prek exec basedpyright -- basedpyright --version
       - name: Run Prek on Repository
         run: prek run --all-files --skip no-commit-to-branch
