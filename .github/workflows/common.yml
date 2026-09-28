@@ -73,7 +73,7 @@ jobs:
     with:
       python-version: ${{ inputs.python-version }}
       platform: ${{ inputs.platform }}
-      test-group: (offline and not api ${{ startsWith(inputs.platform, 'windows') && 'and not unix' || '' }} or cli
+      test-group: (offline and not api ${{ startsWith(inputs.platform, 'windows') && 'and not unix' || '' }}) or cli
       test-command: ${{ inputs.test-command }}
       group-label: Run Tests (Offline)
     secrets:
