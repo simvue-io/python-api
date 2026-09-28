@@ -1666,7 +1666,7 @@ class Run:
         """
         _axes_ticks = (
             axes_ticks.tolist()
-            if axes_ticks and not isinstance(axes_ticks, list)
+            if axes_ticks is not None and not isinstance(axes_ticks, list)
             else axes_ticks
         )
 
