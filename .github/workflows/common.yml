@@ -42,6 +42,7 @@ jobs:
       platform: ${{ inputs.platform }}
       test-group: object_removal ${{ startsWith(inputs.platform, 'windows') && 'and not unix' || '' }}
       group-label: Object Removal
+      test-command: ${{ inputs.test-command }}
     secrets:
       SIMVUE_URL: ${{ secrets.SIMVUE_URL }}
       SIMVUE_TOKEN: ${{ secrets.SIMVUE_TOKEN }}
@@ -51,6 +52,7 @@ jobs:
       python-version: ${{ inputs.python-version }}
       platform: ${{ inputs.platform }}
       test-group: dispatch ${{ startsWith(inputs.platform, 'windows') && 'and not unix' || '' }}
+      test-command: ${{ inputs.test-command }}
       group-label: Dispatch
     secrets:
       SIMVUE_URL: ${{ secrets.SIMVUE_URL }}
@@ -62,6 +64,7 @@ jobs:
       platform: ${{ inputs.platform }}
       test-group: online and not api ${{ startsWith(inputs.platform, 'windows') && 'and not unix' || '' }}
       group-label: Run Tests (Online)
+      test-command: ${{ inputs.test-command }}
     secrets:
       SIMVUE_URL: ${{ secrets.SIMVUE_URL }}
       SIMVUE_TOKEN: ${{ secrets.SIMVUE_TOKEN }}
@@ -71,6 +74,7 @@ jobs:
       python-version: ${{ inputs.python-version }}
       platform: ${{ inputs.platform }}
       test-group: (offline and not api ${{ startsWith(inputs.platform, 'windows') && 'and not unix' || '' }} or cli
+      test-command: ${{ inputs.test-command }}
       group-label: Run Tests (Offline)
     secrets:
       SIMVUE_URL: ${{ secrets.SIMVUE_URL }}
@@ -81,6 +85,7 @@ jobs:
       python-version: ${{ inputs.python-version }}
       platform: ${{ inputs.platform }}
       test-group: config ${{ startsWith(inputs.platform, 'windows') && 'and not unix' || '' }}
+      test-command: ${{ inputs.test-command }}
       group-label: Configuration
     secrets:
       SIMVUE_URL: ${{ secrets.SIMVUE_URL }}
@@ -90,6 +95,7 @@ jobs:
     with:
       python-version: ${{ inputs.python-version }}
       platform: ${{ inputs.platform }}
+      test-command: ${{ inputs.test-command }}
       test-group: scenario and not run
       group-label: Scenarios ${{ startsWith(inputs.platform, 'windows') && 'and not unix' || '' }}
     secrets:
@@ -100,6 +106,7 @@ jobs:
     with:
       python-version: ${{ inputs.python-version }}
       platform: ${{ inputs.platform }}
+      test-command: ${{ inputs.test-command }}
       test-group: executor ${{ startsWith(inputs.platform, 'windows') && 'and not unix' || '' }}
       group-label: Executor
     secrets:
@@ -110,6 +117,7 @@ jobs:
     with:
       python-version: ${{ inputs.python-version }}
       platform: ${{ inputs.platform }}
+      test-command: ${{ inputs.test-command }}
       test-group: api ${{ startsWith(inputs.platform, 'windows') && 'and not unix' || '' }}
       group-label: Low Level API
     secrets:
@@ -120,6 +128,7 @@ jobs:
     with:
       python-version: ${{ inputs.python-version }}
       platform: ${{ inputs.platform }}
+      test-command: ${{ inputs.test-command }}
       test-group: local ${{ startsWith(inputs.platform, 'windows') && 'and not unix' || '' }}
       group-label: Local
     secrets: inherit

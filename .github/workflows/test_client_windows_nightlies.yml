@@ -26,5 +26,5 @@ jobs:
     with:
       platform: windows-latest
       python-version: "3.14"
-      test-command: $env:GITHUB_WORKSPACE/.venv/Scripts/pytest
+      test-command: '& "$env:GITHUB_WORKSPACE/.venv/Scripts/pytest.exe"'
     secrets: inherit
