@@ -1,5 +1,9 @@
 # Change Log
 
+## [v2.6.1](https://github.com/simvue-io/python-api/releases/tag/v2.6.1) - 2026-09-29
+
+- Revert `datetime.UTC` to `datetime.timezone.utc` for legacy support.
+
 ## [v2.6.0](https://github.com/simvue-io/python-api/releases/tag/v2.6.0) - 2026-09-25
 
 - Allow `%` in metric names.
