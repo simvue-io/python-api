@@ -1,6 +1,7 @@
 {
   "$defs": {
     "CertificateSpecifications": {
+      "additionalProperties": false,
       "properties": {
         "client_cert": {
           "anyOf": [
@@ -60,6 +61,8 @@
       "type": "object"
     },
     "ClientGeneralOptions": {
+      "additionalProperties": false,
+      "description": "Specify client options.",
       "properties": {
         "debug": {
           "default": false,
@@ -71,6 +74,8 @@
       "type": "object"
     },
     "DefaultRunSpecifications": {
+      "additionalProperties": false,
+      "description": "Specify run default configurations.",
       "properties": {
         "description": {
           "anyOf": [
@@ -91,32 +96,14 @@
           "type": "string"
         },
         "metadata": {
-          "anyOf": [
-            {
-              "additionalProperties": {
-                "anyOf": [
-                  {
-                    "type": "string"
-                  },
-                  {
-                    "type": "integer"
-                  },
-                  {
-                    "type": "number"
-                  },
-                  {
-                    "type": "boolean"
-                  }
-                ]
-              },
-              "type": "object"
-            },
-            {
-              "type": "null"
-            }
-          ],
-          "default": null,
-          "title": "Metadata"
+          "$ref": "#/$defs/MetadataSpecifications",
+          "default": {
+            "custom": null,
+            "environment": true,
+            "git": true,
+            "record_shell_vars": null,
+            "system": true
+          }
         },
         "mode": {
           "default": "online",
@@ -267,7 +254,74 @@
       "title": "EcoConfig",
       "type": "object"
     },
+    "MetadataSpecifications": {
+      "additionalProperties": false,
+      "properties": {
+        "custom": {
+          "anyOf": [
+            {
+              "additionalProperties": {
+                "anyOf": [
+                  {
+                    "type": "string"
+                  },
+                  {
+                    "type": "integer"
+                  },
+                  {
+                    "type": "number"
+                  },
+                  {
+                    "type": "boolean"
+                  }
+                ]
+              },
+              "type": "object"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Custom"
+        },
+        "environment": {
+          "default": true,
+          "title": "Environment",
+          "type": "boolean"
+        },
+        "git": {
+          "default": true,
+          "title": "Git",
+          "type": "boolean"
+        },
+        "record_shell_vars": {
+          "anyOf": [
+            {
+              "items": {
+                "type": "string"
+              },
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Record Shell Vars"
+        },
+        "system": {
+          "default": true,
+          "title": "System",
+          "type": "boolean"
+        }
+      },
+      "title": "MetadataSpecifications",
+      "type": "object"
+    },
     "MetricsSpecifications": {
+      "additionalProperties": false,
+      "description": "Specify metric configurations.",
       "properties": {
         "enable_emission_metrics": {
           "default": false,
@@ -292,6 +346,8 @@
       "type": "object"
     },
     "OfflineSpecifications": {
+      "additionalProperties": false,
+      "description": "Specify offline mode configurations.",
       "properties": {
         "cache": {
           "anyOf": [
@@ -312,6 +368,7 @@
     },
     "ServerSpecifications": {
       "additionalProperties": false,
+      "description": "Specify server configurations.",
       "properties": {
         "certificates": {
           "$ref": "#/$defs/CertificateSpecifications"
@@ -367,6 +424,7 @@
     }
   },
   "additionalProperties": false,
+  "description": "Configure session.",
   "properties": {
     "client": {
       "$ref": "#/$defs/ClientGeneralOptions",
@@ -422,7 +480,13 @@
       "default": {
         "description": null,
         "folder": "/",
-        "metadata": null,
+        "metadata": {
+          "custom": null,
+          "environment": true,
+          "git": true,
+          "record_shell_vars": null,
+          "system": true
+        },
         "mode": "online",
         "name": null,
         "record_shell_vars": null,
