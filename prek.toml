@@ -34,7 +34,7 @@ id = "check-added-large-files"
 
 [[repos]]
 repo = "https://github.com/astral-sh/ruff-pre-commit"
-rev = "v0.16.8"
+rev = "v0.16.9"
 
 [[repos.hooks]]
 id = "ruff-check"
@@ -62,7 +62,7 @@ args = ["-lll", "--recursive", "clumper"]
 
 [[repos]]
 repo = "https://github.com/python-poetry/poetry"
-rev = "2.4.1"
+rev = "2.5.1"
 [[repos.hooks]]
 id = "poetry-check"
 
@@ -75,14 +75,14 @@ args = ["--all-extras", "--all-groups"]
 
 [[repos]]
 repo = "https://github.com/GabDug/sync-pre-commit-lock"
-rev = "v0.9.0"
+rev = "v0.9.1"
 
 [[repos.hooks]]
 id = "sync-pre-commit-uv"
 
 [[repos]]
 repo = "https://github.com/astral-sh/uv-pre-commit"
-rev = "0.11.32"
+rev = "0.12.21"
 
 [[repos.hooks]]
 id = "uv-lock"
@@ -96,7 +96,7 @@ id = "validate-cff"
 
 [[repos]]
 repo = "https://github.com/DetachHead/basedpyright-prek-mirror"
-rev = "1.39.9"
+rev = "1.40.1"
 
 [[repos.hooks]]
 id = "basedpyright"
