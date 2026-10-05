@@ -12,12 +12,14 @@ import contextlib
 import inspect
 import tempfile
 import threading
+import traceback
 import uuid
 import psutil
 import pathlib
 import concurrent.futures
 import random
 import datetime
+from unyt import unyt_quantity
 import simvue
 from simvue.api.objects import Alert, EventsAlert, Metrics, MetricsRangeAlert, MetricsThresholdAlert, UserAlert
 from simvue.api.objects.grids import GridMetrics
@@ -1779,3 +1781,85 @@ def test_set_metric_units(create_plain_run: tuple[sv_run.Run, dict]) -> None:
     assert _metric_data["x"] == {"units": "ft", "mks_units": "m", "mks_conversion": 0.3048}
     assert _metric_data["y"] == {"units": "m", "mks_units": "m", "mks_conversion": 1}
     assert _metric_data["z"] == {"units": "Foobars", "mks_units": "m", "mks_conversion": 3.542}
+
+
+@pytest.mark.run
+@pytest.mark.offline
+def test_set_metric_units_thread_safety(
+    create_plain_run_offline: tuple[sv_run.Run, dict],
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Concurrent set_metric_units / log_metrics must not corrupt the units cache.
+    """
+    run, _ = create_plain_run_offline
+
+    # Seed a pending units entry so log_metrics takes the fetch path
+    run.set_metric_units("seed", units="m")
+    assert "metrics" in run._meta_cache
+
+    log_frozen = threading.Event()
+    log_released = threading.Event()
+    units_frozen = threading.Event()
+    units_released = threading.Event()
+
+    _orig_update_metadata = run.update_metadata
+
+    def _blocking_update_metadata(metadata: dict[str, typing.Any]) -> bool:
+        """Freeze log_metrics after the units fetch, before the cache delete."""
+        log_frozen.set()
+        log_released.wait(timeout=10)
+        return _orig_update_metadata(metadata)
+
+    _orig_from_string = unyt_quantity.from_string
+
+    def _blocking_from_string(
+        cls: type, s: str, *args: typing.Any, **kwargs: typing.Any
+    ):
+        """Freeze set_metric_units after the setdefault, before the item assignment."""
+        units_frozen.set()
+        units_released.wait(timeout=10)
+        return _orig_from_string(s, *args, **kwargs)
+
+    monkeypatch.setattr(run, "update_metadata", _blocking_update_metadata)
+    monkeypatch.setattr(
+        unyt_quantity, "from_string", classmethod(_blocking_from_string)
+    )
+
+    errors: list[str] = []
+
+    def log_metrics_task() -> None:
+        try:
+            run.log_metrics({"a": 1.0}, step=0)
+        except Exception:
+            errors.append(f"log_metrics:\n{traceback.format_exc()}")
+
+    def set_metric_units_task() -> None:
+        try:
+            run.set_metric_units("b", units="ft")
+        except Exception:
+            errors.append(f"set_metric_units:\n{traceback.format_exc()}")
+
+    log_thread = threading.Thread(target=log_metrics_task, name="log-metrics")
+    log_thread.start()
+    assert log_frozen.wait(timeout=10), "log_metrics did not reach update_metadata"
+
+    units_thread = threading.Thread(
+        target=set_metric_units_task, name="set-metric-units"
+    )
+    units_thread.start()
+    assert units_frozen.wait(timeout=10), "set_metric_units did not reach unit parsing"
+
+    # Release in the fatal order: fetch / setdefault / delete / item-assignment
+    log_released.set()
+    log_thread.join(timeout=10)
+    units_released.set()
+    units_thread.join(timeout=10)
+
+    assert not log_thread.is_alive() and not units_thread.is_alive()
+    assert not errors, "concurrent metric logging raised:\n" + "\n".join(errors)
+
+    # log_metrics must have uploaded the seeded units, and the units set by
+    # set_metric_units must still be pending for the next log_metrics call
+    assert run._meta_cache.get("metrics") == {
+        "b": {"units": "ft", "mks_units": "m", "mks_conversion": 0.3048}
+    }
