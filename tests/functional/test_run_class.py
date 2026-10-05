@@ -19,6 +19,7 @@ import pathlib
 import concurrent.futures
 import random
 import datetime
+from unyt import unyt_quantity
 import simvue
 from simvue.api.objects import Alert, EventsAlert, Metrics, MetricsRangeAlert, MetricsThresholdAlert, UserAlert
 from simvue.api.objects.grids import GridMetrics
@@ -1789,21 +1790,7 @@ def test_set_metric_units_thread_safety(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     """Concurrent set_metric_units / log_metrics must not corrupt the units cache.
-
-    Regression test for a thread-safety race on ``Run._meta_cache["metrics"]``:
-    ``set_metric_units`` (setdefault + item assignment) and ``log_metrics``
-    (fetch + delete) used to be non-atomic, so two threads logging metrics
-    concurrently (e.g. a log-tail thread and a snapshot poller thread) could
-    interleave and raise ``KeyError: 'metrics'``, killing the logging thread.
-
-    The test forces the fatal interleaving deterministically by freezing
-    ``log_metrics`` between the cache fetch and the delete (inside
-    ``update_metadata``) and ``set_metric_units`` between the setdefault and
-    the item assignment (inside ``unyt`` parsing), then releasing them in
-    the order fetch / setdefault / delete / item-assignment.
     """
-    from unyt import unyt_quantity
-
     run, _ = create_plain_run_offline
 
     # Seed a pending units entry so log_metrics takes the fetch path

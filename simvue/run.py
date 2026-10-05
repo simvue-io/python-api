@@ -189,12 +189,6 @@ class Run:
         self._dispatcher: DispatcherBaseClass | None = None
 
         self._meta_cache: dict[str, typing.Any] = {}
-        # Protects the pending metric units in ``_meta_cache`` which is
-        # accessed concurrently by ``log_metrics`` (fetch + delete) and
-        # ``set_metric_units`` (create + insert). Without the lock these
-        # non-atomic check-then-act sequences can interleave and raise
-        # ``KeyError: 'metrics'`` when metrics are logged from multiple
-        # threads (e.g. a file-tail thread and a snapshot poller thread).
         self._meta_cache_lock: threading.Lock = threading.Lock()
 
         self._folder: Folder | None = None
@@ -1786,13 +1780,7 @@ class Run:
         ```
 
         """
-        # If there are any metric units to be uploaded do so now.
-        # Pop the pending units under the lock so that a concurrent
-        # ``set_metric_units`` call cannot interleave its
-        # ``setdefault``/item-assignment between our fetch and delete
-        # (which would raise ``KeyError: 'metrics'``). The (potentially
-        # slow) metadata upload is done outside the lock so that
-        # ``set_metric_units`` calls are not blocked on the I/O.
+        # Ensure this cannot get into a race with set_metric_units
         with self._meta_cache_lock:
             _units = self._meta_cache.pop("metrics", None)
         if _units:
@@ -2780,9 +2768,6 @@ class Run:
                 "mks_conversion": mks_conversion,
                 "mks_units": mks_unit,
             }
-
-        # Register the units under the same lock used by ``log_metrics``
-        # so that this check-then-act (setdefault + item-assignment) is
-        # atomic with respect to the fetch-and-delete performed there.
+        # Ensure this cannot get into a race with log_metrics
         with self._meta_cache_lock:
             self._meta_cache.setdefault("metrics", {})[metric_name] = _payload
