@@ -189,6 +189,13 @@ class Run:
         self._dispatcher: DispatcherBaseClass | None = None
 
         self._meta_cache: dict[str, typing.Any] = {}
+        # Protects the pending metric units in ``_meta_cache`` which is
+        # accessed concurrently by ``log_metrics`` (fetch + delete) and
+        # ``set_metric_units`` (create + insert). Without the lock these
+        # non-atomic check-then-act sequences can interleave and raise
+        # ``KeyError: 'metrics'`` when metrics are logged from multiple
+        # threads (e.g. a file-tail thread and a snapshot poller thread).
+        self._meta_cache_lock: threading.Lock = threading.Lock()
 
         self._folder: Folder | None = None
         self._term_color: bool = True
@@ -1779,10 +1786,17 @@ class Run:
         ```
 
         """
-        # If there are any metric units to be uploaded do so now
-        if _units := self._meta_cache.get("metrics"):
+        # If there are any metric units to be uploaded do so now.
+        # Pop the pending units under the lock so that a concurrent
+        # ``set_metric_units`` call cannot interleave its
+        # ``setdefault``/item-assignment between our fetch and delete
+        # (which would raise ``KeyError: 'metrics'``). The (potentially
+        # slow) metadata upload is done outside the lock so that
+        # ``set_metric_units`` calls are not blocked on the I/O.
+        with self._meta_cache_lock:
+            _units = self._meta_cache.pop("metrics", None)
+        if _units:
             self.update_metadata({"simvue": {"metrics": _units}})
-            del self._meta_cache["metrics"]
 
         # TODO: When metrics and grids are combined into a single entity
         # this can be removed. For now need to separate tensor based metrics
@@ -2753,18 +2767,22 @@ class Run:
         ```
 
         """
-        self._meta_cache.setdefault("metrics", {})
-
         try:
             _unit_obj: unyt_quantity = unyt_quantity.from_string(units)
-            self._meta_cache["metrics"][metric_name] = {
+            _payload = {
                 "units": units,
                 "mks_conversion": mks_conversion or float(_unit_obj.in_mks().value),
                 "mks_units": mks_unit or f"{_unit_obj.in_mks().units}",
             }
         except (UnitParseError, ValueError):
-            self._meta_cache["metrics"][metric_name] = {
+            _payload = {
                 "units": units,
                 "mks_conversion": mks_conversion,
                 "mks_units": mks_unit,
             }
+
+        # Register the units under the same lock used by ``log_metrics``
+        # so that this check-then-act (setdefault + item-assignment) is
+        # atomic with respect to the fetch-and-delete performed there.
+        with self._meta_cache_lock:
+            self._meta_cache.setdefault("metrics", {})[metric_name] = _payload
