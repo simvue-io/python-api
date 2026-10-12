@@ -189,6 +189,7 @@ class Run:
         self._dispatcher: DispatcherBaseClass | None = None
 
         self._meta_cache: dict[str, typing.Any] = {}
+        self._meta_cache_lock: threading.Lock = threading.Lock()
 
         self._folder: Folder | None = None
         self._term_color: bool = True
@@ -1779,10 +1780,11 @@ class Run:
         ```
 
         """
-        # If there are any metric units to be uploaded do so now
-        if _units := self._meta_cache.get("metrics"):
+        # Ensure this cannot get into a race with set_metric_units
+        with self._meta_cache_lock:
+            _units = self._meta_cache.pop("metrics", None)
+        if _units:
             self.update_metadata({"simvue": {"metrics": _units}})
-            del self._meta_cache["metrics"]
 
         # TODO: When metrics and grids are combined into a single entity
         # this can be removed. For now need to separate tensor based metrics
@@ -2753,18 +2755,19 @@ class Run:
         ```
 
         """
-        self._meta_cache.setdefault("metrics", {})
-
         try:
             _unit_obj: unyt_quantity = unyt_quantity.from_string(units)
-            self._meta_cache["metrics"][metric_name] = {
+            _payload = {
                 "units": units,
                 "mks_conversion": mks_conversion or float(_unit_obj.in_mks().value),
                 "mks_units": mks_unit or f"{_unit_obj.in_mks().units}",
             }
         except (UnitParseError, ValueError):
-            self._meta_cache["metrics"][metric_name] = {
+            _payload = {
                 "units": units,
                 "mks_conversion": mks_conversion,
                 "mks_units": mks_unit,
             }
+        # Ensure this cannot get into a race with log_metrics
+        with self._meta_cache_lock:
+            self._meta_cache.setdefault("metrics", {})[metric_name] = _payload
