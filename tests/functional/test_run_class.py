@@ -1402,7 +1402,12 @@ def test_abort_on_alert_process(mocker: pytest_mock.MockerFixture) -> None:
     assert run._system_metrics_interval == 1
     for child in child_processes:
         assert not child.is_running()
-    if run._status != "terminated":
+    counter = 0
+    while run._status != "terminated" and counter < 15:
+        time.sleep(1)
+        assert run._sv_obj.abort_trigger, "Abort trigger was not set"
+        counter += 1
+    if counter >= 15:
         run.kill_all_processes()
         raise AssertionError("Run was not terminated")
     assert trigger.is_set()
