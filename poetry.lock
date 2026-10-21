@@ -3175,5 +3175,5 @@ plot = ["matplotlib", "plotly"]
 
 [metadata]
 lock-version = "2.1"
-python-versions = ">=3.10,<3.15"
-content-hash = "249acf99e47d757f0fb08b45a8201272656a5b01e18f3683423fd4e9899670de"
+python-versions = ">=3.10,<3.16"
+content-hash = "3f536f9625fba0caaa61de899e197bb49d44f9b498c3abd942bacf15bb2da3ad"
