@@ -1,5 +1,9 @@
 # Change Log
 
+## [v2.6.2](https://github.com/simvue-io/python-api/releases/tag/v2.6.2) - 2026-10-21
+
+- Added support for Python 3.15.
+
 ## [v2.6.1](https://github.com/simvue-io/python-api/releases/tag/v2.6.1) - 2026-09-29
 
 - Revert `datetime.UTC` to `datetime.timezone.utc` for legacy support.
