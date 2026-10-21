@@ -1,10 +1,10 @@
 [project]
 name = "simvue"
-version = "2.6.1"
+version = "2.6.2"
 description = "Simulation tracking and monitoring"
 authors = [{ name = "Simvue Development Team", email = "info@simvue.io" }]
 license = "Apache-2.0"
-requires-python = ">=3.10,<3.15"
+requires-python = ">=3.10,<3.16"
 readme = "README.md"
 classifiers = [
   "Development Status :: 5 - Production/Stable",
