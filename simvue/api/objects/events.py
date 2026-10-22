@@ -14,6 +14,7 @@ import pydantic
 
 from simvue.api.request import get as sv_get
 from simvue.api.request import get_json_from_response
+from simvue.exception import UnresolvedOfflineIDError
 from simvue.models import EventSet, simvue_timestamp
 
 from .base import SimvueObject
@@ -277,5 +278,8 @@ class Events(SimvueObject):
 
     @override
     def on_reconnect(self, id_mapping: dict[str, str]) -> None:
-        if online_run_id := id_mapping.get(self._staging["run"]):
-            self._staging["run"] = online_run_id
+        if not (online_run_id := id_mapping.get(self._staging["run"])):
+            if self._staging["run"].startswith("offline_"):
+                raise UnresolvedOfflineIDError(self._staging["run"])
+            return
+        self._staging["run"] = online_run_id

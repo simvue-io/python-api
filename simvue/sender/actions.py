@@ -42,6 +42,7 @@ from simvue.api.request import get_json_from_response
 from simvue.api.request import put as sv_put
 from simvue.config.user import SimvueConfiguration
 from simvue.eco import CO2Monitor
+from simvue.exception import UnresolvedOfflineIDError
 from simvue.models import ObjectID
 from simvue.run import Run as SimvueRun
 
@@ -241,6 +242,17 @@ class UploadAction:
                 _object.commit()
 
             _object.read_only(is_read_only=True)
+
+        except UnresolvedOfflineIDError as err:
+            # Parent not uploaded yet (e.g. created since the parent type was
+            # processed), leave cached untouched to be sent on a later pass
+            cls.logger.warning(
+                "Deferring upload of %s '%s': %s",
+                _label,
+                identifier,
+                err,
+            )
+            return
 
         except Exception as err:
             if throw_exceptions:

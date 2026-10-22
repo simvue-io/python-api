@@ -32,3 +32,17 @@ class ObjectDispatchError(Exception):
             f"of {value} exceeds maximum permitted value of {threshold}"
         )
         super().__init__(self.msg)
+
+
+class UnresolvedOfflineIDError(RuntimeError):
+    """Raised if an offline identifier has no online equivalent yet.
+
+    This is expected if the parent object has not yet been uploaded, in which
+    case the upload of the dependent object should be deferred.
+    """
+
+    def __init__(self, offline_id: str) -> None:
+        self.offline_id = offline_id
+        super().__init__(
+            f"No online identifier available yet for offline object '{offline_id}'"
+        )

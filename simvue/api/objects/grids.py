@@ -26,6 +26,7 @@ from simvue.api.request import (
     put as sv_put,
 )
 from simvue.api.url import URL
+from simvue.exception import UnresolvedOfflineIDError
 from simvue.models import GridMetricSet
 
 from .base import SimvueObject, write_only
@@ -528,7 +529,7 @@ class GridMetrics(SimvueObject):
         metrics = self._staging.pop("data", [])
 
         if not (run_id := id_mapping.get(self._run_id)):
-            raise RuntimeError("Failed to retrieve online run identifier.")
+            raise UnresolvedOfflineIDError(self._run_id)
 
         self._run_id = run_id
 

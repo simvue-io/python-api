@@ -7,7 +7,7 @@ import uuid
 
 import semver
 from simvue.sender import Sender
-from simvue.api.objects import Run, Metrics, Folder
+from simvue.api.objects import Run, Metrics, Folder, Events
 from simvue.models import DATETIME_FORMAT
 import logging
 import pathlib
@@ -228,3 +228,47 @@ def test_send_heartbeat(offline_cache_setup, parallel, mocker):
 
     if not _all_running and _counter >= 100:
         raise AssertionError("Failed to keep all runs running from sender")
+
+
+@pytest.mark.offline
+@pytest.mark.parametrize("throw_exceptions", (True, False))
+def test_sender_defers_unmapped_run(offline_cache_setup, caplog, throw_exceptions):
+    # Events/metrics for an offline run which has not been uploaded must not be
+    # sent with the offline ID, they should stay cached for a later pass
+    _offline_run_id: str = f"offline_{uuid.uuid1()}"
+    _events = Events.new(
+        run=_offline_run_id,
+        events=[
+            {
+                "message": "test",
+                "timestamp": datetime.datetime.now().strftime(DATETIME_FORMAT),
+            }
+        ],
+        offline=True,
+    )
+    _events.commit()
+    _metrics = Metrics.new(
+        run=_offline_run_id,
+        metrics=[
+            {
+                "timestamp": datetime.datetime.now().strftime(DATETIME_FORMAT),
+                "time": 1,
+                "step": 1,
+                "values": {"x": 1},
+            }
+        ],
+        offline=True,
+    )
+    _metrics.commit()
+
+    with caplog.at_level(logging.WARNING):
+        Sender(throw_exceptions=throw_exceptions).upload(["events", "metrics"])
+
+    assert "Deferring upload of events" in caplog.text
+    assert "Deferring upload of metrics" in caplog.text
+
+    _cache = pathlib.Path(offline_cache_setup.name)
+    for _type in ("events", "metrics"):
+        _files = list(_cache.joinpath(_type).glob("*.json"))
+        assert len(_files) == 1
+        assert "upload_failed" not in json.loads(_files[0].read_text())
