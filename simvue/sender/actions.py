@@ -1016,6 +1016,11 @@ class HeartbeatUploadAction(UploadAction):
             _heartbeat_file.unlink(missing_ok=True)
             return
 
+        # Consume the heartbeat file before sending so that only a new heartbeat
+        # from the run triggers another send. Otherwise a run which has died
+        # without closing would be kept alive on the server by the sender.
+        _heartbeat_file.unlink(missing_ok=True)
+
         _local_config: SimvueConfiguration = SimvueConfiguration.fetch(mode="online")
 
         cls.logger.info("Sending heartbeat to run '%s'", identifier)

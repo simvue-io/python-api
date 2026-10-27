@@ -291,3 +291,22 @@ def test_sender_no_heartbeat_for_closed_run(offline_cache_setup, mocker):
 
     assert spy_put.call_count == 0
     assert not _heartbeat.exists()
+
+
+@pytest.mark.offline
+def test_sender_heartbeat_sent_once_per_touch(offline_cache_setup, mocker):
+    # A stale heartbeat file (run died) must not be re-sent on every pass
+    _cache = pathlib.Path(offline_cache_setup.name)
+    _offline_id: str = f"offline_{uuid.uuid1()}"
+    _cache.joinpath("runs").mkdir(parents=True, exist_ok=True)
+    _cache.joinpath("server_ids").mkdir(parents=True, exist_ok=True)
+    _cache.joinpath("server_ids", f"{_offline_id}.txt").write_text("abc123")
+    _heartbeat = _cache.joinpath("runs", f"{_offline_id}.heartbeat")
+    _heartbeat.touch()
+
+    spy_put = mocker.spy(requests, "put")
+    for _ in range(3):
+        Sender().upload(["heartbeat"])
+
+    assert spy_put.call_count == 1
+    assert not _heartbeat.exists()
