@@ -1005,9 +1005,15 @@ class HeartbeatUploadAction(UploadAction):
     ) -> None:
         """Upload a single heartbeat item."""
         _ = simvue_monitor_run
-        if not (_online_id := id_mapping.get(identifier)):
-            # Run has been closed - can just remove heartbeat and continue
-            cache_directory.joinpath(f"runs/{identifier}.heartbeat").unlink()
+        _heartbeat_file = cache_directory.joinpath(f"runs/{identifier}.heartbeat")
+        if not (_online_id := id_mapping.get(identifier)) or cache_directory.joinpath(
+            f"runs/{identifier}.closed"
+        ).exists():
+            # Run has been closed - can just remove heartbeat and continue.
+            # The mapping may still be held (in memory, or on disk if the run
+            # was closed after its final upload) so check the closed marker
+            # to avoid sending heartbeats for a completed run.
+            _heartbeat_file.unlink(missing_ok=True)
             return
 
         _local_config: SimvueConfiguration = SimvueConfiguration.fetch(mode="online")
